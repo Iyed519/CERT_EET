@@ -1,0 +1,62 @@
+@startuml Cert_EET_UC_Formateur
+' =====================================================================
+'  Cert_EET — Vue détaillée par acteur : FORMATEUR
+'  Convention : UML 2.5 stricte
+'  Auteur : Iyed Omri — PFE ESPRIT 2026
+' =====================================================================
+
+!theme plain
+skinparam backgroundColor #FFFFFF
+skinparam shadowing false
+skinparam DefaultFontName "Segoe UI"
+skinparam DefaultFontSize 12
+
+skinparam actor {
+  BackgroundColor #ECF0F1
+  BorderColor #6E2C00
+  BorderThickness 1.5
+}
+
+skinparam usecase {
+  BackgroundColor #FFFFFF
+  BorderColor #6E2C00
+  BorderThickness 1.2
+  FontSize 12
+}
+
+skinparam rectangle {
+  BackgroundColor #FDF5EC
+  BorderColor #6E2C00
+  BorderThickness 1.5
+}
+
+title <size:16><b>Cert_EET — Cas d'Utilisation du Formateur</b></size>
+
+left to right direction
+
+actor "Formateur" as Formateur
+
+rectangle "Système Cert_EET" {
+
+  usecase "Créer un QCM" as UC1
+  usecase "Configurer les paramètres\nanti-fraude d'un QCM" as UC2
+  usecase "Créer un atelier\npratique" as UC3
+  usecase "Définir une grille\nde notation" as UC4
+  usecase "Corriger un livrable" as UC5
+  usecase "Rédiger un feedback\nstructuré" as UC6
+  usecase "Suivre la progression\nde ses apprenants" as UC7
+  usecase "Recevoir une alerte\nde décrochage" as UC8
+  usecase "Exporter un rapport\nde session" as UC9
+}
+
+Formateur --> UC1
+Formateur --> UC2
+Formateur --> UC3
+Formateur --> UC4
+Formateur --> UC5
+Formateur --> UC6
+Formateur --> UC7
+Formateur --> UC8
+Formateur --> UC9
+
+@enduml

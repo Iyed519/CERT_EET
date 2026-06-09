@@ -1,0 +1,289 @@
+@startuml Cert_EET_UC_Apprenant_Maximal
+' =====================================================================
+'  Projet     : Cert_EET — Plateforme de Certification Numérique
+'  Acteur     : APPRENANT — Vue MAXIMALE (exhaustive)
+'  Convention : UML 2.5 — couvre 100% de UC_Apprenant_Description.md
+'  Auteur     : Iyed Omri — PFE Ingénierie Logicielle, ESPRIT 2026
+'  Note       : Disposition aérée pour éviter les chevauchements
+' =====================================================================
+
+!theme plain
+skinparam backgroundColor #FFFFFF
+skinparam shadowing false
+skinparam DefaultFontName "Segoe UI"
+skinparam DefaultFontSize 10
+skinparam ArrowThickness 1.0
+skinparam ArrowColor #1B4F72
+skinparam packageStyle rectangle
+skinparam linetype polyline
+skinparam nodesep 35
+skinparam ranksep 70
+
+skinparam actor {
+  BackgroundColor #ECF0F1
+  BorderColor #1B4F72
+  BorderThickness 1.5
+  FontStyle bold
+}
+
+skinparam usecase {
+  BackgroundColor #FFFFFF
+  BorderColor #5D6D7E
+  BorderThickness 1.0
+  FontSize 10
+  FontColor #1B2631
+}
+
+skinparam usecase<<main>> {
+  BackgroundColor #D6EAF8
+  BorderColor #1B4F72
+  BorderThickness 2.0
+  FontStyle bold
+  FontSize 11
+}
+
+skinparam usecase<<erreur>> {
+  BackgroundColor #FADBD8
+  BorderColor #922B21
+  BorderThickness 1.2
+  FontSize 10
+  FontStyle italic
+}
+
+skinparam package {
+  BackgroundColor #F4F9FD
+  BorderColor #1B4F72
+  BorderThickness 1.3
+  FontStyle bold
+  FontSize 11
+  FontColor #1B4F72
+}
+
+skinparam note {
+  BackgroundColor #FEF9E7
+  BorderColor #B7950B
+  FontSize 9
+}
+
+title <size:15><b>Cert_EET — Cas d'Utilisation de l'Apprenant (Vue Maximale)</b></size>\n<size:10>UC principaux (bleu) · sous-cas (blanc) · cas d'erreur (rouge)</size>
+
+' =====================================================================
+'  ACTEURS — Apprenant à gauche, acteurs secondaires à droite
+' =====================================================================
+actor "Apprenant" as Apprenant
+
+' =====================================================================
+'  SYSTÈME — 5 packages, disposition aérée
+' =====================================================================
+rectangle "**Système Cert_EET**" as Systeme {
+
+  ' ================================================================
+  '  PACKAGE 1 — Pilotage personnel
+  ' ================================================================
+  package "1 · Pilotage personnel" as P1 {
+    together {
+      usecase "**UC1**\nConsulter ses\nformations" as UC1 <<main>>
+      usecase "Filtrer / trier\nles formations" as UC1_Filter
+      usecase "Aucune formation\ninscrite" as UC1_Empty <<erreur>>
+    }
+    together {
+      usecase "**UC9**\nTableau de bord\npersonnel" as UC9 <<main>>
+      usecase "Personnaliser\nles blocs" as UC9_Perso
+      usecase "Consulter les\nnotifications\nnon lues" as UC9_Notif
+    }
+  }
+
+  ' ================================================================
+  '  PACKAGE 2 — Évaluations QCM
+  ' ================================================================
+  package "2 · Évaluations QCM" as P2 {
+    together {
+      usecase "**UC2**\nPasser un QCM" as UC2 <<main>>
+      usecase "Démarrer une\ntentative" as UC2_Start
+      usecase "Naviguer entre\nles questions" as UC2_Nav
+      usecase "Auto-sauvegarder\nles réponses" as UC2_Save
+      usecase "Consulter le\nrésultat" as UC2_Result
+    }
+    together {
+      usecase "Soumettre\nla tentative" as UC2_Submit
+      usecase "Auto-soumission\n(timer expiré)" as UC2_Auto
+      usecase "Reprendre après\ndéconnexion" as UC2_Reprise
+    }
+    together {
+      usecase "Tentatives\népuisées" as UC2_NoMore <<erreur>>
+      usecase "Hors fenêtre\ntemporelle" as UC2_OutWindow <<erreur>>
+      usecase "Délai entre\ntentatives\nnon respecté" as UC2_TooSoon <<erreur>>
+    }
+    together {
+      usecase "**UC3**\nHistorique des\ntentatives" as UC3 <<main>>
+      usecase "Consulter le détail\nquestion par question" as UC3_Detail
+    }
+  }
+
+  ' ================================================================
+  '  PACKAGE 3 — Ateliers Pratiques
+  ' ================================================================
+  package "3 · Ateliers Pratiques" as P3 {
+    together {
+      usecase "**UC4**\nSoumettre un\nlivrable" as UC4 <<main>>
+      usecase "Joindre des\nfichiers" as UC4_File
+      usecase "Saisir un\ncommentaire libre" as UC4_Text
+      usecase "Joindre des liens\nexternes" as UC4_Link
+      usecase "Remplacer une\nsoumission" as UC4_Replace
+    }
+    together {
+      usecase "Fichier trop\nvolumineux" as UC4_TooBig <<erreur>>
+      usecase "Format non\nautorisé" as UC4_BadFormat <<erreur>>
+      usecase "Date limite\ndépassée" as UC4_Deadline <<erreur>>
+    }
+    together {
+      usecase "**UC5**\nConsulter le\nfeedback" as UC5 <<main>>
+      usecase "Télécharger le\nrapport (PDF)" as UC5_Dl
+    }
+  }
+
+  ' ================================================================
+  '  PACKAGE 4 — Certification
+  ' ================================================================
+  package "4 · Certification Numérique" as P4 {
+    together {
+      usecase "**UC6**\nConsulter ses\ncertificats" as UC6 <<main>>
+      usecase "Copier l'URL\npublique de\nvérification" as UC6_Url
+      usecase "**UC7**\nTélécharger un\ncertificat (PDF\n+ QR + SHA-256)" as UC7 <<main>>
+    }
+  }
+
+  ' ================================================================
+  '  PACKAGE 5 — Accompagnement IA
+  ' ================================================================
+  package "5 · Accompagnement IA" as P5 {
+    together {
+      usecase "**UC8**\nDialoguer avec\nle chatbot IA" as UC8 <<main>>
+      usecase "Injecter le\ncontexte apprenant" as UC8_Ctx
+      usecase "Consulter\nl'historique de\nconversation" as UC8_Histo
+    }
+  }
+}
+
+' =====================================================================
+'  ACTEURS SECONDAIRES — placés à droite, séparés du flux principal
+' =====================================================================
+actor "Formateur" as Formateur <<secondaire>>
+actor "API LLM\n(GPT-4o / Claude\n/ Mistral)" as LLM <<système>>
+actor "Service de\nNotification" as Notif <<système>>
+
+' =====================================================================
+'  FORCER L'ORDRE VERTICAL DES PACKAGES
+' =====================================================================
+P1 -[hidden]down- P2
+P2 -[hidden]down- P3
+P3 -[hidden]down- P4
+P4 -[hidden]down- P5
+
+' Forcer les acteurs secondaires à rester à droite, alignés sur les packages pertinents
+Systeme -[hidden]right- Formateur
+Formateur -[hidden]down- LLM
+LLM -[hidden]down- Notif
+
+' =====================================================================
+'  ASSOCIATIONS — Acteur principal → UC principaux (lignes courtes)
+' =====================================================================
+Apprenant --> UC1
+Apprenant --> UC9
+Apprenant --> UC2
+Apprenant --> UC3
+Apprenant --> UC4
+Apprenant --> UC5
+Apprenant --> UC6
+Apprenant --> UC7
+Apprenant --> UC8
+
+' =====================================================================
+'  <<include>> — Sous-cas OBLIGATOIRES (flèches courtes intra-package)
+' =====================================================================
+UC2 ..> UC2_Start    : <<include>>
+UC2 ..> UC2_Nav      : <<include>>
+UC2 ..> UC2_Save     : <<include>>
+UC2 ..> UC2_Result   : <<include>>
+UC3 ..> UC3_Detail   : <<include>>
+UC4 ..> UC4_File     : <<include>>
+UC8 ..> UC8_Ctx      : <<include>>
+
+' =====================================================================
+'  <<extend>> — Variantes OPTIONNELLES
+' =====================================================================
+UC1_Filter   .> UC1  : <<extend>>
+UC9_Perso    .> UC9  : <<extend>>
+UC9_Notif    .> UC9  : <<extend>>
+
+UC2_Submit   .> UC2  : <<extend>>
+UC2_Auto     .> UC2  : <<extend>>
+UC2_Reprise  .> UC2  : <<extend>>
+
+UC4_Text     .> UC4  : <<extend>>
+UC4_Link     .> UC4  : <<extend>>
+UC4_Replace  .> UC4  : <<extend>>
+
+UC5_Dl       .> UC5  : <<extend>>
+UC6_Url      .> UC6  : <<extend>>
+UC8_Histo    .> UC8  : <<extend>>
+
+' =====================================================================
+'  <<extend>> — Cas d'ERREUR (étiquettes courtes pour ne pas alourdir)
+' =====================================================================
+UC1_Empty     .> UC1 : <<extend>>
+UC2_NoMore    .> UC2 : <<extend>>
+UC2_OutWindow .> UC2 : <<extend>>
+UC2_TooSoon   .> UC2 : <<extend>>
+UC4_TooBig    .> UC4 : <<extend>>
+UC4_BadFormat .> UC4 : <<extend>>
+UC4_Deadline  .> UC4 : <<extend>>
+
+' =====================================================================
+'  INTERACTIONS AVEC ACTEURS SECONDAIRES (flèches sortantes vers la droite)
+' =====================================================================
+UC5 <-- Formateur  : produit
+UC8 ..> LLM        : <<invoque>>
+UC4 ..> Notif      : <<déclenche>>
+Notif --> Formateur
+
+' =====================================================================
+'  NOTES MÉTIER — 3 notes positionnées hors flux
+' =====================================================================
+note left of UC2
+  **Sécurité côté serveur :**
+  randomisation, scoring,
+  timer et blocage des
+  sessions multiples gérés
+  par le backend.
+end note
+
+note left of UC4
+  **Verrouillage progressif :**
+  Avant deadline : remplacement
+  libre. Pendant correction :
+  verrouillage total.
+end note
+
+note left of UC8
+  **Fonctionnalité différenciante**
+  absente des 6 plateformes du
+  benchmark. Ne révèle pas les
+  bonnes réponses des QCM ouverts.
+end note
+
+' =====================================================================
+'  LÉGENDE
+' =====================================================================
+legend bottom
+  | <b>Symbole</b> | <b>Signification</b> |
+  | <back:#D6EAF8>  **UCx**  </back> | Cas d'utilisation **principal** |
+  | <back:#FFFFFF>  sous-cas  </back> | Étape ou variante du scénario nominal |
+  | <back:#FADBD8>  cas d'erreur  </back> | Chemin alternatif d'**échec** |
+  | <b><<include>></b> | Sous-cas **obligatoire** |
+  | <b><<extend>></b> | Variante optionnelle / cas d'erreur |
+  | <b><<invoque>></b> | Appel système externe |
+  | <b><<déclenche>></b> | Effet de bord (notification) |
+endlegend
+
+@enduml
