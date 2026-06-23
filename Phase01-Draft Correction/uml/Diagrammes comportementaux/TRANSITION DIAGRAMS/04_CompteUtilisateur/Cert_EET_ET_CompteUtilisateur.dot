@@ -1,0 +1,57 @@
+digraph G {
+  rankdir=TB;
+  bgcolor="#FFFFFF";
+  splines=ortho;
+  forcelabels=true;
+  concentrate=false;
+  pad="0.5,0.4";
+  nodesep=1.0; ranksep=1.25;
+  fontname="DejaVu Sans"; labelloc="t"; fontsize=20; fontcolor="#1B2631";
+  label=<<B>Cert_EET &#8212; Diagramme d'etats-transitions : CompteUtilisateur</B><BR/><FONT POINT-SIZE="10" COLOR="#7B8794">PFE ESPRIT 2026 &#8226; Iyed Omri &#8226; UML 2.5</FONT><BR/> >;
+  node [fontname="DejaVu Sans"];
+  edge [fontname="DejaVu Sans" fontsize=9.5 color="#34495E" fontcolor="#1B2631" arrowsize=0.85 penwidth=1.4];
+
+  "__start__" [shape=circle width=0.25 style=filled fillcolor="#1B2631" color="#1B2631" label=""];
+  "__end__" [shape=doublecircle width=0.20 style=filled fillcolor="#1B2631" color="#1B2631" label="" penwidth=1.5];
+
+  "EN_ATTENTE_ACTIVATION" [shape=plaintext margin=0 label=<
+    <TABLE BORDER="2" CELLBORDER="0" CELLSPACING="0" CELLPADDING="9" BGCOLOR="#FEF9E7" COLOR="#B7950B" STYLE="ROUNDED">
+      <TR><TD ALIGN="CENTER"><FONT POINT-SIZE="14" COLOR="#B7950B"><B>EN_ATTENTE_ACTIVATION</B></FONT></TD></TR>
+      <TR><TD ALIGN="CENTER"><FONT POINT-SIZE="9.5" COLOR="#2C3E50">Cree par Admin (DS-15).<BR/>Token activation TTL 48h envoye par email.</FONT></TD></TR>
+    </TABLE>>];
+
+  "ACTIF" [shape=plaintext margin=0 label=<
+    <TABLE BORDER="2" CELLBORDER="0" CELLSPACING="0" CELLPADDING="9" BGCOLOR="#D5F5E3" COLOR="#1E8449" STYLE="ROUNDED">
+      <TR><TD ALIGN="CENTER"><FONT POINT-SIZE="14" COLOR="#1E8449"><B>ACTIF</B></FONT></TD></TR>
+      <TR><TD ALIGN="CENTER"><FONT POINT-SIZE="9.5" COLOR="#2C3E50">Compte operationnel apres activation.<BR/>Changement de role possible (Admin).</FONT></TD></TR>
+    </TABLE>>];
+
+  "DESACTIVE" [shape=plaintext margin=0 label=<
+    <TABLE BORDER="2" CELLBORDER="0" CELLSPACING="0" CELLPADDING="9" BGCOLOR="#D6EAF8" COLOR="#2471A3" STYLE="ROUNDED">
+      <TR><TD ALIGN="CENTER"><FONT POINT-SIZE="14" COLOR="#2471A3"><B>DESACTIVE</B></FONT></TD></TR>
+      <TR><TD ALIGN="CENTER"><FONT POINT-SIZE="9.5" COLOR="#2C3E50">Admin desactive : sessions Redis invalidees.<BR/>Anti-lockout : dernier admin protege.</FONT></TD></TR>
+    </TABLE>>];
+
+  "ANONYMISE" [shape=plaintext margin=0 label=<
+    <TABLE BORDER="2" CELLBORDER="0" CELLSPACING="0" CELLPADDING="9" BGCOLOR="#EAECEE" COLOR="#566573" STYLE="ROUNDED">
+      <TR><TD ALIGN="CENTER"><FONT POINT-SIZE="14" COLOR="#566573"><B>ANONYMISE</B></FONT></TD></TR>
+      <TR><TD ALIGN="CENTER"><FONT POINT-SIZE="9.5" COLOR="#2C3E50">RGPD : donnees perso &#8594; pseudonymes.<BR/>Donnees pedago conservees. IRREVERSIBLE.</FONT></TD></TR>
+    </TABLE>>];
+
+
+  "__start__" -> "EN_ATTENTE_ACTIVATION" [xlabel=<<FONT POINT-SIZE="9.5">Admin : creer compte (DS-15)</FONT>>];
+  "EN_ATTENTE_ACTIVATION" -> "ACTIF" [xlabel=<<FONT POINT-SIZE="9.5">Utilisateur : clic activation<BR/>[token valide, TTL &lt; 48h]</FONT>>];
+  "EN_ATTENTE_ACTIVATION" -> "__end__" [xlabel=<<FONT POINT-SIZE="9.5">Systeme : token expire [TTL &#8805; 48h]</FONT>> constraint=true color="#B7950B" fontcolor="#B7950B"];
+  "__self_ACTIF_1__" [shape=point width=0.01 style=invis];
+  { rank=same; "ACTIF"; "__self_ACTIF_1__"; }
+  "ACTIF" -> "__self_ACTIF_1__" [dir=none color="#1E8449" xlabel=<<FONT POINT-SIZE="9.5">Admin : changer role (DS-15)<BR/>[mdp saisi] / invalide Redis</FONT>>];
+  "__self_ACTIF_1__" -> "ACTIF" [color="#1E8449"];
+  "ACTIF" -> "DESACTIVE" [xlabel=<<FONT POINT-SIZE="9.5">Admin : desactiver (DS-15)<BR/>[NOT dernier admin] / invalide Redis</FONT>>];
+  "DESACTIVE" -> "ACTIF" [xlabel=<<FONT POINT-SIZE="9.5">Admin : reactiver</FONT>> constraint=false color="#2471A3" fontcolor="#2471A3"];
+  "DESACTIVE" -> "ANONYMISE" [xlabel=<<FONT POINT-SIZE="9.5">Admin : anonymiser (RGPD)<BR/>/ transaction atomique PostgreSQL</FONT>>];
+  "ANONYMISE" -> "__end__" [xlabel=<<FONT POINT-SIZE="9.5">irreversible</FONT>>];
+
+  "__legend__" [shape=plaintext margin=0 label=<
+    <TABLE BORDER="1" CELLBORDER="0" CELLSPACING="0" CELLPADDING="5" COLOR="#BDC3C7" BGCOLOR="#FBFCFC" STYLE="ROUNDED"><TR><TD COLSPAN="2"><FONT POINT-SIZE="10"><B>Legende &#8212; criticite</B></FONT></TD></TR><TR><TD BGCOLOR="#FEF9E7" WIDTH="26" HEIGHT="14"></TD><TD ALIGN="LEFT"><FONT POINT-SIZE="9.5">En attente</FONT></TD></TR><TR><TD BGCOLOR="#D5F5E3" WIDTH="26" HEIGHT="14"></TD><TD ALIGN="LEFT"><FONT POINT-SIZE="9.5">Nominal actif</FONT></TD></TR><TR><TD BGCOLOR="#D6EAF8" WIDTH="26" HEIGHT="14"></TD><TD ALIGN="LEFT"><FONT POINT-SIZE="9.5">En cours / transitoire</FONT></TD></TR><TR><TD BGCOLOR="#EAECEE" WIDTH="26" HEIGHT="14"></TD><TD ALIGN="LEFT"><FONT POINT-SIZE="9.5">Terminal / irreversible</FONT></TD></TR></TABLE>>];
+  { rank=sink; "__legend__"; }
+}

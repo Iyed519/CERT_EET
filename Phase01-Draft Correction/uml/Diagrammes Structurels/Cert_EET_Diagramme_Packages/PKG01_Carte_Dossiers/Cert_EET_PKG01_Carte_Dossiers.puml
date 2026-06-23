@@ -1,0 +1,68 @@
+@startuml Cert_EET_PKG01_Carte_Dossiers
+' =====================================================================
+'  Projet : Cert_EET — PKG-01 : Carte des dossiers (src/)
+'  Auteur : Iyed Omri — PFE ESPRIT 2026
+'  Rendu  : PlantUML. PNG de reference rendu via Graphviz.
+' =====================================================================
+skinparam backgroundColor #FFFFFF
+skinparam shadowing false
+skinparam DefaultFontName "Segoe UI"
+skinparam linetype ortho
+skinparam package {
+  BorderThickness 1.4
+}
+title <size:14><b>Cert_EET — PKG-01 : Carte des dossiers (src/)</b></size>\n<size:10>Organisation du code source NestJS — modules . shared . common . config</size>
+
+package "src" {
+  package "modules/" <<Folder>> #EFF8F2 {
+    package "auth/" <<Folder>> #EAF7F0 {
+      [auth.module.ts]
+      [auth.controller.ts]
+      [auth.service.ts]
+      package "dto/" {}
+      package "guards/" {}
+      package "strategies/" {}
+      [auth.module.ts] ..> [auth.controller.ts]
+      [auth.module.ts] ..> [auth.service.ts]
+    }
+    package "users/" <<Folder>> #D5F5E3 {}
+    package "formations/" <<Folder>> #D5F5E3 {}
+    package "qcm/" <<Folder>> #D5F5E3 {}
+    package "ateliers/" <<Folder>> #D5F5E3 {}
+    package "certificats/" <<Folder>> #D5F5E3 {}
+    package "assistance-ia/" <<Folder>> #D5F5E3 {}
+    package "notifications/" <<Folder>> #D5F5E3 {}
+    package "audit/" <<Folder>> #D5F5E3 {}
+  }
+
+  package "shared/" <<Folder>> #F2F3F4 {
+    package "dto/ " {}
+    package "entities/" {}
+    package "interfaces/" {}
+    package "enums/" {}
+  }
+
+  package "common/" <<Folder>> #F2F3F4 {
+    package "filters/" {}
+    package "interceptors/" {}
+    package "pipes/" {}
+    package "decorators/" {}
+  }
+
+  package "config/" <<Folder>> #D6EAF8 {
+    [configuration.ts]
+  }
+
+  [main.ts] #FCF3CF
+}
+
+note right of "modules/"
+  Chaque dossier de modules/ suit la meme structure
+  que auth/ (module . controller . service . dto .
+  guards . strategies).
+end note
+
+note bottom of "[main.ts]"
+  main.ts assemble tous les modules au demarrage (AppModule racine).
+end note
+@enduml

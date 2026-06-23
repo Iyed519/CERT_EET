@@ -1,0 +1,85 @@
+digraph deploiement {
+  graph [rankdir=TB, splines=ortho, nodesep=0.45, ranksep=0.8,
+         fontname="DejaVu Sans", fontsize=11, labelloc="t", compound=true,
+         newrank=true, bgcolor="white", pad=0.4, forcelabels=true,
+         label=<<b>Cert_EET — DEP-01 : Architecture de deploiement globale</b><br/><font point-size="10">Clients · Hote Docker Compose (Nginx · Next.js · NestJS · Worker · PostgreSQL · Redis · MinIO) · Services externes</font><br/> >];
+  node [fontname="DejaVu Sans", fontsize=10, penwidth=1.4];
+  edge [fontname="DejaVu Sans", fontsize=9, color="#34495E", penwidth=1.3, arrowsize=0.8];
+  subgraph cluster_clients {
+    label=<<font point-size="9"><i>«device»</i></font><br/><b>Postes clients</b>>;
+    labelloc="t"; fontname="DejaVu Sans"; fontsize=12;
+    style="filled,rounded"; fillcolor="#F0F1F2"; color="#566573"; penwidth=1.9;
+    margin=16;
+  cli_web [shape=box3d, style=filled, fillcolor="#EAECEE", color="#566573", penwidth=1.6, margin="0.16,0.10", label=<<font point-size="8"><i>«device»</i></font><br/><b>Navigateur web</b><br/><font point-size="8">SPA — Apprenant / Formateur / Admin</font>>];
+  cli_mob [shape=box3d, style=filled, fillcolor="#EAECEE", color="#566573", penwidth=1.6, margin="0.16,0.10", label=<<font point-size="8"><i>«device»</i></font><br/><b>Smartphone</b><br/><font point-size="8">Scan QR — Visiteur Public</font>>];
+  }
+  subgraph cluster_dockerhost {
+    label=<<font point-size="9"><i>«execution environment»</i></font><br/><b>Hote Docker — Docker Compose (ADR-07) · auto-hebergeable VPS/local (NF4)</b>>;
+    labelloc="t"; fontname="DejaVu Sans"; fontsize=12;
+    style="filled,rounded"; fillcolor="#F4F8FB"; color="#2E4053"; penwidth=1.9;
+    margin=16;
+  subgraph cluster_edge {
+    label=<<font point-size="9"><i>«zone»</i></font><br/><b>Edge</b>>;
+    labelloc="t"; fontname="DejaVu Sans"; fontsize=12;
+    style="filled,rounded"; fillcolor="#FBF4F2"; color="#A93226"; penwidth=1.9;
+    margin=16;
+  nginx [shape=box, style="filled,rounded", fillcolor="#FADBD8", color="#A93226", penwidth=1.5, margin="0.14,0.09", label=<<font point-size="8"><i>«container»</i></font><br/><b>Reverse Proxy — Nginx</b><br/><font point-size="8">Terminaison TLS · routage · timeout SSE</font>>];
+  front [shape=box, style="filled,rounded", fillcolor="#D6EAF8", color="#1B4F72", penwidth=1.5, margin="0.14,0.09", label=<<font point-size="8"><i>«container»</i></font><br/><b>Frontend — Next.js</b><br/><font point-size="8">SSR / SSG · page publique de verif (SSG+revalidation)</font>>];
+  }
+  subgraph cluster_app {
+    label=<<font point-size="9"><i>«zone»</i></font><br/><b>Application</b>>;
+    labelloc="t"; fontname="DejaVu Sans"; fontsize=12;
+    style="filled,rounded"; fillcolor="#EFF5FB"; color="#1B4F72"; penwidth=1.9;
+    margin=16;
+  apicl [shape=box, style="filled,rounded", fillcolor="#D6EAF8", color="#1B4F72", penwidth=1.5, margin="0.14,0.09", label=<<font point-size="8"><i>«container · cluster»</i></font><br/><b>API — NestJS</b><br/><font point-size="8">REST + SSE · multi-instances (NF5)</font>>];
+  a_auth [shape=note, style=filled, fillcolor="#FFFFFF", color="#5D6D7E", fontsize=9, margin="0.10,0.06", label=<<font point-size="8"><i>«artifact»</i></font><br/>AuthModule — JWT RS256 + MFA TOTP>];
+  a_biz [shape=note, style=filled, fillcolor="#FFFFFF", color="#5D6D7E", fontsize=9, margin="0.10,0.06", label=<<font point-size="8"><i>«artifact»</i></font><br/>Modules metier F1–F7 · AuditModule>];
+  worker [shape=box, style="filled,rounded", fillcolor="#D6EAF8", color="#1B4F72", penwidth=1.5, margin="0.14,0.09", label=<<font point-size="8"><i>«container · process separe»</i></font><br/><b>Worker — Bull</b><br/><font point-size="8">PDF / SHA-256 / QR · indexation RAG · emails</font>>];
+  }
+  subgraph cluster_dat {
+    label=<<font point-size="9"><i>«zone»</i></font><br/><b>Donnees &amp; stockage</b>>;
+    labelloc="t"; fontname="DejaVu Sans"; fontsize=12;
+    style="filled,rounded"; fillcolor="#EAFBF1"; color="#1E8449"; penwidth=1.9;
+    margin=16;
+  pg [shape=box, style="filled,rounded", fillcolor="#D5F5E3", color="#1E8449", penwidth=1.5, margin="0.14,0.09", label=<<font point-size="8"><i>«container»</i></font><br/><b>PostgreSQL</b><br/><font point-size="8">Relationnel + pgvector + pgcrypto</font>>];
+  redis [shape=box, style="filled,rounded", fillcolor="#D5F5E3", color="#1E8449", penwidth=1.5, margin="0.14,0.09", label=<<font point-size="8"><i>«container»</i></font><br/><b>Redis</b><br/><font point-size="8">Cache · sessions · blacklist JWT · file Bull (AOF)</font>>];
+  minio [shape=box, style="filled,rounded", fillcolor="#D5F5E3", color="#1E8449", penwidth=1.5, margin="0.14,0.09", label=<<font point-size="8"><i>«container»</i></font><br/><b>MinIO</b><br/><font point-size="8">S3-compatible · PDF certificats + livrables</font>>];
+  }
+  }
+  subgraph cluster_services {
+    label=<<font point-size="9"><i>«external»</i></font><br/><b>Services externes</b>>;
+    labelloc="t"; fontname="DejaVu Sans"; fontsize=12;
+    style="filled,rounded"; fillcolor="#FCF3E9"; color="#CA6F1E"; penwidth=1.9;
+    margin=16;
+  llm [shape=box, style="filled,rounded", fillcolor="#FDEBD0", color="#CA6F1E", penwidth=1.5, margin="0.14,0.09", label=<<font point-size="8"><i>«external»</i></font><br/><b>API LLM</b><br/><font point-size="8">GPT-4o / Claude / Mistral — swappable (ADR-05)</font>>];
+  smtp [shape=box, style="filled,rounded", fillcolor="#FDEBD0", color="#CA6F1E", penwidth=1.5, margin="0.14,0.09", label=<<font point-size="8"><i>«external»</i></font><br/><b>Service SMTP</b><br/><font point-size="8">Envoi d'emails</font>>];
+  mfa [shape=box, style="filled,rounded", fillcolor="#FDEBD0", color="#CA6F1E", penwidth=1.5, margin="0.14,0.09", label=<<font point-size="8"><i>«external»</i></font><br/><b>Service MFA / TOTP</b><br/><font point-size="8">Second facteur (F7)</font>>];
+  }
+  cli_web -> nginx [xlabel="HTTPS / TLS 1.3", lhead="cluster_dockerhost", color="#A93226", penwidth="1.8"];
+  cli_mob -> nginx [xlabel="HTTPS (verif QR)", color="#A93226"];
+  nginx -> front [xlabel="HTTP interne"];
+  nginx -> apicl [xlabel="HTTP interne / proxy"];
+  apicl -> cli_web [xlabel="SSE (notifs IA, alertes)", style="dashed", color="#1B4F72", constraint="false"];
+  apicl -> cli_web [xlabel="WebSocket «future»", style="dotted", color="#566573", constraint="false"];
+  apicl -> pg [xlabel="TCP 5432 (TLS)", color="#1E8449"];
+  apicl -> redis [xlabel="TCP 6379 (TLS)", color="#1E8449"];
+  apicl -> minio [xlabel="S3 API (HTTPS)", color="#1E8449"];
+  apicl -> worker [xlabel="enqueue (Bull)", style="dashed", color="#1B4F72"];
+  worker -> redis [xlabel="file Bull (AOF)", color="#1E8449"];
+  worker -> pg [xlabel="TCP 5432 (TLS)", color="#1E8449"];
+  worker -> minio [xlabel="S3 API (HTTPS)", color="#1E8449"];
+  worker -> llm [xlabel="HTTPS", color="#CA6F1E", penwidth="1.6"];
+  worker -> smtp [xlabel="SMTP / TLS", color="#CA6F1E"];
+  apicl -> mfa [xlabel="HTTPS", color="#CA6F1E"];
+  nf3 [shape=note, style=filled, fillcolor="#FDEDEC", color="#A93226", fontsize=8.5, margin="0.12,0.08", label="NF3 Securite : TLS, JWT RS256,\nMFA TOTP, RBAC, audit horodate"];
+  nginx -> nf3 [style=dotted, arrowhead=none, color="#A93226", constraint=false];
+  nf5 [shape=note, style=filled, fillcolor="#FCF9E8", color="#B7950B", fontsize=8.5, margin="0.12,0.08", label="NF5 Scalabilite : cluster API +\nworker scalables horizontalement"];
+  apicl -> nf5 [style=dotted, arrowhead=none, color="#B7950B", constraint=false];
+  nf1 [shape=note, style=filled, fillcolor="#EAF6EE", color="#1E8449", fontsize=8.5, margin="0.12,0.08", label="NF1 Perf : cache Redis,\nAPI <= 500 ms"];
+  redis -> nf1 [style=dotted, arrowhead=none, color="#1E8449", constraint=false];
+  // empilement vertical des zones
+  nginx -> apicl [style=invis, weight=30];
+  apicl -> pg [style=invis, weight=30];
+  front -> worker [style=invis, weight=10];
+  pg -> redis -> minio [style=invis, weight=5];
+}

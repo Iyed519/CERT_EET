@@ -1,0 +1,63 @@
+digraph G {
+  rankdir=TB;
+  bgcolor="#FFFFFF";
+  splines=ortho;
+  forcelabels=true;
+  concentrate=false;
+  pad="0.5,0.4";
+  nodesep=1.1; ranksep=1.15;
+  fontname="DejaVu Sans"; labelloc="t"; fontsize=20; fontcolor="#1B2631";
+  label=<<B>Cert_EET &#8212; Diagramme d'etats-transitions : Certificat</B><BR/><FONT POINT-SIZE="10" COLOR="#7B8794">PFE ESPRIT 2026 &#8226; Iyed Omri &#8226; UML 2.5</FONT><BR/> >;
+  node [fontname="DejaVu Sans"];
+  edge [fontname="DejaVu Sans" fontsize=9.5 color="#34495E" fontcolor="#1B2631" arrowsize=0.85 penwidth=1.4];
+
+  "__start__" [shape=circle width=0.25 style=filled fillcolor="#1B2631" color="#1B2631" label=""];
+  "__end__" [shape=doublecircle width=0.20 style=filled fillcolor="#1B2631" color="#1B2631" label="" penwidth=1.5];
+
+  "EN_ATTENTE_GENERATION" [shape=plaintext margin=0 label=<
+    <TABLE BORDER="2" CELLBORDER="0" CELLSPACING="0" CELLPADDING="9" BGCOLOR="#FEF9E7" COLOR="#B7950B" STYLE="ROUNDED">
+      <TR><TD ALIGN="CENTER"><FONT POINT-SIZE="14" COLOR="#B7950B"><B>EN_ATTENTE_GENERATION</B></FONT></TD></TR>
+      <TR><TD ALIGN="CENTER"><FONT POINT-SIZE="9.5" COLOR="#2C3E50">Conditions reunies (tous QCM &amp; ateliers &#8805; seuil).<BR/>Job Bull en file (Redis). Aucun PDF.</FONT></TD></TR>
+    </TABLE>>];
+
+  "EN_GENERATION" [shape=plaintext margin=0 label=<
+    <TABLE BORDER="2" CELLBORDER="0" CELLSPACING="0" CELLPADDING="9" BGCOLOR="#D6EAF8" COLOR="#2471A3" STYLE="ROUNDED">
+      <TR><TD ALIGN="CENTER"><FONT POINT-SIZE="14" COLOR="#2471A3"><B>EN_GENERATION</B></FONT></TD></TR>
+      <TR><TD ALIGN="CENTER"><FONT POINT-SIZE="9.5" COLOR="#2C3E50">Worker asynchrone : PDF + SHA-256 + QR + URL.<BR/>Retry policy : 3 tentatives.</FONT></TD></TR>
+    </TABLE>>];
+
+  "ACTIF" [shape=plaintext margin=0 label=<
+    <TABLE BORDER="2" CELLBORDER="0" CELLSPACING="0" CELLPADDING="9" BGCOLOR="#D5F5E3" COLOR="#1E8449" STYLE="ROUNDED">
+      <TR><TD ALIGN="CENTER"><FONT POINT-SIZE="14" COLOR="#1E8449"><B>ACTIF</B></FONT></TD></TR>
+      <TR><TD ALIGN="CENTER"><FONT POINT-SIZE="9.5" COLOR="#2C3E50">PDF + SHA-256 + QR + URL publiee (DS-05).<BR/>Badge vert en page publique.</FONT></TD></TR>
+    </TABLE>>];
+
+  "REVOQUE" [shape=plaintext margin=0 label=<
+    <TABLE BORDER="2" CELLBORDER="0" CELLSPACING="0" CELLPADDING="9" BGCOLOR="#FADBD8" COLOR="#C0392B" STYLE="ROUNDED">
+      <TR><TD ALIGN="CENTER"><FONT POINT-SIZE="14" COLOR="#C0392B"><B>REVOQUE</B></FONT></TD></TR>
+      <TR><TD ALIGN="CENTER"><FONT POINT-SIZE="9.5" COLOR="#2C3E50">Admin (DS-07) : double confirmation + motif.<BR/>PDF conserve (NF3). Badge rouge.</FONT></TD></TR>
+    </TABLE>>];
+
+  "EXPIRE" [shape=plaintext margin=0 label=<
+    <TABLE BORDER="2" CELLBORDER="0" CELLSPACING="0" CELLPADDING="9" BGCOLOR="#EAECEE" COLOR="#566573" STYLE="ROUNDED">
+      <TR><TD ALIGN="CENTER"><FONT POINT-SIZE="14" COLOR="#566573"><B>EXPIRE</B></FONT></TD></TR>
+      <TR><TD ALIGN="CENTER"><FONT POINT-SIZE="9.5" COLOR="#2C3E50">dateExpiration depassee (cron).<BR/>Badge gris en page publique.</FONT></TD></TR>
+    </TABLE>>];
+
+
+  { rank=same; "REVOQUE" "EXPIRE"; }
+
+  "__start__" -> "EN_ATTENTE_GENERATION" [xlabel=<<FONT POINT-SIZE="9.5">Systeme : conditions validees (DS-04)</FONT>>];
+  "EN_ATTENTE_GENERATION" -> "EN_GENERATION" [xlabel=<<FONT POINT-SIZE="9.5">Worker Bull : prise du job</FONT>>];
+  "EN_GENERATION" -> "EN_ATTENTE_GENERATION" [xlabel=<<FONT POINT-SIZE="9.5">echec [tentative &lt; 3] / re-enqueue</FONT>> constraint=false color="#C0392B" fontcolor="#C0392B"];
+  "EN_GENERATION" -> "ACTIF" [xlabel=<<FONT POINT-SIZE="9.5">Systeme : generation OK<BR/>[PDF + SHA-256 + QR + URL]</FONT>>];
+  "ACTIF" -> "REVOQUE" [xlabel=<<FONT POINT-SIZE="9.5">Admin : revocation (DS-07)<BR/>[double confirmation + motif]</FONT>>];
+  "ACTIF" -> "EXPIRE" [xlabel=<<FONT POINT-SIZE="9.5">Cron : NOW() &#8805; dateExpiration</FONT>>];
+  "EN_GENERATION" -> "EXPIRE" [xlabel=<<FONT POINT-SIZE="9.5">echec definitif [tentatives = 3]<BR/>/ alerte Admin</FONT>> color="#C0392B" fontcolor="#C0392B"];
+  "REVOQUE" -> "__end__" [xlabel=<<FONT POINT-SIZE="9.5">consultable (badge rouge)</FONT>>];
+  "EXPIRE" -> "__end__" [xlabel=<<FONT POINT-SIZE="9.5">consultable (badge gris)</FONT>>];
+
+  "__legend__" [shape=plaintext margin=0 label=<
+    <TABLE BORDER="1" CELLBORDER="0" CELLSPACING="0" CELLPADDING="5" COLOR="#BDC3C7" BGCOLOR="#FBFCFC" STYLE="ROUNDED"><TR><TD COLSPAN="2"><FONT POINT-SIZE="10"><B>Legende &#8212; criticite</B></FONT></TD></TR><TR><TD BGCOLOR="#FEF9E7" WIDTH="26" HEIGHT="14"></TD><TD ALIGN="LEFT"><FONT POINT-SIZE="9.5">En attente</FONT></TD></TR><TR><TD BGCOLOR="#D6EAF8" WIDTH="26" HEIGHT="14"></TD><TD ALIGN="LEFT"><FONT POINT-SIZE="9.5">En cours / transitoire</FONT></TD></TR><TR><TD BGCOLOR="#D5F5E3" WIDTH="26" HEIGHT="14"></TD><TD ALIGN="LEFT"><FONT POINT-SIZE="9.5">Nominal actif</FONT></TD></TR><TR><TD BGCOLOR="#FADBD8" WIDTH="26" HEIGHT="14"></TD><TD ALIGN="LEFT"><FONT POINT-SIZE="9.5">Erreur / revoque / rejete</FONT></TD></TR><TR><TD BGCOLOR="#EAECEE" WIDTH="26" HEIGHT="14"></TD><TD ALIGN="LEFT"><FONT POINT-SIZE="9.5">Terminal / irreversible</FONT></TD></TR></TABLE>>];
+  { rank=sink; "__legend__"; }
+}

@@ -1,0 +1,393 @@
+@startuml Cert_EET_UC_Formateur_Maximal
+' =====================================================================
+'  Projet     : Cert_EET — Plateforme de Certification Numérique
+'  Acteur     : FORMATEUR — Vue MAXIMALE (exhaustive)
+'  Convention : UML 2.5 — couvre 100% de UC_Formateur_Description.md v2.0
+'  Auteur     : Iyed Omri — PFE Ingénierie Logicielle, ESPRIT 2026
+'  Modifié    : Juin 2026 — Ajout UC10 (Génération IA) + UC11 (Supports)
+'               Retrait lien chatbot étudiant sur UC8
+' =====================================================================
+
+skinparam backgroundColor #FFFFFF
+skinparam shadowing false
+skinparam DefaultFontName "Segoe UI"
+skinparam DefaultFontSize 10
+skinparam ArrowThickness 1.2
+skinparam ArrowColor #6E2C00
+skinparam linetype ortho
+skinparam nodesep 52
+skinparam ranksep 105
+
+skinparam actor {
+  BackgroundColor #ECF0F1
+  BorderColor #6E2C00
+  BorderThickness 1.5
+  FontStyle bold
+}
+
+skinparam usecase {
+  BackgroundColor #FFFFFF
+  BorderColor #5D6D7E
+  BorderThickness 1.0
+  FontSize 10
+  FontColor #1B2631
+}
+
+skinparam usecase<<main>> {
+  BackgroundColor #FAE5D3
+  BorderColor #6E2C00
+  BorderThickness 2.0
+  FontStyle bold
+  FontSize 12
+}
+
+skinparam usecase<<ai>> {
+  BackgroundColor #D5F5E3
+  BorderColor #1E8449
+  BorderThickness 2.0
+  FontStyle bold
+  FontSize 12
+}
+
+skinparam usecase<<v2>> {
+  BackgroundColor #EAEDED
+  BorderColor #7B7D7D
+  BorderThickness 1.0
+  FontSize 9
+  FontStyle italic
+}
+
+skinparam package {
+  BackgroundColor #FDF5EC
+  BorderColor #6E2C00
+  BorderThickness 1.3
+  FontStyle bold
+  FontSize 12
+  FontColor #6E2C00
+}
+
+skinparam package<<ai_zone>> {
+  BackgroundColor #EAFAF1
+  BorderColor #1E8449
+  BorderThickness 1.5
+  FontStyle bold
+  FontSize 12
+  FontColor #1E8449
+}
+
+skinparam note {
+  BackgroundColor #FEF9E7
+  BorderColor #B7950B
+  FontSize 9
+}
+
+title <size:15><b>Cert_EET — Cas d'Utilisation du Formateur (Vue Maximale)</b></size>\n<size:10>UC principaux (orangé) · IA (vert) · sous-cas (blanc) · V2 (gris)</size>
+
+' =====================================================================
+'  ACTEUR PRINCIPAL
+' =====================================================================
+actor "Formateur" as Formateur
+
+' =====================================================================
+'  ACTEURS SECONDAIRES
+' =====================================================================
+actor "Apprenant" as Apprenant
+actor "Moteur IA\n(LLM + RAG)" as LLM
+actor "Service\nNotification" as Notif
+
+' =====================================================================
+'  ZONE 1 — Conception QCM (UC1, UC2)
+' =====================================================================
+package "Zone 1 · Conception QCM" {
+  usecase "**UC1**\nCréer un QCM" as UC1 <<main>>
+
+  usecase "Saisir les\nmétadonnées" as UC1_Meta
+  usecase "Ajouter des\nquestions" as UC1_AddQ
+  usecase "Définir la\npondération" as UC1_Pond
+  usecase "Importer\nGIFT/CSV/JSON" as UC1_Import
+  usecase "Sauvegarder\nen brouillon" as UC1_Draft
+  usecase "Banque de\nquestions" as UC1_Bank
+  usecase "Saisir une\nexplication" as UC1_Expl
+  usecase "Éditer un QCM\nexistant" as UC1_Edit
+
+  usecase "**UC2**\nConfigurer\nl'anti-fraude" as UC2 <<main>>
+
+  usecase "Randomisation\nquestions/options" as UC2_Rnd
+  usecase "Durée et\nfenêtre" as UC2_Time
+  usecase "Tentatives et\ndélai minimum" as UC2_Try
+  usecase "Affichage\ndes résultats" as UC2_Disp
+  usecase "Seuil et\npondération" as UC2_Pass
+  usecase "Publier le QCM" as UC2_Pub
+  usecase "Piochage\nbanque" as UC2_Pool
+  usecase "Sessions\nmultiples" as UC2_Multi
+  usecase "Proctoring\nwebcam" as UC2_Proct
+}
+
+' =====================================================================
+'  ZONE 2 — Conception Ateliers (UC3, UC4)
+' =====================================================================
+package "Zone 2 · Conception Ateliers" {
+  usecase "**UC3**\nCréer un\natelier pratique" as UC3 <<main>>
+
+  usecase "Saisir énoncé\net ressources" as UC3_Stmt
+  usecase "Modalités de\nsoumission" as UC3_Mod
+  usecase "Définir la\ndate limite" as UC3_Dl
+  usecase "Publier l'atelier" as UC3_Pub
+  usecase "Atelier\ncollaboratif" as UC3_Collab <<v2>>
+  usecase "Atelier à\nétapes" as UC3_Steps <<v2>>
+
+  usecase "**UC4**\nDéfinir une grille\nde notation" as UC4 <<main>>
+
+  usecase "Ajouter\nun critère" as UC4_Add
+  usecase "Pondération\n(total=100%)" as UC4_Pond
+  usecase "Enregistrer\ncomme modèle" as UC4_Tpl
+}
+
+' =====================================================================
+'  ZONE 3 — Correction et Feedback (UC5, UC6)
+' =====================================================================
+package "Zone 3 · Correction et Feedback" {
+  usecase "**UC5**\nCorriger un\nlivrable" as UC5 <<main>>
+
+  usecase "Consulter le\nlivrable soumis" as UC5_View
+  usecase "Appliquer la\ngrille" as UC5_Grid
+  usecase "Commentaire\npar critère" as UC5_Crit
+  usecase "Annoter un\nfichier PDF" as UC5_Annot
+  usecase "Interrompre\nen brouillon" as UC5_Pause
+  usecase "Vérification\nanti-plagiat" as UC5_Plag <<v2>>
+
+  usecase "**UC6**\nRédiger un\nfeedback structuré" as UC6 <<main>>
+
+  usecase "Commentaire\ngénéral" as UC6_Gen
+  usecase "Envoyer le feedback\n(immuable)" as UC6_Send
+  usecase "Joindre fichiers\nannotés" as UC6_Files
+  usecase "Prévisualiser\nle rendu" as UC6_Preview
+}
+
+' =====================================================================
+'  ZONE 4 — Suivi et Reporting (UC7, UC8, UC9)
+' =====================================================================
+package "Zone 4 · Suivi et Reporting" {
+  usecase "**UC7**\nSuivre la\nprogression" as UC7 <<main>>
+
+  usecase "Vue collective\n(KPI, histogramme)" as UC7_Coll
+  usecase "Vue individuelle\n(tableau triable)" as UC7_Ind
+  usecase "Fiche détaillée\nd'un apprenant" as UC7_Detail
+
+  usecase "**UC8**\nRecevoir une alerte\nde décrochage" as UC8 <<main>>
+
+  usecase "Consulter le détail\nde l'alerte" as UC8_View
+  usecase "Marquer comme\ntraitée" as UC8_Done
+  usecase "Email de synthèse\nhebdomadaire" as UC8_Mail
+
+  usecase "**UC9**\nExporter un rapport\nde session" as UC9 <<main>>
+
+  usecase "Choisir le type\n(global/individuel/\npar module)" as UC9_Type
+  usecase "Choisir le format\n(PDF / CSV)" as UC9_Fmt
+  usecase "Sélectionner\nla période" as UC9_Per
+}
+
+' =====================================================================
+'  ZONE 5 — Assistance IA (UC10, UC11)   [NOUVEAU]
+' =====================================================================
+package "Zone 5 · Assistance IA aux Formateurs (F4)" <<ai_zone>> {
+  usecase "**UC10**\nGénérer des questions\nde QCM (IA)" as UC10 <<ai>>
+
+  usecase "Sélectionner\nmodule source" as UC10_Src
+  usecase "Paramétrer\nla génération" as UC10_Param
+  usecase "Réviser les\nsuggestions" as UC10_Rev
+  usecase "Accepter /\nModifier / Rejeter" as UC10_Val
+  usecase "Ajouter à la\nbanque de questions" as UC10_Bank
+  usecase "Relancer avec\nautres paramètres" as UC10_Retry
+
+  usecase "**UC11**\nGérer les supports\npédagogiques" as UC11 <<ai>>
+
+  usecase "Uploader un\nsupport (PDF/PPTX…)" as UC11_Up
+  usecase "Indexation\nasynchrone" as UC11_Idx
+  usecase "Supprimer /\nRemplacer un support" as UC11_Del
+}
+
+' =====================================================================
+'  ASSOCIATIONS — Formateur → UC principaux
+' =====================================================================
+Formateur --> UC1
+Formateur --> UC2
+Formateur --> UC3
+Formateur --> UC4
+Formateur --> UC5
+Formateur --> UC6
+Formateur --> UC7
+Formateur --> UC8
+Formateur --> UC9
+Formateur --> UC10
+Formateur --> UC11
+
+' =====================================================================
+'  <<include>> — Zone 1
+' =====================================================================
+UC1 ..> UC1_Meta   : <<include>>
+UC1 ..> UC1_AddQ   : <<include>>
+UC1 ..> UC1_Pond   : <<include>>
+
+UC2 ..> UC2_Rnd    : <<include>>
+UC2 ..> UC2_Time   : <<include>>
+UC2 ..> UC2_Try    : <<include>>
+UC2 ..> UC2_Disp   : <<include>>
+UC2 ..> UC2_Pass   : <<include>>
+UC2 ..> UC2_Pub    : <<include>>
+
+' =====================================================================
+'  <<include>> — Zone 2
+' =====================================================================
+UC3 ..> UC3_Stmt   : <<include>>
+UC3 ..> UC3_Mod    : <<include>>
+UC3 ..> UC3_Dl     : <<include>>
+UC3 ..> UC3_Pub    : <<include>>
+
+UC4 ..> UC4_Add    : <<include>>
+UC4 ..> UC4_Pond   : <<include>>
+
+' =====================================================================
+'  <<include>> — Zone 3
+' =====================================================================
+UC5 ..> UC5_View   : <<include>>
+UC5 ..> UC5_Grid   : <<include>>
+UC5 ..> UC5_Crit   : <<include>>
+
+UC6 ..> UC6_Gen    : <<include>>
+UC6 ..> UC6_Send   : <<include>>
+
+' =====================================================================
+'  <<include>> — Zone 4
+' =====================================================================
+UC7 ..> UC7_Coll   : <<include>>
+UC7 ..> UC7_Ind    : <<include>>
+
+UC8 ..> UC8_View   : <<include>>
+
+UC9 ..> UC9_Type   : <<include>>
+UC9 ..> UC9_Fmt    : <<include>>
+UC9 ..> UC9_Per    : <<include>>
+
+' =====================================================================
+'  <<include>> — Zone 5 (IA)
+' =====================================================================
+UC10 ..> UC10_Src   : <<include>>
+UC10 ..> UC10_Param : <<include>>
+UC10 ..> UC10_Rev   : <<include>>
+UC10 ..> UC10_Val   : <<include>>
+UC10 ..> UC10_Bank  : <<include>>
+
+UC11 ..> UC11_Up    : <<include>>
+UC11 ..> UC11_Idx   : <<include>>
+
+' =====================================================================
+'  <<extend>> — Zone 1
+' =====================================================================
+UC1_Import  .> UC1  : <<extend>>
+UC1_Draft   .> UC1  : <<extend>>
+UC1_Bank    .> UC1  : <<extend>>
+UC1_Expl    .> UC1  : <<extend>>
+UC1_Edit    .> UC1  : <<extend>>
+
+UC2_Pool    .> UC2  : <<extend>>
+UC2_Multi   .> UC2  : <<extend>>
+UC2_Proct   .> UC2  : <<extend>>
+
+' =====================================================================
+'  <<extend>> — Zone 2
+' =====================================================================
+UC3_Collab  .> UC3  : <<extend>>
+UC3_Steps   .> UC3  : <<extend>>
+UC4_Tpl     .> UC4  : <<extend>>
+
+' =====================================================================
+'  <<extend>> — Zone 3
+' =====================================================================
+UC5_Annot   .> UC5  : <<extend>>
+UC5_Pause   .> UC5  : <<extend>>
+UC5_Plag    .> UC5  : <<extend>>
+UC6_Files   .> UC6  : <<extend>>
+UC6_Preview .> UC6  : <<extend>>
+
+' =====================================================================
+'  <<extend>> — Zone 4
+' =====================================================================
+UC7_Detail  .> UC7  : <<extend>>
+UC8_Done    .> UC8  : <<extend>>
+UC8_Mail    .> UC8  : <<extend>>
+
+' =====================================================================
+'  <<extend>> — Zone 5 (IA)
+' =====================================================================
+UC10_Retry  .> UC10 : <<extend>>
+UC11_Del    .> UC11 : <<extend>>
+
+' =====================================================================
+'  LIEN INTER-ZONES : UC1 peut déclencher UC10
+' =====================================================================
+UC1 ..> UC10 : <<extend>>\n(génération IA)
+
+' =====================================================================
+'  INTERACTIONS ACTEURS SECONDAIRES
+' =====================================================================
+UC8  ..> Notif  : <<déclenche>>
+UC6  ..> Notif  : <<déclenche>>
+UC10 ..> LLM    : <<consulte>>
+UC8  ..> LLM    : <<consulte>>
+Notif --> Apprenant : notifie
+
+' =====================================================================
+'  NOTES MÉTIER
+' =====================================================================
+note right of UC2
+  **Pourquoi UC2 est séparé de UC1 :**
+  UC1 = contenu pédagogique.
+  UC2 = sécurité de l'évaluation.
+end note
+
+note right of UC6
+  **Contraintes pédagogiques :**
+  • Commentaire général obligatoire
+  • Au moins un critère commenté
+  • Feedback immuable après envoi
+end note
+
+note right of UC8
+  **Détection de décrochage :**
+  Analyse automatique des patterns
+  (absences, échecs, retards).
+  Suggestion d'action par le LLM.
+end note
+
+note bottom of UC10
+  **Humain dans la boucle :**
+  Aucune suggestion IA n'est publiée
+  automatiquement. Le formateur valide
+  chaque question avant ajout à la banque.
+  Ancrage RAG sur les supports indexés.
+end note
+
+note bottom of UC11
+  **Indexation asynchrone (Bull/Redis) :**
+  Même pipeline que la génération PDF
+  des certificats. Statuts :
+  En cours → Indexé → Erreur.
+end note
+
+' =====================================================================
+'  LÉGENDE
+' =====================================================================
+legend bottom
+  | <b>Symbole</b> | <b>Signification</b> |
+  | <back:#FAE5D3>  **UCx**  </back> | Cas d'utilisation **principal** |
+  | <back:#D5F5E3>  **UCx**  </back> | Cas d'utilisation **IA** (nouveau F4) |
+  | <back:#FFFFFF>  sous-cas  </back> | Étape ou variante du scénario nominal |
+  | <back:#EAEDED>  V2  </back> | Fonctionnalité prévue pour une **version ultérieure** |
+  | <b><<include>></b> | Sous-cas **obligatoire** |
+  | <b><<extend>></b> | Variante **optionnelle** |
+  | <b><<consulte>></b> | Appel à un système externe |
+  | <b><<déclenche>></b> | Effet de bord (notification) |
+endlegend
+
+@enduml

@@ -1,0 +1,48 @@
+' Projet    : Cert_EET — Plateforme de certification numerique (ESPRIT Entreprise)
+' Diagramme : ET-01 — Certificat
+' Auteur    : Iyed Omri — PFE ESPRIT 2026
+' Norme     : UML 2.5 — Diagramme d'etats-transitions
+' Coherence : Diagramme de classes v3.2 (package 8 Enumerations) + DS-04 / DS-05 / DS-07
+@startuml Cert_EET_ET_Certificat
+skinparam backgroundColor #FFFFFF
+skinparam shadowing false
+skinparam DefaultFontName "Segoe UI"
+skinparam DefaultFontSize 10
+skinparam ArrowThickness 1.4
+skinparam linetype ortho
+skinparam state {
+  FontName "Segoe UI"
+  BorderColor #34495E
+  FontSize 12
+}
+skinparam ArrowColor #34495E
+skinparam ArrowFontColor #1B2631
+
+title <size:15><b>Cert_EET — Etat-Transition : Certificat</b></size>\n<size:9><color:#7B8794>PFE ESPRIT 2026 · Iyed Omri · UML 2.5</color></size>
+
+state EN_ATTENTE_GENERATION #FEF9E7 : Conditions reunies (tous QCM & ateliers >= seuil).\nJob Bull en file (Redis). Aucun PDF encore.
+state EN_GENERATION         #D6EAF8 : Worker asynchrone : PDF + SHA-256 + QR + URL.\nRetry policy : 3 tentatives.
+state ACTIF                 #D5F5E3 : PDF + SHA-256 + QR + URL publiee (DS-05).\nBadge vert en page publique.
+state REVOQUE               #FADBD8 : Admin (DS-07) : double confirmation + motif.\nPDF conserve (NF3). Badge rouge.
+state EXPIRE                #EAECEE : dateExpiration depassee (cron).\nBadge gris en page publique.
+
+[*] --> EN_ATTENTE_GENERATION : Systeme : conditions validees (DS-04)
+EN_ATTENTE_GENERATION --> EN_GENERATION : Worker Bull : prise du job
+EN_GENERATION --> EN_ATTENTE_GENERATION : <color:#C0392B>echec [tentative < 3] / re-enqueue</color>
+EN_GENERATION --> ACTIF : Systeme : generation OK\n[PDF + SHA-256 + QR + URL]
+EN_GENERATION --> EXPIRE : <color:#C0392B>echec definitif [tentatives = 3]\n/ alerte Admin</color>
+ACTIF --> REVOQUE : Admin : revocation (DS-07)\n[double confirmation + motif]
+ACTIF --> EXPIRE : Cron : NOW() >= dateExpiration
+REVOQUE --> [*] : consultable (badge rouge)
+EXPIRE  --> [*] : consultable (badge gris)
+
+legend bottom
+  <b>Legende — criticite</b>
+  |<#FEF9E7>   | En attente |
+  |<#D6EAF8>   | En cours / transitoire |
+  |<#D5F5E3>   | Nominal actif |
+  |<#FADBD8>   | Erreur / revoque / rejete |
+  |<#EAECEE>   | Terminal / irreversible |
+endlegend
+
+@enduml

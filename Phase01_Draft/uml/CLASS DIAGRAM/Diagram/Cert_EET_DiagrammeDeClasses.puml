@@ -1,0 +1,680 @@
+@startuml Cert_EET_Diagramme_De_Classes
+' =====================================================================
+'  Projet     : Cert_EET — Plateforme de Certification Numérique
+'  Diagramme  : DIAGRAMME DE CLASSES (Domain Model)
+'  Convention : UML 2.5 — squelette des entités métier (TypeORM/PostgreSQL)
+'  Auteur     : Iyed Omri — PFE Ingénierie Logicielle, ESPRIT 2026
+'  Cohérence  : couvre F1..F7 du CdC + les 4 acteurs des diagrammes UC
+'               Les attributs "statut" reflètent les diagrammes
+'               d'états-transitions (Certificat, TentativeQCM, Livrable,
+'               CompteUtilisateur).
+' =====================================================================
+
+' Style "plain" reproduit intégralement via les skinparam ci-dessous
+' (compatible toutes versions PlantUML / StarUML / VS Code).
+skinparam backgroundColor #FFFFFF
+skinparam shadowing false
+skinparam DefaultFontName "Segoe UI"
+skinparam DefaultFontSize 10
+skinparam classAttributeIconSize 0
+skinparam ArrowThickness 1.3
+skinparam ArrowColor #34495E
+skinparam linetype ortho
+skinparam nodesep 45
+skinparam ranksep 95
+skinparam packageStyle rectangle
+
+skinparam class {
+  BackgroundColor #FFFFFF
+  BorderColor #5D6D7E
+  BorderThickness 1.1
+  HeaderBackgroundColor #D6EAF8
+  FontColor #1B2631
+  AttributeFontColor #34495E
+  AttributeFontSize 9
+}
+
+skinparam class<<abstract>> {
+  HeaderBackgroundColor #AED6F1
+  BorderColor #1B4F72
+  BorderThickness 1.6
+}
+
+skinparam class<<value object>> {
+  HeaderBackgroundColor #D5F5E3
+  BorderColor #1E8449
+}
+
+skinparam class<<association class>> {
+  HeaderBackgroundColor #FAE5D3
+  BorderColor #BA4A00
+}
+
+skinparam class<<immuable>> {
+  HeaderBackgroundColor #FADBD8
+  BorderColor #922B21
+}
+
+skinparam class<<non persisté>> {
+  HeaderBackgroundColor #EAECEE
+  BorderColor #566573
+  BorderStyle dashed
+}
+
+skinparam package {
+  BorderColor #1B4F72
+  BorderThickness 1.3
+  FontStyle bold
+  FontSize 11
+  FontColor #1B4F72
+}
+
+skinparam note {
+  BackgroundColor #FEF9E7
+  BorderColor #B7950B
+  FontSize 9
+}
+
+title <size:15><b>Cert_EET — Diagramme de Classes (Domain Model)</b></size>\n<size:10>Entités métier · visibilité +/-/# · cardinalités UML 2.5</size>
+
+
+' #####################################################################
+'  PACKAGE 1 — UTILISATEURS & SÉCURITÉ  (F5 RBAC · F7 Sécurité)
+' #####################################################################
+package "1 · Utilisateurs & Sécurité (F5/F7)" as P1 #EBF5FB {
+
+  abstract class User <<abstract>> {
+    - id : UUID
+    - nom : String
+    - prenom : String
+    - email : String
+    - motDePasseHash : String
+    - role : Role
+    - statut : StatutCompte
+    - mfaActive : Boolean
+    - dateCreation : DateTime
+    - derniereConnexion : DateTime
+    --
+    + {abstract} getPermissions() : Set<Permission>
+    + authentifier(motDePasse : String) : Boolean
+    + activerCompte(token : String) : void
+  }
+
+  class Apprenant {
+    - matricule : String
+    --
+    + consulterFormations() : List<Inscription>
+    + passerQCM(qcm : QCM) : TentativeQCM
+    + soumettreLivrable(atelier : Atelier) : Livrable
+  }
+
+  class Formateur {
+    - domaineExpertise : String
+    --
+    + creerQCM(formation : Formation) : QCM
+    + creerAtelier(formation : Formation) : Atelier
+    + corriger(livrable : Livrable) : Correction
+  }
+
+  class Administrateur {
+    --
+    + gererCompte(u : User) : void
+    + attribuerRole(u : User, r : Role) : void
+    + revoquerCertificat(c : Certificat, m : MotifRevocation) : Revocation
+  }
+
+  class VisiteurPublic <<non persisté>> {
+    .. acteur anonyme, sans compte ..
+    + scannerQRCode(url : String) : void
+    + verifierCertificat(uuid : UUID) : StatutCertificat
+  }
+
+  class SessionUtilisateur {
+    - id : UUID
+    - dateCreation : DateTime
+    - dateExpiration : DateTime
+    - adresseIP : String
+    - userAgent : String
+    - active : Boolean
+    --
+    + invalider() : void
+  }
+
+  class TokenJWT {
+    - id : UUID
+    - type : String "Access | Refresh"
+    - valeur : String
+    - dateExpiration : DateTime
+    - revoque : Boolean
+  }
+}
+
+
+' #####################################################################
+'  PACKAGE 2 — FORMATIONS & PÉDAGOGIE
+' #####################################################################
+package "2 · Formations & Pédagogie" as P2 #E8F8F5 {
+
+  class Formation {
+    - id : UUID
+    - titre : String
+    - description : String
+    - objectifs : String
+    - prerequis : String
+    - dateDebut : Date
+    - dateFin : Date
+    - dureeHeures : int
+    - capaciteMax : int
+    - statut : String "Ouverte | Fermée | Archivée"
+    - noteMinCertification : float
+    - modeleCertificat : String
+    --
+    + estEligibleCertification(a : Apprenant) : Boolean
+    + cloturer() : void
+  }
+
+  class Module {
+    - id : UUID
+    - titre : String
+    - ordre : int
+    - description : String
+  }
+
+  class Inscription <<association class>> {
+    - id : UUID
+    - dateInscription : Date
+    - dateEcheance : Date
+    - statut : String "EnCours | Terminée | Suspendue"
+    - tauxAvancement : float
+    --
+    + calculerAvancement() : float
+  }
+}
+
+
+' #####################################################################
+'  PACKAGE 3 — ÉVALUATIONS QCM  (F1 — moteur anti-fraude)
+' #####################################################################
+package "3 · Évaluations QCM (F1)" as P3 #FEF9E7 {
+
+  class QCM {
+    - id : UUID
+    - titre : String
+    - description : String
+    - statut : String "Brouillon | NonPublié | Publié"
+    - dateCreation : DateTime
+    --
+    + ajouterQuestion(q : Question) : void
+    + publier() : void
+    + calculerScore(t : TentativeQCM) : float
+  }
+
+  class Question {
+    - id : UUID
+    - enonce : String
+    - type : TypeQuestion
+    - ponderation : float
+    - explication : String
+    - niveauDifficulte : String
+  }
+
+  class Option {
+    - id : UUID
+    - texte : String
+    - estCorrecte : Boolean
+  }
+
+  class BanqueQuestions {
+    - id : UUID
+    - nom : String
+    - description : String
+  }
+
+  class ConfigurationAntiFraude {
+    - id : UUID
+    - randomiserQuestions : Boolean
+    - randomiserOptions : Boolean
+    - nbQuestionsTirees : int
+    - dureeMaxMinutes : int
+    - dateOuverture : DateTime
+    - dateFermeture : DateTime
+    - nbTentativesMax : int
+    - delaiEntreTentatives : int
+    - blocageSessionsMultiples : Boolean
+    - affichageResultats : String "Immédiat | Différé"
+    - scoreMinValidation : float
+    - ponderationFormation : float
+    - proctoringWebcam : Boolean
+    - desactiverCopierColler : Boolean
+  }
+
+  class TentativeQCM {
+    - id : UUID
+    - dateDebut : DateTime
+    - dateFin : DateTime
+    - dureeEffective : int
+    - score : float
+    - statut : StatutTentative
+    --
+    + soumettre() : void
+    + calculerScore() : float
+    + estReussie() : Boolean
+  }
+
+  class Reponse {
+    - id : UUID
+    - estCorrecte : Boolean
+    - pointsObtenus : float
+  }
+}
+
+
+' #####################################################################
+'  PACKAGE 4 — ATELIERS PRATIQUES  (F2 — évaluation par grille)
+' #####################################################################
+package "4 · Ateliers Pratiques (F2)" as P4 #FDF2E9 {
+
+  class Atelier {
+    - id : UUID
+    - titre : String
+    - enonce : String
+    - competencesVisees : String
+    - dateLimite : DateTime
+    - toleranceRetard : Boolean
+    - typesLivrablesAcceptes : String
+    - tailleMaxFichier : int
+    - nbMaxFichiers : int
+    - statut : String "Brouillon | Publié"
+    --
+    + publier() : void
+  }
+
+  class GrilleNotation {
+    - id : UUID
+    - nom : String
+    - estModele : Boolean
+    --
+    + validerPonderations() : Boolean
+  }
+
+  class Critere {
+    - id : UUID
+    - intitule : String
+    - ponderation : float
+    - description : String
+  }
+
+  class NiveauPerformance {
+    - id : UUID
+    - libelle : String
+    - plagePointsMin : float
+    - plagePointsMax : float
+    - descripteur : String
+  }
+
+  class Livrable {
+    - id : UUID
+    - dateSoumission : DateTime
+    - hashTracabilite : String
+    - commentaireLibre : String
+    - liensExternes : List<String>
+    - version : int
+    - statut : StatutLivrable
+    --
+    + soumettre() : void
+    + remplacer() : void
+    + verrouiller() : void
+  }
+
+  class FichierLivrable {
+    - id : UUID
+    - nomFichier : String
+    - taille : int
+    - typeMime : String
+    - cheminStockage : String
+  }
+
+  class Correction {
+    - id : UUID
+    - scoreTotal : float
+    - dateCorrection : DateTime
+    - statut : String "Brouillon | Terminée"
+    --
+    + calculerScoreTotal() : float
+  }
+
+  class NoteCritere <<association class>> {
+    - note : float
+    - commentaire : String
+    - niveauAtteint : NiveauPerformance
+  }
+
+  class Feedback {
+    - id : UUID
+    - commentaireGeneral : String
+    - dateEnvoi : DateTime
+    - fichiersAnnotes : List<String>
+    --
+    + envoyer() : void
+  }
+}
+
+
+' #####################################################################
+'  PACKAGE 5 — CERTIFICATION NUMÉRIQUE  (F3 — vérifiable)
+' #####################################################################
+package "5 · Certification Numérique (F3)" as P5 #F5EEF8 {
+
+  class Certificat {
+    - id : UUID
+    - titreFormation : String
+    - nomTitulaire : String
+    - organismeEmetteur : String = "ESPRIT"
+    - dateEmission : DateTime
+    - dateExpiration : Date
+    - scoreFinal : float
+    - mention : String
+    - statut : StatutCertificat
+    - urlVerification : String
+    - cheminPdf : String
+    - nbConsultationsPubliques : int
+    --
+    + genererPDF() : void
+    + revoquer(m : MotifRevocation) : Revocation
+    + estValide() : Boolean
+    + verifierIntegrite() : Boolean
+  }
+
+  class EmpreinteSHA256 <<value object>> {
+    - valeurHash : String
+    - algorithme : String = "SHA-256"
+    - dateCalcul : DateTime
+  }
+
+  class Revocation {
+    - id : UUID
+    - motif : MotifRevocation
+    - description : String
+    - dateRevocation : DateTime
+    - piecesJointes : List<String>
+  }
+
+  class VerificationCertificat {
+    - id : UUID
+    - dateVerification : DateTime
+    - adresseIP : String
+    - resultat : String "Valide | Révoqué | Introuvable"
+  }
+}
+
+
+' #####################################################################
+'  PACKAGE 6 — CHATBOT IA  (F4 — différenciateur)
+' #####################################################################
+package "6 · Chatbot IA (F4)" as P6 #EAFAF1 {
+
+  class ConversationChatbot {
+    - id : UUID
+    - dateDebut : DateTime
+    - mode : String "Support | Suivi"
+    - titre : String
+  }
+
+  class MessageChatbot {
+    - id : UUID
+    - contenu : String
+    - emetteur : String "Apprenant | Assistant"
+    - horodatage : DateTime
+  }
+
+  class ContexteApprenant <<value object>> {
+    - profilFormation : String
+    - scoresRecents : String
+    - avancementAteliers : String
+    - lacunesIdentifiees : String
+    - dateGeneration : DateTime
+    --
+    + construire(a : Apprenant) : ContexteApprenant
+  }
+
+  class AlerteDecrochage {
+    - id : UUID
+    - typeRisque : String
+    - donneesFactuelles : String
+    - suggestionAction : String
+    - statut : String "Nouvelle | Traitée"
+    - dateDetection : DateTime
+    - dateTraitement : DateTime
+    --
+    + marquerTraitee() : void
+  }
+}
+
+
+' #####################################################################
+'  PACKAGE 7 — TRANSVERSE  (F6 Analytics · F7 Audit)
+' #####################################################################
+package "7 · Transverse (F6/F7)" as P7 #F2F4F4 {
+
+  class AuditLog <<immuable>> {
+    - id : UUID
+    - horodatage : DateTime
+    - action : String
+    - cible : String
+    - adresseIP : String
+    - resultat : String "Succès | Échec"
+    - detailsAvantApres : String
+  }
+
+  class Notification {
+    - id : UUID
+    - type : String
+    - contenu : String
+    - dateEnvoi : DateTime
+    - lue : Boolean
+    - canal : String "InApp | Email"
+  }
+}
+
+
+' #####################################################################
+'  PACKAGE 8 — ÉNUMÉRATIONS  (alignées sur les états-transitions)
+' #####################################################################
+package "8 · Énumérations" as P8 #FBEEE6 {
+  enum Role {
+    APPRENANT
+    FORMATEUR
+    ADMINISTRATEUR
+  }
+  enum StatutCompte {
+    EN_ATTENTE_ACTIVATION
+    ACTIF
+    DESACTIVE
+    ANONYMISE
+  }
+  enum StatutCertificat {
+    EN_ATTENTE_GENERATION
+    EN_GENERATION
+    ACTIF
+    REVOQUE
+    EXPIRE
+  }
+  enum StatutTentative {
+    EN_COURS
+    SOUMISE
+    ABANDONNEE_TIMER
+    NOTEE
+  }
+  enum StatutLivrable {
+    BROUILLON
+    SOUMIS
+    EN_CORRECTION
+    NOTE
+  }
+  enum TypeQuestion {
+    QCM
+    QCU
+    VRAI_FAUX
+    REPONSE_COURTE
+    ASSOCIATION
+  }
+  enum MotifRevocation {
+    FRAUDE
+    ERREUR_ADMIN
+    DISCIPLINAIRE
+    JUDICIAIRE
+  }
+}
+
+
+' =====================================================================
+'  HÉRITAGE — un seul User abstrait, 3 rôles persistés (RBAC F5)
+'  VisiteurPublic n'hérite PAS de User : il n'a pas de compte.
+' =====================================================================
+User <|-- Apprenant #1B2631;line.bold
+User <|-- Formateur #1B2631;line.bold
+User <|-- Administrateur #1B2631;line.bold
+
+
+' =====================================================================
+'  ASSOCIATIONS — Utilisateurs & Sécurité
+' =====================================================================
+User "1" -- "0..*" SessionUtilisateur #2874A6 : ouvre >
+SessionUtilisateur "1" *-- "1..2" TokenJWT #A93226;line.bold : émet >
+User "1" -- "0..*" Notification #2874A6 : reçoit >
+User "0..1" -- "0..*" AuditLog #2874A6 : < tracé pour
+
+
+' =====================================================================
+'  ASSOCIATIONS — Formations & Inscriptions (classe d'association)
+' =====================================================================
+Formation "1" *-- "1..*" Module #A93226;line.bold : structure >
+Formateur "1..*" -- "0..*" Formation #2874A6 : anime >
+Apprenant "0..*" -- "0..*" Formation #2874A6 : inscrit à >
+(Apprenant, Formation) . Inscription #B9770E
+
+
+' =====================================================================
+'  ASSOCIATIONS — QCM (F1)
+' =====================================================================
+Module "1" -- "0..*" QCM #2874A6 : contient >
+QCM "1" *-- "1" ConfigurationAntiFraude #A93226;line.bold : configuré par >
+QCM "0..*" o-- "1..*" Question #1E8449;line.bold : compose >
+BanqueQuestions "0..1" o-- "0..*" Question #1E8449;line.bold : réutilise >
+Question "1" *-- "2..*" Option #A93226;line.bold : propose >
+QCM "1" -- "0..*" TentativeQCM #2874A6
+Apprenant "1" -- "0..*" TentativeQCM #2874A6 : passe >
+TentativeQCM "1" *-- "0..*" Reponse #A93226;line.bold : contient >
+Reponse "0..*" --> "1" Question #2874A6 : répond à >
+Reponse "0..*" --> "0..*" Option #2874A6 : sélectionne >
+
+
+' =====================================================================
+'  ASSOCIATIONS — Ateliers (F2)
+' =====================================================================
+Module "1" -- "0..*" Atelier #2874A6 : contient >
+Atelier "0..*" o-- "1" GrilleNotation #1E8449;line.bold : évalué via >
+GrilleNotation "1" *-- "1..*" Critere #A93226;line.bold : compose >
+Critere "1" *-- "2..*" NiveauPerformance #A93226;line.bold : gradué par >
+Atelier "1" -- "0..*" Livrable #2874A6
+Apprenant "1" -- "0..*" Livrable #2874A6 : soumet >
+Livrable "1" *-- "0..*" FichierLivrable #A93226;line.bold : contient >
+Livrable "1" -- "0..1" Correction #2874A6 : évalué par >
+Correction "0..*" -- "1" Formateur #2874A6 : corrigé par >
+Correction "1" *-- "1" Feedback #A93226;line.bold : complété par >
+Correction "1" -- "1..*" Critere #2874A6 : note selon >
+(Correction, Critere) . NoteCritere #B9770E
+
+
+' =====================================================================
+'  ASSOCIATIONS — Certification (F3)
+' =====================================================================
+Apprenant "1" -- "0..*" Certificat #2874A6 : titulaire de >
+Formation "1" -- "0..*" Certificat #2874A6 : certifie >
+Certificat "1" *-- "1" EmpreinteSHA256 #A93226;line.bold : scellé par >
+Certificat "1" -- "0..1" Revocation #2874A6 : invalidé par >
+Revocation "0..*" -- "1" Administrateur #2874A6 : décidée par >
+Certificat "1" -- "0..*" VerificationCertificat #2874A6 : consulté via >
+VisiteurPublic ..> VerificationCertificat #7F8C8D : génère >
+
+
+' =====================================================================
+'  ASSOCIATIONS — Chatbot IA (F4)
+' =====================================================================
+Apprenant "1" -- "0..*" ConversationChatbot #2874A6 : dialogue >
+ConversationChatbot "1" *-- "1..*" MessageChatbot #A93226;line.bold : contient >
+ConversationChatbot "1" o-- "0..*" ContexteApprenant #1E8449;line.bold : injecte >
+ContexteApprenant ..> Apprenant #7F8C8D : dérivé de >
+AlerteDecrochage "0..*" -- "1" Apprenant #2874A6 : concerne >
+AlerteDecrochage "0..*" -- "1" Formateur #2874A6 : notifie >
+
+
+' =====================================================================
+'  ORDONNANCEMENT DES PACKAGES (liens cachés pour aérer la disposition)
+' =====================================================================
+P1 -[hidden]down- P2
+P3 -[hidden]down- P4
+P5 -[hidden]down- P6
+
+' Adjacence des classes d'association (connecteur court et indépendant)
+Apprenant -[hidden]down- Inscription
+Inscription -[hidden]down- Formation
+Critere -[hidden]right- NoteCritere
+Correction -[hidden]up- NoteCritere
+
+
+' =====================================================================
+'  NOTES MÉTIER — décisions de conception clés
+' =====================================================================
+note top of Certificat
+  **Immuabilité institutionnelle (F3, NF3)**
+  Un certificat émis n'est jamais modifié
+  ni supprimé. La correction passe par
+  révocation + réémission. La trace
+  cryptographique (SHA-256) est conservée.
+  Signature **institutionnelle** (ESPRIT),
+  non nominative d'un formateur.
+  Génération PDF **asynchrone** (file Bull).
+end note
+
+note bottom of TentativeQCM
+  **Logique 100% côté serveur (F1)**
+  Score, timer, randomisation et blocage
+  des sessions multiples gérés par le
+  backend. L'historique est immuable (audit).
+end note
+
+note bottom of ConversationChatbot
+  **Différenciateur (F4)** : aucune des 6
+  plateformes du benchmark n'offre ce
+  chatbot contextualisé. Le ContexteApprenant
+  est injecté dynamiquement dans le LLM.
+end note
+
+note right of P8
+  Les attributs **statut** correspondent
+  directement aux **diagrammes
+  d'états-transitions** (Certificat,
+  TentativeQCM, Livrable, CompteUtilisateur).
+end note
+
+
+' =====================================================================
+'  LÉGENDE
+' =====================================================================
+legend bottom
+  | <b>Notation</b> | <b>Signification</b> |
+  | + / - / # | Visibilité : publique / privée / protégée |
+  | <back:#AED6F1> classe abstraite </back> | Super-type non instanciable (User) |
+  | <back:#D5F5E3> value object </back> | Objet-valeur immuable composé |
+  | <back:#FAE5D3> association class </back> | Classe d'association (Inscription, NoteCritere) |
+  | <back:#FADBD8> immuable </back> | Entité non modifiable / non supprimable (AuditLog) |
+  | <b><color:#1B2631>▬▬</color></b> <|— | <b>Héritage</b> (généralisation) — noir |
+  | <b><color:#A93226>▬▬</color></b> ◆ (*--) | <b>Composition</b> (le tout possède la partie) — rouge |
+  | <b><color:#1E8449>▬▬</color></b> ◇ (o--) | <b>Agrégation</b> (partie partageable / réutilisable) — vert |
+  | <color:#2874A6>▬▬</color> (--) | <b>Association</b> — bleu |
+  | <color:#7F8C8D>┈┈</color> (..>) | <b>Dépendance</b> — gris pointillé |
+  | <color:#B9770E>┈┈</color> | Lien de <b>classe d'association</b> — orange |
+endlegend
+
+@enduml

@@ -1,0 +1,79 @@
+digraph activite {
+  graph [rankdir=TB, splines=ortho, nodesep=0.55, ranksep=0.70,
+         fontname="DejaVu Sans", fontsize=11, labelloc="t", compound=true,
+         newrank=true, bgcolor="white", pad=0.4,
+         label=<<b>Cert_EET — AC-04 : Generation de questions QCM par IA / RAG</b><br/><font point-size="10">Formateur · Systeme · Worker IA · LLM externe — pipeline 2 etages + humain dans la boucle (F4 · ADR-04/05)</font><br/> >];
+  node [fontname="DejaVu Sans", fontsize=10, penwidth=1.4];
+  edge [fontname="DejaVu Sans", fontsize=9, color="#34495E", penwidth=1.3, arrowsize=0.8];
+  subgraph cluster_lane0 {
+    label=<<b>Formateur</b>>; fontsize=12; fontname="DejaVu Sans";
+    style="filled"; fillcolor="#F4F8FB"; color="#5D6D7E"; penwidth=1.6;
+    margin=14;
+  f_init [shape=circle, style=filled, fillcolor="black", color="black", width=0.28, fixedsize=true, label=""];
+  f_upload [shape=box, style="rounded,filled", fillcolor="#D5F5E3", color="#1E8449", label="Uploader un support\nde cours (PDF/PPTX)"];
+  f_param [shape=box, style="rounded,filled", fillcolor="#D5F5E3", color="#1E8449", label="Parametrer la generation\n(nb, types, niveau, focus)"];
+  f_review [shape=box, style="rounded,filled", fillcolor="#D5F5E3", color="#1E8449", label="Reviser une suggestion"];
+  f_dec [shape=diamond, style=filled, fillcolor="#FCF3CF", color="#B7950B", label="Decision\nformateur ?", margin=0.05];
+  f_accept [shape=box, style="rounded,filled", fillcolor="#D5F5E3", color="#1E8449", label="Accepter / Modifier\n(INSERT banque questions)"];
+  f_reject [shape=box, style="rounded,filled", fillcolor="#FADBD8", color="#A93226", label="Rejeter\n(statut = REJETEE)"];
+  f_end [shape=doublecircle, style=filled, fillcolor="black", color="black", width=0.20, fixedsize=true, label=""];
+  }
+  subgraph cluster_lane1 {
+    label=<<b>Systeme</b>>; fontsize=12; fontname="DejaVu Sans";
+    style="filled"; fillcolor="#F2FBF6"; color="#5D6D7E"; penwidth=1.6;
+    margin=14;
+  s_idx [shape=box, style="rounded,filled", fillcolor="#D6EAF8", color="#1B4F72", label="Statut = EnIndexation\n+ enfiler \"indexer-support\""];
+  s_gen [shape=box, style="rounded,filled", fillcolor="#D6EAF8", color="#1B4F72", label="Enfiler\n\"generer-questions\""];
+  s_persist [shape=box, style="rounded,filled", fillcolor="#D5F5E3", color="#1E8449", label="INSERT suggestions\nstatut = PROPOSEE"];
+  s_notif2 [shape=box, style="rounded,filled", fillcolor="#D5F5E3", color="#1E8449", label="Notifier : suggestions\npretes a reviser"];
+  }
+  subgraph cluster_lane2 {
+    label=<<b>Worker IA (processus separe)</b>>; fontsize=12; fontname="DejaVu Sans";
+    style="filled"; fillcolor="#FBF7F0"; color="#5D6D7E"; penwidth=1.6;
+    margin=14;
+  w_extract [shape=box, style="rounded,filled", fillcolor="#D6EAF8", color="#1B4F72", label="Extraire le texte\n+ chunker (512 / overlap 50)"];
+  w_fork [shape=box, style=filled, fillcolor="black", color="black", height=0.07, width=2.2, fixedsize=true, label=""];
+  w_store [shape=box, style="rounded,filled", fillcolor="#D6EAF8", color="#1B4F72", label="Stocker les vecteurs\n(pgvector)"];
+  w_idxok [shape=box, style="rounded,filled", fillcolor="#D6EAF8", color="#1B4F72", label="Statut = Indexe\n+ notifier le formateur"];
+  w_retr [shape=box, style="rounded,filled", fillcolor="#D6EAF8", color="#1B4F72", label="Retrieval : similarite\ncosinus top-8 (pgvector)"];
+  w_prompt [shape=box, style="rounded,filled", fillcolor="#D6EAF8", color="#1B4F72", label="Construire le prompt\n(contexte RAG + consignes)"];
+  w_parse [shape=box, style="rounded,filled", fillcolor="#D6EAF8", color="#1B4F72", label="Parser + valider\nle JSON des suggestions"];
+  }
+  subgraph cluster_lane3 {
+    label=<<b>LLM externe</b>>; fontsize=12; fontname="DejaVu Sans";
+    style="filled"; fillcolor="#F8F4FB"; color="#5D6D7E"; penwidth=1.6;
+    margin=14;
+  l_emb1 [shape=box, style="rounded,filled", fillcolor="#D6EAF8", color="#1B4F72", label="Embeddings\ndes chunks"];
+  l_emb2 [shape=box, style="rounded,filled", fillcolor="#D6EAF8", color="#1B4F72", label="Embeddings\nde la requete"];
+  l_chat [shape=box, style="rounded,filled", fillcolor="#D6EAF8", color="#1B4F72", label="Chat completion\n(generation des questions)"];
+  }
+  f_init -> f_upload;
+  f_upload -> s_idx;
+  s_idx -> w_extract [label="job 1", color="#1B4F72", style="dashed"];
+  w_extract -> w_fork;
+  w_fork -> l_emb1 [label="par chunk"];
+  l_emb1 -> w_store;
+  w_store -> w_idxok;
+  w_idxok -> f_param [label="support pret", style="dashed"];
+  f_param -> s_gen;
+  s_gen -> w_retr [label="job 2", color="#1B4F72", style="dashed"];
+  w_retr -> l_emb2 [label="vectoriser requete"];
+  l_emb2 -> w_prompt;
+  w_prompt -> l_chat [label="appel LLM"];
+  l_chat -> w_parse;
+  w_parse -> s_persist;
+  s_persist -> s_notif2;
+  s_notif2 -> f_review [label="humain dans la boucle", style="dashed"];
+  f_review -> f_dec;
+  f_dec -> f_accept [label="accepter / modifier", color="#1E8449"];
+  f_dec -> f_reject [label="rejeter", color="#A93226"];
+  f_accept -> f_end;
+  f_reject -> f_end;
+  // alignement
+  f_init -> f_upload -> f_param -> f_review -> f_dec -> f_accept -> f_end [style=invis, weight=10];
+  s_idx -> s_gen -> s_persist -> s_notif2 [style=invis, weight=10];
+  w_extract -> w_fork -> w_store -> w_idxok -> w_retr -> w_prompt -> w_parse [style=invis, weight=10];
+  l_emb1 -> l_emb2 -> l_chat [style=invis, weight=10];
+  { rank=same; f_upload; s_idx; w_store; l_emb1; }
+  f_upload -> s_idx -> w_store -> l_emb1 [style=invis, weight=20];
+}

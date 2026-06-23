@@ -1,0 +1,62 @@
+@startuml Cert_EET_DEP01_Architecture_Globale
+' =====================================================================
+'  Projet : Cert_EET — DEP-01 : Architecture de deploiement globale
+'  Auteur : Iyed Omri — PFE ESPRIT 2026
+'  Rendu  : PlantUML. PNG de reference rendu via Graphviz.
+' =====================================================================
+skinparam backgroundColor #FFFFFF
+skinparam shadowing false
+skinparam DefaultFontName "Segoe UI"
+skinparam linetype ortho
+skinparam ArrowColor #34495E
+skinparam node { BorderThickness 1.4 }
+' couleurs : vert=donnees  bleu=exec/worker  orange=externe  rouge=securite  gris=client
+title <size:14><b>Cert_EET — DEP-01 : Architecture de deploiement globale</b></size>\n<size:10>Clients : Hote Docker Compose : Services externes</size>
+
+
+node "Navigateur web" <<device>> as web #EAECEE
+node "Smartphone (scan QR)" <<device>> as mob #EAECEE
+
+node "Hote Docker — Docker Compose (ADR-07)\nauto-hebergeable VPS/local (NF4)" <<execution environment>> as host #F4F8FB {
+
+  node "Reverse Proxy — Nginx" <<container>> as nginx #FADBD8
+  note right of nginx
+    NF3 Securite : TLS, JWT RS256,
+    MFA TOTP, RBAC, audit horodate
+  end note
+
+  node "Frontend — Next.js" <<container>> as front #D6EAF8
+
+  node "API — NestJS (cluster, NF5)" <<container>> as api #D6EAF8 {
+    artifact "AuthModule — JWT RS256 + MFA TOTP" as auth
+    artifact "Modules metier F1-F7 + Audit" as biz
+  }
+
+  node "Worker — Bull (process separe)" <<container>> as worker #D6EAF8
+
+  database "PostgreSQL\n+ pgvector + pgcrypto" <<container>> as pg #D5F5E3
+  database "Redis\ncache · blacklist JWT · file Bull (AOF)" <<container>> as redis #D5F5E3
+  database "MinIO (S3)\nPDF certifs + livrables" <<container>> as minio #D5F5E3
+}
+
+cloud "API LLM (swappable)\nGPT-4o / Claude / Mistral — ADR-05" <<external>> as llm #FDEBD0
+cloud "Service SMTP" <<external>> as smtp #FDEBD0
+cloud "Service MFA / TOTP (F7)" <<external>> as mfa #FDEBD0
+
+web  --> nginx  : HTTPS / TLS 1.3
+mob  --> nginx  : HTTPS (verif QR)
+nginx --> front : HTTP interne
+nginx --> api   : proxy interne
+api  ..> web    : SSE (notifs IA, alertes)
+api  ..> web    : WebSocket «future»
+api  --> pg     : TCP 5432 (TLS)
+api  --> redis  : TCP 6379 (TLS)
+api  --> minio  : S3 API (HTTPS)
+api  ..> worker : enqueue (Bull)
+worker --> redis : file Bull (AOF)
+worker --> pg    : TCP 5432 (TLS)
+worker --> minio : S3 API (HTTPS)
+worker --> llm   : HTTPS
+worker --> smtp  : SMTP / TLS
+api    --> mfa   : HTTPS
+@enduml

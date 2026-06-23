@@ -1,0 +1,94 @@
+digraph composants {
+  graph [rankdir=TB, splines=ortho, nodesep=0.45, ranksep=0.70,
+         fontname="DejaVu Sans", fontsize=11, labelloc="t", compound=true,
+         newrank=true, bgcolor="white", pad=0.4, forcelabels=true,
+         label=<<b>Cert_EET — COMP-01 : Architecture des modules NestJS</b><br/><font point-size="10">Modules metier · Adaptateurs d'infrastructure · Modules transverses · Interfaces fournies/requises (ADR-02/05/08)</font><br/> >];
+  node [fontname="DejaVu Sans", fontsize=10, penwidth=1.4];
+  edge [fontname="DejaVu Sans", fontsize=8.5, color="#34495E", penwidth=1.2, arrowsize=0.7];
+  subgraph cluster_biz {
+    label=<<b>Modules metier (F1–F7)</b>>; labelloc="t"; fontname="DejaVu Sans"; fontsize=12;
+    style="filled,rounded"; fillcolor="#EFF8F2"; color="#1E8449"; penwidth=1.8;
+    margin=14;
+  auth [shape=box, style="filled", fillcolor="#FADBD8", color="#A93226", penwidth=1.6, margin="0.16,0.10", label=<<table border="0" cellborder="0" cellspacing="0" cellpadding="2"><tr><td align="right"><font point-size="9" color="#A93226">«module» ▣</font></td></tr><tr><td align="center"><b>AuthModule</b></td></tr><tr><td align="center"><font point-size="8">JWT RS256 · MFA TOTP · Guards RBAC</font></td></tr></table>>];
+  users [shape=box, style="filled", fillcolor="#D5F5E3", color="#1E8449", penwidth=1.6, margin="0.16,0.10", label=<<table border="0" cellborder="0" cellspacing="0" cellpadding="2"><tr><td align="right"><font point-size="9" color="#1E8449">«module» ▣</font></td></tr><tr><td align="center"><b>UsersModule</b></td></tr><tr><td align="center"><font point-size="8">comptes · RBAC</font></td></tr></table>>];
+  form [shape=box, style="filled", fillcolor="#D5F5E3", color="#1E8449", penwidth=1.6, margin="0.16,0.10", label=<<table border="0" cellborder="0" cellspacing="0" cellpadding="2"><tr><td align="right"><font point-size="9" color="#1E8449">«module» ▣</font></td></tr><tr><td align="center"><b>FormationsModule</b></td></tr><tr><td align="center"><font point-size="8">formations · modules · inscriptions</font></td></tr></table>>];
+  qcm [shape=box, style="filled", fillcolor="#D5F5E3", color="#1E8449", penwidth=1.6, margin="0.16,0.10", label=<<table border="0" cellborder="0" cellspacing="0" cellpadding="2"><tr><td align="right"><font point-size="9" color="#1E8449">«module» ▣</font></td></tr><tr><td align="center"><b>QCMModule</b></td></tr><tr><td align="center"><font point-size="8">QCM · anti-fraude · scoring</font></td></tr></table>>];
+  atel [shape=box, style="filled", fillcolor="#D5F5E3", color="#1E8449", penwidth=1.6, margin="0.16,0.10", label=<<table border="0" cellborder="0" cellspacing="0" cellpadding="2"><tr><td align="right"><font point-size="9" color="#1E8449">«module» ▣</font></td></tr><tr><td align="center"><b>AteliersModule</b></td></tr><tr><td align="center"><font point-size="8">livrables · correction · feedback</font></td></tr></table>>];
+  cert [shape=box, style="filled", fillcolor="#D5F5E3", color="#1E8449", penwidth=1.6, margin="0.16,0.10", label=<<table border="0" cellborder="0" cellspacing="0" cellpadding="2"><tr><td align="right"><font point-size="9" color="#1E8449">«module» ▣</font></td></tr><tr><td align="center"><b>CertificatsModule</b></td></tr><tr><td align="center"><font point-size="8">emission · SHA-256 · revocation</font></td></tr></table>>];
+  ia [shape=box, style="filled", fillcolor="#D5F5E3", color="#1E8449", penwidth=1.6, margin="0.16,0.10", label=<<table border="0" cellborder="0" cellspacing="0" cellpadding="2"><tr><td align="right"><font point-size="9" color="#1E8449">«module» ▣</font></td></tr><tr><td align="center"><b>AssistanceIAModule</b></td></tr><tr><td align="center"><font point-size="8">RAG · generation QCM · alertes</font></td></tr></table>>];
+  notif [shape=box, style="filled", fillcolor="#D5F5E3", color="#1E8449", penwidth=1.6, margin="0.16,0.10", label=<<table border="0" cellborder="0" cellspacing="0" cellpadding="2"><tr><td align="right"><font point-size="9" color="#1E8449">«module» ▣</font></td></tr><tr><td align="center"><b>NotificationsModule</b></td></tr><tr><td align="center"><font point-size="8">SSE push</font></td></tr></table>>];
+  audit [shape=box, style="filled", fillcolor="#D5F5E3", color="#1E8449", penwidth=1.6, margin="0.16,0.10", label=<<table border="0" cellborder="0" cellspacing="0" cellpadding="2"><tr><td align="right"><font point-size="9" color="#1E8449">«module» ▣</font></td></tr><tr><td align="center"><b>AuditModule</b></td></tr><tr><td align="center"><font point-size="8">intercepteur global · journaux immuables</font></td></tr></table>>];
+  }
+  subgraph cluster_inf {
+    label=<<b>Adaptateurs d'infrastructure (ports swappables)</b>>; labelloc="t"; fontname="DejaVu Sans"; fontsize=12;
+    style="filled,rounded"; fillcolor="#EFF4FB"; color="#1B4F72"; penwidth=1.8;
+    margin=14;
+  llm [shape=box, style="filled", fillcolor="#D6EAF8", color="#1B4F72", penwidth=1.6, margin="0.16,0.10", label=<<table border="0" cellborder="0" cellspacing="0" cellpadding="2"><tr><td align="right"><font point-size="9" color="#1B4F72">«module» ▣</font></td></tr><tr><td align="center"><b>LLMAdapterModule</b></td></tr><tr><td align="center"><font point-size="8">ILLMProvider — swappable</font></td></tr></table>>];
+  stor [shape=box, style="filled", fillcolor="#D6EAF8", color="#1B4F72", penwidth=1.6, margin="0.16,0.10", label=<<table border="0" cellborder="0" cellspacing="0" cellpadding="2"><tr><td align="right"><font point-size="9" color="#1B4F72">«module» ▣</font></td></tr><tr><td align="center"><b>StorageAdapterModule</b></td></tr><tr><td align="center"><font point-size="8">IStorageProvider — S3/MinIO</font></td></tr></table>>];
+  mail [shape=box, style="filled", fillcolor="#D6EAF8", color="#1B4F72", penwidth=1.6, margin="0.16,0.10", label=<<table border="0" cellborder="0" cellspacing="0" cellpadding="2"><tr><td align="right"><font point-size="9" color="#1B4F72">«module» ▣</font></td></tr><tr><td align="center"><b>EmailAdapterModule</b></td></tr><tr><td align="center"><font point-size="8">IEmailProvider — SMTP</font></td></tr></table>>];
+  queue [shape=box, style="filled", fillcolor="#D6EAF8", color="#1B4F72", penwidth=1.6, margin="0.16,0.10", label=<<table border="0" cellborder="0" cellspacing="0" cellpadding="2"><tr><td align="right"><font point-size="9" color="#1B4F72">«module» ▣</font></td></tr><tr><td align="center"><b>QueueAdapterModule</b></td></tr><tr><td align="center"><font point-size="8">IQueueProvider — Bull/Redis</font></td></tr></table>>];
+  }
+  subgraph cluster_tra {
+    label=<<b>Modules transverses</b>>; labelloc="t"; fontname="DejaVu Sans"; fontsize=12;
+    style="filled,rounded"; fillcolor="#F2F3F4"; color="#566573"; penwidth=1.8;
+    margin=14;
+  config [shape=box, style="filled", fillcolor="#EAECEE", color="#566573", penwidth=1.6, margin="0.16,0.10", label=<<table border="0" cellborder="0" cellspacing="0" cellpadding="2"><tr><td align="right"><font point-size="9" color="#566573">«module» ▣</font></td></tr><tr><td align="center"><b>ConfigModule</b></td></tr><tr><td align="center"><font point-size="8">config typee</font></td></tr></table>>];
+  db [shape=box, style="filled", fillcolor="#EAECEE", color="#566573", penwidth=1.6, margin="0.16,0.10", label=<<table border="0" cellborder="0" cellspacing="0" cellpadding="2"><tr><td align="right"><font point-size="9" color="#566573">«module» ▣</font></td></tr><tr><td align="center"><b>DatabaseModule</b></td></tr><tr><td align="center"><font point-size="8">TypeORM · PostgreSQL · pgvector</font></td></tr></table>>];
+  log [shape=box, style="filled", fillcolor="#EAECEE", color="#566573", penwidth=1.6, margin="0.16,0.10", label=<<table border="0" cellborder="0" cellspacing="0" cellpadding="2"><tr><td align="right"><font point-size="9" color="#566573">«module» ▣</font></td></tr><tr><td align="center"><b>LoggerModule</b></td></tr><tr><td align="center"><font point-size="8">logs structures</font></td></tr></table>>];
+  }
+  subgraph cluster_ext {
+    label=<<b>Services externes</b>>; labelloc="t"; fontname="DejaVu Sans"; fontsize=12;
+    style="filled,rounded"; fillcolor="#FCF3E9"; color="#CA6F1E"; penwidth=1.8;
+    margin=14;
+  x_llm [shape=box, style="filled,dashed", fillcolor="#FDEBD0", color="#CA6F1E", penwidth=1.5, margin="0.16,0.10", label=<<table border="0" cellborder="0" cellspacing="0" cellpadding="2"><tr><td align="right"><font point-size="9" color="#CA6F1E">«external»</font></td></tr><tr><td align="center"><b>API LLM</b></td></tr><tr><td align="center"><font point-size="8">GPT-4o / Claude / Mistral</font></td></tr></table>>];
+  x_smtp [shape=box, style="filled,dashed", fillcolor="#FDEBD0", color="#CA6F1E", penwidth=1.5, margin="0.16,0.10", label=<<table border="0" cellborder="0" cellspacing="0" cellpadding="2"><tr><td align="right"><font point-size="9" color="#CA6F1E">«external»</font></td></tr><tr><td align="center"><b>Service SMTP</b></td></tr></table>>];
+  x_mfa [shape=box, style="filled,dashed", fillcolor="#FDEBD0", color="#CA6F1E", penwidth=1.5, margin="0.16,0.10", label=<<table border="0" cellborder="0" cellspacing="0" cellpadding="2"><tr><td align="right"><font point-size="9" color="#CA6F1E">«external»</font></td></tr><tr><td align="center"><b>Service MFA / TOTP</b></td></tr></table>>];
+  }
+  i_llm [shape=circle, width=0.13, fixedsize=true, style=filled, fillcolor="#1B4F72", color="#1B4F72", label=""];
+  llm -> i_llm [arrowhead=none, color="#1B4F72", penwidth=1.3, xlabel="ILLMProvider"];
+  i_stor [shape=circle, width=0.13, fixedsize=true, style=filled, fillcolor="#1B4F72", color="#1B4F72", label=""];
+  stor -> i_stor [arrowhead=none, color="#1B4F72", penwidth=1.3, xlabel="IStorageProvider"];
+  i_mail [shape=circle, width=0.13, fixedsize=true, style=filled, fillcolor="#1B4F72", color="#1B4F72", label=""];
+  mail -> i_mail [arrowhead=none, color="#1B4F72", penwidth=1.3, xlabel="IEmailProvider"];
+  i_queue [shape=circle, width=0.13, fixedsize=true, style=filled, fillcolor="#1B4F72", color="#1B4F72", label=""];
+  queue -> i_queue [arrowhead=none, color="#1B4F72", penwidth=1.3, xlabel="IQueueProvider"];
+  i_guard [shape=circle, width=0.13, fixedsize=true, style=filled, fillcolor="#A93226", color="#A93226", label=""];
+  auth -> i_guard [arrowhead=none, color="#A93226", penwidth=1.3, xlabel="JwtAuthGuard + RolesGuard"];
+  i_sse [shape=circle, width=0.13, fixedsize=true, style=filled, fillcolor="#1E8449", color="#1E8449", label=""];
+  notif -> i_sse [arrowhead=none, color="#1E8449", penwidth=1.3, xlabel="SSE channel"];
+  i_audit [shape=circle, width=0.13, fixedsize=true, style=filled, fillcolor="#1E8449", color="#1E8449", label=""];
+  audit -> i_audit [arrowhead=none, color="#1E8449", penwidth=1.3, xlabel="AuditInterceptor"];
+  ia -> i_llm [style=dashed, color="#1B4F72", penwidth=1.3, arrowhead=open, xlabel="requires"];
+  ia -> i_queue [style=dashed, color="#1B4F72", penwidth=1.3, arrowhead=open, xlabel="requires"];
+  ia -> i_stor [style=dashed, color="#1B4F72", penwidth=1.3, arrowhead=open, xlabel="requires"];
+  ia -> i_sse [style=dashed, color="#1E8449", penwidth=1.3, arrowhead=open, xlabel="notifie"];
+  cert -> i_stor [style=dashed, color="#1B4F72", penwidth=1.3, arrowhead=open, xlabel="requires"];
+  cert -> i_queue [style=dashed, color="#1B4F72", penwidth=1.3, arrowhead=open, xlabel="requires"];
+  atel -> i_stor [style=dashed, color="#1B4F72", penwidth=1.3, arrowhead=open, xlabel="requires"];
+  atel -> i_sse [style=dashed, color="#1E8449", penwidth=1.3, arrowhead=open, xlabel="notifie"];
+  notif -> i_mail [style=dashed, color="#1B4F72", penwidth=1.3, arrowhead=open, xlabel="requires"];
+  qcm -> i_queue [style=dashed, color="#1B4F72", penwidth=1.3, arrowhead=open, xlabel="requires"];
+  qcm -> i_guard [style=dashed, color="#A93226", penwidth=1.3, arrowhead=open, xlabel="protege par"];
+  cert -> i_guard [style=dashed, color="#A93226", penwidth=1.3, arrowhead=open, xlabel="protege par"];
+  llm -> x_llm [style=dashed, color="#CA6F1E", penwidth=1.3, arrowhead=open, xlabel="HTTPS"];
+  mail -> x_smtp [style=dashed, color="#CA6F1E", penwidth=1.3, arrowhead=open, xlabel="SMTP/TLS"];
+  auth -> x_mfa [style=dashed, color="#CA6F1E", penwidth=1.3, arrowhead=open, xlabel="TOTP"];
+  n_tra [shape=note, style=filled, fillcolor="#F2F3F4", color="#566573", fontsize=8.5, margin="0.12,0.08", label="ConfigModule, DatabaseModule et LoggerModule\nsont requis par TOUS les modules metier\net les adaptateurs (liens non traces\npour la lisibilite)."];
+  config -> n_tra [style=dotted, arrowhead=none, color="#566573", constraint=false];
+  n_guard [shape=note, style=filled, fillcolor="#FDEDEC", color="#A93226", fontsize=8.5, margin="0.12,0.08", label="JwtAuthGuard + RolesGuard fournis par\nAuthModule sont appliques a TOUS les\nmodules metier (2 liens montres en exemple)."];
+  auth -> n_guard [style=dotted, arrowhead=none, color="#A93226", constraint=false];
+  n_ia [shape=note, style=filled, fillcolor="#EAF6EE", color="#1E8449", fontsize=8.5, margin="0.12,0.08", label="AssistanceIAModule : composant le plus\nconnecte — pipeline RAG (LLM + Queue +\nStorage + pgvector via DatabaseModule)."];
+  ia -> n_ia [style=dotted, arrowhead=none, color="#1E8449", constraint=false];
+  // empilement vertical des clusters via aretes d'ancrage fortes
+  auth -> queue [style=invis, weight=40];
+  cert -> stor [style=invis, weight=40];
+  ia -> llm [style=invis, weight=40];
+  llm -> x_llm [style=invis, weight=40];
+  queue -> x_smtp [style=invis, weight=20];
+  {rank=same; auth; users; form; qcm; atel;}
+  {rank=same; cert; ia; notif; audit;}
+  {rank=same; llm; stor; mail; queue;}
+  {rank=same; config; db; log;}
+  {rank=same; x_llm; x_smtp; x_mfa;}
+  auth -> cert [style=invis, weight=10];
+}

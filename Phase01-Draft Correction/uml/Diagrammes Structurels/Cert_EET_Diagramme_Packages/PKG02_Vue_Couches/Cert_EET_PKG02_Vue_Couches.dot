@@ -1,0 +1,63 @@
+digraph packages {
+  graph [rankdir=TB, splines=ortho, nodesep=0.5, ranksep=0.95,
+         fontname="DejaVu Sans", fontsize=11, labelloc="t", compound=true,
+         newrank=true, bgcolor="white", pad=0.4, forcelabels=true,
+         label=<<b>Cert_EET — PKG-02 : Vue en couches &amp; regles de dependance</b><br/><font point-size="10">Architecture en couches NestJS — dependances descendantes uniquement (CdC 6.2 : modularite)</font><br/> >];
+  node [fontname="DejaVu Sans", fontsize=10, penwidth=1.4];
+  edge [fontname="DejaVu Sans", fontsize=8.5, color="#34495E", penwidth=1.3, arrowsize=0.8];
+  subgraph cluster_c_app {
+    label=<<b>1 · Couche Application</b>>; labelloc="t"; fontname="DejaVu Sans"; fontsize=12;
+    style="filled,rounded"; fillcolor="#FEFBEF"; color="#B7950B"; penwidth=1.8;
+    margin=14;
+  main [shape=plaintext, margin=0, label=<<table border="0" cellborder="1" cellspacing="0" cellpadding="4" color="#B7950B"><tr><td align="left" bgcolor="#B7950B"><font color="white" point-size="8"> ▭ </font></td><td bgcolor="#FCF3CF"></td></tr><tr><td colspan="2" bgcolor="#FCF3CF"><b>main.ts — AppModule</b><br/><font point-size="8">bootstrap · assemblage des modules</font></td></tr></table>>];
+  }
+  subgraph cluster_c_biz {
+    label=<<b>2 · Couche Modules metier (independants entre eux)</b>>; labelloc="t"; fontname="DejaVu Sans"; fontsize=12;
+    style="filled,rounded"; fillcolor="#EFF8F2"; color="#1E8449"; penwidth=1.8;
+    margin=14;
+  p_auth [shape=plaintext, margin=0, label=<<table border="0" cellborder="1" cellspacing="0" cellpadding="4" color="#1E8449"><tr><td align="left" bgcolor="#1E8449"><font color="white" point-size="8"> ▭ </font></td><td bgcolor="#D5F5E3"></td></tr><tr><td colspan="2" bgcolor="#D5F5E3"><b>auth</b></td></tr></table>>];
+  p_users [shape=plaintext, margin=0, label=<<table border="0" cellborder="1" cellspacing="0" cellpadding="4" color="#1E8449"><tr><td align="left" bgcolor="#1E8449"><font color="white" point-size="8"> ▭ </font></td><td bgcolor="#D5F5E3"></td></tr><tr><td colspan="2" bgcolor="#D5F5E3"><b>users</b></td></tr></table>>];
+  p_form [shape=plaintext, margin=0, label=<<table border="0" cellborder="1" cellspacing="0" cellpadding="4" color="#1E8449"><tr><td align="left" bgcolor="#1E8449"><font color="white" point-size="8"> ▭ </font></td><td bgcolor="#D5F5E3"></td></tr><tr><td colspan="2" bgcolor="#D5F5E3"><b>formations</b></td></tr></table>>];
+  p_qcm [shape=plaintext, margin=0, label=<<table border="0" cellborder="1" cellspacing="0" cellpadding="4" color="#1E8449"><tr><td align="left" bgcolor="#1E8449"><font color="white" point-size="8"> ▭ </font></td><td bgcolor="#D5F5E3"></td></tr><tr><td colspan="2" bgcolor="#D5F5E3"><b>qcm</b></td></tr></table>>];
+  p_atel [shape=plaintext, margin=0, label=<<table border="0" cellborder="1" cellspacing="0" cellpadding="4" color="#1E8449"><tr><td align="left" bgcolor="#1E8449"><font color="white" point-size="8"> ▭ </font></td><td bgcolor="#D5F5E3"></td></tr><tr><td colspan="2" bgcolor="#D5F5E3"><b>ateliers</b></td></tr></table>>];
+  p_cert [shape=plaintext, margin=0, label=<<table border="0" cellborder="1" cellspacing="0" cellpadding="4" color="#1E8449"><tr><td align="left" bgcolor="#1E8449"><font color="white" point-size="8"> ▭ </font></td><td bgcolor="#D5F5E3"></td></tr><tr><td colspan="2" bgcolor="#D5F5E3"><b>certificats</b></td></tr></table>>];
+  p_ia [shape=plaintext, margin=0, label=<<table border="0" cellborder="1" cellspacing="0" cellpadding="4" color="#1E8449"><tr><td align="left" bgcolor="#1E8449"><font color="white" point-size="8"> ▭ </font></td><td bgcolor="#D5F5E3"></td></tr><tr><td colspan="2" bgcolor="#D5F5E3"><b>assistance-ia</b></td></tr></table>>];
+  p_notif [shape=plaintext, margin=0, label=<<table border="0" cellborder="1" cellspacing="0" cellpadding="4" color="#1E8449"><tr><td align="left" bgcolor="#1E8449"><font color="white" point-size="8"> ▭ </font></td><td bgcolor="#D5F5E3"></td></tr><tr><td colspan="2" bgcolor="#D5F5E3"><b>notifications</b></td></tr></table>>];
+  p_audit [shape=plaintext, margin=0, label=<<table border="0" cellborder="1" cellspacing="0" cellpadding="4" color="#1E8449"><tr><td align="left" bgcolor="#1E8449"><font color="white" point-size="8"> ▭ </font></td><td bgcolor="#D5F5E3"></td></tr><tr><td colspan="2" bgcolor="#D5F5E3"><b>audit</b></td></tr></table>>];
+  }
+  subgraph cluster_c_tra {
+    label=<<b>3 · Couche Transverse (shared + common)</b>>; labelloc="t"; fontname="DejaVu Sans"; fontsize=12;
+    style="filled,rounded"; fillcolor="#F2F3F4"; color="#566573"; penwidth=1.8;
+    margin=14;
+  p_shared [shape=plaintext, margin=0, label=<<table border="0" cellborder="1" cellspacing="0" cellpadding="4" color="#566573"><tr><td align="left" bgcolor="#566573"><font color="white" point-size="8"> ▭ </font></td><td bgcolor="#EAECEE"></td></tr><tr><td colspan="2" bgcolor="#EAECEE"><b>shared</b><br/><font point-size="8">dto · entities · interfaces · enums</font></td></tr></table>>];
+  p_common [shape=plaintext, margin=0, label=<<table border="0" cellborder="1" cellspacing="0" cellpadding="4" color="#566573"><tr><td align="left" bgcolor="#566573"><font color="white" point-size="8"> ▭ </font></td><td bgcolor="#EAECEE"></td></tr><tr><td colspan="2" bgcolor="#EAECEE"><b>common</b><br/><font point-size="8">filters · interceptors · pipes · decorators</font></td></tr></table>>];
+  }
+  subgraph cluster_c_cfg {
+    label=<<b>4 · Couche Configuration (socle)</b>>; labelloc="t"; fontname="DejaVu Sans"; fontsize=12;
+    style="filled,rounded"; fillcolor="#EAF1FB"; color="#1B4F72"; penwidth=1.8;
+    margin=14;
+  p_config [shape=plaintext, margin=0, label=<<table border="0" cellborder="1" cellspacing="0" cellpadding="4" color="#1B4F72"><tr><td align="left" bgcolor="#1B4F72"><font color="white" point-size="8"> ▭ </font></td><td bgcolor="#D6EAF8"></td></tr><tr><td colspan="2" bgcolor="#D6EAF8"><b>config</b><br/><font point-size="8">configuration.ts · ne depend de rien</font></td></tr></table>>];
+  }
+  main -> p_qcm [style=dashed, color="#B7950B", arrowhead=open, penwidth=1.3, xlabel="importe les modules"];
+  p_qcm -> p_shared [style=dashed, color="#1E8449", arrowhead=open, penwidth=1.3, xlabel="importe"];
+  p_cert -> p_shared [style=dashed, color="#1E8449", arrowhead=open, penwidth=1.3, xlabel="importe"];
+  p_ia -> p_common [style=dashed, color="#1E8449", arrowhead=open, penwidth=1.3, xlabel="importe"];
+  p_shared -> p_config [style=dashed, color="#566573", arrowhead=open, penwidth=1.3, xlabel="importe"];
+  p_common -> p_config [style=dashed, color="#566573", arrowhead=open, penwidth=1.3, xlabel="importe"];
+  p_shared -> p_auth [style=dashed, color="#A93226", penwidth=2.0, arrowhead=open, xlabel="✖ import montant interdit", fontcolor="#A93226", constraint=false];
+  r1 [shape=note, style=filled, fillcolor="#FEFBEF", color="#B7950B", fontsize=8.5, margin="0.12,0.08", label="REGLE 1 — main.ts importe les modules ;\naucun module n'importe main.ts."];
+  main -> r1 [style=dotted, arrowhead=none, color="#B7950B", constraint=false];
+  r2 [shape=note, style=filled, fillcolor="#FDEDEC", color="#A93226", fontsize=8.5, margin="0.12,0.08", label="REGLE 2 — les modules metier importent\nshared/common, JAMAIS l'inverse\n(eviter le couplage circulaire)."];
+  p_shared -> r2 [style=dotted, arrowhead=none, color="#A93226", constraint=false];
+  r3 [shape=note, style=filled, fillcolor="#EAF1FB", color="#1B4F72", fontsize=8.5, margin="0.12,0.08", label="REGLE 3 — tout depend de config ;\nconfig ne depend de rien (couche socle)."];
+  p_config -> r3 [style=dotted, arrowhead=none, color="#1B4F72", constraint=false];
+  r4 [shape=note, style=filled, fillcolor="#EAF6EE", color="#1E8449", fontsize=8.5, margin="0.12,0.08", label="REGLE 4 — les modules metier sont\nindependants entre eux : leurs interactions\npassent par les interfaces (cf. COMP-01),\npas par des imports croises directs."];
+  p_audit -> r4 [style=dotted, arrowhead=none, color="#1E8449", constraint=false];
+  // empilement des couches
+  main -> p_qcm [style=invis, weight=30];
+  p_qcm -> p_shared [style=invis, weight=30];
+  p_shared -> p_config [style=invis, weight=30];
+  {rank=same; p_auth; p_users; p_form; p_qcm; p_atel;}
+  {rank=same; p_cert; p_ia; p_notif; p_audit;}
+  {rank=same; p_shared; p_common;}
+}

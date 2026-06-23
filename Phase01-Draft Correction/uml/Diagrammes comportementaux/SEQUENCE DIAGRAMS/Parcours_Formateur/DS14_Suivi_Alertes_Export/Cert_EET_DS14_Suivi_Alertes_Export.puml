@@ -1,0 +1,181 @@
+@startuml Cert_EET_DS14_Suivi_Formateur
+' =====================================================================
+'  DS-14 — Suivi progression + Alerte décrochage + Export rapport
+'  Acteur : Formateur · Ref : UC7 + UC8 + UC9 Formateur · F6
+' =====================================================================
+!pragma teoz true
+skinparam backgroundColor #FFFFFF
+skinparam shadowing false
+skinparam DefaultFontName "Segoe UI"
+skinparam DefaultFontSize 10
+skinparam sequenceMessageAlign center
+skinparam responseMessageBelowArrow true
+skinparam ParticipantPadding 18
+skinparam ArrowThickness 1.2
+skinparam LifeLineBorderThickness 1.0
+skinparam participant {
+  BackgroundColor #FFFFFF
+  BorderColor #5D6D7E
+}
+skinparam actor {
+  BackgroundColor #ECF0F1
+  BorderColor #1B4F72
+  FontStyle bold
+}
+skinparam database {
+  BackgroundColor #EBF5FB
+  BorderColor #1B4F72
+}
+skinparam boundary {
+  BackgroundColor #FEF9E7
+  BorderColor #B7950B
+}
+skinparam control {
+  BackgroundColor #FAE5D3
+  BorderColor #BA4A00
+}
+skinparam collections {
+  BackgroundColor #E8F8F5
+  BorderColor #1E8449
+}
+skinparam entity {
+  BackgroundColor #E8DAEF
+  BorderColor #7D3C98
+}
+skinparam note {
+  BackgroundColor #FEF9E7
+  BorderColor #B7950B
+  FontSize 9
+}
+skinparam sequence {
+  ArrowColor #34495E
+  LifeLineBorderColor #7F8C8D
+  LifeLineBackgroundColor #FDFEFE
+  GroupBorderColor #1B4F72
+  GroupHeaderFontColor #1B4F72
+  GroupHeaderFontStyle bold
+  DividerBorderColor #1B4F72
+  DividerBackgroundColor #D6EAF8
+  DividerFontColor #1B4F72
+  DividerFontStyle bold
+}
+
+title <size:14><b>Cert_EET — DS-14 : Suivi Progression + Alertes Décrochage + Export Rapport</b></size>\n<size:10>UC7 + UC8 + UC9 Formateur · Analytics · F6</size>
+
+actor "Formateur" as FOR
+boundary "Frontend\n(Next.js)" as FE
+control "SuiviController\n(NestJS)" as SC
+control "SuiviService" as SS
+control "AlerteService" as ALS
+entity "ReportWorker\n(Bull/Redis)" as RW
+database "PostgreSQL" as DB
+collections "NotifService" as NOTIF
+
+== Partie 1 — Tableau de bord pédagogique (UC7) ==
+
+FOR -> FE  : Ouvre l'onglet "Suivi"\nd'une de ses formations
+FE  -> SC  : GET /formations/:id/suivi\n(Bearer token formateur)
+
+SC  -> SS  : getTableauBordFormateur(\n  formateurId, formationId\n)
+SS  -> DB  : Vérifie que le formateur\nanime cette formation (RBAC)
+SS  -> DB  : SELECT inscriptions,\ntentatives_qcm, livrables,\ncertificats\nWHERE formationId = :id
+DB --> SS  : données brutes
+
+SS  -> SS  : Calcule KPIs :\n• nbInscrits / nbActifs / nbDecrocheurs\n• tauxCompletionGlobal\n• scoreMoyenQCM\n• scoreMoyenAteliers\n• histogramme de scores
+
+SS  -> SS  : Pour chaque apprenant :\n• avancement %\n• dernièreActivite\n• scoresQCM[]\n• scoresAteliers[]\n• statutRisque (calcul décrochage)
+
+SS --> SC  : { kpis, apprenants[],\n  histogramme }
+SC --> FE  : HTTP 200 OK
+FE --> FOR : Tableau de bord :\n• KPIs globaux + graphiques\n• Tableau apprenants\n  (triable / filtrable)\n• Badge rouge sur apprenants\n  à risque de décrochage
+
+FOR -> FE  : Clique sur un apprenant\npour voir sa fiche détaillée
+FE  -> SC  : GET /formations/:id/apprenants/:appId
+SC  -> SS  : getFicheApprenant(\n  formateurId, formationId, appId\n)
+SS  -> DB  : SELECT historique complet :\ntentatives, livrables, timestamps,\nscores, alertes
+DB --> SS  : données complètes
+SS --> SC  : ficheApprenant
+SC --> FE  : HTTP 200 OK
+FE --> FOR : Fiche détaillée :\n• Chronologie des activités\n• Détail tentatives QCM\n• Détail livrables soumis\n• Alertes de décrochage passées
+
+== Partie 2 — Réception et traitement d'une alerte décrochage (UC8) ==
+
+note over ALS, DB
+  Le système analyse périodiquement
+  (cron job) les patterns d'activité.
+  Critères de déclenchement :
+  • Absence connexion > 7 jours
+  • 2 échecs consécutifs QCM
+  • Livrable en retard > 48h
+  • Score moyen en chute libre
+end note
+
+ALS -> DB  : [CRON] Analyse activité\ntous les apprenants actifs
+DB --> ALS : données d'activité
+ALS -> ALS : Détecte patterns de risque
+ALS -> DB  : INSERT INTO alertes_decrochage\n({ apprenantId, formateurId,\n  typeRisque, donneesFactuelles,\n  suggestionAction,\n  statut: "Nouvelle" })
+ALS -> NOTIF : notifier(formateurId,\n  "Alerte décrochage : {nomApprenant}",\n  { lienAlerte })
+NOTIF --> FOR : Notification In-App\n+ Email (si abonné)
+DB --> ALS : OK
+
+FOR -> FE  : Clique sur la notification\n"Alerte décrochage"
+FE  -> SC  : GET /alertes/:alerteId
+SC  -> DB  : SELECT alerte, apprenant,\ndonnees_factuelles
+DB --> SC  : alerte complète
+SC --> FE  : HTTP 200 OK
+FE --> FOR : Détail de l'alerte :\n• Apprenant concerné\n• Type de risque (avec données)\n• Suggestion d'action
+
+FOR -> FE  : Prend une action\net marque "Traitée"
+FE  -> SC  : PATCH /alertes/:alerteId\n{ statut: "Traitée",\n  actionPrise: "..." }
+SC  -> DB  : UPDATE alertes SET\nstatut = "Traitée",\ndateTraitement = NOW(),\nactionPrise = :action
+SC  -> DB  : INSERT INTO audit_log\n({ action: "ALERTE_TRAITEE",\n  alerteId, formateurId })
+DB --> SC  : OK
+SC --> FE  : HTTP 200 OK
+FE --> FOR : "Alerte marquée comme traitée"
+
+== Partie 3 — Export d'un rapport de session (UC9) ==
+
+FOR -> FE  : Clique "Exporter un rapport"
+FE --> FOR : Formulaire d'export :\n• Type : Global / Individuel /\n  Par module\n• Format : PDF / CSV\n• Période : du ... au ...
+
+FOR -> FE  : Choisit les options\net clique "Générer"
+FE  -> SC  : POST /rapports\n{ type: "global",\n  format: "pdf",\n  formationId,\n  periode: { debut, fin } }
+SC  -> SS  : genererRapport(data)
+SS  -> DB  : Vérifie RBAC formateur\nsur cette formation
+
+alt #FFE8E8 Formation non autorisée
+  SS --> SC : ForbiddenException
+  SC --> FE : HTTP 403
+  FE --> FOR : "Accès non autorisé"
+else #E8F8F5 Autorisé
+  SS  -> DB  : INSERT INTO rapports\n({ formateurId, formationId,\n  type, format, statut: "EnCours" })
+  DB --> SS  : rapportId
+
+  SS  -> RW  : queue.add("generer-rapport",\n  { rapportId })
+
+  SS --> SC  : { rapportId, statut: "EnCours" }
+  SC --> FE  : HTTP 202 Accepted
+  FE --> FOR : "Génération en cours…"
+end
+
+RW  -> DB  : Récupère les données\nde la formation
+DB --> RW  : données agrégées
+
+RW  -> RW  : Génère le fichier\n(PDF avec en-tête ESPRIT\nou CSV brut)
+
+RW  -> DB  : UPDATE rapports SET\nstatut = "Prêt",\ncheminFichier = :chemin
+RW  -> NOTIF : notifier(formateurId,\n  "Votre rapport est prêt")
+NOTIF --> FOR : Notification In-App
+
+FOR -> FE  : Clique "Télécharger"
+FE  -> SC  : GET /rapports/:rapportId/download
+SC  -> DB  : SELECT cheminFichier\nWHERE rapportId = :id
+DB --> SC  : cheminFichier
+SC --> FE  : HTTP 200\nContent-Disposition: attachment
+FE --> FOR : Téléchargement du rapport
+
+legend bottom
+  | <back:#E8F8F5> vert  </back> | Succès |
+  | <back:#FFE8E8> rouge </back> | Erreur / RBAC |
+endlegend
+@enduml

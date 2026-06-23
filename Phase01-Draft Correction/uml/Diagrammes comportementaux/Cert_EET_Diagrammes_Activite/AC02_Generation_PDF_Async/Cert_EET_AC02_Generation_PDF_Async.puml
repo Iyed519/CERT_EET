@@ -1,0 +1,66 @@
+@startuml Cert_EET_AC02_Generation_PDF_Async
+' =====================================================================
+'  Projet    : Cert_EET — Diagramme d'activite AC-02
+'  Generation PDF asynchrone du certificat — Thread web | Bull/Redis | Worker | Stockage/Notif
+'  Auteur    : Iyed Omri — PFE ESPRIT 2026
+'  Rendu     : PlantUML (linetype ortho). PNG de reference rendu via Graphviz.
+' =====================================================================
+skinparam backgroundColor #FFFFFF
+skinparam shadowing false
+skinparam DefaultFontName "Segoe UI"
+skinparam DefaultFontSize 11
+skinparam linetype ortho
+skinparam ArrowColor #34495E
+skinparam ArrowThickness 1.3
+skinparam ActivityBorderThickness 1.4
+skinparam ActivityDiamondBackgroundColor #FCF3CF
+skinparam ActivityDiamondBorderColor #B7950B
+skinparam ActivityBarColor #000000
+skinparam swimlane {
+  BorderColor #5D6D7E
+  BorderThickness 1.6
+  TitleFontStyle bold
+  TitleFontSize 13
+}
+' Couleurs des noeuds (via #color inline) :
+'   vert  #D5F5E3 = action   | bleu  #D6EAF8 = async/worker
+'   jaune #FCF3CF = decision | rouge #FADBD8 = erreur/rejet
+title <size:14><b>Cert_EET — AC-02 : Generation PDF asynchrone du certificat</b></size>\n<size:10>Thread web : File Bull/Redis : Worker : Stockage/Notif — fork/join + retry (F3 . ADR-04)</size>
+
+|#F4F8FB|Thread web|
+start
+:Verifier l'eligibilite\na la certification|
+#D5F5E3:INSERT certificat\nstatut = EN_ATTENTE_GENERATION;
+#D6EAF8:Enfiler le job "generer-certificat"\n{ attempts:3, backoff:5s };
+#D5F5E3:Repondre HTTP 202\n(thread web libere);
+stop
+|#F2FBF6|File Bull / Redis|
+#D6EAF8:Depiler le job;
+|#FBF7F0|Worker|
+#D6EAF8:Statut = EN_GENERATION;
+fork
+  #D6EAF8:Generer le PDF (PDFKit);
+fork again
+  #D6EAF8:Generer le QR code\n(URL + UUID);
+end fork
+#D6EAF8:Calculer l'empreinte SHA-256;
+#D6EAF8:Reconstruire le PDF final\n(QR + hash en pied);
+|File Bull / Redis|
+if (Job reussi ?) then (oui)
+  |#F8F4FB|Stockage / Notif|
+  #D5F5E3:Uploader le PDF (S3 / MinIO);
+  #D5F5E3:Statut = ACTIF\n+ INSERT empreinte_sha256;
+  #D5F5E3:Notifier l'apprenant\n(certificat disponible);
+  stop
+else (non / echec)
+  |File Bull / Redis|
+  #D6EAF8:Backoff exponentiel\n5s / 10s / 20s;
+  if (Tentative < 3 ?) then (oui)
+    #D6EAF8:Re-enfiler le job;
+    detach
+  else (non)
+    #FADBD8:Reset EN_ATTENTE\n+ alerte admin;
+    stop
+  endif
+endif
+@enduml

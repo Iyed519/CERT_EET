@@ -1,0 +1,197 @@
+@startuml Cert_EET_DS15_Gestion_Comptes_Admin
+' =====================================================================
+'  DS-15 — Gestion des comptes (créer, bannir, rôle, anonymiser)
+'  Acteur : Administrateur · Ref : UC1 + UC2 Administrateur · F5/F7
+' =====================================================================
+!pragma teoz true
+skinparam backgroundColor #FFFFFF
+skinparam shadowing false
+skinparam DefaultFontName "Segoe UI"
+skinparam DefaultFontSize 10
+skinparam sequenceMessageAlign center
+skinparam responseMessageBelowArrow true
+skinparam ParticipantPadding 18
+skinparam ArrowThickness 1.2
+skinparam LifeLineBorderThickness 1.0
+skinparam participant {
+  BackgroundColor #FFFFFF
+  BorderColor #5D6D7E
+}
+skinparam actor {
+  BackgroundColor #ECF0F1
+  BorderColor #1B4F72
+  FontStyle bold
+}
+skinparam database {
+  BackgroundColor #EBF5FB
+  BorderColor #1B4F72
+}
+skinparam boundary {
+  BackgroundColor #FEF9E7
+  BorderColor #B7950B
+}
+skinparam control {
+  BackgroundColor #FAE5D3
+  BorderColor #BA4A00
+}
+skinparam collections {
+  BackgroundColor #E8F8F5
+  BorderColor #1E8449
+}
+skinparam note {
+  BackgroundColor #FEF9E7
+  BorderColor #B7950B
+  FontSize 9
+}
+skinparam sequence {
+  ArrowColor #34495E
+  LifeLineBorderColor #7F8C8D
+  LifeLineBackgroundColor #FDFEFE
+  GroupBorderColor #1B4F72
+  GroupHeaderFontColor #1B4F72
+  GroupHeaderFontStyle bold
+  DividerBorderColor #1B4F72
+  DividerBackgroundColor #D6EAF8
+  DividerFontColor #1B4F72
+  DividerFontStyle bold
+}
+
+title <size:14><b>Cert_EET — DS-15 : Gestion des Comptes Utilisateurs</b></size>\n<size:10>Créer · Désactiver/Bannir · Changer rôle · Anonymiser RGPD · UC1+UC2 Admin</size>
+
+actor "Administrateur" as ADM
+boundary "Frontend\n(Next.js)" as FE
+control "UserAdminController\n(NestJS)" as UAC
+control "UserAdminService" as UAS
+collections "Redis\n(Sessions)" as RD
+collections "EmailService" as MAIL
+database "PostgreSQL" as DB
+
+== Partie 1 — Créer un compte utilisateur ==
+
+ADM -> FE  : Accède à "Gestion comptes"\net clique "Nouveau compte"
+FE --> ADM : Formulaire :\n• Nom, prénom, email\n• Rôle (Apprenant/Formateur/Admin)\n• Matricule (si Apprenant)\n• Domaine expertise (si Formateur)
+
+ADM -> FE  : Soumet
+FE  -> UAC : POST /admin/users\n{ nom, prenom, email,\n  role, matricule? }
+UAC -> UAS : creerCompte(adminId, data)
+
+UAS -> DB  : SELECT COUNT WHERE\nemail = :email
+DB --> UAS : 0 ou 1
+
+alt #FFE8E8 Email déjà utilisé
+  UAS --> UAC : ConflictException
+  UAC --> FE  : HTTP 409
+  FE  --> ADM : "Cet email est déjà utilisé"
+else #E8F8F5 Email disponible
+  UAS -> UAS  : genererTokenActivation()\n(UUID, TTL 48h)
+  UAS -> DB   : INSERT INTO users\n({ nom, prenom, email, role,\n  statut: "EN_ATTENTE_ACTIVATION",\n  tokenActivation })
+  DB --> UAS  : userId
+
+  UAS -> MAIL : sendActivationEmail(\n  email,\n  lienActivation: \n  https://cert.esprit.tn/\n  activate/{token}\n)
+  MAIL --> ADM : Email envoyé ✓
+
+  UAS -> DB   : INSERT INTO audit_log\n({ action: "COMPTE_CREE",\n  userId, adminId })
+  DB --> UAS  : OK
+  UAS --> UAC : { userId }
+  UAC --> FE  : HTTP 201 Created
+  FE  --> ADM : "Compte créé. Un email\nd'activation a été envoyé."
+end
+
+== Partie 2 — Désactiver / Bannir un compte ==
+
+ADM -> FE  : Recherche un compte\n(nom, email, matricule)
+FE  -> UAC : GET /admin/users?search=:terme
+UAC -> DB  : SELECT users\nWHERE nom ILIKE :terme\nOR email ILIKE :terme
+DB --> UAC : users[]
+UAC --> FE : HTTP 200 OK
+FE --> ADM : Résultats de la recherche
+
+ADM -> FE  : Sélectionne un compte\net clique "Désactiver"
+FE --> ADM : Confirmation :\n"Pourquoi désactiver ce compte ?"
+ADM -> FE  : Saisit le motif
+
+FE  -> UAC : PATCH /admin/users/:userId\n{ statut: "DESACTIVE", motif }
+UAC -> UAS : desactiverCompte(adminId,\n  userId, motif)
+
+UAS -> DB  : SELECT user WHERE id = :userId
+DB --> UAS : { statut, role }
+
+alt #FFE8E8 Tentative de désactiver\nle seul admin actif
+  UAS -> DB  : SELECT COUNT admins actifs
+  DB --> UAS : 1 (seul admin)
+  UAS --> UAC : ForbiddenException\n"Impossible : dernier admin actif"
+  UAC --> FE  : HTTP 403
+  FE  --> ADM : "Il doit rester au moins\nun administrateur actif"
+else #E8F8F5 OK
+  UAS -> DB   : UPDATE users SET\nstatut = "DESACTIVE"
+  UAS -> RD   : Invalide toutes les sessions\nactives du compte (blacklist)
+  UAS -> DB   : INSERT INTO audit_log\n({ action: "COMPTE_DESACTIVE",\n  userId, adminId, motif })
+  DB --> UAS  : OK
+  UAS --> UAC : OK
+  UAC --> FE  : HTTP 200 OK
+  FE  --> ADM : "Compte désactivé.\nL'utilisateur ne peut plus\nse connecter."
+end
+
+== Partie 3 — Changer le rôle d'un utilisateur (UC2) ==
+
+ADM -> FE  : Sur la fiche d'un utilisateur,\nclique "Modifier le rôle"
+FE --> ADM : Sélecteur de rôle +\nconfirmation double\n(saisie mot de passe admin)
+
+ADM -> FE  : Soumet le nouveau rôle\n+ mot de passe
+FE  -> UAC : PATCH /admin/users/:id/role\n{ nouveauRole, motDePasseAdmin }
+UAC -> UAS : changerRole(adminId, userId,\n  nouveauRole, mdp)
+
+UAS -> DB  : SELECT admin.motDePasseHash
+DB --> UAS : hash
+UAS -> UAS : bcrypt.compare(mdp, hash)
+
+alt #FFE8E8 Mot de passe admin incorrect
+  UAS --> UAC : UnauthorizedException
+  UAC --> FE  : HTTP 401
+  FE  --> ADM : "Mot de passe incorrect"
+else #E8F8F5 Correct
+  UAS -> DB   : UPDATE users SET role = :role
+  UAS -> RD   : Invalide les sessions\n(le nouveau rôle prend\neffet à la prochaine connexion)
+  UAS -> DB   : INSERT INTO audit_log\n({ action: "ROLE_CHANGE",\n  userId, ancienRole,\n  nouveauRole, adminId })
+  DB --> UAS  : OK
+  UAS --> UAC : OK
+  UAC --> FE  : HTTP 200 OK
+  FE  --> ADM : "Rôle mis à jour.\nL'utilisateur doit se\nreconnecter."
+end
+
+== Partie 4 — Anonymisation RGPD ==
+
+note right of ADM
+  Cas d'usage : l'utilisateur
+  demande la suppression de son
+  compte ("droit à l'oubli" RGPD)
+  mais a des données liées
+  (tentatives, livrables, certificats).
+end note
+
+ADM -> FE  : Clique "Anonymiser"\nsur un compte inactif
+FE --> ADM : Avertissement :\n"Cette action remplace les données\npersonnelles par des pseudonymes.\nIrréversible."
+ADM -> FE  : Confirme + saisit\nson mot de passe
+
+FE  -> UAC : POST /admin/users/:id/anonymiser\n{ motDePasseAdmin }
+UAC -> UAS : anonymiser(adminId, userId, mdp)
+
+UAS -> UAS : bcrypt.compare(mdp, hash)
+
+UAS -> DB  : BEGIN TRANSACTION
+UAS -> DB  : UPDATE users SET\nnom = "Utilisateur_Anonymise",\nprenom = "_",\nemail = "anon_{userId}@deleted.cert",\nmatricule = NULL,\nmotDePasseHash = NULL,\nmfaSecret = NULL,\nstatut = "ANONYMISE"
+UAS -> DB  : Conserve : tentatives, livrables,\ncertificats (données pédagogiques\nnon personnelles)
+UAS -> DB  : INSERT INTO audit_log\n({ action: "COMPTE_ANONYMISE",\n  userId, adminId })
+UAS -> DB  : COMMIT
+DB --> UAS : OK
+UAS -> RD  : Invalide toutes les sessions
+
+UAS --> UAC : OK
+UAC --> FE  : HTTP 200 OK
+FE  --> ADM : "Compte anonymisé.\nDonnées pédagogiques conservées,\ndonnées personnelles effacées."
+
+legend bottom
+  | <back:#E8F8F5> vert  </back> | Succès |
+  | <back:#FFE8E8> rouge </back> | Erreur / protection |
+endlegend
+@enduml

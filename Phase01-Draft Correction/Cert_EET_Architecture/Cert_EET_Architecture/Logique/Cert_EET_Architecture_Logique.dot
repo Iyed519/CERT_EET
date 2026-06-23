@@ -1,0 +1,29 @@
+digraph logique {
+  graph [rankdir=TB,splines=ortho,nodesep=0.5,ranksep=0.85,fontname="DejaVu Sans",
+         fontsize=11,labelloc="t",compound=true,bgcolor="white",pad=0.4,
+         label=<<b>Cert_EET — Architecture logique</b><br/><font point-size="11">Architecture 3-tiers : Présentation · Métier · Données</font><br/> >];
+  node [fontname="DejaVu Sans",fontsize=11];
+  edge [fontname="DejaVu Sans",fontsize=10,color="#34495E",penwidth=1.6,arrowsize=0.9];
+  subgraph cluster_c1 {
+    label=<<b>Couche Présentation</b>>;labelloc="t";fontname="DejaVu Sans";fontsize=14;
+    style="filled,rounded";fillcolor="#EAF4FB";color="#1B4F72";penwidth=2.2;margin=18;
+  front [shape=box,style="filled,rounded",fillcolor="#D6EAF8",color="#1B4F72",penwidth=1.8,width=3.4,margin="0.2,0.14",label=<<b>Frontend — Next.js</b><br/><font point-size="9">Interface web (SSR / SSG)<br/>Tableaux de bord · page de vérification</font>>];
+  }
+  subgraph cluster_c2 {
+    label=<<b>Couche Métier (Application)</b>>;labelloc="t";fontname="DejaVu Sans";fontsize=14;
+    style="filled,rounded";fillcolor="#EAF7F0";color="#1E8449";penwidth=2.2;margin=18;
+  api [shape=box,style="filled,rounded",fillcolor="#D5F5E3",color="#1E8449",penwidth=1.8,width=4.6,margin="0.2,0.14",label=<<b>API — NestJS</b><br/><font point-size="9">Logique métier · 9 modules fonctionnels<br/>Auth/RBAC · QCM · Ateliers · Certificats · IA<br/>REST (OpenAPI) + temps réel (SSE)</font>>];
+  }
+  subgraph cluster_c3 {
+    label=<<b>Couche Données</b>>;labelloc="t";fontname="DejaVu Sans";fontsize=14;
+    style="filled,rounded";fillcolor="#FCF3E7";color="#B9770E";penwidth=2.2;margin=18;
+  pg [shape=box,style="filled,rounded",fillcolor="#FDEBD0",color="#B9770E",penwidth=1.8,width=2.2,margin="0.2,0.14",label=<<b>PostgreSQL</b><br/><font point-size="9">Données métier<br/>+ pgvector (RAG)</font>>];
+  redis [shape=box,style="filled,rounded",fillcolor="#FDEBD0",color="#B9770E",penwidth=1.8,width=2.0,margin="0.2,0.14",label=<<b>Redis</b><br/><font point-size="9">Cache · sessions<br/>file de tâches</font>>];
+  minio [shape=box,style="filled,rounded",fillcolor="#FDEBD0",color="#B9770E",penwidth=1.8,width=2.0,margin="0.2,0.14",label=<<b>MinIO</b><br/><font point-size="9">Fichiers (S3)<br/>PDF · livrables</font>>];
+  }
+  front -> api [label="HTTPS / REST"];
+  api -> pg [label="TypeORM"];
+  api -> redis;
+  api -> minio;
+  front -> api [style=invis,weight=20];
+}

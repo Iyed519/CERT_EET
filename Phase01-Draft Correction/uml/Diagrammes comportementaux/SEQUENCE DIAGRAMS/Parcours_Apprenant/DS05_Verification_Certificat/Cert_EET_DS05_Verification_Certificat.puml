@@ -1,0 +1,194 @@
+@startuml Cert_EET_DS05_Verification_Certificat
+' =====================================================================
+'  Projet    : Cert_EET
+'  Diagramme : DS-05 — Vérification publique d'un certificat
+'  Acteur    : Visiteur Public (anonyme, sans compte)
+'  Ref CdC   : F3 (Certification vérifiable) — Lacune G3 Benchmark
+'  Auteur    : Iyed Omri — PFE ESPRIT 2026
+' =====================================================================
+!pragma teoz true
+skinparam backgroundColor #FFFFFF
+skinparam shadowing false
+skinparam DefaultFontName "Segoe UI"
+skinparam DefaultFontSize 10
+skinparam sequenceMessageAlign center
+skinparam responseMessageBelowArrow true
+skinparam ParticipantPadding 18
+skinparam ArrowThickness 1.2
+skinparam LifeLineBorderThickness 1.0
+skinparam participant {
+  BackgroundColor #FFFFFF
+  BorderColor #5D6D7E
+}
+skinparam actor {
+  BackgroundColor #ECF0F1
+  BorderColor #1B4F72
+  FontStyle bold
+}
+skinparam database {
+  BackgroundColor #EBF5FB
+  BorderColor #1B4F72
+}
+skinparam collections {
+  BackgroundColor #E8F8F5
+  BorderColor #1E8449
+}
+skinparam boundary {
+  BackgroundColor #FEF9E7
+  BorderColor #B7950B
+}
+skinparam control {
+  BackgroundColor #FAE5D3
+  BorderColor #BA4A00
+}
+skinparam note {
+  BackgroundColor #FEF9E7
+  BorderColor #B7950B
+  FontSize 9
+}
+skinparam sequence {
+  ArrowColor #34495E
+  LifeLineBorderColor #7F8C8D
+  LifeLineBackgroundColor #FDFEFE
+  GroupBorderColor #1B4F72
+  GroupHeaderFontColor #1B4F72
+  GroupHeaderFontStyle bold
+  DividerBorderColor #1B4F72
+  DividerBackgroundColor #D6EAF8
+  DividerFontColor #1B4F72
+  DividerFontStyle bold
+}
+
+title <size:14><b>Cert_EET — DS-05 : Vérification Publique d'un Certificat</b></size>\n<size:10>Anonyme · QR code → UUID → SHA-256 · Minimisation données · F3 / Lacune G3</size>
+
+actor       "Visiteur Public\n(Recruteur / Anonyme)" as VIS
+boundary    "Smartphone /\nNavigateur" as FE
+control     "VerificationController\n(NestJS — route publique)" as VC
+control     "VerificationService" as VS
+control     "CryptoService" as CRS
+database    "PostgreSQL" as DB
+collections "Redis\n(Rate limiting)" as RD
+control     "StorageService\n(S3/MinIO)" as STO
+
+== Étape 1 — Accès via QR code ou URL directe ==
+
+VIS  ->  FE  : Scanne le QR code\ndu certificat PDF
+FE   ->  FE  : Décode le QR code\n→ https://cert.esprit.tn/v/{uuid}
+FE   ->  VC  : GET /v/{certificatUUID}\n(aucune authentification requise)
+
+note right of VC
+  Route publique, sans JWT.
+  Aucune session requise.
+  Accessible depuis n'importe
+  quel navigateur ou appareil.
+end note
+
+== Étape 2 — Protection anti-abus ==
+
+VC   ->  RD  : INCR rate_limit:verify:{ip}\n(TTL: 60 secondes)
+RD  --> VC   : compteur
+
+alt #FFE8E8 Rate limit dépassé (> 20 req/min/IP)
+  VC  --> FE  : HTTP 429 Too Many Requests\n{ retryAfter: 60 }
+  FE  --> VIS : "Trop de requêtes,\nveuillez patienter"
+end
+
+== Étape 3 — Recherche du certificat ==
+
+VC   ->  VS  : verifierCertificat(certificatUUID)
+VS   ->  DB  : SELECT certificat, empreinte_sha256\nWHERE certificat.id = :uuid
+DB  --> VS   : Résultat
+
+alt #FFE8E8 UUID introuvable
+  VS  --> VC  : { statut: "INTROUVABLE" }
+  VC  --> FE  : HTTP 200 OK\n{ statut: "INTROUVABLE" }
+  FE  --> VIS : Badge orange\n"Certificat introuvable —\nUUID non reconnu"
+else #E8F8F5 Certificat trouvé
+  VS   ->  VS  : statut == "ACTIF" ?\nstatut == "REVOQUE" ?\nstatut == "EXPIRE" ?
+
+  alt #FFE8E8 Certificat RÉVOQUÉ
+    VS  --> VC  : { statut: "REVOQUE",\n  dateRevocation,\n  motifPublic }
+    VC  --> FE  : HTTP 200 OK
+    FE  --> VIS : Badge rouge\n"Certificat révoqué"\n+ date de révocation
+
+  else #FEF9E7 Certificat EXPIRÉ
+    VS  --> VC  : { statut: "EXPIRE",\n  dateExpiration }
+    VC  --> FE  : HTTP 200 OK
+    FE  --> VIS : Badge gris\n"Certificat expiré"
+
+  else #E8F8F5 Certificat ACTIF
+    group #EBF5FB Vérification de l'intégrité SHA-256
+      VS   ->  STO : getPDF(cheminPdf)
+      STO --> VS   : pdfBuffer
+
+      VS   ->  CRS : calculerHash(pdfBuffer)
+      CRS --> VS   : hashRecalcule
+
+      VS   ->  VS  : hashRecalcule ==\nempreinte_sha256.valeurHash ?
+
+      alt #FFE8E8 Hash ne correspond pas\n(PDF altéré)
+        VS  --> VC  : { statut: "INTEGRITE_COMPROMISE" }
+        VC  --> FE  : HTTP 200 OK
+        FE  --> VIS : Badge rouge\n"⚠️ Intégrité compromise —\nce certificat a peut-être\nété falsifié"
+      else #E8F8F5 Hash valide — PDF authentique
+        VS   ->  VS  : Filtre les données\n(minimisation RGPD)
+        note right of VS
+          Données exposées publiquement :
+          ✅ Nom + Prénom du titulaire
+          ✅ Titre de la formation
+          ✅ Date d'émission + expiration
+          ✅ Organisme émetteur (ESPRIT)
+          ✅ Mention / score
+          ❌ Email, ID, téléphone
+          ❌ Notes détaillées par module
+          ❌ Commentaires formateur
+        end note
+
+        VS   ->  DB  : INSERT INTO verifications_certificat\n({ certificatId, dateVerification,\n  adresseIP, resultat: "Valide" })
+        VS   ->  DB  : UPDATE certificats SET\nnbConsultationsPubliques =\nnbConsultationsPubliques + 1
+        DB  --> VS   : OK
+
+        VS  --> VC   : { statut: "ACTIF",\n  nomTitulaire,\n  titreFormation,\n  dateEmission, dateExpiration,\n  mention, organismeEmetteur,\n  integriteVerifiee: true }
+        VC  --> FE   : HTTP 200 OK
+        FE  --> VIS  : Badge vert ✅\n"Certificat valide et authentique"\n+ Métadonnées publiques\n+ Bouton "Télécharger PDF certifié"
+      end
+    end
+  end
+end
+
+== Étape 4 — Téléchargement optionnel du PDF ==
+
+VIS  ->  FE  : Clique "Télécharger PDF certifié"
+FE   ->  VC  : GET /v/{certificatUUID}/pdf
+VC   ->  VS  : getPDF(certificatUUID)
+VS   ->  STO : getPDF(cheminPdf)
+STO --> VS   : pdfBuffer
+VS  --> VC   : pdfBuffer
+VC  --> FE   : HTTP 200\nContent-Type: application/pdf\nContent-Disposition: attachment
+FE  --> VIS  : Télécharge le PDF\n(avec QR + SHA-256 visibles)
+
+note over VS, DB
+  **Minimisation des données (RGPD)**
+  La page publique n'expose jamais
+  l'email, l'identifiant interne,
+  les notes détaillées ni les
+  commentaires du formateur.
+  "Vérification, pas exposition."
+end note
+
+note over VC, RD
+  **Traçabilité sans identification**
+  Chaque consultation est journalisée
+  (IP, date, résultat) pour l'audit
+  admin — sans identifier le visiteur.
+end note
+
+legend bottom
+  | <b>Couleur</b> | <b>Signification</b> |
+  | <back:#E8F8F5> vert   </back> | Certificat valide |
+  | <back:#FFE8E8> rouge  </back> | Certificat invalide / falsifié |
+  | <back:#FEF9E7> jaune  </back> | Certificat expiré |
+  | <back:#EBF5FB> bleu   </back> | Vérification cryptographique |
+endlegend
+
+@enduml

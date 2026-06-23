@@ -1,0 +1,57 @@
+@startuml Cert_EET_DEP02_Vue_Logique_Tiers
+' =====================================================================
+'  Projet : Cert_EET — DEP-02 : Vue logique en tiers
+'  Auteur : Iyed Omri — PFE ESPRIT 2026
+'  Rendu  : PlantUML. PNG de reference rendu via Graphviz.
+' =====================================================================
+skinparam backgroundColor #FFFFFF
+skinparam shadowing false
+skinparam DefaultFontName "Segoe UI"
+skinparam linetype ortho
+skinparam ArrowColor #34495E
+skinparam node { BorderThickness 1.4 }
+' couleurs : vert=donnees  bleu=exec/worker  orange=externe  rouge=securite  gris=client
+title <size:14><b>Cert_EET — DEP-02 : Vue logique en tiers</b></size>\n<size:10>5 couches : Presentation . Passerelle . Application . Asynchrone . Donnees & externes</size>
+
+
+node "1 · Presentation" <<tier>> as t1 #F0F1F2 {
+  node "SPA Next.js" as spa #EAECEE
+  node "Verif QR publique (SSG)" as qr #EAECEE
+}
+node "2 · Passerelle / Securite" <<tier>> as t2 #FBF4F2 {
+  node "Reverse Proxy Nginx\nTLS · routage · timeout SSE" as nginx #FADBD8
+}
+node "3 · Application (synchrone)" <<tier>> as t3 #EFF5FB {
+  node "API NestJS (cluster) — REST+SSE · RBAC" as api #D6EAF8
+  node "Auth — JWT RS256 · MFA TOTP" as auth #D6EAF8
+  node "Modules metier F1-F7" as biz #D6EAF8
+}
+node "4 · Traitement asynchrone" <<tier>> as t4 #EAF1FB {
+  node "File Bull / Redis" as queue #D6EAF8
+  node "Worker Bull — PDF/RAG/retry" as worker #D6EAF8
+}
+node "5 · Donnees & services externes" <<tier>> as t5 #EAFBF1 {
+  database "PostgreSQL + pgvector" as pg #D5F5E3
+  database "Redis (cache/sessions)" as redis #D5F5E3
+  database "MinIO (S3)" as minio #D5F5E3
+  cloud "API LLM swappable" as llm #FDEBD0
+  cloud "SMTP" as smtp #FDEBD0
+  cloud "MFA / TOTP" as mfa #FDEBD0
+}
+
+spa --> nginx : HTTPS/TLS
+qr  --> nginx : HTTPS
+nginx --> api : proxy interne
+api ..> auth
+api ..> biz
+api --> queue : enqueue
+queue --> worker : dequeue
+biz --> pg : TypeORM/TLS
+api --> redis : cache/session
+auth --> mfa : HTTPS
+worker --> pg : RAG pgvector
+worker --> minio : S3 API
+worker --> llm : HTTPS
+worker --> smtp : SMTP/TLS
+api ..> spa : SSE
+@enduml

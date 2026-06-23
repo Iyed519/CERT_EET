@@ -1,0 +1,44 @@
+' Projet    : Cert_EET — Plateforme de certification numerique (ESPRIT Entreprise)
+' Diagramme : ET-02 — TentativeQCM
+' Auteur    : Iyed Omri — PFE ESPRIT 2026
+' Norme     : UML 2.5 — Diagramme d'etats-transitions
+' Coherence : Diagramme de classes v3.2 (package 8 Enumerations) + DS-02
+@startuml Cert_EET_ET_TentativeQCM
+skinparam backgroundColor #FFFFFF
+skinparam shadowing false
+skinparam DefaultFontName "Segoe UI"
+skinparam DefaultFontSize 10
+skinparam ArrowThickness 1.4
+skinparam linetype ortho
+skinparam state {
+  FontName "Segoe UI"
+  BorderColor #34495E
+  FontSize 12
+}
+skinparam ArrowColor #34495E
+skinparam ArrowFontColor #1B2631
+
+title <size:15><b>Cert_EET — Etat-Transition : TentativeQCM</b></size>\n<size:9><color:#7B8794>PFE ESPRIT 2026 · Iyed Omri · UML 2.5</color></size>
+
+state EN_COURS         #D6EAF8 : Timer Redis TTL (jamais cote client).\nAuto-save des reponses toutes les 10s.
+state SOUMISE          #D6EAF8 : Soumission confirmee par l'apprenant\navant expiration du timer.
+state ABANDONNEE_TIMER #FADBD8 : Timer TTL expire sans soumission.\nReponses partielles conservees.
+state NOTEE            #D5F5E3 : Scoring 100% serveur (pondere sur estCorrecte).\nEtat IMMUABLE (historique certifiant).
+
+[*] --> EN_COURS : Apprenant : demarrer QCM (DS-02)\n[QCM Publie + fenetre + tentatives + 1 session]
+EN_COURS --> SOUMISE : Apprenant : soumettre\n[TTL > 0 + confirme]
+EN_COURS --> ABANDONNEE_TIMER : Systeme : expiration\n[TTL = 0]
+SOUMISE --> NOTEE : Systeme : scoring immediat
+ABANDONNEE_TIMER --> NOTEE : Systeme : scoring partiel
+NOTEE --> [*] : tentative figee (immuable)
+
+legend bottom
+  <b>Legende — criticite</b>
+  |<#FEF9E7>   | En attente |
+  |<#D6EAF8>   | En cours / transitoire |
+  |<#D5F5E3>   | Nominal actif |
+  |<#FADBD8>   | Erreur / revoque / rejete |
+  |<#EAECEE>   | Terminal / irreversible |
+endlegend
+
+@enduml

@@ -1,0 +1,241 @@
+@startuml
+' Cert_EET — Administrateur — Vue Maximale (compatible vieilles versions)
+
+skinparam backgroundColor #FFFFFF
+skinparam shadowing false
+skinparam ArrowColor #4A235A
+skinparam ActorBackgroundColor #ECF0F1
+skinparam ActorBorderColor #4A235A
+
+skinparam UsecaseBackgroundColor #FFFFFF
+skinparam UsecaseBorderColor #5D6D7E
+
+skinparam PackageBackgroundColor #F8F4FB
+skinparam PackageBorderColor #4A235A
+
+skinparam NoteBackgroundColor #FEF9E7
+skinparam NoteBorderColor #B7950B
+
+title Cert_EET — Cas d'Utilisation de l'Administrateur (Vue Maximale)
+
+actor "Administrateur" as Admin
+actor "Service Email" as Email
+actor "Service Notification" as Notif
+actor "Utilisateur affecte" as User
+
+' ============ UC1 ============
+package "UC1 - Gerer les comptes" {
+  usecase "UC1\nGerer les comptes" as UC1
+  usecase "Visualiser\nla liste" as UC1a
+  usecase "Creer un\ncompte" as UC1b
+  usecase "Editer un\ncompte" as UC1c
+  usecase "Envoyer email\nd activation" as UC1d
+  usecase "Import CSV\nen masse" as UC1e
+  usecase "Desactiver\nou Reactiver" as UC1f
+  usecase "Supprimer" as UC1g
+  usecase "Anonymiser" as UC1h
+
+  UC1 ..> UC1a : include
+  UC1 ..> UC1b : include
+  UC1 ..> UC1c : include
+  UC1 ..> UC1d : include
+  UC1e ..> UC1 : extend
+  UC1f ..> UC1 : extend
+  UC1g ..> UC1 : extend
+  UC1h ..> UC1 : extend
+}
+
+' ============ UC2 ============
+package "UC2 - Attribuer les roles" {
+  usecase "UC2\nAttribuer les roles" as UC2
+  usecase "Voir role et\npermissions" as UC2a
+  usecase "Selectionner\nun nouveau role" as UC2b
+  usecase "Confirmer le\nchangement" as UC2c
+  usecase "Invalider la\nsession active" as UC2d
+  usecase "Auto-\nretrogradation" as UC2e
+  usecase "Roles\npersonnalises" as UC2f
+
+  UC2 ..> UC2a : include
+  UC2 ..> UC2b : include
+  UC2 ..> UC2c : include
+  UC2 ..> UC2d : include
+  UC2e ..> UC2 : extend
+  UC2f ..> UC2 : extend
+}
+
+' ============ UC3 ============
+package "UC3 - Gerer les formations" {
+  usecase "UC3\nGerer les formations" as UC3
+  usecase "Visualiser le\ncatalogue" as UC3a
+  usecase "Creer une\nformation" as UC3b
+  usecase "Saisir metadonnees\net periode" as UC3c
+  usecase "Definir criteres\nde certification" as UC3d
+  usecase "Choisir modele\nde certificat" as UC3e
+  usecase "Modifier une\nformation" as UC3f
+  usecase "Cloturer" as UC3g
+  usecase "Archiver" as UC3h
+
+  UC3 ..> UC3a : include
+  UC3 ..> UC3b : include
+  UC3 ..> UC3c : include
+  UC3 ..> UC3d : include
+  UC3 ..> UC3e : include
+  UC3f ..> UC3 : extend
+  UC3g ..> UC3 : extend
+  UC3h ..> UC3 : extend
+}
+
+' ============ UC4 ============
+package "UC4 - Affecter participants" {
+  usecase "UC4\nAffecter participants" as UC4
+  usecase "Voir\naffectations" as UC4a
+  usecase "Affecter un\nformateur" as UC4b
+  usecase "Inscrire un\napprenant" as UC4c
+  usecase "Notifier les\nparticipants" as UC4d
+  usecase "Import CSV\nmassif" as UC4e
+  usecase "Lien d inscription\npublic" as UC4f
+  usecase "Retirer un\nparticipant" as UC4g
+
+  UC4 ..> UC4a : include
+  UC4 ..> UC4b : include
+  UC4 ..> UC4c : include
+  UC4 ..> UC4d : include
+  UC4e ..> UC4 : extend
+  UC4f ..> UC4 : extend
+  UC4g ..> UC4 : extend
+}
+
+' ============ UC5 ============
+package "UC5 - Superviser certificats" {
+  usecase "UC5\nSuperviser certificats" as UC5
+  usecase "Liste exhaustive\n(UUID, hash)" as UC5a
+  usecase "Filtrer\n(periode, statut)" as UC5b
+  usecase "Consulter\nle detail" as UC5c
+  usecase "Vue analytique" as UC5d
+  usecase "Exporter\n(CSV / PDF)" as UC5e
+
+  UC5 ..> UC5a : include
+  UC5 ..> UC5b : include
+  UC5 ..> UC5c : include
+  UC5d ..> UC5 : extend
+  UC5e ..> UC5 : extend
+}
+
+' ============ UC6 ============
+package "UC6 - Revoquer un certificat" {
+  usecase "UC6\nRevoquer un certificat" as UC6
+  usecase "Saisir le motif\n(obligatoire)" as UC6a
+  usecase "Joindre les\npreuves" as UC6b
+  usecase "Double confirmation\n(mot de passe)" as UC6c
+  usecase "MAJ page publique" as UC6d
+
+  UC6 ..> UC6a : include
+  UC6 ..> UC6c : include
+  UC6 ..> UC6d : include
+  UC6b ..> UC6 : extend
+}
+
+' ============ UC7 ============
+package "UC7 - Tableau de bord global" {
+  usecase "UC7\nTableau de bord global" as UC7
+  usecase "KPI globaux" as UC7a
+  usecase "Graphiques\nde tendance" as UC7b
+  usecase "Alertes\nsysteme" as UC7c
+  usecase "Activite\nrecente" as UC7d
+  usecase "Filtrer par\nperiode" as UC7e
+  usecase "Drill-down" as UC7f
+
+  UC7 ..> UC7a : include
+  UC7 ..> UC7b : include
+  UC7 ..> UC7c : include
+  UC7 ..> UC7d : include
+  UC7e ..> UC7 : extend
+  UC7f ..> UC7 : extend
+}
+
+' ============ UC8 ============
+package "UC8 - Exporter rapports institutionnels" {
+  usecase "UC8\nExporter rapports" as UC8
+  usecase "Choisir le type" as UC8a
+  usecase "Definir les\nparametres" as UC8b
+  usecase "Choisir le format\n(PDF / CSV)" as UC8c
+  usecase "Telecharger le\nrapport" as UC8d
+
+  UC8 ..> UC8a : include
+  UC8 ..> UC8b : include
+  UC8 ..> UC8c : include
+  UC8 ..> UC8d : include
+}
+
+' ============ UC9 ============
+package "UC9 - Configurer la plateforme" {
+  usecase "UC9\nConfigurer la plateforme" as UC9
+  usecase "Identite\ninstitutionnelle" as UC9a
+  usecase "Politiques de\nsecurite" as UC9b
+  usecase "Parametres\npedagogiques" as UC9c
+  usecase "Integrations\n(LLM, SMTP)" as UC9d
+  usecase "Maintenance" as UC9e
+  usecase "Integrations\nexternes" as UC9f
+
+  UC9a ..> UC9 : extend
+  UC9b ..> UC9 : extend
+  UC9c ..> UC9 : extend
+  UC9d ..> UC9 : extend
+  UC9e ..> UC9 : extend
+  UC9f ..> UC9 : extend
+}
+
+' ============ UC10 ============
+package "UC10 - Journaux d audit" {
+  usecase "UC10\nJournaux d audit" as UC10
+  usecase "Visualiser le\njournal filtre" as UC10a
+  usecase "Filtrer\n(periode, type)" as UC10b
+  usecase "Meta-audit" as UC10c
+  usecase "Exporter\n(PDF / CSV)" as UC10d
+
+  UC10 ..> UC10a : include
+  UC10 ..> UC10b : include
+  UC10 ..> UC10c : include
+  UC10d ..> UC10 : extend
+}
+
+' ============ ASSOCIATIONS ============
+Admin --> UC1
+Admin --> UC2
+Admin --> UC3
+Admin --> UC4
+Admin --> UC5
+Admin --> UC6
+Admin --> UC7
+Admin --> UC8
+Admin --> UC9
+Admin --> UC10
+
+' ============ ACTEURS SECONDAIRES ============
+UC1d ..> Email
+UC4d ..> Email
+UC2 ..> Notif
+UC6 ..> Notif
+Email --> User
+Notif --> User
+
+' ============ NOTES ============
+note bottom of UC2
+  Verrouillages :
+  - 1 admin actif requis
+  - Auto-retrogradation = double validation
+end note
+
+note bottom of UC6
+  Action IRREVERSIBLE :
+  Le certificat n est PAS supprime.
+  Statut devient "Revoque".
+end note
+
+note bottom of UC10
+  Immuabilite :
+  Logs non supprimables,
+  consultation tracee.
+end note
+
+@enduml

@@ -1,0 +1,80 @@
+digraph activite {
+  graph [rankdir=TB, splines=ortho, nodesep=0.55, ranksep=0.70,
+         fontname="DejaVu Sans", fontsize=11, labelloc="t", compound=true,
+         newrank=true, bgcolor="white", pad=0.4,
+         label=<<b>Cert_EET — AC-02 : Generation PDF asynchrone du certificat</b><br/><font point-size="10">Thread web · File Bull/Redis · Worker · Stockage/Notif — fork/join + retry policy (F3 · ADR-04)</font><br/> >];
+  node [fontname="DejaVu Sans", fontsize=10, penwidth=1.4];
+  edge [fontname="DejaVu Sans", fontsize=9, color="#34495E", penwidth=1.3, arrowsize=0.8];
+  subgraph cluster_lane0 {
+    label=<<b>Thread web (NestJS)</b>>; fontsize=12; fontname="DejaVu Sans";
+    style="filled"; fillcolor="#F4F8FB"; color="#5D6D7E"; penwidth=1.6;
+    margin=14;
+  t_init [shape=circle, style=filled, fillcolor="black", color="black", width=0.28, fixedsize=true, label=""];
+  t_elig [shape=box, style="rounded,filled", fillcolor="#D5F5E3", color="#1E8449", label="Verifier l'eligibilite\na la certification"];
+  t_insert [shape=box, style="rounded,filled", fillcolor="#D5F5E3", color="#1E8449", label="INSERT certificat\nstatut = EN_ATTENTE_GENERATION"];
+  t_enq [shape=box, style="rounded,filled", fillcolor="#D6EAF8", color="#1B4F72", label="Enfiler le job\n\"generer-certificat\"\n{ attempts:3, backoff:5s }"];
+  t_202 [shape=box, style="rounded,filled", fillcolor="#D5F5E3", color="#1E8449", label="Repondre HTTP 202\n(thread web libere)"];
+  t_end [shape=doublecircle, style=filled, fillcolor="black", color="black", width=0.20, fixedsize=true, label="", xlabel="fin requete HTTP"];
+  }
+  subgraph cluster_lane1 {
+    label=<<b>File Bull / Redis</b>>; fontsize=12; fontname="DejaVu Sans";
+    style="filled"; fillcolor="#F2FBF6"; color="#5D6D7E"; penwidth=1.6;
+    margin=14;
+  q_deq [shape=box, style="rounded,filled", fillcolor="#D6EAF8", color="#1B4F72", label="Depiler le job\n(Bull / Redis)"];
+  q_ok [shape=diamond, style=filled, fillcolor="#FCF3CF", color="#B7950B", label="Job\nreussi ?", margin=0.05];
+  q_backoff [shape=box, style="rounded,filled", fillcolor="#D6EAF8", color="#1B4F72", label="Backoff exponentiel\n5s / 10s / 20s"];
+  q_retry [shape=diamond, style=filled, fillcolor="#FCF3CF", color="#B7950B", label="Tentative\n< 3 ?", margin=0.05];
+  q_fail [shape=box, style="rounded,filled", fillcolor="#FADBD8", color="#A93226", label="Reset EN_ATTENTE\n+ alerte admin"];
+  q_end_fail [shape=doublecircle, style=filled, fillcolor="black", color="black", width=0.20, fixedsize=true, label="", xlabel="echec definitif"];
+  }
+  subgraph cluster_lane2 {
+    label=<<b>Worker (processus separe)</b>>; fontsize=12; fontname="DejaVu Sans";
+    style="filled"; fillcolor="#FBF7F0"; color="#5D6D7E"; penwidth=1.6;
+    margin=14;
+  w_gen [shape=box, style="rounded,filled", fillcolor="#D6EAF8", color="#1B4F72", label="Statut = EN_GENERATION"];
+  w_fork [shape=box, style=filled, fillcolor="black", color="black", height=0.07, width=2.2, fixedsize=true, label=""];
+  w_pdf [shape=box, style="rounded,filled", fillcolor="#D6EAF8", color="#1B4F72", label="Generer le PDF\n(PDFKit)"];
+  w_qr [shape=box, style="rounded,filled", fillcolor="#D6EAF8", color="#1B4F72", label="Generer le QR code\n(URL + UUID)"];
+  w_join [shape=box, style=filled, fillcolor="black", color="black", height=0.07, width=2.2, fixedsize=true, label=""];
+  w_sha [shape=box, style="rounded,filled", fillcolor="#D6EAF8", color="#1B4F72", label="Calculer l'empreinte\nSHA-256"];
+  w_final [shape=box, style="rounded,filled", fillcolor="#D6EAF8", color="#1B4F72", label="Reconstruire le PDF final\n(QR + hash en pied)"];
+  }
+  subgraph cluster_lane3 {
+    label=<<b>Stockage / Notif</b>>; fontsize=12; fontname="DejaVu Sans";
+    style="filled"; fillcolor="#F8F4FB"; color="#5D6D7E"; penwidth=1.6;
+    margin=14;
+  n_upload [shape=box, style="rounded,filled", fillcolor="#D5F5E3", color="#1E8449", label="Uploader le PDF\n(S3 / MinIO)"];
+  n_active [shape=box, style="rounded,filled", fillcolor="#D5F5E3", color="#1E8449", label="Statut = ACTIF\n+ INSERT empreinte_sha256"];
+  n_notif [shape=box, style="rounded,filled", fillcolor="#D5F5E3", color="#1E8449", label="Notifier l'apprenant\n(certificat disponible)"];
+  n_end [shape=doublecircle, style=filled, fillcolor="black", color="black", width=0.20, fixedsize=true, label="", xlabel="fin du workflow"];
+  }
+  t_init -> t_elig;
+  t_elig -> t_insert;
+  t_insert -> t_enq;
+  t_enq -> t_202;
+  t_202 -> t_end;
+  t_enq -> q_deq [label="job en file", color="#1B4F72", style="dashed"];
+  q_deq -> w_gen;
+  w_gen -> w_fork;
+  w_fork -> w_pdf;
+  w_fork -> w_qr;
+  w_pdf -> w_join;
+  w_qr -> w_join;
+  w_join -> w_sha;
+  w_sha -> w_final;
+  w_final -> n_upload;
+  n_upload -> n_active;
+  n_active -> n_notif;
+  n_notif -> n_end;
+  w_final -> q_ok [label="exception ?", color="#B7950B", style="dashed", constraint="false"];
+  q_ok -> q_backoff [label="non (echec)", color="#A93226"];
+  q_backoff -> q_retry;
+  q_retry -> q_deq [label="oui : re-enfiler", color="#1B4F72"];
+  q_retry -> q_fail [label="non", color="#A93226"];
+  q_fail -> q_end_fail;
+  // alignement
+  t_init -> t_elig -> t_insert -> t_enq -> t_202 -> t_end [style=invis, weight=10];
+  q_deq -> q_ok -> q_backoff -> q_retry -> q_fail -> q_end_fail [style=invis, weight=10];
+  w_gen -> w_fork -> w_pdf -> w_join -> w_sha -> w_final [style=invis, weight=10];
+  n_upload -> n_active -> n_notif -> n_end [style=invis, weight=10];
+}

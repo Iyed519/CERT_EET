@@ -1,0 +1,50 @@
+' Projet    : Cert_EET — Plateforme de certification numerique (ESPRIT Entreprise)
+' Diagramme : ET-05 — SuggestionQuestionIA
+' Auteur    : Iyed Omri — PFE ESPRIT 2026
+' Norme     : UML 2.5 — Diagramme d'etats-transitions
+' Coherence : Diagramme de classes v3.2 (package 8 Enumerations) + DS-06
+@startuml Cert_EET_ET_SuggestionQuestionIA
+skinparam backgroundColor #FFFFFF
+skinparam shadowing false
+skinparam DefaultFontName "Segoe UI"
+skinparam DefaultFontSize 10
+skinparam ArrowThickness 1.4
+skinparam linetype ortho
+skinparam state {
+  FontName "Segoe UI"
+  BorderColor #34495E
+  FontSize 12
+}
+skinparam ArrowColor #34495E
+skinparam ArrowFontColor #1B2631
+
+title <size:15><b>Cert_EET — Etat-Transition : SuggestionQuestionIA</b></size>\n<size:9><color:#7B8794>PFE ESPRIT 2026 · Iyed Omri · UML 2.5</color></size>
+
+state PROPOSEE #FEF9E7 : Generee par LLM (DS-06, RAG sur pgvector).\nEn attente de decision du formateur.
+state ACCEPTEE #D5F5E3 : Formateur accepte sans modification.\nQuestion creee, origine = "IA".
+state MODIFIEE #D5F5E3 : Formateur modifie puis accepte.\nQuestion creee, origine = "IA_MODIFIEE".
+state REJETEE  #FADBD8 : Archivee, non publiee.\nTracabilite du rejet conservee.
+
+[*] --> PROPOSEE : LLM : generation du lot (DS-06)
+PROPOSEE --> ACCEPTEE : Formateur : accepter\n[aucune modification]
+PROPOSEE --> MODIFIEE : Formateur : modifier + accepter
+PROPOSEE --> REJETEE : Formateur : rejeter\n/ archivage + tracabilite
+ACCEPTEE --> [*] : publiee dans la banque
+MODIFIEE --> [*] : publiee dans la banque
+REJETEE  --> [*] : archivee (non publiee)
+
+note bottom of PROPOSEE
+  Humain dans la boucle obligatoire :
+  aucune transition automatique.
+end note
+
+legend bottom
+  <b>Legende — criticite</b>
+  |<#FEF9E7>   | En attente |
+  |<#D6EAF8>   | En cours / transitoire |
+  |<#D5F5E3>   | Nominal actif |
+  |<#FADBD8>   | Erreur / revoque / rejete |
+  |<#EAECEE>   | Terminal / irreversible |
+endlegend
+
+@enduml

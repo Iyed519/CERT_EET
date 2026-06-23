@@ -1,0 +1,204 @@
+@startuml Cert_EET_DS07_Revocation_Certificat
+' =====================================================================
+'  Projet    : Cert_EET
+'  Diagramme : DS-07 — Révoquer un certificat
+'  Acteur    : Administrateur
+'  Ref CdC   : F3 (Certification) — UC6 Administrateur — NF3 (Audit)
+'  Auteur    : Iyed Omri — PFE ESPRIT 2026
+' =====================================================================
+!pragma teoz true
+skinparam backgroundColor #FFFFFF
+skinparam shadowing false
+skinparam DefaultFontName "Segoe UI"
+skinparam DefaultFontSize 10
+skinparam sequenceMessageAlign center
+skinparam responseMessageBelowArrow true
+skinparam ParticipantPadding 18
+skinparam ArrowThickness 1.2
+skinparam LifeLineBorderThickness 1.0
+skinparam participant {
+  BackgroundColor #FFFFFF
+  BorderColor #5D6D7E
+}
+skinparam actor {
+  BackgroundColor #ECF0F1
+  BorderColor #1B4F72
+  FontStyle bold
+}
+skinparam database {
+  BackgroundColor #EBF5FB
+  BorderColor #1B4F72
+}
+skinparam collections {
+  BackgroundColor #E8F8F5
+  BorderColor #1E8449
+}
+skinparam boundary {
+  BackgroundColor #FEF9E7
+  BorderColor #B7950B
+}
+skinparam control {
+  BackgroundColor #FAE5D3
+  BorderColor #BA4A00
+}
+skinparam note {
+  BackgroundColor #FEF9E7
+  BorderColor #B7950B
+  FontSize 9
+}
+skinparam sequence {
+  ArrowColor #34495E
+  LifeLineBorderColor #7F8C8D
+  LifeLineBackgroundColor #FDFEFE
+  GroupBorderColor #1B4F72
+  GroupHeaderFontColor #1B4F72
+  GroupHeaderFontStyle bold
+  DividerBorderColor #1B4F72
+  DividerBackgroundColor #D6EAF8
+  DividerFontColor #1B4F72
+  DividerFontStyle bold
+}
+
+title <size:14><b>Cert_EET — DS-07 : Révoquer un Certificat</b></size>\n<size:10>Action irréversible · Double confirmation · Immuabilité · Audit · F3 / UC6 Admin</size>
+
+actor       "Administrateur" as ADM
+boundary    "Frontend\n(Next.js)" as FE
+control     "CertificatController\n(NestJS)" as CC
+control     "CertificatService" as CS
+database    "PostgreSQL" as DB
+control     "NotifService" as NOTIF
+actor       "Apprenant\n(titulaire)" as APP
+
+== Étape 1 — Recherche et sélection du certificat ==
+
+ADM  ->  FE  : Ouvre la gestion des certificats\n(espace administrateur)
+FE   ->  CC  : GET /admin/certificats\n?search={nomApprenant|uuid}
+CC   ->  CS  : searchCertificats(criteres)
+CS   ->  DB  : SELECT certificats\nWHERE statut = "ACTIF"\nAND (nom LIKE :search OR id = :uuid)
+DB  --> CS   : certificats[]
+CS  --> CC   : certificats[]
+CC  --> FE   : HTTP 200 OK
+FE  --> ADM  : Liste des certificats actifs\n(nom, formation, date, UUID)
+
+ADM  ->  FE  : Sélectionne un certificat\net clique "Révoquer"
+
+== Étape 2 — Formulaire de révocation ==
+
+FE  --> ADM  : Affiche le formulaire\nde révocation :
+note right of FE
+  • Motif (obligatoire) :
+    FRAUDE | ERREUR_ADMIN
+    DISCIPLINAIRE | JUDICIAIRE
+  • Description détaillée (obligatoire)
+  • Pièces justificatives (optionnel)
+  • Double confirmation :
+    1. Checkbox "Je comprends que cette
+       action est irréversible"
+    2. Saisie du mot de passe admin
+end note
+
+ADM  ->  FE  : Remplit le formulaire\n+ coche la confirmation\n+ saisit son mot de passe
+FE   ->  CC  : POST /admin/certificats/:id/revoquer\n{ motif: "FRAUDE",\n  description: "...",\n  piecesJointes: [],\n  motDePasseConfirmation: "***" }
+
+== Étape 3 — Validations serveur ==
+
+CC   ->  CS  : revoquerCertificat(\n  adminId, certificatId,\n  motif, description, pieces\n)
+
+group #FFE8E8 Vérifications préalables
+  CS   ->  DB  : SELECT certificat\nWHERE id = :certificatId
+  DB  --> CS   : { statut, apprenantId }
+
+  alt #FFE8E8 Certificat déjà révoqué
+    CS  --> CC  : ConflictException\n"Certificat déjà révoqué"
+    CC  --> FE  : HTTP 409 Conflict
+    FE  --> ADM : "Ce certificat est déjà révoqué"
+  else #FFE8E8 Certificat non ACTIF
+    CS  --> CC  : BadRequestException
+    CC  --> FE  : HTTP 400
+    FE  --> ADM : Message d'erreur
+  end
+
+  CS   ->  DB  : SELECT user WHERE id = adminId
+  DB  --> CS   : { motDePasseHash }
+  CS   ->  CS  : bcrypt.compare(\n  motDePasseConfirmation,\n  motDePasseHash\n)
+
+  alt #FFE8E8 Mot de passe incorrect
+    CS  --> CC  : UnauthorizedException\n"Mot de passe incorrect"
+    CC  --> FE  : HTTP 401
+    FE  --> ADM : "Mot de passe administrateur\nincorrect"
+  end
+end
+
+== Étape 4 — Exécution de la révocation ==
+
+group #E8F8F5 Révocation (opération atomique — transaction)
+  CS   ->  DB  : BEGIN TRANSACTION
+
+  CS   ->  DB  : UPDATE certificats SET\nstatut = "REVOQUE"\nWHERE id = :certificatId
+
+  note right of DB
+    Le PDF n'est PAS supprimé.
+    Le cheminPdf, l'empreinte SHA-256
+    et toutes les métadonnées sont
+    conservés (immuabilité NF3).
+  end note
+
+  CS   ->  DB  : INSERT INTO revocations\n({ certificatId,\n  administrateurId: adminId,\n  motif: "FRAUDE",\n  description,\n  piecesJointes: [],\n  dateRevocation: NOW() })
+
+  CS   ->  DB  : INSERT INTO audit_log\n({ action: "CERTIFICAT_REVOQUE",\n  cible: certificatId,\n  acteur: adminId,\n  motif,\n  adresseIP,\n  horodatage: NOW(),\n  detailsAvantApres: {\n    avant: "ACTIF",\n    apres: "REVOQUE"\n  }\n})
+
+  note right of DB
+    L'AuditLog est IMMUABLE (NF3).
+    Aucune mise à jour ni suppression
+    ne peut être effectuée sur cette
+    table par aucun rôle.
+  end note
+
+  CS   ->  DB  : COMMIT
+  DB  --> CS   : Transaction validée
+end
+
+== Étape 5 — Notification et effets immédiats ==
+
+CS   ->  NOTIF : notifier(apprenantId,\n  "Votre certificat a été révoqué",\n  { motifPublic, dateRevocation,\n    lienContact })
+NOTIF  ->  APP : Notification In-App\n+ Email
+
+note right of NOTIF
+  Le motif complet (ex: "FRAUDE") est
+  transmis à l'apprenant.
+  La page publique de vérification
+  affiche uniquement "Révoqué"
+  sans le motif (vie privée).
+end note
+
+CS  --> CC   : { revocation, certificat }
+CC  --> FE   : HTTP 200 OK\n{ statut: "REVOQUE",\n  dateRevocation,\n  revocationId }
+FE  --> ADM  : "Certificat révoqué avec succès"\n+ Récapitulatif de l'action
+
+note over CS, DB
+  **Effet immédiat sur la page publique**
+  La page /v/{certificatUUID} affichera
+  désormais "Révoqué" dès la prochaine
+  consultation (pas de cache).
+  Le PDF reste téléchargeable mais marqué
+  RÉVOQUÉ à la vérification SHA-256.
+end note
+
+== Cas particulier — Révocation avec réémission ==
+
+note over ADM, FE
+  Si la révocation est due à une ERREUR_ADMIN
+  (ex: mauvaise formation attribuée),
+  l'administrateur peut déclencher une
+  réémission immédiatement après la révocation :
+  → Appel à DS-04 (Émission certificat)
+  avec les données corrigées.
+end note
+
+legend bottom
+  | <b>Couleur</b> | <b>Signification</b> |
+  | <back:#E8F8F5> vert   </back> | Chemin nominal / révocation réussie |
+  | <back:#FFE8E8> rouge  </back> | Refus / erreur de validation |
+endlegend
+
+@enduml

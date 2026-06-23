@@ -1,0 +1,55 @@
+digraph G {
+  rankdir=TB;
+  bgcolor="#FFFFFF";
+  splines=ortho;
+  forcelabels=true;
+  concentrate=false;
+  pad="0.5,0.4";
+  nodesep=1.0; ranksep=1.15;
+  fontname="DejaVu Sans"; labelloc="t"; fontsize=20; fontcolor="#1B2631";
+  label=<<B>Cert_EET &#8212; Diagramme d'etats-transitions : SuggestionQuestionIA</B><BR/><FONT POINT-SIZE="10" COLOR="#7B8794">PFE ESPRIT 2026 &#8226; Iyed Omri &#8226; UML 2.5</FONT><BR/> >;
+  node [fontname="DejaVu Sans"];
+  edge [fontname="DejaVu Sans" fontsize=9.5 color="#34495E" fontcolor="#1B2631" arrowsize=0.85 penwidth=1.4];
+
+  "__start__" [shape=circle width=0.25 style=filled fillcolor="#1B2631" color="#1B2631" label=""];
+  "__end__" [shape=doublecircle width=0.20 style=filled fillcolor="#1B2631" color="#1B2631" label="" penwidth=1.5];
+
+  "PROPOSEE" [shape=plaintext margin=0 label=<
+    <TABLE BORDER="2" CELLBORDER="0" CELLSPACING="0" CELLPADDING="9" BGCOLOR="#FEF9E7" COLOR="#B7950B" STYLE="ROUNDED">
+      <TR><TD ALIGN="CENTER"><FONT POINT-SIZE="14" COLOR="#B7950B"><B>PROPOSEE</B></FONT></TD></TR>
+      <TR><TD ALIGN="CENTER"><FONT POINT-SIZE="9.5" COLOR="#2C3E50">Generee par LLM (DS-06, RAG sur pgvector).<BR/>En attente de decision du formateur.</FONT></TD></TR>
+    </TABLE>>];
+
+  "ACCEPTEE" [shape=plaintext margin=0 label=<
+    <TABLE BORDER="2" CELLBORDER="0" CELLSPACING="0" CELLPADDING="9" BGCOLOR="#D5F5E3" COLOR="#1E8449" STYLE="ROUNDED">
+      <TR><TD ALIGN="CENTER"><FONT POINT-SIZE="14" COLOR="#1E8449"><B>ACCEPTEE</B></FONT></TD></TR>
+      <TR><TD ALIGN="CENTER"><FONT POINT-SIZE="9.5" COLOR="#2C3E50">Formateur accepte sans modification.<BR/>Question creee, origine = &#171;IA&#187;.</FONT></TD></TR>
+    </TABLE>>];
+
+  "MODIFIEE" [shape=plaintext margin=0 label=<
+    <TABLE BORDER="2" CELLBORDER="0" CELLSPACING="0" CELLPADDING="9" BGCOLOR="#D5F5E3" COLOR="#1E8449" STYLE="ROUNDED">
+      <TR><TD ALIGN="CENTER"><FONT POINT-SIZE="14" COLOR="#1E8449"><B>MODIFIEE</B></FONT></TD></TR>
+      <TR><TD ALIGN="CENTER"><FONT POINT-SIZE="9.5" COLOR="#2C3E50">Formateur modifie puis accepte.<BR/>Question creee, origine = &#171;IA_MODIFIEE&#187;.</FONT></TD></TR>
+    </TABLE>>];
+
+  "REJETEE" [shape=plaintext margin=0 label=<
+    <TABLE BORDER="2" CELLBORDER="0" CELLSPACING="0" CELLPADDING="9" BGCOLOR="#FADBD8" COLOR="#C0392B" STYLE="ROUNDED">
+      <TR><TD ALIGN="CENTER"><FONT POINT-SIZE="14" COLOR="#C0392B"><B>REJETEE</B></FONT></TD></TR>
+      <TR><TD ALIGN="CENTER"><FONT POINT-SIZE="9.5" COLOR="#2C3E50">Archivee, non publiee.<BR/>Tracabilite du rejet conservee.</FONT></TD></TR>
+    </TABLE>>];
+
+
+  { rank=same; "ACCEPTEE" "MODIFIEE" "REJETEE"; }
+
+  "__start__" -> "PROPOSEE" [xlabel=<<FONT POINT-SIZE="9.5">LLM : generation du lot (DS-06)</FONT>>];
+  "PROPOSEE" -> "ACCEPTEE" [xlabel=<<FONT POINT-SIZE="9.5">Formateur : accepter<BR/>[aucune modification]</FONT>>];
+  "PROPOSEE" -> "MODIFIEE" [xlabel=<<FONT POINT-SIZE="9.5">Formateur : modifier + accepter</FONT>>];
+  "PROPOSEE" -> "REJETEE" [xlabel=<<FONT POINT-SIZE="9.5">Formateur : rejeter<BR/>/ archivage + tracabilite</FONT>>];
+  "ACCEPTEE" -> "__end__" [xlabel=<<FONT POINT-SIZE="9.5">publiee dans la banque</FONT>>];
+  "MODIFIEE" -> "__end__" [xlabel=<<FONT POINT-SIZE="9.5">publiee dans la banque</FONT>>];
+  "REJETEE" -> "__end__" [xlabel=<<FONT POINT-SIZE="9.5">archivee (non publiee)</FONT>>];
+
+  "__legend__" [shape=plaintext margin=0 label=<
+    <TABLE BORDER="1" CELLBORDER="0" CELLSPACING="0" CELLPADDING="5" COLOR="#BDC3C7" BGCOLOR="#FBFCFC" STYLE="ROUNDED"><TR><TD COLSPAN="2"><FONT POINT-SIZE="10"><B>Legende &#8212; criticite</B></FONT></TD></TR><TR><TD BGCOLOR="#FEF9E7" WIDTH="26" HEIGHT="14"></TD><TD ALIGN="LEFT"><FONT POINT-SIZE="9.5">En attente</FONT></TD></TR><TR><TD BGCOLOR="#D5F5E3" WIDTH="26" HEIGHT="14"></TD><TD ALIGN="LEFT"><FONT POINT-SIZE="9.5">Nominal actif</FONT></TD></TR><TR><TD BGCOLOR="#FADBD8" WIDTH="26" HEIGHT="14"></TD><TD ALIGN="LEFT"><FONT POINT-SIZE="9.5">Erreur / revoque / rejete</FONT></TD></TR></TABLE>>];
+  { rank=sink; "__legend__"; }
+}

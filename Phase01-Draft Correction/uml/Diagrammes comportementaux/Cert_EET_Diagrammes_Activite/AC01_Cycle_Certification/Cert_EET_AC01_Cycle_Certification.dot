@@ -1,0 +1,62 @@
+digraph activite {
+  graph [rankdir=TB, splines=ortho, nodesep=0.55, ranksep=0.70,
+         fontname="DejaVu Sans", fontsize=11, labelloc="t", compound=true,
+         newrank=true, bgcolor="white", pad=0.4,
+         label=<<b>Cert_EET — AC-01 : Cycle complet de certification</b><br/><font point-size="10">Apprenant · Systeme · Formateur — Inscription → Modules → Evaluations → Certificat (F1·F2·F3)</font><br/> >];
+  node [fontname="DejaVu Sans", fontsize=10, penwidth=1.4];
+  edge [fontname="DejaVu Sans", fontsize=9, color="#34495E", penwidth=1.3, arrowsize=0.8];
+  subgraph cluster_lane0 {
+    label=<<b>Apprenant</b>>; fontsize=12; fontname="DejaVu Sans";
+    style="filled"; fillcolor="#F4F8FB"; color="#5D6D7E"; penwidth=1.6;
+    margin=14;
+  a_init [shape=circle, style=filled, fillcolor="black", color="black", width=0.28, fixedsize=true, label=""];
+  a_cat [shape=box, style="rounded,filled", fillcolor="#D5F5E3", color="#1E8449", label="Consulter le catalogue\ndes formations"];
+  a_insc [shape=box, style="rounded,filled", fillcolor="#D5F5E3", color="#1E8449", label="Demander l'inscription\na une formation"];
+  a_acces [shape=box, style="rounded,filled", fillcolor="#D5F5E3", color="#1E8449", label="Acceder aux modules\nde la formation"];
+  a_qcm [shape=box, style="rounded,filled", fillcolor="#D5F5E3", color="#1E8449", label="Passer les QCM\nrequis"];
+  a_liv [shape=box, style="rounded,filled", fillcolor="#D5F5E3", color="#1E8449", label="Soumettre les livrables\ndes ateliers"];
+  }
+  subgraph cluster_lane1 {
+    label=<<b>Systeme</b>>; fontsize=12; fontname="DejaVu Sans";
+    style="filled"; fillcolor="#F2FBF6"; color="#5D6D7E"; penwidth=1.6;
+    margin=14;
+  s_places [shape=diamond, style=filled, fillcolor="#FCF3CF", color="#B7950B", label="Places\ndisponibles ?", margin=0.05];
+  s_full [shape=box, style="rounded,filled", fillcolor="#FADBD8", color="#A93226", label="Rejet : formation\ncomplete"];
+  s_end_full [shape=doublecircle, style=filled, fillcolor="black", color="black", width=0.20, fixedsize=true, label=""];
+  s_fork [shape=box, style=filled, fillcolor="black", color="black", height=0.07, width=2.2, fixedsize=true, label=""];
+  s_join [shape=box, style=filled, fillcolor="black", color="black", height=0.07, width=2.2, fixedsize=true, label=""];
+  s_elig [shape=diamond, style=filled, fillcolor="#FCF3CF", color="#B7950B", label="Tous QCM >= seuil\nET ateliers >= seuil ?", margin=0.05];
+  s_noelig [shape=box, style="rounded,filled", fillcolor="#FADBD8", color="#A93226", label="Certification\nnon eligible"];
+  s_end_noelig [shape=doublecircle, style=filled, fillcolor="black", color="black", width=0.20, fixedsize=true, label=""];
+  s_queue [shape=box, style="rounded,filled", fillcolor="#D6EAF8", color="#1B4F72", label="Mettre en file la\ngeneration du certificat\n(Bull / Redis)"];
+  s_notif [shape=box, style="rounded,filled", fillcolor="#D5F5E3", color="#1E8449", label="Notifier l'apprenant :\ncertificat en cours"];
+  s_end_ok [shape=doublecircle, style=filled, fillcolor="black", color="black", width=0.20, fixedsize=true, label=""];
+  }
+  subgraph cluster_lane2 {
+    label=<<b>Formateur</b>>; fontsize=12; fontname="DejaVu Sans";
+    style="filled"; fillcolor="#FBF7F0"; color="#5D6D7E"; penwidth=1.6;
+    margin=14;
+  f_corr [shape=box, style="rounded,filled", fillcolor="#D5F5E3", color="#1E8449", label="Corriger les livrables\ndes ateliers"];
+  }
+  a_init -> a_cat;
+  a_cat -> a_insc;
+  a_insc -> s_places;
+  s_places -> s_full [label="non", color="#A93226"];
+  s_full -> s_end_full;
+  s_places -> a_acces [label="oui", color="#1E8449"];
+  a_acces -> s_fork;
+  s_fork -> a_qcm;
+  s_fork -> a_liv;
+  a_qcm -> s_join;
+  a_liv -> f_corr;
+  f_corr -> s_join [label="livrables notes"];
+  s_join -> s_elig;
+  s_elig -> s_noelig [label="non", color="#A93226"];
+  s_noelig -> s_end_noelig;
+  s_elig -> s_queue [label="oui", color="#1B4F72"];
+  s_queue -> s_notif;
+  s_notif -> s_end_ok;
+  // alignement
+  a_init -> a_cat -> a_insc -> a_acces -> a_qcm -> a_liv [style=invis, weight=10];
+  s_places -> s_fork -> s_join -> s_elig -> s_queue -> s_notif -> s_end_ok [style=invis, weight=10];
+}

@@ -1,0 +1,173 @@
+@startuml Cert_EET_DS13_Creer_Atelier
+' =====================================================================
+'  DS-13 — Créer un atelier + définir une grille de notation
+'  Acteur : Formateur · Ref : UC3 + UC4 Formateur · F2
+' =====================================================================
+!pragma teoz true
+skinparam backgroundColor #FFFFFF
+skinparam shadowing false
+skinparam DefaultFontName "Segoe UI"
+skinparam DefaultFontSize 10
+skinparam sequenceMessageAlign center
+skinparam responseMessageBelowArrow true
+skinparam ParticipantPadding 18
+skinparam ArrowThickness 1.2
+skinparam LifeLineBorderThickness 1.0
+skinparam participant {
+  BackgroundColor #FFFFFF
+  BorderColor #5D6D7E
+}
+skinparam actor {
+  BackgroundColor #ECF0F1
+  BorderColor #1B4F72
+  FontStyle bold
+}
+skinparam database {
+  BackgroundColor #EBF5FB
+  BorderColor #1B4F72
+}
+skinparam boundary {
+  BackgroundColor #FEF9E7
+  BorderColor #B7950B
+}
+skinparam control {
+  BackgroundColor #FAE5D3
+  BorderColor #BA4A00
+}
+skinparam note {
+  BackgroundColor #FEF9E7
+  BorderColor #B7950B
+  FontSize 9
+}
+skinparam sequence {
+  ArrowColor #34495E
+  LifeLineBorderColor #7F8C8D
+  LifeLineBackgroundColor #FDFEFE
+  GroupBorderColor #1B4F72
+  GroupHeaderFontColor #1B4F72
+  GroupHeaderFontStyle bold
+  DividerBorderColor #1B4F72
+  DividerBackgroundColor #D6EAF8
+  DividerFontColor #1B4F72
+  DividerFontStyle bold
+}
+
+title <size:14><b>Cert_EET — DS-13 : Créer un Atelier + Grille de Notation</b></size>\n<size:10>UC3 (Atelier) + UC4 (Grille) · Formateur · F2</size>
+
+actor "Formateur" as FOR
+boundary "Frontend\n(Next.js)" as FE
+control "AtelierController\n(NestJS)" as AC
+control "AtelierService" as AS
+database "PostgreSQL" as DB
+
+== Partie 1 — Création de l'atelier (UC3) ==
+
+FOR -> FE  : Clique "Nouvel atelier"\ndans une formation
+FE  -> AC  : POST /ateliers\n{ titre, enonce,\n  competencesVisees,\n  moduleId, formationId,\n  dateLimite,\n  typesLivrablesAcceptes[],\n  tailleMaxFichier,\n  nbMaxFichiers,\n  toleranceRetard }
+AC  -> AS  : creerAtelier(formateurId, data)
+AS  -> DB  : Vérifie appartenance\nde la formation au formateur
+AS  -> DB  : INSERT INTO ateliers\n({ titre, enonce,\n  moduleId, formateurId,\n  dateLimite, statut: "Brouillon",\n  typesAcceptes, tailleMax })
+DB --> AS  : atelierId
+AS --> AC  : { atelierId }
+AC --> FE  : HTTP 201 Created
+FE --> FOR : Atelier créé en brouillon\nProchain : définir la grille
+
+== Partie 2 — Définition de la grille de notation (UC4) ==
+
+FOR -> FE  : Clique "Définir la grille\nde notation"
+
+alt #FEF9E7 Réutiliser un modèle existant
+  FE  -> AC  : GET /grilles?formateurId=:id&estModele=true
+  AC  -> DB  : SELECT grilles WHERE\nestModele = true\nAND formateurId = :id
+  DB --> AC  : modeles[]
+  AC --> FE  : HTTP 200 OK
+  FE --> FOR : Liste des grilles modèles
+  FOR -> FE  : Sélectionne un modèle
+  FE  -> AC  : POST /ateliers/:id/grille/copier\n{ modeleId }
+  AC  -> AS  : copierGrille(atelierId, modeleId)
+  AS  -> DB  : Copie la grille et ses critères\n(nouvelle entrée distincte)
+  DB --> AS  : grilleId
+  AS --> AC  : { grilleId }
+  AC --> FE  : HTTP 200 OK
+  FE --> FOR : Grille copiée, modifiable
+
+else #E8F8F5 Créer une nouvelle grille
+  FE --> FOR : Formulaire de grille vide
+end
+
+loop Formateur ajoute chaque critère
+  FOR -> FE  : Saisit :\n• Intitulé du critère\n• Pondération (%)\n• Description\n• Niveaux de performance\n  (Insuffisant / Correct /\n   Bien / Excellent)\n  avec plages de points
+
+  FE  -> AC  : POST /grilles/:grilleId/criteres\n{ intitule, ponderation,\n  description, niveaux[] }
+  AC  -> AS  : ajouterCritere(grilleId, data)
+
+  AS  -> AS  : calculerSomme(ponderationsExistantes\n  + nouvelle)\n<= 100 ?
+
+  alt #FFE8E8 Total pondérations > 100
+    AS --> AC : BadRequestException\n"Total pondérations dépasse 100%"
+    AC --> FE : HTTP 400
+    FE --> FOR : "Ajustez la pondération\n(total actuel : X%)"
+  else #E8F8F5 Valide
+    AS  -> DB  : INSERT INTO criteres\n({ grilleId, intitule,\n  ponderation, description })
+    AS  -> DB  : INSERT INTO niveaux_performance[]\n({ critereId, libelle,\n  plagePointsMin, plagePointsMax,\n  descripteur })
+    DB --> AS  : OK
+    AS --> AC  : OK
+    AC --> FE  : HTTP 201 Created
+    FE --> FOR : Critère ajouté ✓\n(total actuel affiché)
+  end
+end
+
+FOR -> FE  : Vérifie que total = 100%\net clique "Valider la grille"
+FE  -> AC  : POST /grilles/:grilleId/valider
+AC  -> AS  : validerGrille(grilleId)
+AS  -> AS  : validerPonderations()\n= Σ(pondérations) == 100 ?
+
+alt #FFE8E8 Total != 100%
+  AS --> AC : BadRequestException\n"Total pondérations = X%\n(doit être 100%)"
+  AC --> FE : HTTP 400
+  FE --> FOR : "Ajustez les pondérations"
+else #E8F8F5 Total == 100%
+  AS  -> DB  : UPDATE grilles SET\nvalidee = true
+  DB --> AS  : OK
+  AS --> AC  : OK
+  AC --> FE  : HTTP 200 OK
+  FE --> FOR : "Grille validée ✅"
+end
+
+alt #FEF9E7 Enregistrer comme modèle réutilisable
+  FOR -> FE  : Coche "Enregistrer comme modèle"
+  FE  -> AC  : PATCH /grilles/:grilleId\n{ estModele: true, nomModele: "..." }
+  AC  -> DB  : UPDATE grilles SET estModele = true
+  DB --> AC  : OK
+  AC --> FE  : HTTP 200 OK
+  FE --> FOR : "Grille sauvée comme modèle\npour vos prochains ateliers"
+end
+
+== Partie 3 — Publication de l'atelier ==
+
+FOR -> FE  : Clique "Publier l'atelier"
+FE  -> AC  : PATCH /ateliers/:id/publier
+AC  -> AS  : publierAtelier(atelierId, formateurId)
+
+AS  -> DB  : SELECT atelier, grille
+DB --> AS  : { atelier, grilleValidee }
+
+alt #FFE8E8 Grille non validée ou\ndateLimite dans le passé
+  AS --> AC : BadRequestException
+  AC --> FE : HTTP 400
+  FE --> FOR : "Validez la grille\nde notation d'abord"
+else #E8F8F5 Tout valide
+  AS  -> DB  : UPDATE ateliers SET\nstatut = "Publié"
+  AS  -> DB  : INSERT INTO audit_log\n({ action: "ATELIER_PUBLIE",\n  atelierId, formateurId })
+  DB --> AS  : OK
+  AS --> AC  : OK
+  AC --> FE  : HTTP 200 OK
+  FE --> FOR : "Atelier publié ✅\nVisible aux apprenants inscrits."
+end
+
+legend bottom
+  | <back:#E8F8F5> vert  </back> | Succès |
+  | <back:#FFE8E8> rouge </back> | Erreur / validation |
+  | <back:#FEF9E7> jaune </back> | Variante (modèle) |
+endlegend
+@enduml

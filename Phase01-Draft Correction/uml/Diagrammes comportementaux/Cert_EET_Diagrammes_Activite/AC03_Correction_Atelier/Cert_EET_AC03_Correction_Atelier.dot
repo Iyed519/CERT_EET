@@ -1,0 +1,69 @@
+digraph activite {
+  graph [rankdir=TB, splines=ortho, nodesep=0.55, ranksep=0.70,
+         fontname="DejaVu Sans", fontsize=11, labelloc="t", compound=true,
+         newrank=true, bgcolor="white", pad=0.4,
+         label=<<b>Cert_EET — AC-03 : Correction d'un atelier</b><br/><font point-size="10">Apprenant · Systeme · Formateur — Verrouillage progressif · Feedback immuable (F2 · F3)</font><br/> >];
+  node [fontname="DejaVu Sans", fontsize=10, penwidth=1.4];
+  edge [fontname="DejaVu Sans", fontsize=9, color="#34495E", penwidth=1.3, arrowsize=0.8];
+  subgraph cluster_lane0 {
+    label=<<b>Apprenant</b>>; fontsize=12; fontname="DejaVu Sans";
+    style="filled"; fillcolor="#F4F8FB"; color="#5D6D7E"; penwidth=1.6;
+    margin=14;
+  a_init [shape=circle, style=filled, fillcolor="black", color="black", width=0.28, fixedsize=true, label=""];
+  a_soum [shape=box, style="rounded,filled", fillcolor="#D5F5E3", color="#1E8449", label="Soumettre le livrable\n(fichiers + commentaire)"];
+  }
+  subgraph cluster_lane1 {
+    label=<<b>Systeme</b>>; fontsize=12; fontname="DejaVu Sans";
+    style="filled"; fillcolor="#F2FBF6"; color="#5D6D7E"; penwidth=1.6;
+    margin=14;
+  s_date [shape=diamond, style=filled, fillcolor="#FCF3CF", color="#B7950B", label="Avant la\ndate limite ?", margin=0.05];
+  s_403 [shape=box, style="rounded,filled", fillcolor="#FADBD8", color="#A93226", label="Rejet HTTP 403\ndate depassee"];
+  s_end403 [shape=doublecircle, style=filled, fillcolor="black", color="black", width=0.20, fixedsize=true, label=""];
+  s_fmt [shape=diamond, style=filled, fillcolor="#FCF3CF", color="#B7950B", label="Format et taille\nvalides ?", margin=0.05];
+  s_400 [shape=box, style="rounded,filled", fillcolor="#FADBD8", color="#A93226", label="Rejet HTTP 400\nformat refuse"];
+  s_end400 [shape=doublecircle, style=filled, fillcolor="black", color="black", width=0.20, fixedsize=true, label=""];
+  s_soumis [shape=box, style="rounded,filled", fillcolor="#D5F5E3", color="#1E8449", label="Statut = SOUMIS\n+ hash de tracabilite"];
+  s_lock [shape=box, style="rounded,filled", fillcolor="#D6EAF8", color="#1B4F72", label="Verrouillage :\nstatut = EN_CORRECTION"];
+  s_valid [shape=diamond, style=filled, fillcolor="#FCF3CF", color="#B7950B", label="Tous criteres notes\nET ponderations = 100% ?", margin=0.05];
+  s_incomplet [shape=box, style="rounded,filled", fillcolor="#FADBD8", color="#A93226", label="Rejet : correction\nincomplete"];
+  s_note [shape=box, style="rounded,filled", fillcolor="#D5F5E3", color="#1E8449", label="Statut = NOTE\n+ feedback immuable"];
+  s_notif [shape=box, style="rounded,filled", fillcolor="#D5F5E3", color="#1E8449", label="Notifier l'apprenant\n(livrable corrige)"];
+  s_cert [shape=diamond, style=filled, fillcolor="#FCF3CF", color="#B7950B", label="Score >= seuil\nET modules valides ?", margin=0.05];
+  s_trig [shape=box, style="rounded,filled", fillcolor="#D6EAF8", color="#1B4F72", label="Declencher l'emission\ndu certificat (AC-02 / DS-04)"];
+  s_end_cert [shape=doublecircle, style=filled, fillcolor="black", color="black", width=0.20, fixedsize=true, label=""];
+  s_end_nocert [shape=doublecircle, style=filled, fillcolor="black", color="black", width=0.20, fixedsize=true, label=""];
+  }
+  subgraph cluster_lane2 {
+    label=<<b>Formateur</b>>; fontsize=12; fontname="DejaVu Sans";
+    style="filled"; fillcolor="#FBF7F0"; color="#5D6D7E"; penwidth=1.6;
+    margin=14;
+  f_open [shape=box, style="rounded,filled", fillcolor="#D5F5E3", color="#1E8449", label="Ouvrir la correction"];
+  f_crit [shape=box, style="rounded,filled", fillcolor="#D5F5E3", color="#1E8449", label="Noter chaque critere\n(grille de notation)"];
+  f_final [shape=box, style="rounded,filled", fillcolor="#D5F5E3", color="#1E8449", label="Finaliser la correction\n(commentaire general)"];
+  }
+  a_init -> a_soum;
+  a_soum -> s_date;
+  s_date -> s_403 [label="non", color="#A93226"];
+  s_403 -> s_end403;
+  s_date -> s_fmt [label="oui", color="#1E8449"];
+  s_fmt -> s_400 [label="non", color="#A93226"];
+  s_400 -> s_end400;
+  s_fmt -> s_soumis [label="oui", color="#1E8449"];
+  s_soumis -> f_open [label="notifier formateur"];
+  f_open -> s_lock;
+  s_lock -> f_crit;
+  f_crit -> f_final [label="boucle criteres"];
+  f_final -> s_valid;
+  s_valid -> s_incomplet [label="non", color="#A93226"];
+  s_incomplet -> f_crit [label="reprise", color="#A93226", style="dashed", constraint="false"];
+  s_valid -> s_note [label="oui", color="#1E8449"];
+  s_note -> s_notif;
+  s_notif -> s_cert;
+  s_cert -> s_trig [label="oui", color="#1B4F72"];
+  s_trig -> s_end_cert;
+  s_cert -> s_end_nocert [label="non"];
+  // alignement
+  a_init -> a_soum [style=invis, weight=10];
+  s_date -> s_fmt -> s_soumis -> s_lock -> s_valid -> s_note -> s_notif -> s_cert -> s_trig -> s_end_cert [style=invis, weight=10];
+  f_open -> f_crit -> f_final [style=invis, weight=10];
+}

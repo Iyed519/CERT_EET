@@ -1,0 +1,55 @@
+digraph G {
+  rankdir=TB;
+  bgcolor="#FFFFFF";
+  splines=ortho;
+  forcelabels=true;
+  concentrate=false;
+  pad="0.5,0.4";
+  nodesep=0.9; ranksep=1.05;
+  fontname="DejaVu Sans"; labelloc="t"; fontsize=20; fontcolor="#1B2631";
+  label=<<B>Cert_EET &#8212; Diagramme d'etats-transitions : Livrable</B><BR/><FONT POINT-SIZE="10" COLOR="#7B8794">PFE ESPRIT 2026 &#8226; Iyed Omri &#8226; UML 2.5</FONT><BR/> >;
+  node [fontname="DejaVu Sans"];
+  edge [fontname="DejaVu Sans" fontsize=9.5 color="#34495E" fontcolor="#1B2631" arrowsize=0.85 penwidth=1.4];
+
+  "__start__" [shape=circle width=0.25 style=filled fillcolor="#1B2631" color="#1B2631" label=""];
+  "__end__" [shape=doublecircle width=0.20 style=filled fillcolor="#1B2631" color="#1B2631" label="" penwidth=1.5];
+
+  "BROUILLON" [shape=plaintext margin=0 label=<
+    <TABLE BORDER="2" CELLBORDER="0" CELLSPACING="0" CELLPADDING="9" BGCOLOR="#FEF9E7" COLOR="#B7950B" STYLE="ROUNDED">
+      <TR><TD ALIGN="CENTER"><FONT POINT-SIZE="14" COLOR="#B7950B"><B>BROUILLON</B></FONT></TD></TR>
+      <TR><TD ALIGN="CENTER"><FONT POINT-SIZE="9.5" COLOR="#2C3E50">Etat initial a la creation.<BR/>Modifiable librement.</FONT></TD></TR>
+    </TABLE>>];
+
+  "SOUMIS" [shape=plaintext margin=0 label=<
+    <TABLE BORDER="2" CELLBORDER="0" CELLSPACING="0" CELLPADDING="9" BGCOLOR="#D6EAF8" COLOR="#2471A3" STYLE="ROUNDED">
+      <TR><TD ALIGN="CENTER"><FONT POINT-SIZE="14" COLOR="#2471A3"><B>SOUMIS</B></FONT></TD></TR>
+      <TR><TD ALIGN="CENTER"><FONT POINT-SIZE="9.5" COLOR="#2C3E50">Depot (DS-03) : hashTracabilite + upload S3.<BR/>Remplacable avant la date limite.</FONT></TD></TR>
+    </TABLE>>];
+
+  "EN_CORRECTION" [shape=plaintext margin=0 label=<
+    <TABLE BORDER="2" CELLBORDER="0" CELLSPACING="0" CELLPADDING="9" BGCOLOR="#D6EAF8" COLOR="#2471A3" STYLE="ROUNDED">
+      <TR><TD ALIGN="CENTER"><FONT POINT-SIZE="14" COLOR="#2471A3"><B>EN_CORRECTION</B></FONT></TD></TR>
+      <TR><TD ALIGN="CENTER"><FONT POINT-SIZE="9.5" COLOR="#2C3E50">Formateur a ouvert : verrouillage.<BR/>L'apprenant ne peut plus remplacer.</FONT></TD></TR>
+    </TABLE>>];
+
+  "NOTE" [shape=plaintext margin=0 label=<
+    <TABLE BORDER="2" CELLBORDER="0" CELLSPACING="0" CELLPADDING="9" BGCOLOR="#D5F5E3" COLOR="#1E8449" STYLE="ROUNDED">
+      <TR><TD ALIGN="CENTER"><FONT POINT-SIZE="14" COLOR="#1E8449"><B>NOTE</B></FONT></TD></TR>
+      <TR><TD ALIGN="CENTER"><FONT POINT-SIZE="9.5" COLOR="#2C3E50">Correction finalisee : grille complete,<BR/>&#931; ponderations = 100%, Feedback immuable.</FONT></TD></TR>
+    </TABLE>>];
+
+
+  "__start__" -> "BROUILLON" [xlabel=<<FONT POINT-SIZE="9.5">Apprenant : creer</FONT>>];
+  "BROUILLON" -> "SOUMIS" [xlabel=<<FONT POINT-SIZE="9.5">Apprenant : deposer (DS-03)<BR/>[hash calcule + upload OK]</FONT>>];
+  "__self_SOUMIS_1__" [shape=point width=0.01 style=invis];
+  { rank=same; "SOUMIS"; "__self_SOUMIS_1__"; }
+  "SOUMIS" -> "__self_SOUMIS_1__" [dir=none color="#2471A3" xlabel=<<FONT POINT-SIZE="9.5">Apprenant : remplacer<BR/>[NOW() &lt; dateLimite] / version++</FONT>>];
+  "__self_SOUMIS_1__" -> "SOUMIS" [color="#2471A3"];
+  "SOUMIS" -> "EN_CORRECTION" [xlabel=<<FONT POINT-SIZE="9.5">Formateur : ouvrir pour correction<BR/>(verrouillage)</FONT>>];
+  "EN_CORRECTION" -> "NOTE" [xlabel=<<FONT POINT-SIZE="9.5">Formateur : finaliser<BR/>[&#931; ponderations = 100%]</FONT>>];
+  "NOTE" -> "__end__" [xlabel=<<FONT POINT-SIZE="9.5">[score &#8805; min &amp; modules valides]<BR/>/ declenche emission (DS-04)</FONT>>];
+
+  "__legend__" [shape=plaintext margin=0 label=<
+    <TABLE BORDER="1" CELLBORDER="0" CELLSPACING="0" CELLPADDING="5" COLOR="#BDC3C7" BGCOLOR="#FBFCFC" STYLE="ROUNDED"><TR><TD COLSPAN="2"><FONT POINT-SIZE="10"><B>Legende &#8212; criticite</B></FONT></TD></TR><TR><TD BGCOLOR="#FEF9E7" WIDTH="26" HEIGHT="14"></TD><TD ALIGN="LEFT"><FONT POINT-SIZE="9.5">En attente</FONT></TD></TR><TR><TD BGCOLOR="#D6EAF8" WIDTH="26" HEIGHT="14"></TD><TD ALIGN="LEFT"><FONT POINT-SIZE="9.5">En cours / transitoire</FONT></TD></TR><TR><TD BGCOLOR="#D5F5E3" WIDTH="26" HEIGHT="14"></TD><TD ALIGN="LEFT"><FONT POINT-SIZE="9.5">Nominal actif</FONT></TD></TR></TABLE>>];
+  { rank=sink; "__legend__"; }
+}

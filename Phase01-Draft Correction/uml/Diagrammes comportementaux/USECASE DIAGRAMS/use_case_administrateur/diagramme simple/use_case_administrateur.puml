@@ -1,0 +1,64 @@
+@startuml Cert_EET_UC_Administrateur
+' =====================================================================
+'  Cert_EET — Vue détaillée par acteur : ADMINISTRATEUR
+'  Convention : UML 2.5 stricte
+'  Auteur : Iyed Omri — PFE ESPRIT 2026
+' =====================================================================
+
+!theme plain
+skinparam backgroundColor #FFFFFF
+skinparam shadowing false
+skinparam DefaultFontName "Segoe UI"
+skinparam DefaultFontSize 12
+
+skinparam actor {
+  BackgroundColor #ECF0F1
+  BorderColor #4A235A
+  BorderThickness 1.5
+}
+
+skinparam usecase {
+  BackgroundColor #FFFFFF
+  BorderColor #4A235A
+  BorderThickness 1.2
+  FontSize 12
+}
+
+skinparam rectangle {
+  BackgroundColor #F8F4FB
+  BorderColor #4A235A
+  BorderThickness 1.5
+}
+
+title <size:16><b>Cert_EET — Cas d'Utilisation de l'Administrateur</b></size>
+
+left to right direction
+
+actor "Administrateur" as Admin
+
+rectangle "Système Cert_EET" {
+
+  usecase "Gérer les comptes\nutilisateurs" as UC1
+  usecase "Attribuer les rôles\n(RBAC)" as UC2
+  usecase "Gérer les formations" as UC3
+  usecase "Affecter formateurs\net apprenants" as UC4
+  usecase "Superviser les\ncertificats émis" as UC5
+  usecase "Révoquer un certificat" as UC6
+  usecase "Consulter le tableau\nde bord global" as UC7
+  usecase "Exporter les rapports\ninstitutionnels" as UC8
+  usecase "Configurer la plateforme" as UC9
+  usecase "Consulter les journaux\nd'audit" as UC10
+}
+
+Admin --> UC1
+Admin --> UC2
+Admin --> UC3
+Admin --> UC4
+Admin --> UC5
+Admin --> UC6
+Admin --> UC7
+Admin --> UC8
+Admin --> UC9
+Admin --> UC10
+
+@enduml

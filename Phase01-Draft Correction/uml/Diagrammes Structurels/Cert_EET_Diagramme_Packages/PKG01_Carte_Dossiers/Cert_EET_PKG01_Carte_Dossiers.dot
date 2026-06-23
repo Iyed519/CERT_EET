@@ -1,0 +1,73 @@
+digraph packages {
+  graph [rankdir=TB, splines=ortho, nodesep=0.4, ranksep=0.55,
+         fontname="DejaVu Sans", fontsize=11, labelloc="t", compound=true,
+         newrank=true, bgcolor="white", pad=0.4, forcelabels=true,
+         label=<<b>Cert_EET — PKG-01 : Carte des dossiers (src/)</b><br/><font point-size="10">Organisation du code source NestJS — modules · shared · common · config</font><br/> >];
+  node [fontname="DejaVu Sans", fontsize=10, penwidth=1.4];
+  edge [fontname="DejaVu Sans", fontsize=8.5, color="#34495E", penwidth=1.3, arrowsize=0.8];
+  subgraph cluster_modules {
+    label=<<b>modules/</b><br/><font point-size="9">9 modules fonctionnels (F1–F7)</font>>; labelloc="t"; fontname="DejaVu Sans"; fontsize=12;
+    style="filled,rounded"; fillcolor="#EFF8F2"; color="#1E8449"; penwidth=1.8;
+    margin=14;
+  subgraph cluster_auth {
+    label=<<b>auth/</b><br/><font point-size="9">structure type d'un module</font>>; labelloc="t"; fontname="DejaVu Sans"; fontsize=12;
+    style="filled,rounded"; fillcolor="#EAF7F0"; color="#1E8449"; penwidth=1.8;
+    margin=14;
+  au_mod [shape=plaintext, margin=0, label=<<table border="0" cellborder="1" cellspacing="0" cellpadding="4" color="#1E8449"><tr><td align="left" bgcolor="#1E8449"><font color="white" point-size="8"> ▭ </font></td><td bgcolor="#D5F5E3"></td></tr><tr><td colspan="2" bgcolor="#D5F5E3"><b>auth.module.ts</b></td></tr></table>>];
+  au_ctrl [shape=plaintext, margin=0, label=<<table border="0" cellborder="1" cellspacing="0" cellpadding="4" color="#1E8449"><tr><td align="left" bgcolor="#1E8449"><font color="white" point-size="8"> ▭ </font></td><td bgcolor="#D5F5E3"></td></tr><tr><td colspan="2" bgcolor="#D5F5E3"><b>auth.controller.ts</b></td></tr></table>>];
+  au_svc [shape=plaintext, margin=0, label=<<table border="0" cellborder="1" cellspacing="0" cellpadding="4" color="#1E8449"><tr><td align="left" bgcolor="#1E8449"><font color="white" point-size="8"> ▭ </font></td><td bgcolor="#D5F5E3"></td></tr><tr><td colspan="2" bgcolor="#D5F5E3"><b>auth.service.ts</b></td></tr></table>>];
+  au_dto [shape=plaintext, margin=0, label=<<table border="0" cellborder="1" cellspacing="0" cellpadding="4" color="#1E8449"><tr><td align="left" bgcolor="#1E8449"><font color="white" point-size="8"> ▭ </font></td><td bgcolor="#D5F5E3"></td></tr><tr><td colspan="2" bgcolor="#D5F5E3"><b>dto/</b></td></tr></table>>];
+  au_grd [shape=plaintext, margin=0, label=<<table border="0" cellborder="1" cellspacing="0" cellpadding="4" color="#1E8449"><tr><td align="left" bgcolor="#1E8449"><font color="white" point-size="8"> ▭ </font></td><td bgcolor="#D5F5E3"></td></tr><tr><td colspan="2" bgcolor="#D5F5E3"><b>guards/</b></td></tr></table>>];
+  au_str [shape=plaintext, margin=0, label=<<table border="0" cellborder="1" cellspacing="0" cellpadding="4" color="#1E8449"><tr><td align="left" bgcolor="#1E8449"><font color="white" point-size="8"> ▭ </font></td><td bgcolor="#D5F5E3"></td></tr><tr><td colspan="2" bgcolor="#D5F5E3"><b>strategies/</b></td></tr></table>>];
+  }
+  m_users [shape=plaintext, margin=0, label=<<table border="0" cellborder="1" cellspacing="0" cellpadding="4" color="#1E8449"><tr><td align="left" bgcolor="#1E8449"><font color="white" point-size="8"> ▭ </font></td><td bgcolor="#D5F5E3"></td></tr><tr><td colspan="2" bgcolor="#D5F5E3"><b>users/</b><br/><font point-size="8">comptes · RBAC</font></td></tr></table>>];
+  m_form [shape=plaintext, margin=0, label=<<table border="0" cellborder="1" cellspacing="0" cellpadding="4" color="#1E8449"><tr><td align="left" bgcolor="#1E8449"><font color="white" point-size="8"> ▭ </font></td><td bgcolor="#D5F5E3"></td></tr><tr><td colspan="2" bgcolor="#D5F5E3"><b>formations/</b></td></tr></table>>];
+  m_qcm [shape=plaintext, margin=0, label=<<table border="0" cellborder="1" cellspacing="0" cellpadding="4" color="#1E8449"><tr><td align="left" bgcolor="#1E8449"><font color="white" point-size="8"> ▭ </font></td><td bgcolor="#D5F5E3"></td></tr><tr><td colspan="2" bgcolor="#D5F5E3"><b>qcm/</b></td></tr></table>>];
+  m_atel [shape=plaintext, margin=0, label=<<table border="0" cellborder="1" cellspacing="0" cellpadding="4" color="#1E8449"><tr><td align="left" bgcolor="#1E8449"><font color="white" point-size="8"> ▭ </font></td><td bgcolor="#D5F5E3"></td></tr><tr><td colspan="2" bgcolor="#D5F5E3"><b>ateliers/</b></td></tr></table>>];
+  m_cert [shape=plaintext, margin=0, label=<<table border="0" cellborder="1" cellspacing="0" cellpadding="4" color="#1E8449"><tr><td align="left" bgcolor="#1E8449"><font color="white" point-size="8"> ▭ </font></td><td bgcolor="#D5F5E3"></td></tr><tr><td colspan="2" bgcolor="#D5F5E3"><b>certificats/</b></td></tr></table>>];
+  m_ia [shape=plaintext, margin=0, label=<<table border="0" cellborder="1" cellspacing="0" cellpadding="4" color="#1E8449"><tr><td align="left" bgcolor="#1E8449"><font color="white" point-size="8"> ▭ </font></td><td bgcolor="#D5F5E3"></td></tr><tr><td colspan="2" bgcolor="#D5F5E3"><b>assistance-ia/</b></td></tr></table>>];
+  m_notif [shape=plaintext, margin=0, label=<<table border="0" cellborder="1" cellspacing="0" cellpadding="4" color="#1E8449"><tr><td align="left" bgcolor="#1E8449"><font color="white" point-size="8"> ▭ </font></td><td bgcolor="#D5F5E3"></td></tr><tr><td colspan="2" bgcolor="#D5F5E3"><b>notifications/</b></td></tr></table>>];
+  m_audit [shape=plaintext, margin=0, label=<<table border="0" cellborder="1" cellspacing="0" cellpadding="4" color="#1E8449"><tr><td align="left" bgcolor="#1E8449"><font color="white" point-size="8"> ▭ </font></td><td bgcolor="#D5F5E3"></td></tr><tr><td colspan="2" bgcolor="#D5F5E3"><b>audit/</b></td></tr></table>>];
+  }
+  subgraph cluster_shared {
+    label=<<b>shared/</b><br/><font point-size="9">code partage entre modules</font>>; labelloc="t"; fontname="DejaVu Sans"; fontsize=12;
+    style="filled,rounded"; fillcolor="#F2F3F4"; color="#566573"; penwidth=1.8;
+    margin=14;
+  s_dto [shape=plaintext, margin=0, label=<<table border="0" cellborder="1" cellspacing="0" cellpadding="4" color="#566573"><tr><td align="left" bgcolor="#566573"><font color="white" point-size="8"> ▭ </font></td><td bgcolor="#EAECEE"></td></tr><tr><td colspan="2" bgcolor="#EAECEE"><b>dto/</b></td></tr></table>>];
+  s_ent [shape=plaintext, margin=0, label=<<table border="0" cellborder="1" cellspacing="0" cellpadding="4" color="#566573"><tr><td align="left" bgcolor="#566573"><font color="white" point-size="8"> ▭ </font></td><td bgcolor="#EAECEE"></td></tr><tr><td colspan="2" bgcolor="#EAECEE"><b>entities/</b><br/><font point-size="8">entites TypeORM</font></td></tr></table>>];
+  s_int [shape=plaintext, margin=0, label=<<table border="0" cellborder="1" cellspacing="0" cellpadding="4" color="#566573"><tr><td align="left" bgcolor="#566573"><font color="white" point-size="8"> ▭ </font></td><td bgcolor="#EAECEE"></td></tr><tr><td colspan="2" bgcolor="#EAECEE"><b>interfaces/</b><br/><font point-size="8">contrats partages</font></td></tr></table>>];
+  s_enum [shape=plaintext, margin=0, label=<<table border="0" cellborder="1" cellspacing="0" cellpadding="4" color="#566573"><tr><td align="left" bgcolor="#566573"><font color="white" point-size="8"> ▭ </font></td><td bgcolor="#EAECEE"></td></tr><tr><td colspan="2" bgcolor="#EAECEE"><b>enums/</b><br/><font point-size="8">statuts</font></td></tr></table>>];
+  }
+  subgraph cluster_common {
+    label=<<b>common/</b><br/><font point-size="9">aspects transverses NestJS</font>>; labelloc="t"; fontname="DejaVu Sans"; fontsize=12;
+    style="filled,rounded"; fillcolor="#F2F3F4"; color="#566573"; penwidth=1.8;
+    margin=14;
+  c_filt [shape=plaintext, margin=0, label=<<table border="0" cellborder="1" cellspacing="0" cellpadding="4" color="#566573"><tr><td align="left" bgcolor="#566573"><font color="white" point-size="8"> ▭ </font></td><td bgcolor="#EAECEE"></td></tr><tr><td colspan="2" bgcolor="#EAECEE"><b>filters/</b><br/><font point-size="8">erreurs globales</font></td></tr></table>>];
+  c_int [shape=plaintext, margin=0, label=<<table border="0" cellborder="1" cellspacing="0" cellpadding="4" color="#566573"><tr><td align="left" bgcolor="#566573"><font color="white" point-size="8"> ▭ </font></td><td bgcolor="#EAECEE"></td></tr><tr><td colspan="2" bgcolor="#EAECEE"><b>interceptors/</b><br/><font point-size="8">logging · transformation</font></td></tr></table>>];
+  c_pipe [shape=plaintext, margin=0, label=<<table border="0" cellborder="1" cellspacing="0" cellpadding="4" color="#566573"><tr><td align="left" bgcolor="#566573"><font color="white" point-size="8"> ▭ </font></td><td bgcolor="#EAECEE"></td></tr><tr><td colspan="2" bgcolor="#EAECEE"><b>pipes/</b><br/><font point-size="8">validation</font></td></tr></table>>];
+  c_dec [shape=plaintext, margin=0, label=<<table border="0" cellborder="1" cellspacing="0" cellpadding="4" color="#566573"><tr><td align="left" bgcolor="#566573"><font color="white" point-size="8"> ▭ </font></td><td bgcolor="#EAECEE"></td></tr><tr><td colspan="2" bgcolor="#EAECEE"><b>decorators/</b></td></tr></table>>];
+  }
+  config [shape=plaintext, margin=0, label=<<table border="0" cellborder="1" cellspacing="0" cellpadding="4" color="#1B4F72"><tr><td align="left" bgcolor="#1B4F72"><font color="white" point-size="8"> ▭ </font></td><td bgcolor="#D6EAF8"></td></tr><tr><td colspan="2" bgcolor="#D6EAF8"><b>config/</b><br/><font point-size="8">configuration.ts</font></td></tr></table>>];
+  main [shape=plaintext, margin=0, label=<<table border="0" cellborder="1" cellspacing="0" cellpadding="4" color="#B7950B"><tr><td align="left" bgcolor="#B7950B"><font color="white" point-size="8"> ▭ </font></td><td bgcolor="#FCF3CF"></td></tr><tr><td colspan="2" bgcolor="#FCF3CF"><b>main.ts</b><br/><font point-size="8">bootstrap de l'application</font></td></tr></table>>];
+  au_mod -> au_ctrl [style=dashed, color="#1E8449", arrowhead=open, penwidth=1.3];
+  au_mod -> au_svc [style=dashed, color="#1E8449", arrowhead=open, penwidth=1.3];
+  au_ctrl -> au_dto [style=dashed, color="#1E8449", arrowhead=open, penwidth=1.3];
+  au_svc -> au_grd [style=dashed, color="#1E8449", arrowhead=open, penwidth=1.3];
+  au_svc -> au_str [style=dashed, color="#1E8449", arrowhead=open, penwidth=1.3];
+  n1 [shape=note, style=filled, fillcolor="#EAF6EE", color="#1E8449", fontsize=8.5, margin="0.12,0.08", label="Chaque dossier de modules/ suit la meme\nstructure que auth/ (module · controller ·\nservice · dto · guards · strategies)."];
+  m_users -> n1 [style=dotted, arrowhead=none, color="#1E8449", constraint=false];
+  n2 [shape=note, style=filled, fillcolor="#FCF9E8", color="#B7950B", fontsize=8.5, margin="0.12,0.08", label="main.ts assemble tous les modules au\ndemarrage (AppModule racine)."];
+  main -> n2 [style=dotted, arrowhead=none, color="#B7950B", constraint=false];
+  // empilement vertical : modules -> shared -> common -> config -> main
+  {rank=same; m_users; m_form; m_qcm;}
+  {rank=same; m_atel; m_cert; m_ia;}
+  {rank=same; m_notif; m_audit;}
+  m_users -> m_atel -> m_notif [style=invis, weight=20];
+  m_form -> m_cert -> m_audit [style=invis, weight=20];
+  m_notif -> s_dto [style=invis, weight=40];
+  {rank=same; s_dto; s_ent; s_int; s_enum;}
+  s_dto -> c_filt [style=invis, weight=40];
+  {rank=same; c_filt; c_int; c_pipe; c_dec;}
+  c_filt -> config [style=invis, weight=40];
+  config -> main [style=invis, weight=20];
+}

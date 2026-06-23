@@ -1,0 +1,197 @@
+@startuml Cert_EET_DS16_Gestion_Formations_Admin
+' =====================================================================
+'  DS-16 — Gestion formations + rapports institutionnels + audit logs
+'  Acteur : Administrateur · Ref : UC3+UC4+UC5+UC7+UC8+UC9+UC10 Admin
+' =====================================================================
+!pragma teoz true
+skinparam backgroundColor #FFFFFF
+skinparam shadowing false
+skinparam DefaultFontName "Segoe UI"
+skinparam DefaultFontSize 10
+skinparam sequenceMessageAlign center
+skinparam responseMessageBelowArrow true
+skinparam ParticipantPadding 18
+skinparam ArrowThickness 1.2
+skinparam LifeLineBorderThickness 1.0
+skinparam participant {
+  BackgroundColor #FFFFFF
+  BorderColor #5D6D7E
+}
+skinparam actor {
+  BackgroundColor #ECF0F1
+  BorderColor #1B4F72
+  FontStyle bold
+}
+skinparam database {
+  BackgroundColor #EBF5FB
+  BorderColor #1B4F72
+}
+skinparam boundary {
+  BackgroundColor #FEF9E7
+  BorderColor #B7950B
+}
+skinparam control {
+  BackgroundColor #FAE5D3
+  BorderColor #BA4A00
+}
+skinparam collections {
+  BackgroundColor #E8F8F5
+  BorderColor #1E8449
+}
+skinparam entity {
+  BackgroundColor #E8DAEF
+  BorderColor #7D3C98
+}
+skinparam note {
+  BackgroundColor #FEF9E7
+  BorderColor #B7950B
+  FontSize 9
+}
+skinparam sequence {
+  ArrowColor #34495E
+  LifeLineBorderColor #7F8C8D
+  LifeLineBackgroundColor #FDFEFE
+  GroupBorderColor #1B4F72
+  GroupHeaderFontColor #1B4F72
+  GroupHeaderFontStyle bold
+  DividerBorderColor #1B4F72
+  DividerBackgroundColor #D6EAF8
+  DividerFontColor #1B4F72
+  DividerFontStyle bold
+}
+
+title <size:14><b>Cert_EET — DS-16 : Gestion Formations + Rapports + Audit</b></size>\n<size:10>UC3+UC4+UC5+UC7+UC8+UC9+UC10 Admin · F6/F7</size>
+
+actor "Administrateur" as ADM
+boundary "Frontend\n(Next.js)" as FE
+control "AdminController\n(NestJS)" as AC
+control "FormationAdminService" as FAS
+entity "ReportWorker\n(Bull)" as RW
+database "PostgreSQL" as DB
+collections "NotifService" as NOTIF
+
+== Partie 1 — Créer et gérer une formation (UC3) ==
+
+ADM -> FE  : Accède à "Formations"\net clique "Nouvelle formation"
+FE --> ADM : Formulaire :
+ADM -> FE  : Saisit :\n• Titre, description, prérequis\n• Objectifs pédagogiques\n• Date début / fin\n• Capacité maximale\n• Note minimale de certification\n• Modèle de certificat
+FE  -> AC  : POST /admin/formations\n{ titre, description,\n  dateDebut, dateFin,\n  capaciteMax, noteMinCertification,\n  modeleCertificat }
+AC  -> FAS : creerFormation(adminId, data)
+FAS -> DB  : INSERT INTO formations\n({ ...data, statut: "Ouverte" })
+FAS -> DB  : INSERT INTO audit_log\n({ action: "FORMATION_CREEE" })
+DB --> FAS : formationId
+FAS --> AC : { formationId }
+AC  --> FE : HTTP 201 Created
+FE  --> ADM : "Formation créée ✅"
+
+ADM -> FE  : Clique "Gérer les participants"\n(UC4 — Affecter formateurs\net apprenants)
+FE  -> AC  : POST /admin/formations/:id/formateurs\n{ formateurId }
+AC  -> FAS : affecterFormateur(formationId,\n  formateurId)
+FAS -> DB  : INSERT INTO formation_formateurs
+FAS -> NOTIF : notifier(formateur,\n  "Vous avez été affecté à\n  la formation {titre}")
+NOTIF --> DB : INSERT INTO notifications
+DB --> FAS : OK
+FAS --> AC : OK
+AC  --> FE : HTTP 200 OK
+FE  --> ADM : "Formateur affecté ✅"
+
+alt #FEF9E7 Clôturer une formation
+  ADM -> FE  : Clique "Clôturer la formation"
+  FE  -> AC  : PATCH /admin/formations/:id\n{ statut: "Fermée" }
+  AC  -> FAS : cloturerFormation(formationId)
+  FAS -> DB  : UPDATE formations SET\nstatut = "Fermée"
+  FAS -> DB  : INSERT INTO audit_log
+  DB --> FAS : OK
+  FAS --> AC : OK
+  AC  --> FE : HTTP 200 OK
+  FE  --> ADM : "Formation clôturée"
+
+else #FEF9E7 Archiver une formation
+  ADM -> FE  : Clique "Archiver"
+  FE  -> AC  : PATCH /admin/formations/:id\n{ statut: "Archivée" }
+  AC  -> FAS : archiverFormation(formationId)
+  FAS -> DB  : UPDATE formations SET\nstatut = "Archivée"
+  DB --> FAS : OK
+  FAS --> AC : OK
+  AC  --> FE : HTTP 200 OK
+  FE  --> ADM : "Formation archivée\n(certificats restent vérifiables)"
+end
+
+== Partie 2 — Tableau de bord global et supervision (UC7) ==
+
+ADM -> FE  : Accède au tableau de bord\nadministrateur
+FE  -> AC  : GET /admin/dashboard\n?periode=last30days
+AC  -> FAS : getTableauBordGlobal(periode)
+FAS -> DB  : Agrège :\n• nbUsersActifs par rôle\n• nbFormationsEnCours\n• nbCertificatsEmis\n• tauxCompletionMoyen\n• tauxReussiteGlobal\n• evolutionInscriptions[]\n• evolutionCertifications[]\n• alertesSysteme[]
+DB --> FAS : données agrégées
+FAS --> AC : { kpis, graphiques,\n  alertes, activiteRecente }
+AC  --> FE : HTTP 200 OK
+FE  --> ADM : Tableau de bord :\n• KPIs globaux\n• Graphiques tendance\n• Alertes système\n• Activité récente
+
+== Partie 3 — Supervision des certificats (UC5) ==
+
+ADM -> FE  : Accède à "Certificats"
+FE  -> AC  : GET /admin/certificats\n?statut=ACTIF&page=1
+AC  -> DB  : SELECT certificats\nJOIN apprenants, formations\nWHERE statut = "ACTIF"\nORDER BY dateEmission DESC
+DB --> AC  : certificats[]
+AC  --> FE : HTTP 200 OK
+FE  --> ADM : Liste exhaustive avec\nUUID, titulaire, formation,\ndate, score, statut, nbConsultations
+
+ADM -> FE  : Clique sur un certificat\npour voir le détail
+FE  -> AC  : GET /admin/certificats/:id
+AC  -> DB  : SELECT certificat, empreinte,\nverifications[], revocation?
+DB --> AC  : détail complet
+AC  --> FE : HTTP 200 OK
+FE  --> ADM : Fiche détaillée :\n• Historique complet\n• Consultations publiques\n• Empreinte SHA-256
+
+== Partie 4 — Export rapports institutionnels (UC8) ==
+
+ADM -> FE  : Clique "Rapports"\net configure l'export :
+ADM -> FE  : • Type : Activité / Certifications\n  / Par formation / Conformité\n• Format : PDF (en-tête ESPRIT)\n  ou CSV\n• Période : du ... au ...
+
+FE  -> AC  : POST /admin/rapports\n{ type, format, periode }
+AC  -> FAS : genererRapportInstitutionnel(\n  adminId, data\n)
+FAS -> DB  : INSERT INTO rapports\n({ adminId, type, statut: "EnCours" })
+DB --> FAS : rapportId
+FAS -> RW  : queue.add("rapport-institutionnel",\n  { rapportId })
+FAS --> AC : { rapportId, statut: "EnCours" }
+AC  --> FE : HTTP 202 Accepted
+FE  --> ADM : "Génération en cours…"
+
+RW  -> DB  : Agrège toutes les données\nde la plateforme (périmètre total)
+RW  -> RW  : Génère PDF ou CSV
+RW  -> DB  : UPDATE rapports SET statut = "Prêt"
+RW  -> NOTIF : notifier(adminId, "Rapport prêt")
+NOTIF --> ADM : Notification In-App
+
+== Partie 5 — Consultation des journaux d'audit (UC10) ==
+
+ADM -> FE  : Accède à "Journal d'audit"
+FE  -> AC  : GET /admin/audit-logs\n?action=&userId=&from=&to=\n&page=1&limit=50
+AC  -> DB  : SELECT audit_log\nWHERE (filtres)\nORDER BY horodatage DESC
+DB --> AC  : logs[] (paginés)
+AC  --> FE : HTTP 200 OK
+FE  --> ADM : Journal d'audit :\n• Horodatage\n• Action (LOGIN, QCM_SOUMIS…)\n• Acteur (userId, rôle)\n• Cible (ressourceId)\n• IP\n• Résultat (Succès/Échec)
+
+ADM -> FE  : Filtre par action "COMPTE_DESACTIVE"\net période
+FE  -> AC  : GET /admin/audit-logs\n?action=COMPTE_DESACTIVE\n&from=2026-01-01
+AC  -> DB  : SELECT audit_log\nWHERE action = "COMPTE_DESACTIVE"\nAND horodatage >= :from
+DB --> AC  : logs filtrés
+AC  --> FE : HTTP 200 OK
+FE  --> ADM : Résultats filtrés
+
+note over AC, DB
+  **Immuabilité des audit logs (NF3)**
+  Aucun endpoint DELETE ou UPDATE
+  n'existe sur /audit-logs.
+  Même l'administrateur ne peut
+  pas modifier ou supprimer les logs.
+  Garantie de conformité et d'auditabilité.
+end note
+
+legend bottom
+  | <back:#E8F8F5> vert  </back> | Succès |
+  | <back:#FFE8E8> rouge </back> | Erreur |
+  | <back:#FEF9E7> jaune </back> | Variantes admin |
+endlegend
+@enduml

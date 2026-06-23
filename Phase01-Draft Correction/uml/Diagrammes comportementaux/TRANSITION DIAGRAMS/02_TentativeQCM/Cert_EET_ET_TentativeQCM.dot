@@ -1,0 +1,54 @@
+digraph G {
+  rankdir=TB;
+  bgcolor="#FFFFFF";
+  splines=ortho;
+  forcelabels=true;
+  concentrate=false;
+  pad="0.5,0.4";
+  nodesep=1.3; ranksep=1.1;
+  fontname="DejaVu Sans"; labelloc="t"; fontsize=20; fontcolor="#1B2631";
+  label=<<B>Cert_EET &#8212; Diagramme d'etats-transitions : TentativeQCM</B><BR/><FONT POINT-SIZE="10" COLOR="#7B8794">PFE ESPRIT 2026 &#8226; Iyed Omri &#8226; UML 2.5</FONT><BR/> >;
+  node [fontname="DejaVu Sans"];
+  edge [fontname="DejaVu Sans" fontsize=9.5 color="#34495E" fontcolor="#1B2631" arrowsize=0.85 penwidth=1.4];
+
+  "__start__" [shape=circle width=0.25 style=filled fillcolor="#1B2631" color="#1B2631" label=""];
+  "__end__" [shape=doublecircle width=0.20 style=filled fillcolor="#1B2631" color="#1B2631" label="" penwidth=1.5];
+
+  "EN_COURS" [shape=plaintext margin=0 label=<
+    <TABLE BORDER="2" CELLBORDER="0" CELLSPACING="0" CELLPADDING="9" BGCOLOR="#D6EAF8" COLOR="#2471A3" STYLE="ROUNDED">
+      <TR><TD ALIGN="CENTER"><FONT POINT-SIZE="14" COLOR="#2471A3"><B>EN_COURS</B></FONT></TD></TR>
+      <TR><TD ALIGN="CENTER"><FONT POINT-SIZE="9.5" COLOR="#2C3E50">Timer Redis TTL (jamais cote client).<BR/>Auto-save des reponses toutes les 10s.</FONT></TD></TR>
+    </TABLE>>];
+
+  "SOUMISE" [shape=plaintext margin=0 label=<
+    <TABLE BORDER="2" CELLBORDER="0" CELLSPACING="0" CELLPADDING="9" BGCOLOR="#D6EAF8" COLOR="#2471A3" STYLE="ROUNDED">
+      <TR><TD ALIGN="CENTER"><FONT POINT-SIZE="14" COLOR="#2471A3"><B>SOUMISE</B></FONT></TD></TR>
+      <TR><TD ALIGN="CENTER"><FONT POINT-SIZE="9.5" COLOR="#2C3E50">Soumission confirmee par l'apprenant<BR/>avant expiration du timer.</FONT></TD></TR>
+    </TABLE>>];
+
+  "ABANDONNEE_TIMER" [shape=plaintext margin=0 label=<
+    <TABLE BORDER="2" CELLBORDER="0" CELLSPACING="0" CELLPADDING="9" BGCOLOR="#FADBD8" COLOR="#C0392B" STYLE="ROUNDED">
+      <TR><TD ALIGN="CENTER"><FONT POINT-SIZE="14" COLOR="#C0392B"><B>ABANDONNEE_TIMER</B></FONT></TD></TR>
+      <TR><TD ALIGN="CENTER"><FONT POINT-SIZE="9.5" COLOR="#2C3E50">Timer TTL expire sans soumission.<BR/>Reponses partielles conservees.</FONT></TD></TR>
+    </TABLE>>];
+
+  "NOTEE" [shape=plaintext margin=0 label=<
+    <TABLE BORDER="2" CELLBORDER="0" CELLSPACING="0" CELLPADDING="9" BGCOLOR="#D5F5E3" COLOR="#1E8449" STYLE="ROUNDED">
+      <TR><TD ALIGN="CENTER"><FONT POINT-SIZE="14" COLOR="#1E8449"><B>NOTEE</B></FONT></TD></TR>
+      <TR><TD ALIGN="CENTER"><FONT POINT-SIZE="9.5" COLOR="#2C3E50">Scoring 100% serveur (pondere sur estCorrecte).<BR/>Etat IMMUABLE (historique certifiant).</FONT></TD></TR>
+    </TABLE>>];
+
+
+  { rank=same; "SOUMISE" "ABANDONNEE_TIMER"; }
+
+  "__start__" -> "EN_COURS" [xlabel=<<FONT POINT-SIZE="9.5">Apprenant : demarrer QCM (DS-02)<BR/>[QCM Publie + fenetre + tentatives + 1 session]</FONT>>];
+  "EN_COURS" -> "SOUMISE" [xlabel=<<FONT POINT-SIZE="9.5">Apprenant : soumettre<BR/>[TTL &gt; 0 + confirme]</FONT>>];
+  "EN_COURS" -> "ABANDONNEE_TIMER" [xlabel=<<FONT POINT-SIZE="9.5">Systeme : expiration<BR/>[TTL = 0]</FONT>>];
+  "SOUMISE" -> "NOTEE" [xlabel=<<FONT POINT-SIZE="9.5">Systeme : scoring immediat</FONT>>];
+  "ABANDONNEE_TIMER" -> "NOTEE" [xlabel=<<FONT POINT-SIZE="9.5">Systeme : scoring partiel</FONT>>];
+  "NOTEE" -> "__end__" [xlabel=<<FONT POINT-SIZE="9.5">tentative figee (immuable)</FONT>>];
+
+  "__legend__" [shape=plaintext margin=0 label=<
+    <TABLE BORDER="1" CELLBORDER="0" CELLSPACING="0" CELLPADDING="5" COLOR="#BDC3C7" BGCOLOR="#FBFCFC" STYLE="ROUNDED"><TR><TD COLSPAN="2"><FONT POINT-SIZE="10"><B>Legende &#8212; criticite</B></FONT></TD></TR><TR><TD BGCOLOR="#D6EAF8" WIDTH="26" HEIGHT="14"></TD><TD ALIGN="LEFT"><FONT POINT-SIZE="9.5">En cours / transitoire</FONT></TD></TR><TR><TD BGCOLOR="#FADBD8" WIDTH="26" HEIGHT="14"></TD><TD ALIGN="LEFT"><FONT POINT-SIZE="9.5">Erreur / revoque / rejete</FONT></TD></TR><TR><TD BGCOLOR="#D5F5E3" WIDTH="26" HEIGHT="14"></TD><TD ALIGN="LEFT"><FONT POINT-SIZE="9.5">Nominal actif</FONT></TD></TR></TABLE>>];
+  { rank=sink; "__legend__"; }
+}

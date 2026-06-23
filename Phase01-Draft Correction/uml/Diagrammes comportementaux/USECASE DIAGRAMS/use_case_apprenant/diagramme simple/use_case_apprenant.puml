@@ -1,0 +1,62 @@
+@startuml Cert_EET_UC_Apprenant
+' =====================================================================
+'  Cert_EET — Vue détaillée par acteur : APPRENANT
+'  Convention : UML 2.5 stricte
+'  Auteur : Iyed Omri — PFE ESPRIT 2026
+' =====================================================================
+
+!theme plain
+skinparam backgroundColor #FFFFFF
+skinparam shadowing false
+skinparam DefaultFontName "Segoe UI"
+skinparam DefaultFontSize 12
+
+skinparam actor {
+  BackgroundColor #ECF0F1
+  BorderColor #1B4F72
+  BorderThickness 1.5
+}
+
+skinparam usecase {
+  BackgroundColor #FFFFFF
+  BorderColor #1B4F72
+  BorderThickness 1.2
+  FontSize 12
+}
+
+skinparam rectangle {
+  BackgroundColor #F4F9FD
+  BorderColor #1B4F72
+  BorderThickness 1.5
+}
+
+title <size:16><b>Cert_EET — Cas d'Utilisation de l'Apprenant</b></size>
+
+left to right direction
+
+actor "Apprenant" as Apprenant
+
+rectangle "Système Cert_EET" {
+
+  usecase "Consulter ses formations" as UC1
+  usecase "Passer une évaluation QCM" as UC2
+  usecase "Consulter l'historique\nde ses tentatives" as UC3
+  usecase "Soumettre un livrable\nd'atelier" as UC4
+  usecase "Consulter le feedback\ndu formateur" as UC5
+  usecase "Consulter ses certificats" as UC6
+  usecase "Télécharger un certificat\n(PDF)" as UC7
+  usecase "Dialoguer avec le\nchatbot IA" as UC8
+  usecase "Consulter son tableau\nde bord personnel" as UC9
+}
+
+Apprenant --> UC1
+Apprenant --> UC2
+Apprenant --> UC3
+Apprenant --> UC4
+Apprenant --> UC5
+Apprenant --> UC6
+Apprenant --> UC7
+Apprenant --> UC8
+Apprenant --> UC9
+
+@enduml

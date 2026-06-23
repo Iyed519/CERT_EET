@@ -1,0 +1,46 @@
+digraph physique {
+  graph [rankdir=TB,splines=ortho,nodesep=0.5,ranksep=0.75,fontname="DejaVu Sans",
+         fontsize=11,labelloc="t",compound=true,bgcolor="white",pad=0.4,
+         label=<<b>Cert_EET — Architecture physique</b><br/><font point-size="11">Déploiement conteneurisé (Docker Compose)</font><br/> >];
+  node [fontname="DejaVu Sans",fontsize=11];
+  edge [fontname="DejaVu Sans",fontsize=9,color="#34495E",penwidth=1.5,arrowsize=0.85];
+  subgraph cluster_cli {
+    label=<<b>Poste client</b>>;labelloc="t";fontname="DejaVu Sans";fontsize=14;
+    style="filled,rounded";fillcolor="#F2F3F4";color="#566573";penwidth=2.2;margin=18;
+  client [shape=box,style="filled,rounded",fillcolor="#EAECEE",color="#566573",penwidth=1.8,width=2.6,margin="0.2,0.14",label=<<b>Client</b><br/><font point-size="9">Navigateur · Mobile</font>>];
+  }
+  subgraph cluster_host {
+    label=<<b>Hôte Docker — Docker Compose</b>>;labelloc="t";fontname="DejaVu Sans";fontsize=14;
+    style="filled,rounded";fillcolor="#F8FAFB";color="#2E4053";penwidth=2.2;margin=18;
+  nginx [shape=box,style="filled,rounded",fillcolor="#FADBD8",color="#A93226",penwidth=1.8,width=3.0,margin="0.2,0.14",label=<<b>Reverse Proxy — Nginx</b><br/><font point-size="9">Terminaison TLS · routage</font>>];
+  front [shape=box,style="filled,rounded",fillcolor="#D6EAF8",color="#1B4F72",penwidth=1.8,width=2.6,margin="0.2,0.14",label=<<b>Frontend — Next.js</b>>];
+  api [shape=box,style="filled,rounded",fillcolor="#D5F5E3",color="#1E8449",penwidth=1.8,width=2.8,margin="0.2,0.14",label=<<b>API — NestJS</b><br/><font point-size="9">REST + SSE (cluster)</font>>];
+  worker [shape=box,style="filled,rounded",fillcolor="#D5F5E3",color="#1E8449",penwidth=1.8,width=3.0,margin="0.2,0.14",label=<<b>Worker — Bull</b><br/><font point-size="9">Tâches lourdes : PDF · IA · emails</font>>];
+  pg [shape=box,style="filled,rounded",fillcolor="#FDEBD0",color="#B9770E",penwidth=1.8,width=2.0,margin="0.2,0.14",label=<<b>PostgreSQL</b><br/><font point-size="9">+ pgvector</font>>];
+  redis [shape=box,style="filled,rounded",fillcolor="#FDEBD0",color="#B9770E",penwidth=1.8,width=1.9,margin="0.2,0.14",label=<<b>Redis</b><br/><font point-size="9">cache · file</font>>];
+  minio [shape=box,style="filled,rounded",fillcolor="#FDEBD0",color="#B9770E",penwidth=1.8,width=1.9,margin="0.2,0.14",label=<<b>MinIO</b><br/><font point-size="9">stockage S3</font>>];
+    {rank=same; front; api; worker;}
+    {rank=same; pg; redis; minio;}
+    nginx -> api [style=invis,weight=30];
+    api -> pg [style=invis,weight=30];
+    front -> api -> worker [style=invis,weight=5];
+    pg -> redis -> minio [style=invis,weight=5];
+  }
+  subgraph cluster_ext {
+    label=<<b>Services externes</b>>;labelloc="t";fontname="DejaVu Sans";fontsize=14;
+    style="filled,rounded";fillcolor="#F2F3F4";color="#566573";penwidth=2.2;margin=18;
+  llm [shape=box,style="filled,rounded",fillcolor="#EAECEE",color="#566573",penwidth=1.8,width=2.6,margin="0.2,0.14",label=<<b>API LLM</b><br/><font point-size="9">GPT-4o / Claude / Mistral</font>>];
+  smtp [shape=box,style="filled,rounded",fillcolor="#EAECEE",color="#566573",penwidth=1.8,width=1.8,margin="0.2,0.14",label=<<b>SMTP</b><br/><font point-size="9">emails</font>>];
+    {rank=same; llm; smtp;}
+  }
+  client -> nginx [label="HTTPS / TLS"];
+  nginx -> front [label="sert"];
+  nginx -> api [label="proxy"];
+  api -> worker [label="file (Bull)",style=dashed];
+  api -> pg [label="TypeORM"];
+  api -> redis;
+  worker -> minio;
+  worker -> llm [label="HTTPS"];
+  worker -> smtp;
+  client -> nginx [style=invis,weight=20];
+}

@@ -1,0 +1,193 @@
+@startuml Cert_EET_DS01_Authentification
+' =====================================================================
+'  DS-01 — Authentification + MFA
+'  Acteur : Tout utilisateur authentifiable (Apprenant / Formateur / Admin)
+'  Ref : F5 (RBAC) · F7 (Sécurité) · ADR-08 (JWT RS256 + MFA TOTP + blocklist Redis)
+' =====================================================================
+!pragma teoz true
+skinparam backgroundColor #FFFFFF
+skinparam shadowing false
+skinparam DefaultFontName "Segoe UI"
+skinparam DefaultFontSize 10
+skinparam sequenceMessageAlign center
+skinparam responseMessageBelowArrow true
+skinparam ParticipantPadding 18
+skinparam ArrowThickness 1.2
+skinparam LifeLineBorderThickness 1.0
+skinparam participant {
+  BackgroundColor #FFFFFF
+  BorderColor #5D6D7E
+}
+skinparam actor {
+  BackgroundColor #ECF0F1
+  BorderColor #1B4F72
+  FontStyle bold
+}
+skinparam database {
+  BackgroundColor #EBF5FB
+  BorderColor #1B4F72
+}
+skinparam boundary {
+  BackgroundColor #FEF9E7
+  BorderColor #B7950B
+}
+skinparam control {
+  BackgroundColor #FAE5D3
+  BorderColor #BA4A00
+}
+skinparam collections {
+  BackgroundColor #E8F8F5
+  BorderColor #1E8449
+}
+skinparam note {
+  BackgroundColor #FEF9E7
+  BorderColor #B7950B
+  FontSize 9
+}
+skinparam sequence {
+  ArrowColor #34495E
+  LifeLineBorderColor #7F8C8D
+  LifeLineBackgroundColor #FDFEFE
+  GroupBorderColor #1B4F72
+  GroupHeaderFontColor #1B4F72
+  GroupHeaderFontStyle bold
+  DividerBorderColor #1B4F72
+  DividerBackgroundColor #D6EAF8
+  DividerFontColor #1B4F72
+  DividerFontStyle bold
+}
+
+title <size:14><b>Cert_EET — DS-01 : Authentification + MFA</b></size>\n<size:10>JWT RS256 · MFA TOTP · refresh · déconnexion · F5 · F7 · ADR-08</size>
+
+actor "Utilisateur\n(Apprenant /\nFormateur / Admin)" as USR
+boundary "Frontend\n(Next.js)" as FE
+control "AuthController\n(NestJS)" as AC
+control "AuthService" as AS
+control "JwtService\n(RS256)" as JWT
+collections "Redis\n(sessions / blocklist)" as RD
+database "PostgreSQL" as DB
+
+== Étape 1 — Saisie des identifiants ==
+
+USR -> FE : Saisit email +\nmot de passe
+FE  -> AC : POST /auth/login\n{ email, motDePasse }
+AC  -> AC : valide le DTO\n(format email, longueur)
+AC  -> AS : validateUser(email, motDePasse)
+
+AS  -> DB : SELECT id, motDePasseHash,\nrole, statut, mfaActive\nWHERE email = :email
+DB --> AS : utilisateur (ou null)
+
+AS  -> AS : vérifie statut = ACTIF\n+ bcrypt.compare(\n  motDePasse, hash)
+
+alt #FFE8E8 Compte inexistant · DESACTIVE / ANONYMISE · mot de passe incorrect
+  AS  -> DB : INSERT INTO audit_log\n({ action: "LOGIN_FAILED", email, ip })
+  AS --> AC : UnauthorizedException
+  AC --> FE : HTTP 401
+  FE --> USR : "Identifiants invalides"\n(message **générique** identique\nà tous les cas — sécurité par opacité)
+else #E8F8F5 Identifiants valides
+  AS  -> AS : mfaActive ?
+end
+
+== Étape 2 — MFA désactivée : émission directe des tokens ==
+
+note over AS : Branche **mfaActive = false**
+
+AS  -> JWT : signAccess(payload\n{ sub, role }) — RS256, 15 min
+JWT --> AS : accessToken
+AS  -> JWT : signRefresh(sub) — RS256, 7 j\n(rotation à usage unique)
+JWT --> AS : refreshToken
+
+AS  -> DB : INSERT INTO sessions\n({ userId, refreshId, active: true })
+AS  -> DB : UPDATE users SET\nderniereConnexion = NOW()
+AS  -> RD : SET session:{refreshId}\n(référence du refresh, TTL 7 j)
+AS  -> DB : INSERT INTO audit_log\n({ action: "LOGIN", userId, ip })
+AS --> AC : { accessToken, refreshToken }
+AC --> FE : HTTP 200 OK\nSet-Cookie refreshToken (httpOnly, Secure)
+FE --> USR : Connecté\n(access token gardé en mémoire JS,\njamais en localStorage)
+
+== Étape 3 — MFA activée : défi TOTP ==
+
+note over AS : Branche **mfaActive = true**
+
+AS  -> RD : SET mfa_session:{userId}\nmfaToken temporaire (TTL 5 min)
+AS --> AC : { mfaRequired: true, mfaToken }
+AC --> FE : HTTP 200\n{ mfaRequired: true }
+FE --> USR : Demande le code TOTP\n(Google Authenticator — 6 chiffres)
+
+USR -> FE : Saisit le code TOTP
+FE  -> AC : POST /auth/mfa/verify\n{ mfaToken, totpCode }
+AC  -> AS : verifyMfa(mfaToken, totpCode)
+
+AS  -> RD : GET mfa_session:{userId}\n(présent et non expiré ?)
+RD --> AS : mfaToken (ou null)
+AS  -> DB : SELECT mfaSecret\nWHERE id = :userId
+DB --> AS : mfaSecret
+AS  -> AS : TOTP.verify(totpCode, mfaSecret)
+
+alt #FFE8E8 mfaToken expiré ou code TOTP invalide
+  AS --> AC : UnauthorizedException\n"Code incorrect ou expiré"
+  AC --> FE : HTTP 401
+  FE --> USR : "Code incorrect,\nrecommencez la connexion"
+else #E8F8F5 Code TOTP valide
+  AS  -> RD : DEL mfa_session:{userId}\n(usage unique)
+  AS  -> JWT : signAccess + signRefresh (RS256)
+  JWT --> AS : { accessToken, refreshToken }
+  AS  -> DB : INSERT session + UPDATE derniereConnexion
+  AS  -> DB : INSERT INTO audit_log\n({ action: "LOGIN_MFA", userId, ip })
+  AS --> AC : { accessToken, refreshToken }
+  AC --> FE : HTTP 200 OK\nSet-Cookie refreshToken (httpOnly)
+  FE --> USR : Connecté
+end
+
+== Étape 4 — Refresh automatique de l'access token ==
+
+USR -> FE : Requête vers une\nressource protégée
+FE  -> AC : GET /api/... (access token expiré)
+AC --> FE : HTTP 401 (token expiré)
+note over FE : Interception **transparente**\ndu 401 par l'intercepteur HTTP
+
+FE  -> AC : POST /auth/refresh\n(cookie httpOnly refreshToken)
+AC  -> AS : refresh(refreshToken)
+AS  -> JWT : verify(refreshToken)\n(clé publique RS256)
+JWT --> AS : payload (ou erreur)
+AS  -> RD : refreshToken sur blocklist ?\nsession active ?
+RD --> AS : statut
+
+alt #FFE8E8 Refresh expiré ou blacklisté
+  AS --> AC : UnauthorizedException
+  AC --> FE : HTTP 401
+  FE --> USR : Redirection vers /login\n(reconnexion requise)
+else #E8F8F5 Refresh valide
+  AS  -> JWT : signAccess (nouveau, 15 min)\n(le refresh token n'est pas renouvelé ici)
+  JWT --> AS : accessToken
+  AS --> AC : { accessToken }
+  AC --> FE : HTTP 200 OK
+  FE  -> AC : Rejoue la requête\ninitiale avec le nouveau token
+end
+
+== Étape 5 — Déconnexion ==
+
+USR -> FE : Clique "Se déconnecter"
+FE  -> AC : POST /auth/logout\n(access + refresh tokens)
+AC  -> AS : logout(accessToken, refreshToken)
+AS  -> RD : SET blocklist:{accessJti}\n+ blocklist:{refreshJti}\n(TTL = durée restante de chaque token)
+AS  -> DB : UPDATE sessions SET\nactive = false WHERE refreshId = :id
+AS  -> DB : INSERT INTO audit_log\n({ action: "LOGOUT", userId, ip })
+DB --> AS : OK
+AS --> AC : OK
+AC --> FE : HTTP 200 OK\n(efface le cookie refresh)
+FE --> USR : Déconnecté —\nredirigé vers /login
+
+note over USR, DB
+  **Points de conception clés (ADR-08) :**
+  • Même message d'erreur pour « compte inexistant » et « mauvais mot de passe » (opacité).
+  • Access token en mémoire JS · refresh token en cookie httpOnly Secure.
+  • JWT stateless **avec** révocation immédiate via la blocklist Redis (logout, anomalie QCM).
+  • RBAC (F5) appliqué en aval par les Guards NestJS à partir du rôle porté par l'access token.
+end note
+
+legend bottom
+  | <back:#E8F8F5> vert  </back> | Succès |
+  | <back:#FFE8E8> rouge </back> | Erreur / refus |
+endlegend
+@enduml

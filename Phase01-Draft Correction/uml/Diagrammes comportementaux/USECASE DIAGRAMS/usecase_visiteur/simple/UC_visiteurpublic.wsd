@@ -1,0 +1,59 @@
+@startuml Cert_EET_UC_VisiteurPublic
+' =====================================================================
+'  Cert_EET — Vue détaillée par acteur : VISITEUR PUBLIC
+'  Convention : UML 2.5 stricte
+'  Particularité : seul acteur NON authentifié du système
+'  Auteur : Iyed Omri — PFE ESPRIT 2026
+' =====================================================================
+
+!theme plain
+skinparam backgroundColor #FFFFFF
+skinparam shadowing false
+skinparam DefaultFontName "Segoe UI"
+skinparam DefaultFontSize 12
+
+skinparam actor {
+  BackgroundColor #ECF0F1
+  BorderColor #145A32
+  BorderThickness 1.5
+}
+
+skinparam usecase {
+  BackgroundColor #FFFFFF
+  BorderColor #145A32
+  BorderThickness 1.2
+  FontSize 12
+}
+
+skinparam rectangle {
+  BackgroundColor #EAFAF1
+  BorderColor #145A32
+  BorderThickness 1.5
+}
+
+title <size:16><b>Cert_EET — Cas d'Utilisation du Visiteur Public</b></size>
+
+left to right direction
+
+actor "Visiteur Public" as Visiteur
+
+rectangle "Système Cert_EET\n(Zone publique — sans authentification)" {
+
+  usecase "Scanner le QR code\nd'un certificat" as UC1
+  usecase "Vérifier l'authenticité\nd'un certificat" as UC2
+  usecase "Consulter les métadonnées\npubliques du certificat" as UC3
+}
+
+Visiteur --> UC1
+Visiteur --> UC2
+Visiteur --> UC3
+
+note bottom of Visiteur
+  Acteur **anonyme** — accède
+  uniquement à la page publique
+  de vérification (F3 du CdC).
+  Aucune donnée personnelle exposée
+  hors métadonnées du certificat.
+end note
+
+@enduml

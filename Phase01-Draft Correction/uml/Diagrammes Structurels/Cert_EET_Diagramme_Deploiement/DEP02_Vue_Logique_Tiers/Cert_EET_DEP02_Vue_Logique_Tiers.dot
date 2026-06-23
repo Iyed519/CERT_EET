@@ -1,0 +1,71 @@
+digraph deploiement {
+  graph [rankdir=TB, splines=ortho, nodesep=0.5, ranksep=0.9,
+         fontname="DejaVu Sans", fontsize=11, labelloc="t", compound=true,
+         newrank=true, bgcolor="white", pad=0.4, forcelabels=true,
+         label=<<b>Cert_EET — DEP-02 : Vue logique en tiers</b><br/><font point-size="10">Decoupage conceptuel en 5 couches — Presentation · Passerelle · Application · Asynchrone · Donnees &amp; externes</font><br/> >];
+  node [fontname="DejaVu Sans", fontsize=10, penwidth=1.4];
+  edge [fontname="DejaVu Sans", fontsize=9, color="#34495E", penwidth=1.3, arrowsize=0.8];
+  subgraph cluster_t1 {
+    label=<<font point-size="9"><i>«tier»</i></font><br/><b>1 · Presentation</b>>;
+    labelloc="t"; fontname="DejaVu Sans"; fontsize=12;
+    style="filled,rounded"; fillcolor="#F0F1F2"; color="#566573"; penwidth=1.9;
+    margin=16;
+  p_spa [shape=box, style="filled,rounded", fillcolor="#EAECEE", color="#566573", penwidth=1.5, margin="0.14,0.09", label=<<font point-size="8"><i>«client»</i></font><br/><b>SPA Next.js</b><br/><font point-size="8">Apprenant / Formateur / Admin</font>>];
+  p_qr [shape=box, style="filled,rounded", fillcolor="#EAECEE", color="#566573", penwidth=1.5, margin="0.14,0.09", label=<<font point-size="8"><i>«client»</i></font><br/><b>Verif QR publique</b><br/><font point-size="8">Visiteur (SSG+revalidation)</font>>];
+  }
+  subgraph cluster_t2 {
+    label=<<font point-size="9"><i>«tier»</i></font><br/><b>2 · Passerelle / Securite</b>>;
+    labelloc="t"; fontname="DejaVu Sans"; fontsize=12;
+    style="filled,rounded"; fillcolor="#FBF4F2"; color="#A93226"; penwidth=1.9;
+    margin=16;
+  g_nginx [shape=box, style="filled,rounded", fillcolor="#FADBD8", color="#A93226", penwidth=1.5, margin="0.14,0.09", label=<<font point-size="8"><i>«gateway»</i></font><br/><b>Reverse Proxy Nginx</b><br/><font point-size="8">TLS · routage · timeout SSE</font>>];
+  }
+  subgraph cluster_t3 {
+    label=<<font point-size="9"><i>«tier»</i></font><br/><b>3 · Application (synchrone)</b>>;
+    labelloc="t"; fontname="DejaVu Sans"; fontsize=12;
+    style="filled,rounded"; fillcolor="#EFF5FB"; color="#1B4F72"; penwidth=1.9;
+    margin=16;
+  ap_api [shape=box, style="filled,rounded", fillcolor="#D6EAF8", color="#1B4F72", penwidth=1.5, margin="0.14,0.09", label=<<font point-size="8"><i>«service»</i></font><br/><b>API NestJS (cluster)</b><br/><font point-size="8">REST + SSE · RBAC</font>>];
+  ap_auth [shape=box, style="filled,rounded", fillcolor="#D6EAF8", color="#1B4F72", penwidth=1.5, margin="0.14,0.09", label=<<font point-size="8"><i>«service»</i></font><br/><b>Auth</b><br/><font point-size="8">JWT RS256 · MFA TOTP</font>>];
+  ap_biz [shape=box, style="filled,rounded", fillcolor="#D6EAF8", color="#1B4F72", penwidth=1.5, margin="0.14,0.09", label=<<font point-size="8"><i>«service»</i></font><br/><b>Modules metier F1–F7</b><br/><font point-size="8">QCM · Ateliers · Certif · IA · Audit</font>>];
+  }
+  subgraph cluster_t4 {
+    label=<<font point-size="9"><i>«tier»</i></font><br/><b>4 · Traitement asynchrone</b>>;
+    labelloc="t"; fontname="DejaVu Sans"; fontsize=12;
+    style="filled,rounded"; fillcolor="#EAF1FB"; color="#1B4F72"; penwidth=1.9;
+    margin=16;
+  as_queue [shape=box, style="filled,rounded", fillcolor="#D6EAF8", color="#1B4F72", penwidth=1.5, margin="0.14,0.09", label=<<font point-size="8"><i>«broker»</i></font><br/><b>File Bull / Redis</b><br/><font point-size="8">jobs : PDF · indexation · email</font>>];
+  as_worker [shape=box, style="filled,rounded", fillcolor="#D6EAF8", color="#1B4F72", penwidth=1.5, margin="0.14,0.09", label=<<font point-size="8"><i>«worker»</i></font><br/><b>Worker Bull</b><br/><font point-size="8">PDF/SHA-256/QR · RAG · retry</font>>];
+  }
+  subgraph cluster_t5 {
+    label=<<font point-size="9"><i>«tier»</i></font><br/><b>5 · Donnees persistantes &amp; services externes</b>>;
+    labelloc="t"; fontname="DejaVu Sans"; fontsize=12;
+    style="filled,rounded"; fillcolor="#EAFBF1"; color="#1E8449"; penwidth=1.9;
+    margin=16;
+  d_pg [shape=box, style="filled,rounded", fillcolor="#D5F5E3", color="#1E8449", penwidth=1.5, margin="0.14,0.09", label=<<font point-size="8"><i>«datastore»</i></font><br/><b>PostgreSQL + pgvector</b><br/><font point-size="8">metier · audit · embeddings</font>>];
+  d_redis [shape=box, style="filled,rounded", fillcolor="#D5F5E3", color="#1E8449", penwidth=1.5, margin="0.14,0.09", label=<<font point-size="8"><i>«datastore»</i></font><br/><b>Redis</b><br/><font point-size="8">cache · sessions · blacklist</font>>];
+  d_minio [shape=box, style="filled,rounded", fillcolor="#D5F5E3", color="#1E8449", penwidth=1.5, margin="0.14,0.09", label=<<font point-size="8"><i>«datastore»</i></font><br/><b>MinIO (S3)</b><br/><font point-size="8">PDF · livrables</font>>];
+  d_llm [shape=box, style="filled,rounded", fillcolor="#FDEBD0", color="#CA6F1E", penwidth=1.5, margin="0.14,0.09", label=<<font point-size="8"><i>«external»</i></font><br/><b>API LLM swappable</b><br/><font point-size="8">GPT-4o / Claude / Mistral</font>>];
+  d_smtp [shape=box, style="filled,rounded", fillcolor="#FDEBD0", color="#CA6F1E", penwidth=1.5, margin="0.14,0.09", label=<<font point-size="8"><i>«external»</i></font><br/><b>SMTP</b><br/><font point-size="8">emails</font>>];
+  d_mfa [shape=box, style="filled,rounded", fillcolor="#FDEBD0", color="#CA6F1E", penwidth=1.5, margin="0.14,0.09", label=<<font point-size="8"><i>«external»</i></font><br/><b>MFA / TOTP</b><br/><font point-size="8">second facteur</font>>];
+  }
+  p_spa -> g_nginx [xlabel="HTTPS/TLS", color="#A93226", penwidth="1.7"];
+  p_qr -> g_nginx [xlabel="HTTPS", color="#A93226"];
+  g_nginx -> ap_api [xlabel="proxy interne"];
+  ap_api -> ap_auth [color="#1B4F72", style="dashed"];
+  ap_api -> ap_biz [color="#1B4F72", style="dashed"];
+  ap_api -> as_queue [xlabel="enqueue", color="#1B4F72"];
+  as_queue -> as_worker [xlabel="dequeue", color="#1B4F72"];
+  ap_biz -> d_pg [xlabel="TypeORM/TLS", color="#1E8449"];
+  ap_api -> d_redis [xlabel="cache/session", color="#1E8449"];
+  ap_auth -> d_mfa [xlabel="HTTPS", color="#CA6F1E"];
+  as_worker -> d_pg [xlabel="RAG pgvector", color="#1E8449"];
+  as_worker -> d_minio [xlabel="S3 API", color="#1E8449"];
+  as_worker -> d_llm [xlabel="HTTPS", color="#CA6F1E", penwidth="1.6"];
+  as_worker -> d_smtp [xlabel="SMTP/TLS", color="#CA6F1E"];
+  ap_api -> p_spa [xlabel="SSE", style="dashed", color="#1B4F72", constraint="false"];
+  g_nginx -> ap_api -> as_queue -> d_pg [style=invis, weight=30];
+  ap_auth -> ap_biz [style=invis, weight=3];
+  as_queue -> as_worker [style=invis, weight=8];
+  d_pg -> d_redis -> d_minio -> d_llm -> d_smtp -> d_mfa [style=invis, weight=2];
+}

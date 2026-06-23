@@ -1,0 +1,46 @@
+' Projet    : Cert_EET — Plateforme de certification numerique (ESPRIT Entreprise)
+' Diagramme : ET-04 — CompteUtilisateur
+' Auteur    : Iyed Omri — PFE ESPRIT 2026
+' Norme     : UML 2.5 — Diagramme d'etats-transitions
+' Coherence : Diagramme de classes v3.2 (package 8 Enumerations) + DS-15
+@startuml Cert_EET_ET_CompteUtilisateur
+skinparam backgroundColor #FFFFFF
+skinparam shadowing false
+skinparam DefaultFontName "Segoe UI"
+skinparam DefaultFontSize 10
+skinparam ArrowThickness 1.4
+skinparam linetype ortho
+skinparam state {
+  FontName "Segoe UI"
+  BorderColor #34495E
+  FontSize 12
+}
+skinparam ArrowColor #34495E
+skinparam ArrowFontColor #1B2631
+
+title <size:15><b>Cert_EET — Etat-Transition : CompteUtilisateur</b></size>\n<size:9><color:#7B8794>PFE ESPRIT 2026 · Iyed Omri · UML 2.5</color></size>
+
+state EN_ATTENTE_ACTIVATION #FEF9E7 : Cree par Admin (DS-15).\nToken activation TTL 48h envoye par email.
+state ACTIF                 #D5F5E3 : Compte operationnel apres activation.\nChangement de role possible (Admin).
+state DESACTIVE             #D6EAF8 : Admin desactive : sessions Redis invalidees.\nAnti-lockout : dernier admin protege.
+state ANONYMISE             #EAECEE : RGPD : donnees perso -> pseudonymes.\nDonnees pedago conservees. IRREVERSIBLE.
+
+[*] --> EN_ATTENTE_ACTIVATION : Admin : creer compte (DS-15)
+EN_ATTENTE_ACTIVATION --> ACTIF : Utilisateur : clic activation\n[token valide, TTL < 48h]
+EN_ATTENTE_ACTIVATION --> [*] : <color:#B7950B>Systeme : token expire [TTL >= 48h]</color>
+ACTIF --> ACTIF : <color:#1E8449>Admin : changer role (DS-15)\n[mdp saisi] / invalide Redis</color>
+ACTIF --> DESACTIVE : Admin : desactiver (DS-15)\n[NOT dernier admin] / invalide Redis
+DESACTIVE --> ACTIF : <color:#2471A3>Admin : reactiver</color>
+DESACTIVE --> ANONYMISE : Admin : anonymiser (RGPD)\n/ transaction atomique PostgreSQL
+ANONYMISE --> [*] : irreversible
+
+legend bottom
+  <b>Legende — criticite</b>
+  |<#FEF9E7>   | En attente |
+  |<#D6EAF8>   | En cours / transitoire |
+  |<#D5F5E3>   | Nominal actif |
+  |<#FADBD8>   | Erreur / revoque / rejete |
+  |<#EAECEE>   | Terminal / irreversible |
+endlegend
+
+@enduml

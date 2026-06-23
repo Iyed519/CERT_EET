@@ -1,0 +1,260 @@
+@startuml Cert_EET_DS02_Passer_QCM
+' =====================================================================
+'  Projet    : Cert_EET — Plateforme de Certification Numérique
+'  Diagramme : DS-02 — Passer un QCM (de l'ouverture à la soumission)
+'  Acteur    : Apprenant
+'  Ref CdC   : F1 (QCM anti-fraude) — ConfigurationAntiFraude
+'  Auteur    : Iyed Omri — PFE ESPRIT Ingénierie Logicielle 2026
+' =====================================================================
+
+!pragma teoz true
+skinparam backgroundColor #FFFFFF
+skinparam shadowing false
+skinparam DefaultFontName "Segoe UI"
+skinparam DefaultFontSize 10
+skinparam sequenceMessageAlign center
+skinparam responseMessageBelowArrow true
+skinparam BoxPadding 12
+skinparam ParticipantPadding 18
+skinparam ArrowThickness 1.2
+skinparam LifeLineBorderThickness 1.0
+
+skinparam participant {
+  BackgroundColor #FFFFFF
+  BorderColor #5D6D7E
+  BorderThickness 1.1
+}
+skinparam actor {
+  BackgroundColor #ECF0F1
+  BorderColor #1B4F72
+  BorderThickness 1.4
+  FontStyle bold
+}
+skinparam database {
+  BackgroundColor #EBF5FB
+  BorderColor #1B4F72
+}
+skinparam collections {
+  BackgroundColor #E8F8F5
+  BorderColor #1E8449
+}
+skinparam boundary {
+  BackgroundColor #FEF9E7
+  BorderColor #B7950B
+}
+skinparam control {
+  BackgroundColor #FAE5D3
+  BorderColor #BA4A00
+}
+skinparam note {
+  BackgroundColor #FEF9E7
+  BorderColor #B7950B
+  FontSize 9
+}
+skinparam sequence {
+  ArrowColor #34495E
+  LifeLineBorderColor #7F8C8D
+  LifeLineBackgroundColor #FDFEFE
+  GroupBorderColor #1B4F72
+  GroupHeaderFontColor #1B4F72
+  GroupHeaderFontStyle bold
+  DividerBorderColor #1B4F72
+  DividerBackgroundColor #D6EAF8
+  DividerFontColor #1B4F72
+  DividerFontStyle bold
+}
+
+title <size:14><b>Cert_EET — DS-02 : Passer un QCM</b></size>\n<size:10>Anti-fraude · Timer serveur · Randomisation · Scoring serveur · F1</size>
+
+' =====================================================================
+'  PARTICIPANTS
+' =====================================================================
+actor       "Apprenant" as APP
+boundary    "Frontend\n(Next.js)" as FE
+control     "QCMController\n(NestJS)" as QC
+control     "QCMService\n(NestJS)" as QS
+control     "AntiFraudeService\n(NestJS)" as AFS
+database    "PostgreSQL" as DB
+collections "Redis\n(Timers / Sessions)" as RD
+
+' =====================================================================
+'  ÉTAPE 1 — Accès au QCM
+' =====================================================================
+== Étape 1 — Vérification d'accès et ouverture ==
+
+APP  ->  FE  : Clique sur le QCM\ndepuis son tableau de bord
+FE   ->  QC  : GET /qcm/:qcmId/acces\n(Authorization: Bearer accessToken)
+
+QC   ->  QS  : verifierAcces(apprenantId, qcmId)
+
+QS   ->  DB  : SELECT qcm, config_anti_fraude\nWHERE qcm.id = :qcmId
+DB  --> QS  : { statut, dateOuverture,\ndateFermeture, nbTentativesMax,\ndelaiEntreTentatives,\nblocageSessionsMultiples }
+
+QS   ->  DB  : SELECT COUNT(*) FROM tentatives\nWHERE apprenantId = :id\nAND qcmId = :qcmId
+DB  --> QS  : nbTentativesPassees
+
+group #FFE8E8 Vérifications anti-fraude (toutes côté serveur)
+  QS   ->  QS  : QCM.statut == "Publié" ?
+  QS   ->  QS  : NOW() IN [dateOuverture, dateFermeture] ?
+  QS   ->  QS  : nbTentativesPassees < nbTentativesMax ?
+  QS   ->  QS  : delaiDepuisDerniereTentative\n>= delaiEntreTentatives ?
+
+  alt #FFE8E8 Une vérification échoue
+    QS  --> QC  : ForbiddenException\n(motif précis)
+    QC  --> FE  : HTTP 403 Forbidden\n{ raison: "tentatives_epuisees"\n| "hors_fenetre"\n| "delai_non_respecte" }
+    FE  --> APP : Message d'erreur ciblé\n+ date de réouverture si applicable
+  end
+end
+
+QS   ->  RD  : EXISTS session_qcm:\n{apprenantId}:{qcmId}
+
+alt #FFE8E8 Session active détectée sur autre appareil\n(blocageSessionsMultiples = true)
+  QS  --> QC  : ForbiddenException\n"Session déjà active sur un autre appareil"
+  QC  --> FE  : HTTP 403 Forbidden
+  FE  --> APP : "Vous passez déjà ce QCM\nsur un autre appareil"
+end
+
+' =====================================================================
+'  ÉTAPE 2 — Préparation de la tentative
+' =====================================================================
+== Étape 2 — Création de la tentative et randomisation ==
+
+QS   ->  DB  : SELECT questions FROM qcm\nWHERE qcm.id = :qcmId\n(avec leurs options)
+DB  --> QS  : Liste complète de\nN questions + options
+
+QS   ->  AFS : preparerTentative(\n  questions, config\n)
+
+group #EBF5FB Randomisation côté serveur (si activée)
+  AFS  ->  AFS : randomiserQuestions()\n(Fisher-Yates shuffle)
+  AFS  ->  AFS : randomiserOptions() pour\nchaque question
+  AFS  ->  AFS : piocherK(questions, nbTirees)\nsi piochage banque activé
+end
+
+note right of AFS
+  Les bonnes réponses (estCorrecte)
+  ne sont JAMAIS transmises
+  au frontend — sécurité F1
+end note
+
+AFS  ->  AFS : masquerReponses()\n(supprime estCorrecte du payload)
+AFS --> QS  : { questionsRandomisees,\nordreOptions }
+
+QS   ->  DB  : INSERT INTO tentatives\n({ apprenantId, qcmId,\n  dateDebut: NOW(),\n  statut: EN_COURS })
+DB  --> QS  : tentativeId
+
+QS   ->  RD  : SET timer:{tentativeId}\n(durée = dureeMaxMinutes * 60)\nEX {dureeMax} SETEX
+QS   ->  RD  : SET session_qcm:{apprenantId}:{qcmId}\n(tentativeId, TTL = durée)
+RD  --> QS  : OK
+
+QS  --> QC  : { tentativeId,\nquestions (sans bonnes réponses),\ndurееMax, dateDebut }
+QC  --> FE  : HTTP 200 OK
+FE   ->  FE  : Démarre le timer VISUEL\n(synchronisé avec le serveur)
+FE  --> APP : Affiche le QCM\n(questions randomisées)
+
+' =====================================================================
+'  ÉTAPE 3 — Passage du QCM (sauvegarde auto)
+' =====================================================================
+== Étape 3 — Réponses et sauvegarde automatique ==
+
+loop Apprenant répond aux questions
+  APP  ->  FE  : Sélectionne une option\npour une question
+  FE   ->  QC  : PATCH /qcm/tentative/:tentativeId/reponse\n{ questionId, optionsSelectionnees[] }
+
+  QC   ->  QS  : sauvegarderReponse(\n  tentativeId, questionId, options\n)
+
+  QS   ->  RD  : GET timer:{tentativeId}
+  RD  --> QS  : TTL restant (secondes)
+
+  alt #FFE8E8 Timer expiré (TTL = 0)
+    QS   ->  QS  : soumettreTentative(tentativeId,\n  statut: ABANDONNEE_TIMER)
+    QS   ->  DB  : UPDATE tentatives SET\nstatut = ABANDONNEE_TIMER,\ndateFin = NOW()
+    QS  --> QC  : ForbiddenException\n"Temps écoulé"
+    QC  --> FE  : HTTP 403 { raison: "timer_expire" }
+    FE  --> APP : Soumet automatiquement\n+ affiche résultats partiels
+  else #E8F8F5 Timer toujours actif
+    QS   ->  DB  : INSERT OR UPDATE reponses\n({ tentativeId, questionId,\n  optionsIds[] })
+    DB  --> QS  : OK
+    QS  --> QC  : { saved: true, tempsRestant }
+    QC  --> FE  : HTTP 200 OK
+    FE   ->  FE  : Met à jour l'indicateur\nde progression
+  end
+end
+
+' =====================================================================
+'  ÉTAPE 4 — Soumission manuelle
+' =====================================================================
+== Étape 4 — Soumission finale et scoring ==
+
+APP  ->  FE  : Clique sur "Soumettre"
+FE   ->  FE  : Demande confirmation\n("Voulez-vous vraiment soumettre ?")
+APP  ->  FE  : Confirme
+FE   ->  QC  : POST /qcm/tentative/:tentativeId/soumettre
+
+QC   ->  QS  : soumettre(tentativeId, apprenantId)
+
+QS   ->  RD  : GET timer:{tentativeId}
+RD  --> QS  : TTL (> 0 ou = 0)
+
+QS   ->  DB  : SELECT reponses FROM tentatives\nWHERE id = :tentativeId\nJOIN questions, options
+DB  --> QS  : Toutes les réponses\navec les vraies bonnes réponses
+
+group #EBF5FB Scoring côté serveur (F1 — jamais côté client)
+  QS   ->  QS  : Pour chaque réponse :\n  estCorrecte = comparer avec\n  options.estCorrecte == true
+  QS   ->  QS  : score = Σ(ponderation * estCorrecte)\n / Σ(ponderation) * 100
+  QS   ->  QS  : estReussie = score >= scoreMinValidation
+end
+
+QS   ->  DB  : UPDATE tentatives SET\n{ statut: SOUMISE, dateFin: NOW(),\n  score, estReussie,\n  dureeEffective }
+QS   ->  DB  : UPDATE reponses SET\nestCorrecte, pointsObtenus\nWHERE tentativeId = :id
+
+QS   ->  RD  : DEL timer:{tentativeId}\nDEL session_qcm:{apprenantId}:{qcmId}
+
+QS   ->  DB  : INSERT INTO audit_log\n({ action: "QCM_SOUMIS",\n  tentativeId, score, apprenantId })
+DB  --> QS  : OK
+
+' =====================================================================
+'  ÉTAPE 5 — Résultat
+' =====================================================================
+== Étape 5 — Affichage du résultat ==
+
+QS  --> QC  : { score, estReussie,\naffichageResultats }
+
+alt #EBF5FB Affichage immédiat (config = "Immédiat")
+  QC  --> FE  : HTTP 200 OK\n{ score, estReussie,\n  detailParQuestion }
+  FE  --> APP : Affiche le score,\nles bonnes réponses,\net les explications
+else #FEF9E7 Affichage différé (config = "Différé")
+  QC  --> FE  : HTTP 200 OK\n{ score, estReussie }\n(sans détail des réponses)
+  FE  --> APP : Affiche uniquement le score\n"Les corrections seront disponibles\naprès la clôture du QCM"
+end
+
+' =====================================================================
+'  NOTES
+' =====================================================================
+note over QS, AFS
+  **Logique 100% côté serveur (F1)**
+  Timer, scoring, randomisation,
+  blocage sessions multiples :
+  aucune règle de validation
+  n'est exécutée côté client.
+end note
+
+note over RD
+  **Redis — deux usages ici**
+  1. Timer : clé avec TTL automatique
+     (expire côté serveur, pas côté client)
+  2. Session lock : empêche les
+     sessions QCM multiples
+end note
+
+' =====================================================================
+'  LÉGENDE
+' =====================================================================
+legend bottom
+  | <b>Couleur</b> | <b>Signification</b> |
+  | <back:#FFE8E8> rouge </back> | Chemin d'erreur / refus d'accès |
+  | <back:#E8F8F5> vert  </back> | Chemin nominal / succès |
+  | <back:#EBF5FB> bleu  </back> | Traitement critique côté serveur |
+  | <back:#FEF9E7> jaune </back> | Variante de comportement |
+endlegend
+
+@enduml

@@ -1,0 +1,61 @@
+@startuml Cert_EET_PKG02_Vue_Couches
+' =====================================================================
+'  Projet : Cert_EET — PKG-02 : Vue en couches & regles de dependance
+'  Auteur : Iyed Omri — PFE ESPRIT 2026
+'  Rendu  : PlantUML. PNG de reference rendu via Graphviz.
+'  Regle : dependances DESCENDANTES uniquement.
+' =====================================================================
+skinparam backgroundColor #FFFFFF
+skinparam shadowing false
+skinparam DefaultFontName "Segoe UI"
+skinparam linetype ortho
+skinparam package { BorderThickness 1.5 }
+title <size:14><b>Cert_EET — PKG-02 : Vue en couches & regles de dependance</b></size>\n<size:10>Architecture en couches NestJS — dependances descendantes uniquement (CdC 6.2 : modularite)</size>
+
+package "1 . Couche Application" #FEFBEF {
+  [main.ts — AppModule] as MAIN
+}
+
+package "2 . Couche Modules metier (independants entre eux)" #EFF8F2 {
+  [auth] [users] [formations] [qcm] [ateliers]
+  [certificats] [assistance-ia] [notifications] [audit]
+}
+
+package "3 . Couche Transverse (shared + common)" #F2F3F4 {
+  [shared] as SHARED
+  [common] as COMMON
+}
+
+package "4 . Couche Configuration (socle)" #EAF1FB {
+  [config] as CONFIG
+}
+
+' dependances descendantes autorisees
+MAIN ..> [qcm] : importe les modules
+[qcm] ..> SHARED : importe
+[certificats] ..> SHARED : importe
+[assistance-ia] ..> COMMON : importe
+SHARED ..> CONFIG : importe
+COMMON ..> CONFIG : importe
+
+' contre-exemple : dependance montante INTERDITE
+SHARED ..> [auth] #red : <color:red>X import montant interdit</color>
+
+note right of MAIN
+  REGLE 1 — main.ts importe les modules ;
+  aucun module n'importe main.ts.
+end note
+note right of SHARED
+  REGLE 2 — les modules metier importent shared/common,
+  JAMAIS l'inverse (eviter le couplage circulaire).
+end note
+note right of CONFIG
+  REGLE 3 — tout depend de config ;
+  config ne depend de rien (couche socle).
+end note
+note bottom of "2 . Couche Modules metier (independants entre eux)"
+  REGLE 4 — les modules metier sont independants entre eux :
+  leurs interactions passent par les interfaces (cf. COMP-01),
+  pas par des imports croises directs.
+end note
+@enduml

@@ -1,0 +1,291 @@
+@startuml Cert_EET_UC_Global_Consolide
+' =====================================================================
+'  Projet     : Cert_EET — Plateforme de Certification Numérique
+'  Vue        : CAS D'UTILISATION — VUE GLOBALE CONSOLIDÉE (4 acteurs)
+'  Objet      : Clôture du chapitre cas d'utilisation — une seule carte
+'               de tous les UC principaux, regroupés par domaine fonctionnel
+'               F1–F7 du cahier des charges. Sous-cas volontairement omis
+'               (voir les 4 diagrammes par acteur pour le détail exhaustif).
+'  Auteur     : Iyed Omri — PFE Ingénierie Logicielle, ESPRIT 2026
+' =====================================================================
+
+skinparam backgroundColor #FFFFFF
+skinparam shadowing false
+skinparam DefaultFontName "Segoe UI"
+skinparam DefaultFontSize 10
+skinparam ArrowThickness 1.0
+skinparam ArrowColor #5D6D7E
+skinparam packageStyle rectangle
+skinparam linetype polyline
+skinparam nodesep 25
+skinparam ranksep 60
+
+skinparam actor {
+  BackgroundColor #ECF0F1
+  BorderColor #5D6D7E
+  BorderThickness 1.5
+  FontStyle bold
+}
+
+skinparam usecase {
+  BackgroundColor #FFFFFF
+  BorderColor #5D6D7E
+  FontSize 10
+  FontColor #1B2631
+}
+skinparam usecase<<app>> {
+  BackgroundColor #D6EAF8
+  BorderColor #1B4F72
+  BorderThickness 1.8
+  FontStyle bold
+}
+skinparam usecase<<for>> {
+  BackgroundColor #FAE5D3
+  BorderColor #6E2C00
+  BorderThickness 1.8
+  FontStyle bold
+}
+skinparam usecase<<ai>> {
+  BackgroundColor #D5F5E3
+  BorderColor #1E8449
+  BorderThickness 1.8
+  FontStyle bold
+}
+skinparam usecase<<adm>> {
+  BackgroundColor #E8DAEF
+  BorderColor #4A235A
+  BorderThickness 1.8
+  FontStyle bold
+}
+skinparam usecase<<vp>> {
+  BackgroundColor #D1F2EB
+  BorderColor #117A65
+  BorderThickness 1.8
+  FontStyle bold
+}
+skinparam usecase<<sys>> {
+  BackgroundColor #EAECEE
+  BorderColor #5D6D7E
+  BorderThickness 1.8
+  FontStyle bold
+}
+skinparam usecase<<commun>> {
+  BackgroundColor #FCF3CF
+  BorderColor #B7950B
+  BorderThickness 1.8
+  FontStyle bold
+}
+
+skinparam package {
+  BackgroundColor #FBFCFC
+  BorderColor #34495E
+  BorderThickness 1.3
+  FontStyle bold
+  FontSize 11
+  FontColor #34495E
+}
+skinparam note {
+  BackgroundColor #FEF9E7
+  BorderColor #B7950B
+  FontSize 9
+}
+
+title <size:15><b>Cert_EET — Cas d'Utilisation : Vue Globale Consolidée</b></size>\n<size:10>Les 4 acteurs et leurs UC principaux, regroupés par domaine fonctionnel (F1–F7). Sous-cas dans les diagrammes par acteur.</size>
+
+' =====================================================================
+'  ACTEURS PRINCIPAUX  (colonne de gauche)
+' =====================================================================
+actor "Apprenant" as App
+actor "Formateur" as For
+actor "Administrateur" as Adm
+actor "Visiteur Public\n(anonyme)" as VP
+
+' =====================================================================
+'  ACTEURS SECONDAIRES / SYSTÈMES  (colonne de droite)
+' =====================================================================
+actor "Moteur IA\n(LLM + RAG)" as LLM
+actor "Service\nNotification" as Notif
+actor "Service Email\n(SMTP)" as Email
+
+' =====================================================================
+'  SYSTÈME — domaines fonctionnels
+' =====================================================================
+rectangle "**Système Cert_EET**" as SYS {
+
+  package "F7 · Sécurité & accès (commun)" as F7 {
+    usecase "S'authentifier\n(JWT RS256 + MFA)" as AUTH <<commun>>
+    usecase "Gérer son profil\n(mot de passe, MFA)" as PROF <<commun>>
+  }
+
+  package "F1 · Évaluations QCM" as F1 {
+    usecase "Passer un QCM" as A_QCM <<app>>
+    usecase "Consulter l'historique\ndes tentatives" as A_HIST <<app>>
+    usecase "Créer un QCM" as F_QCM <<for>>
+    usecase "Configurer\nl'anti-fraude" as F_AF <<for>>
+  }
+
+  package "F2 · Ateliers pratiques" as F2 {
+    usecase "Soumettre\nun livrable" as A_LIV <<app>>
+    usecase "Consulter le\nfeedback" as A_FB <<app>>
+    usecase "Créer un\natelier" as F_AT <<for>>
+    usecase "Définir une grille\nde notation" as F_GR <<for>>
+    usecase "Corriger un\nlivrable" as F_COR <<for>>
+    usecase "Rédiger un\nfeedback" as F_FB <<for>>
+  }
+
+  package "F3 · Certification numérique (cœur partagé)" as F3 {
+    usecase "Émettre un certificat\n(asynchrone)" as S_EMIT <<sys>>
+    usecase "Consulter / Télécharger\nses certificats" as A_CERT <<app>>
+    usecase "Superviser les\ncertificats émis" as M_SUP <<adm>>
+    usecase "Révoquer un\ncertificat" as M_REV <<adm>>
+    usecase "Scanner le\nQR code" as V_QR <<vp>>
+    usecase "Vérifier\nl'authenticité" as V_VERIF <<vp>>
+    usecase "Consulter les\nmétadonnées publiques" as V_META <<vp>>
+  }
+
+  package "F4 · Assistance IA aux formateurs" as F4 {
+    usecase "Générer des questions\nQCM par IA" as F_IA <<ai>>
+    usecase "Gérer les supports\npédagogiques (RAG)" as F_SUP <<ai>>
+  }
+
+  package "F5 · Comptes, rôles & formations" as F5 {
+    usecase "Consulter ses\nformations" as A_FORM <<app>>
+    usecase "Gérer les\ncomptes" as M_CPT <<adm>>
+    usecase "Attribuer les\nrôles (RBAC)" as M_ROLE <<adm>>
+    usecase "Gérer les\nformations" as M_FORM <<adm>>
+    usecase "Affecter formateurs\net apprenants" as M_AFF <<adm>>
+    usecase "Configurer la\nplateforme" as M_CONF <<adm>>
+  }
+
+  package "F6 · Suivi, analytics & reporting" as F6 {
+    usecase "Tableau de bord\npersonnel" as A_DASH <<app>>
+    usecase "Suivre la\nprogression" as F_SUIVI <<for>>
+    usecase "Recevoir une alerte\nde décrochage" as F_ALERT <<for>>
+    usecase "Exporter un rapport\nde session" as F_EXP <<for>>
+    usecase "Tableau de bord\nglobal" as M_DASH <<adm>>
+    usecase "Exporter rapports\ninstitutionnels" as M_RAP <<adm>>
+    usecase "Consulter les\njournaux d'audit" as M_AUDIT <<adm>>
+  }
+}
+
+' =====================================================================
+'  DISPOSITION — grille 2 colonnes + bandeaux commun (F7) / partagé (F3)
+' =====================================================================
+F7 -[hidden]down- F1
+F1 -[hidden]right- F2
+F1 -[hidden]down- F4
+F4 -[hidden]right- F3
+F4 -[hidden]down- F5
+F5 -[hidden]right- F6
+
+App -[hidden]down- For
+For -[hidden]down- Adm
+Adm -[hidden]down- VP
+
+LLM -[hidden]down- Notif
+Notif -[hidden]down- Email
+
+' =====================================================================
+'  ASSOCIATIONS — Apprenant
+' =====================================================================
+App --> AUTH
+App --> PROF
+App --> A_FORM
+App --> A_QCM
+App --> A_HIST
+App --> A_LIV
+App --> A_FB
+App --> A_CERT
+App --> A_DASH
+
+' =====================================================================
+'  ASSOCIATIONS — Formateur
+' =====================================================================
+For --> AUTH
+For --> PROF
+For --> F_QCM
+For --> F_AF
+For --> F_AT
+For --> F_GR
+For --> F_COR
+For --> F_FB
+For --> F_IA
+For --> F_SUP
+For --> F_SUIVI
+For --> F_ALERT
+For --> F_EXP
+
+' =====================================================================
+'  ASSOCIATIONS — Administrateur
+' =====================================================================
+Adm --> AUTH
+Adm --> PROF
+Adm --> M_CPT
+Adm --> M_ROLE
+Adm --> M_FORM
+Adm --> M_AFF
+Adm --> M_CONF
+Adm --> M_SUP
+Adm --> M_REV
+Adm --> M_DASH
+Adm --> M_RAP
+Adm --> M_AUDIT
+
+' =====================================================================
+'  ASSOCIATIONS — Visiteur Public  (non authentifié — pas de F7)
+' =====================================================================
+VP --> V_QR
+VP --> V_VERIF
+VP --> V_META
+
+' =====================================================================
+'  INTERACTIONS AVEC LES SYSTÈMES SECONDAIRES  (synthétiques)
+' =====================================================================
+F_IA    ..> LLM   : <<consulte>>
+F_ALERT ..> LLM   : <<consulte>>
+S_EMIT  ..> Notif : <<déclenche>>
+M_REV   ..> Notif : <<déclenche>>
+F_FB    ..> Notif : <<déclenche>>
+M_CPT   ..> Email : <<envoie>>
+M_AFF   ..> Email : <<envoie>>
+
+' =====================================================================
+'  ENCHAÎNEMENTS NARRATIFS CLÉS  (cycle de certification)
+' =====================================================================
+A_LIV   ..> F_COR  : <<précède>>
+F_COR   ..> S_EMIT : <<déclenche>>\n(si éligible)
+S_EMIT  ..> V_VERIF : <<rend vérifiable>>
+
+' =====================================================================
+'  NOTES MÉTIER
+' =====================================================================
+note bottom of F3
+  **Cœur partagé entre les 4 acteurs :**
+  le Système émet (DS-04), l'Apprenant télécharge,
+  l'Administrateur supervise et révoque (DS-07),
+  le Visiteur vérifie publiquement (DS-05).
+  Certificat = PDF + QR + SHA-256, immuable (NF3).
+end note
+
+note bottom of F4
+  **Humain dans la boucle :**
+  aucune suggestion IA n'est publiée
+  sans validation du formateur (F4).
+end note
+
+' =====================================================================
+'  LÉGENDE — couleur = acteur propriétaire de l'UC
+' =====================================================================
+legend bottom
+  | <b>Couleur</b> | <b>Acteur / nature de l'UC</b> |
+  | <back:#D6EAF8>  Apprenant  </back> | UC pilotés par l'apprenant |
+  | <back:#FAE5D3>  Formateur  </back> | UC pilotés par le formateur |
+  | <back:#D5F5E3>  Formateur (IA)  </back> | UC d'assistance IA (F4) |
+  | <back:#E8DAEF>  Administrateur  </back> | UC d'administration et supervision |
+  | <back:#D1F2EB>  Visiteur Public  </back> | UC publics, non authentifiés |
+  | <back:#EAECEE>  Système  </back> | UC déclenché par le système (asynchrone) |
+  | <back:#FCF3CF>  Commun  </back> | UC partagé par tous les comptes (F7) |
+  | <b><<consulte>></b> · <b><<déclenche>></b> · <b><<envoie>></b> · <b><<précède>></b> | Interaction système / enchaînement |
+endlegend
+
+@enduml

@@ -1,0 +1,44 @@
+' Projet    : Cert_EET — Plateforme de certification numerique (ESPRIT Entreprise)
+' Diagramme : ET-03 — Livrable
+' Auteur    : Iyed Omri — PFE ESPRIT 2026
+' Norme     : UML 2.5 — Diagramme d'etats-transitions
+' Coherence : Diagramme de classes v3.2 (package 8 Enumerations) + DS-03 / DS-04
+@startuml Cert_EET_ET_Livrable
+skinparam backgroundColor #FFFFFF
+skinparam shadowing false
+skinparam DefaultFontName "Segoe UI"
+skinparam DefaultFontSize 10
+skinparam ArrowThickness 1.4
+skinparam linetype ortho
+skinparam state {
+  FontName "Segoe UI"
+  BorderColor #34495E
+  FontSize 12
+}
+skinparam ArrowColor #34495E
+skinparam ArrowFontColor #1B2631
+
+title <size:15><b>Cert_EET — Etat-Transition : Livrable</b></size>\n<size:9><color:#7B8794>PFE ESPRIT 2026 · Iyed Omri · UML 2.5</color></size>
+
+state BROUILLON     #FEF9E7 : Etat initial a la creation.\nModifiable librement.
+state SOUMIS        #D6EAF8 : Depot (DS-03) : hashTracabilite + upload S3.\nRemplacable avant la date limite.
+state EN_CORRECTION #D6EAF8 : Formateur a ouvert : verrouillage.\nL'apprenant ne peut plus remplacer.
+state NOTE          #D5F5E3 : Correction finalisee : grille complete,\nSomme ponderations = 100%, Feedback immuable.
+
+[*] --> BROUILLON : Apprenant : creer
+BROUILLON --> SOUMIS : Apprenant : deposer (DS-03)\n[hash calcule + upload OK]
+SOUMIS --> SOUMIS : <color:#2471A3>Apprenant : remplacer\n[NOW() < dateLimite] / version++</color>
+SOUMIS --> EN_CORRECTION : Formateur : ouvrir pour correction\n(verrouillage)
+EN_CORRECTION --> NOTE : Formateur : finaliser\n[Somme ponderations = 100%]
+NOTE --> [*] : [score >= min & modules valides]\n/ declenche emission (DS-04)
+
+legend bottom
+  <b>Legende — criticite</b>
+  |<#FEF9E7>   | En attente |
+  |<#D6EAF8>   | En cours / transitoire |
+  |<#D5F5E3>   | Nominal actif |
+  |<#FADBD8>   | Erreur / revoque / rejete |
+  |<#EAECEE>   | Terminal / irreversible |
+endlegend
+
+@enduml

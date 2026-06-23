@@ -1,0 +1,241 @@
+@startuml Cert_EET_DS09_Acces_Module_Evaluation
+' =====================================================================
+'  Projet    : Cert_EET
+'  Diagramme : DS-09 — Accéder à un module et lancer une évaluation
+'  Acteur    : Apprenant
+'  Ref CdC   : F1 (QCM) + F2 (Ateliers) — UC2 + UC4 Apprenant
+'  Ce diagramme est le PONT entre DS-08 (Inscription) et DS-02/DS-03
+'  Auteur    : Iyed Omri — PFE ESPRIT 2026
+' =====================================================================
+!pragma teoz true
+skinparam backgroundColor #FFFFFF
+skinparam shadowing false
+skinparam DefaultFontName "Segoe UI"
+skinparam DefaultFontSize 10
+skinparam sequenceMessageAlign center
+skinparam responseMessageBelowArrow true
+skinparam ParticipantPadding 18
+skinparam ArrowThickness 1.2
+skinparam LifeLineBorderThickness 1.0
+
+skinparam participant {
+  BackgroundColor #FFFFFF
+  BorderColor #5D6D7E
+}
+skinparam actor {
+  BackgroundColor #ECF0F1
+  BorderColor #1B4F72
+  FontStyle bold
+}
+skinparam database {
+  BackgroundColor #EBF5FB
+  BorderColor #1B4F72
+}
+skinparam boundary {
+  BackgroundColor #FEF9E7
+  BorderColor #B7950B
+}
+skinparam control {
+  BackgroundColor #FAE5D3
+  BorderColor #BA4A00
+}
+skinparam note {
+  BackgroundColor #FEF9E7
+  BorderColor #B7950B
+  FontSize 9
+}
+skinparam sequence {
+  ArrowColor #34495E
+  LifeLineBorderColor #7F8C8D
+  LifeLineBackgroundColor #FDFEFE
+  GroupBorderColor #1B4F72
+  GroupHeaderFontColor #1B4F72
+  GroupHeaderFontStyle bold
+  DividerBorderColor #1B4F72
+  DividerBackgroundColor #D6EAF8
+  DividerFontColor #1B4F72
+  DividerFontStyle bold
+}
+
+title <size:14><b>Cert_EET — DS-09 : Accéder à un Module et Lancer une Évaluation</b></size>\n<size:10>Pont entre DS-08 (Inscription) et DS-02 (QCM) ou DS-03 (Atelier)</size>
+
+actor       "Apprenant" as APP
+boundary    "Frontend\n(Next.js)" as FE
+control     "FormationController\n(NestJS)" as FC
+control     "FormationService" as FS
+control     "QCMService" as QS
+control     "AtelierService" as AS
+database    "PostgreSQL" as DB
+
+' =====================================================================
+'  ÉTAPE 1 — Tableau de bord de la formation
+' =====================================================================
+== Étape 1 — Tableau de bord de la formation (post-inscription) ==
+
+note over APP, FE
+  Pré-condition : l'apprenant est authentifié (DS-01)
+  et inscrit à la formation (DS-08).
+end note
+
+APP  ->  FE  : Clique sur sa formation\ndepuis le tableau de bord
+FE   ->  FC  : GET /formations/:formationId/mon-espace\n(Bearer token)
+
+FC   ->  FS  : getEspaceFormation(\n  apprenantId, formationId\n)
+
+FS   ->  DB  : SELECT inscription\nWHERE apprenantId = :id\nAND formationId = :formationId
+DB  --> FS   : { statut, tauxAvancement,\n  dateEcheance }
+
+alt #FFE8E8 Inscription suspendue ou absente
+  FS  --> FC  : ForbiddenException\n"Accès non autorisé"
+  FC  --> FE  : HTTP 403 Forbidden
+  FE  --> APP : "Vous n'avez pas accès\nà cette formation"
+end
+
+FS   ->  DB  : SELECT modules\nORDER BY ordre ASC\nWHERE formationId = :id
+DB  --> FS   : modules[]
+
+FS   ->  DB  : SELECT qcm (statut, score, tentatives)\nAND ateliers (statut, note)\nWHERE moduleId IN (:moduleIds)\nAND apprenantId = :id
+DB  --> FS   : evaluations[] (avec progression)
+
+FS   ->  FS  : calculerAvancement(\n  evaluationsValidees /\n  evaluationsTotales\n)
+FS   ->  DB  : UPDATE inscriptions SET\ntauxAvancement = :avancement
+DB  --> FS   : OK
+
+FS  --> FC   : { formation, modules[],\n  progression, tauxAvancement }
+FC  --> FE   : HTTP 200 OK
+FE  --> APP  : Tableau de bord formation :\n• Progression globale (barre %)\n• Liste des modules avec statut\n  (Verrouillé / En cours / Complété)\n• Date d'échéance
+
+' =====================================================================
+'  ÉTAPE 2 — Accès à un module
+' =====================================================================
+== Étape 2 — Ouverture d'un module ==
+
+APP  ->  FE  : Clique sur un module
+
+FE   ->  FC  : GET /formations/:formationId/modules/:moduleId
+FC   ->  FS  : getModuleDetail(\n  apprenantId, formationId, moduleId\n)
+
+FS   ->  DB  : SELECT module, qcm[], ateliers[]\nWHERE module.id = :moduleId
+DB  --> FS   : { module, qcm[], ateliers[] }
+
+FS   ->  DB  : SELECT tentatives_qcm\nWHERE apprenantId = :id\nAND qcmId IN (:qcmIds)\nSELECT livrables\nWHERE apprenantId = :id\nAND atelierId IN (:atelierIds)
+DB  --> FS   : Progression par évaluation
+
+FS   ->  FS  : Calcule le statut de chaque\névaluation pour cet apprenant
+
+FS  --> FC   : { module, evaluations[] }
+FC  --> FE   : HTTP 200 OK
+FE  --> APP  : Affiche le contenu du module :\n\n  📝 QCM disponibles :\n  • "Sécurité des API REST"\n    [DISPONIBLE | RÉUSSI | ÉCHOUÉ]\n  • "Authentification JWT"\n    [DISPONIBLE]\n\n  📁 Ateliers pratiques :\n  • "Implémentation Auth NestJS"\n    [EN ATTENTE | SOUMIS | NOTÉ]
+
+' =====================================================================
+'  ÉTAPE 3A — Lancer un QCM
+' =====================================================================
+== Étape 3A — L'apprenant choisit de passer un QCM ==
+
+APP  ->  FE  : Clique sur un QCM\n"Commencer l'évaluation"
+
+note right of FE
+  À partir d'ici → DS-02
+  (Passer un QCM)
+  Le frontend appelle :
+  GET /qcm/:qcmId/acces
+end note
+
+FE   ->  QS  : GET /qcm/:qcmId/acces\n(vérifications anti-fraude)
+QS   ->  DB  : SELECT qcm, config_anti_fraude,\nnbTentativesPassees
+DB  --> QS   : Données de configuration
+
+group #EBF5FB Contrôles d'accès QCM (F1)
+  QS   ->  QS  : statut == "Publié" ?
+  QS   ->  QS  : Fenêtre temporelle valide ?
+  QS   ->  QS  : Tentatives restantes > 0 ?
+  QS   ->  QS  : Délai entre tentatives respecté ?
+end
+
+alt #FFE8E8 Accès refusé
+  QS  --> FE  : HTTP 403 + raison
+  FE  --> APP : Message ciblé :\n"Tentatives épuisées" ou\n"QCM fermé" ou "Délai non écoulé"
+
+else #E8F8F5 Accès accordé
+  QS  --> FE  : HTTP 200 OK\n{ tentativeId, questions,\n  dureeMax, dateDebut }
+  FE  --> APP : Lance le QCM\n→ Voir DS-02 pour\nle flux complet
+  note right of FE
+    **Suite → DS-02**
+    DS-09 remet le contrôle à DS-02
+    à partir de la création de la
+    TentativeQCM.
+  end note
+end
+
+' =====================================================================
+'  ÉTAPE 3B — Accéder à un Atelier
+' =====================================================================
+== Étape 3B — L'apprenant choisit de rendre un atelier ==
+
+APP  ->  FE  : Clique sur un Atelier\n"Voir l'énoncé"
+
+FE   ->  AS  : GET /ateliers/:atelierId\n(Bearer token)
+AS   ->  DB  : SELECT atelier, grille_notation,\nlivrable_existant\nWHERE atelierId = :id\nAND apprenantId = :appId
+DB  --> AS   : { atelier, livrableExistant? }
+
+group #EBF5FB Contrôles d'accès Atelier (F2)
+  AS   ->  AS  : atelier.statut == "Publié" ?
+  AS   ->  AS  : Apprenant inscrit à\nla formation parente ?
+end
+
+alt #FFE8E8 Atelier non disponible
+  AS  --> FE  : HTTP 403
+  FE  --> APP : "Cet atelier n'est\npas encore disponible"
+
+else #E8F8F5 Accès accordé
+  AS  --> FE  : HTTP 200 OK :\n{ atelier, livrableStatut,\n  grille (critères visibles),\n  dateLimite }
+  FE  --> APP : Affiche :\n• Énoncé complet\n• Ressources fournies\n• Grille de notation\n  (critères visibles pour\n  l'apprenant)\n• Date limite\n• Zone de soumission
+
+  note right of FE
+    L'apprenant VOIT la grille
+    de notation AVANT de soumettre —
+    transparence pédagogique.
+  end note
+
+  alt #EBF5FB Pas encore soumis
+    FE  --> APP : Bouton "Soumettre\nmon livrable"\n→ Voir DS-03 (Partie 1)
+    note right of FE
+      **Suite → DS-03**
+      DS-09 remet le contrôle à DS-03
+      à partir de l'upload du livrable.
+    end note
+
+  else #FEF9E7 Déjà soumis, pas encore corrigé
+    FE  --> APP : Statut "En attente\nde correction"\n+ Bouton "Remplacer\navant deadline"
+
+  else #FEF9E7 Déjà noté — consulter le feedback
+    FE  --> APP : Score + Bouton\n"Voir le feedback"\n→ GET /livrables/:id/feedback\n(DS-03 résultat)
+  end
+end
+
+' =====================================================================
+'  SUIVI DE PROGRESSION
+' =====================================================================
+== Mise à jour de la progression après chaque évaluation ==
+
+note over FS, DB
+  Après chaque QCM soumis (DS-02) ou
+  livrable noté (DS-03), le système
+  recalcule automatiquement :
+  • tauxAvancement de l'Inscription
+  • Statut de chaque module
+  • Éligibilité à la certification (F3)
+
+  Si toutes les conditions sont réunies
+  → Déclenche DS-04 (Émission certificat)
+end note
+
+legend bottom
+  | <b>Couleur</b> | <b>Signification</b> |
+  | <back:#E8F8F5> vert   </back> | Accès accordé / chemin nominal |
+  | <back:#FFE8E8> rouge  </back> | Accès refusé |
+  | <back:#EBF5FB> bleu   </back> | Contrôles serveur |
+  | <back:#FEF9E7> jaune  </back> | États alternatifs du livrable |
+endlegend
+
+@enduml

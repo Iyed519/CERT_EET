@@ -1,0 +1,49 @@
+@startuml Cert_EET_DEP03_Securite_FluxDonnees
+' =====================================================================
+'  Projet : Cert_EET — DEP-03 : Zoom securite & flux de donnees
+'  Auteur : Iyed Omri — PFE ESPRIT 2026
+'  Rendu  : PlantUML. PNG de reference rendu via Graphviz.
+' =====================================================================
+skinparam backgroundColor #FFFFFF
+skinparam shadowing false
+skinparam DefaultFontName "Segoe UI"
+skinparam linetype ortho
+skinparam ArrowColor #34495E
+skinparam node { BorderThickness 1.4 }
+' couleurs : vert=donnees  bleu=exec/worker  orange=externe  rouge=securite  gris=client
+title <size:14><b>Cert_EET — DEP-03 : Zoom securite & flux de donnees</b></size>\n<size:10>Zones de confiance . chiffrement transit/repos . auth . audit (NF2.NF3.F7)</size>
+
+
+node "Zone non fiable" <<trust boundary>> as z0 #F2F3F4 {
+  node "Client / Internet\nnavigateur · smartphone" as client #EAECEE
+}
+node "DMZ (perimetre)" <<trust boundary>> as z1 #FBF4F2 {
+  node "Nginx — Terminaison TLS\nTLS 1.3 · HSTS · rate-limit" as nginx #FADBD8
+}
+node "Zone applicative (fiable)" <<trust boundary>> as z2 #EFF5FB {
+  node "AuthModule\nJWT RS256 · MFA TOTP · refresh" as auth #FADBD8
+  node "Garde RBAC\nAdmin/Formateur/Apprenant" as rbac #D6EAF8
+  node "AuditModule\njournaux horodates immuables" as audit #D6EAF8
+}
+node "Zone donnees (chiffrement au repos)" <<trust boundary>> as z3 #EAFBF1 {
+  database "PostgreSQL\npgcrypto · SHA-256 certifs" as pg #D5F5E3
+  database "Redis\nblacklist JWT · AOF" as redis #D5F5E3
+  database "MinIO\nPDF signes · livrables" as minio #D5F5E3
+}
+
+client --> nginx : HTTPS / TLS 1.3
+nginx  --> auth  : JWT verifie (cle publique RS256)
+auth   --> rbac  : claims + role
+rbac   ..> audit : action tracee
+rbac   --> pg    : TypeORM (TLS)
+auth   --> redis : blacklist / session
+audit  ..> pg    : INSERT audit
+rbac   --> minio : URL signee S3
+
+note bottom of pg
+  NF2 Disponibilite 99% : repl. PostgreSQL · cluster API
+end note
+note bottom of auth
+  NF3 : TLS bout-en-bout, JWT RS256, MFA, RBAC, audit
+end note
+@enduml

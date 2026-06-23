@@ -1,0 +1,106 @@
+@startuml Cert_EET_COMP01_Architecture_Modules
+' =====================================================================
+'  Projet : Cert_EET — COMP-01 : Architecture des modules NestJS
+'  Auteur : Iyed Omri — PFE ESPRIT 2026
+'  Rendu  : PlantUML. PNG de reference rendu via Graphviz.
+'  Couleurs : vert=metier rouge=securite bleu=adaptateur gris=transverse orange=externe
+' =====================================================================
+skinparam backgroundColor #FFFFFF
+skinparam shadowing false
+skinparam DefaultFontName "Segoe UI"
+skinparam linetype ortho
+skinparam componentStyle uml2
+skinparam component {
+  BorderThickness 1.4
+}
+title <size:14><b>Cert_EET — COMP-01 : Architecture des modules NestJS</b></size>\n<size:10>Modules metier . Adaptateurs d'infrastructure . Modules transverses . Interfaces fournies/requises</size>
+
+' ===================== MODULES METIER =====================
+package "Modules metier (F1-F7)" #EFF8F2 {
+  component "AuthModule\n<size:9>JWT RS256 · MFA TOTP · Guards RBAC</size>" <<module>> as AUTH #FADBD8
+  component "UsersModule\n<size:9>comptes · RBAC</size>" <<module>> as USERS #D5F5E3
+  component "FormationsModule\n<size:9>formations · modules · inscriptions</size>" <<module>> as FORM #D5F5E3
+  component "QCMModule\n<size:9>QCM · anti-fraude · scoring</size>" <<module>> as QCM #D5F5E3
+  component "AteliersModule\n<size:9>livrables · correction · feedback</size>" <<module>> as ATEL #D5F5E3
+  component "CertificatsModule\n<size:9>emission · SHA-256 · revocation</size>" <<module>> as CERT #D5F5E3
+  component "AssistanceIAModule\n<size:9>RAG · generation QCM · alertes</size>" <<module>> as IA #D5F5E3
+  component "NotificationsModule\n<size:9>SSE push</size>" <<module>> as NOTIF #D5F5E3
+  component "AuditModule\n<size:9>intercepteur global · journaux immuables</size>" <<module>> as AUDIT #D5F5E3
+}
+
+' ===================== ADAPTATEURS =====================
+package "Adaptateurs d'infrastructure (ports swappables)" #EFF4FB {
+  component "LLMAdapterModule" <<module>> as LLM #D6EAF8
+  component "StorageAdapterModule" <<module>> as STOR #D6EAF8
+  component "EmailAdapterModule" <<module>> as MAIL #D6EAF8
+  component "QueueAdapterModule" <<module>> as QUEUE #D6EAF8
+}
+
+' Interfaces fournies par les adaptateurs (lollipop)
+interface "ILLMProvider" as I_LLM
+interface "IStorageProvider" as I_STOR
+interface "IEmailProvider" as I_MAIL
+interface "IQueueProvider" as I_QUEUE
+LLM -up- I_LLM
+STOR -up- I_STOR
+MAIL -up- I_MAIL
+QUEUE -up- I_QUEUE
+
+' Interfaces fournies par les modules metier
+interface "JwtAuthGuard\n+ RolesGuard" as I_GUARD
+interface "SSE channel" as I_SSE
+interface "AuditInterceptor" as I_AUDIT
+AUTH -down- I_GUARD
+NOTIF -down- I_SSE
+AUDIT -down- I_AUDIT
+
+' ===================== TRANSVERSES =====================
+package "Modules transverses" #F2F3F4 {
+  component "ConfigModule\n<size:9>config typee</size>" <<module>> as CONFIG #EAECEE
+  component "DatabaseModule\n<size:9>TypeORM · PostgreSQL · pgvector</size>" <<module>> as DB #EAECEE
+  component "LoggerModule\n<size:9>logs structures</size>" <<module>> as LOG #EAECEE
+}
+
+' ===================== SERVICES EXTERNES =====================
+package "Services externes" #FCF3E9 {
+  component "API LLM\n<size:9>GPT-4o / Claude / Mistral</size>" <<external>> as X_LLM #FDEBD0
+  component "Service SMTP" <<external>> as X_SMTP #FDEBD0
+  component "Service MFA / TOTP" <<external>> as X_MFA #FDEBD0
+}
+
+' ===================== DEPENDANCES (requires) =====================
+IA ..> I_LLM : requires
+IA ..> I_QUEUE : requires
+IA ..> I_STOR : requires
+IA ..> I_SSE : notifie
+CERT ..> I_STOR : requires
+CERT ..> I_QUEUE : requires
+ATEL ..> I_STOR : requires
+ATEL ..> I_SSE : notifie
+NOTIF ..> I_MAIL : requires
+QCM ..> I_QUEUE : requires
+QCM ..> I_GUARD : protege par
+CERT ..> I_GUARD : protege par
+
+' Adaptateurs -> services externes
+LLM ..> X_LLM : HTTPS
+MAIL ..> X_SMTP : SMTP/TLS
+AUTH ..> X_MFA : TOTP
+
+note bottom of CONFIG
+  ConfigModule, DatabaseModule et LoggerModule sont
+  requis par TOUS les modules metier et adaptateurs
+  (liens non traces pour la lisibilite).
+end note
+
+note right of AUTH
+  JwtAuthGuard + RolesGuard fournis par AuthModule
+  sont appliques a TOUS les modules metier
+  (2 liens montres en exemple).
+end note
+
+note right of IA
+  AssistanceIAModule : composant le plus connecte —
+  pipeline RAG (LLM + Queue + Storage + pgvector).
+end note
+@enduml
