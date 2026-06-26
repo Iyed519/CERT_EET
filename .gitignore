@@ -1,24 +1,28 @@
-# Nestjs specific
-/dist
-/node_modules
-/build
-/tmp
-
-# Logs
-logs
+# Dependencies (dépendances) — JAMAIS poussées sur GitHub
+node_modules/
+**/node_modules/
+ 
+# Build outputs (résultats de compilation)
+dist/
+.next/
+out/
+build/
+*.tsbuildinfo
+ 
+# Secrets — JAMAIS commités (voir INF07)
+.env
+.env.*
+!.env.example
+*.pem
+secrets/
+ 
+# Coverage & logs (couverture de tests & journaux)
+coverage/
 *.log
 npm-debug.log*
-pnpm-debug.log*
-yarn-debug.log*
-yarn-error.log*
-lerna-debug.log*
-
-# dotenv environment variable files
-.env
-.env.development
-.env.test
-.env.production
-
-# temp directory
-.temp
-.tmp
+ 
+# OS / IDE (système & éditeurs)
+.DS_Store
+Thumbs.db
+.idea/
+.vscode/
