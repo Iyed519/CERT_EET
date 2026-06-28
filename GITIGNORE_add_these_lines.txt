@@ -1,0 +1,4 @@
+# --- INF03 (Docker) — append these lines to your existing root .gitignore ---
+.env
+docker/nginx/certs/*
+!docker/nginx/certs/.gitignore

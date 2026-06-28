@@ -1,0 +1,28 @@
+# Cert_EET — INF03 — DEV override
+# Hot reload (source bind-mounts), development image stage, debug ports exposed.
+#   docker compose -f docker-compose.yml -f docker-compose.dev.yml up --build
+
+services:
+  api:
+    build:
+      target: development
+    environment:
+      NODE_ENV: development
+    command: ["npm", "run", "start:dev"]
+    volumes:
+      - ./apps/api:/app          # live source for hot reload
+      - /app/node_modules        # keep the container's node_modules (not the host's)
+    ports:
+      - "3000:3000"              # optional direct access for debugging
+
+  web:
+    build:
+      target: development
+    environment:
+      NODE_ENV: development
+    command: ["npm", "run", "dev"]
+    volumes:
+      - ./apps/web:/app
+      - /app/node_modules
+    ports:
+      - "3001:3001"             # http://localhost:3001 hits the web container directly

@@ -1,0 +1,27 @@
+# Cert_EET — INF03 — RECETTE (staging) override
+# Production image stage, restart policy, no source bind-mounts.
+#   docker compose -f docker-compose.yml -f docker-compose.recette.yml up --build -d
+
+services:
+  api:
+    build:
+      target: production
+    environment:
+      NODE_ENV: production
+    restart: unless-stopped
+
+  web:
+    build:
+      target: production
+    environment:
+      NODE_ENV: production
+    restart: unless-stopped
+
+  postgres:
+    restart: unless-stopped
+
+  redis:
+    restart: unless-stopped
+
+  nginx:
+    restart: unless-stopped
