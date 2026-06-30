@@ -56,6 +56,9 @@ services:
       DB_NAME: ${POSTGRES_DB}
       REDIS_HOST: redis
       REDIS_PORT: 6379
+      # --- Bootstrap admin (seed INF04) ---
+      ADMIN_EMAIL: ${ADMIN_EMAIL}
+      ADMIN_PASSWORD: ${ADMIN_PASSWORD}
     depends_on:
       postgres:
         condition: service_healthy        # API waits for DB ready (INF03 acceptance criterion)
