@@ -25,13 +25,16 @@ export const envValidationSchema = Joi.object({
   // Prefixe global de l'API (le reverse proxy route /api -> api en INF03).
   API_PREFIX: Joi.string().default('api'),
 
-  // --- Branchés en INF03/INF04 (optionnels pour l'instant) ---
-  DATABASE_URL: Joi.string()
-    .uri({ scheme: ['postgres', 'postgresql'] })
-    .optional(),
-  REDIS_URL: Joi.string()
-    .uri({ scheme: ['redis', 'rediss'] })
-    .optional(),
+// --- Base de données (branchée en INF04 — désormais requise) ---
+  DB_HOST: Joi.string().required(),
+  DB_PORT: Joi.number().port().default(5432),
+  DB_USERNAME: Joi.string().required(),
+  DB_PASSWORD: Joi.string().required(),
+  DB_NAME: Joi.string().required(),
+
+  // --- Redis : déclaré mais pas encore consommé (branché à sa propre story) ---
+  REDIS_HOST: Joi.string().optional(),
+  REDIS_PORT: Joi.number().port().default(6379),
 })
   // Refuse les clés inconnues seulement en avertissement : on n'échoue pas
   // sur des variables système, mais on valide strictement celles qu'on connaît.

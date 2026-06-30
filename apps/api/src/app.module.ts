@@ -1,5 +1,6 @@
 import { Module } from '@nestjs/common';
 import { ConfigModule } from './config/config.module';
+import { DatabaseModule } from './database/database.module';
 import { HealthModule } from './modules/health/health.module';
 
 /**
@@ -11,6 +12,6 @@ import { HealthModule } from './modules/health/health.module';
  * seront ajoutés ici au fil des sprints, sous src/modules/.
  */
 @Module({
-  imports: [ConfigModule, HealthModule],
+  imports: [ConfigModule, DatabaseModule, HealthModule],
 })
 export class AppModule {}
