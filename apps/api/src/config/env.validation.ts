@@ -35,6 +35,8 @@ export const envValidationSchema = Joi.object({
   // --- Redis : déclaré mais pas encore consommé (branché à sa propre story) ---
   REDIS_HOST: Joi.string().optional(),
   REDIS_PORT: Joi.number().port().default(6379),
+  JWT_PRIVATE_KEY_PATH: Joi.string().required(),
+  JWT_PUBLIC_KEY_PATH: Joi.string().required(),
 })
   // Refuse les clés inconnues seulement en avertissement : on n'échoue pas
   // sur des variables système, mais on valide strictement celles qu'on connaît.
