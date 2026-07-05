@@ -59,6 +59,11 @@ services:
       # --- Bootstrap admin (seed INF04) ---
       ADMIN_EMAIL: ${ADMIN_EMAIL}
       ADMIN_PASSWORD: ${ADMIN_PASSWORD}
+      # --- JWT RS256 keys (INF07) ---
+      JWT_PRIVATE_KEY_PATH: /run/secrets/jwt_private.pem
+      JWT_PUBLIC_KEY_PATH: /run/secrets/jwt_public.pem
+    volumes:
+      - ./secrets:/run/secrets:ro          # RS256 keys, read-only (INF07)
     depends_on:
       postgres:
         condition: service_healthy        # API waits for DB ready (INF03 acceptance criterion)
