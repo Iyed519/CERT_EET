@@ -1,6 +1,6 @@
 # INF05 (CI pipeline) — Cert_EET
 # Runs on every push to main and every PR targeting main.
-# Order: install -> lint -> unit tests + coverage -> integration tests -> upload coverage.
+# Order: install -> generate test keys -> lint -> unit tests + coverage -> integration tests -> upload coverage.
 # Scope for now: apps/api only (backend). apps/web can be added later.
 
 name: CI
@@ -23,7 +23,6 @@ jobs:
 
     # Throwaway Postgres + Redis that GitHub starts just for this run.
     # On the runner they are reachable at localhost.
-    # They are set up now so integration tests (from US-AUTH-01) just work.
     services:
       postgres:
         image: pgvector/pgvector:pg16
@@ -49,8 +48,9 @@ jobs:
           --health-timeout 5s
           --health-retries 5
 
-    # Connection settings that match the services above.
-    # Integration tests will read these once they exist. Unused for now.
+    # Settings the app reads when tests boot it.
+    # DB/Redis point at the service containers above.
+    # The two JWT paths point at throwaway keys generated in a step below.
     env:
       DB_HOST: localhost
       DB_PORT: '5432'
@@ -61,9 +61,8 @@ jobs:
       REDIS_PORT: '6379'
       ADMIN_EMAIL: admin@cert-eet.test
       ADMIN_PASSWORD: ChangeMe_CI_123
-      # NOTE (US-AUTH-01): when tests boot the app, add a step here that
-      # generates ephemeral RS256 test keys and sets
-      # JWT_PRIVATE_KEY_PATH / JWT_PUBLIC_KEY_PATH to point at them.
+      JWT_PRIVATE_KEY_PATH: /tmp/jwt_private.pem
+      JWT_PUBLIC_KEY_PATH: /tmp/jwt_public.pem
 
     steps:
       - name: Checkout the code
@@ -78,6 +77,14 @@ jobs:
 
       - name: Install dependencies (clean, from lockfile)
         run: npm ci
+
+      # Real, throwaway RS256 keys for this run only. Same commands as INF07.
+      # They live at /tmp on the CI machine and are gone when the run ends.
+      # No secret ever enters the repo.
+      - name: Generate throwaway RS256 keys for tests
+        run: |
+          openssl genrsa -out "$JWT_PRIVATE_KEY_PATH" 2048
+          openssl rsa -in "$JWT_PRIVATE_KEY_PATH" -pubout -out "$JWT_PUBLIC_KEY_PATH"
 
       - name: Lint
         run: npm run lint
