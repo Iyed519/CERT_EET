@@ -1,0 +1,97 @@
+# INF05 (CI pipeline) — Cert_EET
+# Runs on every push to main and every PR targeting main.
+# Order: install -> lint -> unit tests + coverage -> integration tests -> upload coverage.
+# Scope for now: apps/api only (backend). apps/web can be added later.
+
+name: CI
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+    branches: [main]
+
+jobs:
+  api:
+    name: API (lint + tests + coverage)
+    runs-on: ubuntu-latest
+
+    # Every "run:" step below executes inside apps/api.
+    defaults:
+      run:
+        working-directory: apps/api
+
+    # Throwaway Postgres + Redis that GitHub starts just for this run.
+    # On the runner they are reachable at localhost.
+    # They are set up now so integration tests (from US-AUTH-01) just work.
+    services:
+      postgres:
+        image: pgvector/pgvector:pg16
+        env:
+          POSTGRES_USER: cert_eet
+          POSTGRES_PASSWORD: cert_eet
+          POSTGRES_DB: cert_eet
+        ports:
+          - 5432:5432
+        options: >-
+          --health-cmd "pg_isready -U cert_eet"
+          --health-interval 10s
+          --health-timeout 5s
+          --health-retries 5
+
+      redis:
+        image: redis:7-alpine
+        ports:
+          - 6379:6379
+        options: >-
+          --health-cmd "redis-cli ping"
+          --health-interval 10s
+          --health-timeout 5s
+          --health-retries 5
+
+    # Connection settings that match the services above.
+    # Integration tests will read these once they exist. Unused for now.
+    env:
+      DB_HOST: localhost
+      DB_PORT: '5432'
+      DB_USERNAME: cert_eet
+      DB_PASSWORD: cert_eet
+      DB_NAME: cert_eet
+      REDIS_HOST: localhost
+      REDIS_PORT: '6379'
+      ADMIN_EMAIL: admin@cert-eet.test
+      ADMIN_PASSWORD: ChangeMe_CI_123
+      # NOTE (US-AUTH-01): when tests boot the app, add a step here that
+      # generates ephemeral RS256 test keys and sets
+      # JWT_PRIVATE_KEY_PATH / JWT_PUBLIC_KEY_PATH to point at them.
+
+    steps:
+      - name: Checkout the code
+        uses: actions/checkout@v4
+
+      - name: Set up Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: '20'
+          cache: 'npm'
+          cache-dependency-path: apps/api/package-lock.json
+
+      - name: Install dependencies (clean, from lockfile)
+        run: npm ci
+
+      - name: Lint
+        run: npm run lint
+
+      - name: Unit tests + coverage
+        run: npm run test:cov -- --passWithNoTests
+
+      - name: Integration tests
+        run: npm run test:e2e -- --passWithNoTests
+
+      - name: Upload coverage report
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: coverage-api
+          path: apps/api/coverage
+          if-no-files-found: ignore
