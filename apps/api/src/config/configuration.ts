@@ -15,7 +15,19 @@ export interface AppConfig {
   redisUrl?: string;
 }
 
-export default (): { app: AppConfig } => ({
+export interface JwtConfig {
+  privateKeyPath: string;
+  publicKeyPath: string;
+  /** En secondes, pas en minutes : @nestjs/jwt attend un nombre de
+   *  secondes pour expiresIn quand ce n'est pas une chaîne au format
+   *  spécifique de la lib "ms" (ex: '15m'). Un nombre lève toute
+   *  ambiguïté de type ET de format. ADR-08 : 15 minutes = 900 s. */
+  accessTokenExpiresIn: number;
+  /** ADR-08 : 7 jours = 604800 s. */
+  refreshTokenExpiresIn: number;
+}
+
+export default (): { app: AppConfig; jwt: JwtConfig } => ({
   app: {
     nodeEnv: (process.env.NODE_ENV as AppConfig['nodeEnv']) ?? 'development',
     port: parseInt(process.env.PORT ?? '3000', 10),
@@ -23,5 +35,11 @@ export default (): { app: AppConfig } => ({
     apiPrefix: process.env.API_PREFIX ?? 'api',
     databaseUrl: process.env.DATABASE_URL,
     redisUrl: process.env.REDIS_URL,
+  },
+jwt: {
+    privateKeyPath: process.env.JWT_PRIVATE_KEY_PATH as string,
+    publicKeyPath: process.env.JWT_PUBLIC_KEY_PATH as string,
+    accessTokenExpiresIn: 900, // 15 minutes
+    refreshTokenExpiresIn: 604800, // 7 jours
   },
 });
