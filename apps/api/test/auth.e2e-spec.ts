@@ -88,15 +88,27 @@ app = moduleRef.createNestApplication();
     await app.close();
   });
 
-  it('POST /api/auth/login -> 200 et emet les jetons pour un compte ACTIF avec le bon mot de passe', () => {
+  it('POST /api/auth/login -> 200, accessToken en JSON, refreshToken en cookie httpOnly', () => {
     return request(app.getHttpServer())
       .post('/api/auth/login')
       .send({ email: EMAIL_ACTIF, password: MOT_DE_PASSE_TEST })
       .expect(200)
       .expect((res) => {
+        // L'access token est en JSON (US-AUTH-01, DS-01).
         expect(res.body.accessToken).toBeDefined();
-        expect(res.body.refreshToken).toBeDefined();
         expect(res.body.user.email).toBe(EMAIL_ACTIF);
+        // Le refresh token ne doit JAMAIS apparaitre dans le corps JSON.
+        expect(res.body.refreshToken).toBeUndefined();
+
+        // Le refresh token doit etre pose en cookie httpOnly.
+        const setCookieHeader = res.headers['set-cookie'];
+        expect(setCookieHeader).toBeDefined();
+        const refreshCookie = (setCookieHeader as unknown as string[]).find(
+          (cookie: string) => cookie.startsWith('refreshToken='),
+        );
+        expect(refreshCookie).toBeDefined();
+        expect(refreshCookie).toContain('HttpOnly');
+        expect(refreshCookie).toContain('Path=/api/auth');
       });
   });
 
