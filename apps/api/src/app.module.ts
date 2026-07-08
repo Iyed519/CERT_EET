@@ -2,6 +2,7 @@ import { Module } from '@nestjs/common';
 import { ConfigModule } from './config/config.module';
 import { DatabaseModule } from './database/database.module';
 import { HealthModule } from './modules/health/health.module';
+import { AuthModule } from './modules/auth/auth.module';
 
 /**
  * Module racine (AppModule).
@@ -12,6 +13,6 @@ import { HealthModule } from './modules/health/health.module';
  * seront ajoutés ici au fil des sprints, sous src/modules/.
  */
 @Module({
-  imports: [ConfigModule, DatabaseModule, HealthModule],
+  imports: [ConfigModule, DatabaseModule, HealthModule, AuthModule],
 })
 export class AppModule {}

@@ -91,7 +91,14 @@ jobs:
 
       - name: Unit tests + coverage
         run: npm run test:cov -- --passWithNoTests
-
+      # Le service Postgres ci-dessus démarre COMPLÈTEMENT vide (aucune
+      # table). En local, ça ne se voit jamais car le volume Docker est
+      # persistant depuis INF04 — mais CI recrée une base neuve à chaque
+      # run. Sans cette étape, tout test e2e qui touche la base échoue
+      # avec "relation \"users\" does not exist" (repéré en AUTH-01,
+      # premier e2e à réellement lire/écrire des lignes).
+      - name: Run database migrations
+        run: npm run migration:run
       - name: Integration tests
         run: npm run test:e2e -- --passWithNoTests
 
