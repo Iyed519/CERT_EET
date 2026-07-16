@@ -1,16 +1,11 @@
 /**
- * Client API minimal pour le frontend (US-AUTH-01).
+ * Client API du frontend (US-AUTH-01, US-AUTH-03).
  *
- * Premier fichier de ce type dans le projet : centralise les appels HTTP
- * vers le backend NestJS, pour que les composants n'écrivent jamais
- * fetch(...) directement (même logique que ConfigService côté backend :
- * un seul point de vérité, plus facile à faire évoluer plus tard).
- *
- * Pas d'URL de base ici : le frontend et l'API sont servis par le MÊME
- * reverse proxy Nginx (US-INFRA-03), donc un chemin relatif ("/api/...")
- * suffit — pas de CORS, pas de configuration d'environnement nécessaire.
+ * Centralise les appels HTTP vers le backend NestJS pour que les composants
+ * n'écrivent jamais fetch(...) directement. Chemins relatifs ("/api/...") :
+ * frontend et API partagent le même reverse proxy Nginx (INF03), donc pas de
+ * CORS ni d'URL de base à configurer.
  */
-
 export interface LoginResponse {
   accessToken: string;
   user: {
@@ -23,15 +18,9 @@ export interface LoginResponse {
 export class LoginError extends Error {}
 
 /**
- * Appelle POST /api/auth/login.
- *
- * credentials: 'include' est nécessaire pour que le navigateur envoie ET
- * accepte le cookie httpOnly contenant le refresh token (US-AUTH-01,
- * backend) — sans ça, le cookie posé par le serveur serait ignoré.
- *
- * En cas d'échec (401 identifiants invalides, 400 validation), on lève
- * une LoginError avec le message générique renvoyé par le backend —
- * jamais un message différent selon le cas (sécurité par opacité, DS-01).
+ * POST /api/auth/login. credentials:'include' pour que le navigateur accepte
+ * le cookie httpOnly (refresh token). Échec -> LoginError avec le message
+ * générique du backend (opacité, DS-01).
  */
 export async function loginRequest(
   email: string,
@@ -43,14 +32,129 @@ export async function loginRequest(
     credentials: 'include',
     body: JSON.stringify({ email, password }),
   });
-
   const data = await response.json();
-
   if (!response.ok) {
     throw new LoginError(
       data.message ?? 'Une erreur est survenue. Veuillez réessayer.',
     );
   }
-
   return data as LoginResponse;
+}
+
+/* ============================================================
+ * US-AUTH-03 — Access token en mémoire + intercepteur 401
+ * ============================================================ */
+
+/**
+ * Access token courant, gardé en variable de MODULE (miroir de l'état React
+ * d'AuthContext). Nécessaire car apiFetch n'est pas un hook React et doit
+ * pouvoir lire le token sans passer par le rendu.
+ */
+let currentAccessToken: string | null = null;
+
+/**
+ * Handlers fournis par AuthContext pour resynchroniser l'état React quand le
+ * token change EN DEHORS d'un rendu (refresh silencieux, déconnexion forcée).
+ */
+let onRefreshed: ((session: LoginResponse) => void) | null = null;
+let onCleared: (() => void) | null = null;
+
+/**
+ * Promesse de refresh PARTAGÉE (single-flight). Si plusieurs requêtes tombent
+ * en 401 simultanément, elles partagent un seul appel /auth/refresh au lieu
+ * d'en déclencher un chacune.
+ */
+let refreshInFlight: Promise<string | null> | null = null;
+
+/** Met à jour le miroir du token (appelé par AuthContext.setSession). */
+export function setAccessToken(token: string | null): void {
+  currentAccessToken = token;
+}
+
+/** AuthContext s'enregistre ici pour rester synchronisé avec apiFetch. */
+export function registerSessionHandlers(handlers: {
+  onRefreshed: (session: LoginResponse) => void;
+  onCleared: () => void;
+}): void {
+  onRefreshed = handlers.onRefreshed;
+  onCleared = handlers.onCleared;
+}
+
+/**
+ * fetch authentifié : attache l'access token courant en en-tête Authorization
+ * et envoie toujours les cookies (refresh token httpOnly).
+ */
+async function fetchWithAuth(
+  input: string,
+  init: RequestInit,
+): Promise<Response> {
+  const headers = new Headers(init.headers ?? {});
+  if (currentAccessToken) {
+    headers.set('Authorization', `Bearer ${currentAccessToken}`);
+  }
+  return fetch(input, { ...init, headers, credentials: 'include' });
+}
+
+/**
+ * US-AUTH-03 — Point d'entrée de TOUT appel authentifié.
+ *   1. envoie la requête avec l'access token courant ;
+ *   2. si 401 (access token expiré), tente UN refresh silencieux ;
+ *   3a. refresh OK -> rejoue la requête initiale avec le nouveau token ;
+ *   3b. refresh KO -> nettoie la session et redirige vers /login.
+ */
+export async function apiFetch(
+  input: string,
+  init: RequestInit = {},
+): Promise<Response> {
+  const response = await fetchWithAuth(input, init);
+  if (response.status !== 401) {
+    return response;
+  }
+
+  const newToken = await refreshSession();
+  if (!newToken) {
+    forceLogout();
+    return response;
+  }
+
+  // Rejeu transparent : l'utilisateur ne voit jamais que son token avait expiré.
+  return fetchWithAuth(input, init);
+}
+
+/** Refresh single-flight : un seul appel réseau partagé par les requêtes. */
+function refreshSession(): Promise<string | null> {
+  if (!refreshInFlight) {
+    refreshInFlight = doRefresh().finally(() => {
+      refreshInFlight = null;
+    });
+  }
+  return refreshInFlight;
+}
+
+/** Appelle POST /api/auth/refresh (le cookie part tout seul). */
+async function doRefresh(): Promise<string | null> {
+  const response = await fetch('/api/auth/refresh', {
+    method: 'POST',
+    credentials: 'include',
+  });
+  if (!response.ok) {
+    return null;
+  }
+  const session = (await response.json()) as LoginResponse;
+  currentAccessToken = session.accessToken;
+  if (onRefreshed) {
+    onRefreshed(session);
+  }
+  return session.accessToken;
+}
+
+/** Session morte : on efface tout et on renvoie vers /login. */
+function forceLogout(): void {
+  currentAccessToken = null;
+  if (onCleared) {
+    onCleared();
+  }
+  if (typeof window !== 'undefined') {
+    window.location.href = '/login';
+  }
 }

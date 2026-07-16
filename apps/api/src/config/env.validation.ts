@@ -32,8 +32,8 @@ export const envValidationSchema = Joi.object({
   DB_PASSWORD: Joi.string().required(),
   DB_NAME: Joi.string().required(),
 
-  // --- Redis : déclaré mais pas encore consommé (branché à sa propre story) ---
-  REDIS_HOST: Joi.string().optional(),
+// --- Redis : désormais requis (US-AUTH-03 : denylist des jetons révoqués) ---
+  REDIS_HOST: Joi.string().required(),
   REDIS_PORT: Joi.number().port().default(6379),
   JWT_PRIVATE_KEY_PATH: Joi.string().required(),
   JWT_PUBLIC_KEY_PATH: Joi.string().required(),

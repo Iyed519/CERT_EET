@@ -4,49 +4,48 @@ import { getRepositoryToken } from '@nestjs/typeorm';
 import { Repository } from 'typeorm';
 import * as request from 'supertest';
 import * as bcrypt from 'bcryptjs';
+import * as cookieParser from 'cookie-parser';
 import { AppModule } from '../src/app.module';
 import { User } from '../src/database/entities/user.entity';
 import { Role } from '../src/database/enums/role.enum';
 import { StatutCompte } from '../src/database/enums/statut-compte.enum';
 
 /**
- * Test e2e de la connexion (US-AUTH-01).
+ * Test e2e de l authentification (US-AUTH-01 + US-AUTH-03).
  *
- * Contrairement à auth.service.spec.ts (qui isole AuthService avec des
- * faux repositories), ce test démarre la VRAIE application NestJS
- * (AppModule complet) et parle à une VRAIE base Postgres (celle démarrée
- * par CI en service container, ou Postgres en local — cf. INF05). Objectif :
- * vérifier que TOUTE la chaîne fonctionne ensemble — ValidationPipe global,
- * connexion TypeORM réelle, ET signature RS256 avec les VRAIES clés
- * (générées par CI dans /tmp, ou celles de secrets/ en local).
- *
- * Deux comptes de test sont créés avant les tests et supprimés après
- * (afterAll), pour ne rien laisser dans la base au-delà de l'exécution du
- * test.
+ * Démarre la VRAIE app (AppModule complet), parle à Postgres ET Redis réels
+ * (services CI, ou conteneurs en local), et signe avec de VRAIES clés RS256.
+ * On reproduit ici la config de main.ts qui compte pour ces tests :
+ * setGlobalPrefix, ValidationPipe global, ET cookie-parser (sans quoi
+ * req.cookies serait undefined et /auth/refresh renverrait toujours 401).
  */
 describe('Auth (e2e)', () => {
   let app: INestApplication;
   let userRepository: Repository<User>;
-
   const MOT_DE_PASSE_TEST = 'MotDePasseTest123!';
   const EMAIL_ACTIF = 'e2e-actif@cert-eet.local';
   const EMAIL_INACTIF = 'e2e-inactif@cert-eet.local';
+
+  // Se connecte et renvoie le cookie brut "refreshToken=..." (sans attributs).
+  async function loginEtRecupererCookieRefresh(): Promise<string> {
+    const res = await request(app.getHttpServer())
+      .post('/api/auth/login')
+      .send({ email: EMAIL_ACTIF, password: MOT_DE_PASSE_TEST })
+      .expect(200);
+    const cookies = res.headers['set-cookie'] as unknown as string[];
+    const refreshCookie = cookies.find((c) => c.startsWith('refreshToken='));
+    return (refreshCookie as string).split(';')[0];
+  }
 
   beforeAll(async () => {
     const moduleRef = await Test.createTestingModule({
       imports: [AppModule],
     }).compile();
 
-app = moduleRef.createNestApplication();
-
-    // Même préfixe global que main.ts (app.setGlobalPrefix) : sans cette
-    // ligne, les routes de ce test app existent à /auth/login au lieu de
-    // /api/auth/login, et ne correspondent plus à la vraie API. Oubli
-    // initial corrigé après un premier run qui renvoyait 404 partout.
+    app = moduleRef.createNestApplication();
     app.setGlobalPrefix('api', { exclude: ['health'] });
-
-    // Même ValidationPipe globale que main.ts : sans ça, ce test ne
-    // vérifierait pas le comportement réel de l'API en production/CI.
+    // US-AUTH-03 : indispensable pour que /auth/refresh lise le cookie.
+    app.use(cookieParser());
     app.useGlobalPipes(
       new ValidationPipe({
         whitelist: true,
@@ -55,15 +54,11 @@ app = moduleRef.createNestApplication();
         transformOptions: { enableImplicitConversion: true },
       }),
     );
-
     await app.init();
 
-    userRepository = moduleRef.get<Repository<User>>(
-      getRepositoryToken(User),
-    );
+    userRepository = moduleRef.get<Repository<User>>(getRepositoryToken(User));
 
     const motDePasseHash = await bcrypt.hash(MOT_DE_PASSE_TEST, 12);
-
     await userRepository.save([
       userRepository.create({
         email: EMAIL_ACTIF,
@@ -81,8 +76,8 @@ app = moduleRef.createNestApplication();
   });
 
   afterAll(async () => {
-    // Nettoyage : ne rien laisser en base après ce test, pour ne pas
-    // polluer les exécutions suivantes (locales ou CI).
+    // La suppression des users CASCADE sur refresh_tokens (FK onDelete CASCADE),
+    // donc les sessions créées par les tests de refresh partent avec.
     await userRepository.delete({ email: EMAIL_ACTIF });
     await userRepository.delete({ email: EMAIL_INACTIF });
     await app.close();
@@ -94,13 +89,9 @@ app = moduleRef.createNestApplication();
       .send({ email: EMAIL_ACTIF, password: MOT_DE_PASSE_TEST })
       .expect(200)
       .expect((res) => {
-        // L'access token est en JSON (US-AUTH-01, DS-01).
         expect(res.body.accessToken).toBeDefined();
         expect(res.body.user.email).toBe(EMAIL_ACTIF);
-        // Le refresh token ne doit JAMAIS apparaitre dans le corps JSON.
         expect(res.body.refreshToken).toBeUndefined();
-
-        // Le refresh token doit etre pose en cookie httpOnly.
         const setCookieHeader = res.headers['set-cookie'];
         expect(setCookieHeader).toBeDefined();
         const refreshCookie = (setCookieHeader as unknown as string[]).find(
@@ -141,5 +132,47 @@ app = moduleRef.createNestApplication();
       .post('/api/auth/login')
       .send({ password: MOT_DE_PASSE_TEST })
       .expect(400);
+  });
+
+  it('POST /api/auth/refresh -> 200 avec un refresh token valide, rote le cookie et ne renvoie pas le refresh en JSON', async () => {
+    const cookie = await loginEtRecupererCookieRefresh();
+    await request(app.getHttpServer())
+      .post('/api/auth/refresh')
+      .set('Cookie', cookie)
+      .expect(200)
+      .expect((res) => {
+        expect(res.body.accessToken).toBeDefined();
+        expect(res.body.refreshToken).toBeUndefined();
+        const setCookieHeader = res.headers['set-cookie'] as unknown as string[];
+        const rotated = setCookieHeader?.find((c) =>
+          c.startsWith('refreshToken='),
+        );
+        expect(rotated).toBeDefined();
+      });
+  });
+
+  it('POST /api/auth/refresh -> 401 sans cookie', () => {
+    return request(app.getHttpServer()).post('/api/auth/refresh').expect(401);
+  });
+
+  it('POST /api/auth/refresh -> 401 avec un cookie invalide', () => {
+    return request(app.getHttpServer())
+      .post('/api/auth/refresh')
+      .set('Cookie', 'refreshToken=pas-un-vrai-jwt')
+      .expect(401);
+  });
+
+  it('POST /api/auth/refresh -> 401 si on rejoue un refresh token deja consomme (reuse detection)', async () => {
+    const cookie = await loginEtRecupererCookieRefresh();
+    // 1er refresh : OK, brûle l ancien token.
+    await request(app.getHttpServer())
+      .post('/api/auth/refresh')
+      .set('Cookie', cookie)
+      .expect(200);
+    // Rejeu du MÊME cookie (déjà consommé) : détection de rejeu -> 401.
+    await request(app.getHttpServer())
+      .post('/api/auth/refresh')
+      .set('Cookie', cookie)
+      .expect(401);
   });
 });

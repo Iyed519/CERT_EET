@@ -27,7 +27,23 @@ export interface JwtConfig {
   refreshTokenExpiresIn: number;
 }
 
-export default (): { app: AppConfig; jwt: JwtConfig } => ({
+/**
+ * Configuration de connexion Redis (US-AUTH-03).
+ * Redis devient load-bearing à partir de cette story : il porte la denylist
+ * des jetons révoqués (consultée à chaque refresh). On lit host + port
+ * séparément (et non une URL) car le conteneur api reçoit REDIS_HOST=redis /
+ * REDIS_PORT=6379 via docker-compose (réseau interne Docker).
+ */
+export interface RedisConfig {
+  host: string;
+  port: number;
+}
+
+export default (): {
+  app: AppConfig;
+  jwt: JwtConfig;
+  redis: RedisConfig;
+} => ({
   app: {
     nodeEnv: (process.env.NODE_ENV as AppConfig['nodeEnv']) ?? 'development',
     port: parseInt(process.env.PORT ?? '3000', 10),
@@ -36,10 +52,14 @@ export default (): { app: AppConfig; jwt: JwtConfig } => ({
     databaseUrl: process.env.DATABASE_URL,
     redisUrl: process.env.REDIS_URL,
   },
-jwt: {
+  jwt: {
     privateKeyPath: process.env.JWT_PRIVATE_KEY_PATH as string,
     publicKeyPath: process.env.JWT_PUBLIC_KEY_PATH as string,
     accessTokenExpiresIn: 900, // 15 minutes
     refreshTokenExpiresIn: 604800, // 7 jours
+  },
+  redis: {
+    host: process.env.REDIS_HOST as string,
+    port: parseInt(process.env.REDIS_PORT ?? '6379', 10),
   },
 });
