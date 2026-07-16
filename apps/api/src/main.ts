@@ -2,6 +2,7 @@ import { Logger, ValidationPipe } from '@nestjs/common';
 import { ConfigService } from '@nestjs/config';
 import { NestFactory } from '@nestjs/core';
 import { DocumentBuilder, SwaggerModule } from '@nestjs/swagger';
+import * as cookieParser from 'cookie-parser';
 import { AppModule } from './app.module';
 import { AppConfig } from './config/configuration';
 
@@ -10,20 +11,23 @@ import { AppConfig } from './config/configuration';
  *
  * Fail-fast : la validation Joi du ConfigModule s'exécute pendant
  * NestFactory.create ; toute variable requise manquante ou invalide lève une
- * exception ici et arrête le process avec un code de sortie non nul, plutôt
- * que de démarrer un serveur à moitié configuré (US-INFRA-02, scénario erreur).
+ * exception ici et arrête le process (US-INFRA-02, scénario erreur).
  */
 async function bootstrap(): Promise<void> {
   const logger = new Logger('Bootstrap');
   const app = await NestFactory.create(AppModule, { bufferLogs: false });
-
   const config = app.get(ConfigService);
   const app_ = config.getOrThrow<AppConfig>('app');
 
   // Préfixe global : le reverse proxy Nginx routera /api -> api (INF03).
   app.setGlobalPrefix(app_.apiPrefix, { exclude: ['health'] });
 
-  // Validation stricte de toutes les entrées (DTOs) côté API.
+  // US-AUTH-03 : lecture des cookies entrants. cookie-parser peuple req.cookies
+  // pour que POST /auth/refresh puisse lire le refresh token déposé en cookie
+  // httpOnly au login. Sans ce middleware, req.cookies serait undefined.
+  app.use(cookieParser());
+
+  // Validation stricte de toutes les entrées (DTOs).
   app.useGlobalPipes(
     new ValidationPipe({
       whitelist: true,
@@ -35,7 +39,7 @@ async function bootstrap(): Promise<void> {
 
   app.enableCors({ origin: app_.corsOrigin, credentials: true });
 
-  // OpenAPI/Swagger (US-INFRA-08) — exposé dès maintenant pour l'onboarding.
+  // OpenAPI/Swagger (US-INFRA-08).
   const swaggerConfig = new DocumentBuilder()
     .setTitle('Cert_EET API')
     .setDescription('API de la plateforme de certification numérique vérifiable')
