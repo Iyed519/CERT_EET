@@ -1,4 +1,5 @@
 import { Module } from '@nestjs/common';
+import { APP_GUARD } from '@nestjs/core';
 import { JwtModule } from '@nestjs/jwt';
 import { TypeOrmModule } from '@nestjs/typeorm';
 import { User } from '../../database/entities/user.entity';
@@ -6,15 +7,17 @@ import { RefreshToken } from '../../database/entities/refresh-token.entity';
 import { AuditLog } from '../../database/entities/audit-log.entity';
 import { AuthController } from './auth.controller';
 import { AuthService } from './auth.service';
+import { JwtAuthGuard } from './guards/jwt-auth.guard';
+import { RolesGuard } from './guards/roles.guard';
 
 /**
- * Module d'authentification (US-AUTH-01, US-AUTH-03, US-AUTH-04).
+ * Module d'authentification (US-AUTH-01/03/04/11).
  *
- * TypeOrmModule.forFeature enregistre les repositories utilisés par
- * AuthService : User + RefreshToken (login/refresh) et AuditLog (journal
- * LOGOUT, US-AUTH-04). Redis est fourni globalement par RedisModule.
- * JwtModule.register({}) reste vide : clés et options passées explicitement
- * à chaque signAsync/verifyAsync dans AuthService.
+ * Les deux guards sont enregistrés en APP_GUARD -> GLOBAUX (toutes les routes
+ * de l'app). Ordre important : JwtAuthGuard (authentification) AVANT RolesGuard
+ * (autorisation). Les routes ouvertes sont marquées @Public(). Enregistrés ici
+ * (et non via app.useGlobalGuards) pour pouvoir injecter leurs dépendances
+ * (Reflector, JwtService, ConfigService, RedisService).
  */
 @Module({
   imports: [
@@ -22,6 +25,10 @@ import { AuthService } from './auth.service';
     JwtModule.register({}),
   ],
   controllers: [AuthController],
-  providers: [AuthService],
+  providers: [
+    AuthService,
+    { provide: APP_GUARD, useClass: JwtAuthGuard },
+    { provide: APP_GUARD, useClass: RolesGuard },
+  ],
 })
 export class AuthModule {}

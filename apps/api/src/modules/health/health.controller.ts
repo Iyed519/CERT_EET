@@ -9,14 +9,12 @@ import {
   MemoryHealthIndicator,
 } from '@nestjs/terminus';
 import { AppConfig } from '../../config/configuration';
+import { Public } from '../auth/decorators/public.decorator';
 
 /**
- * Endpoint de santé — US-INFRA-02.
- *
- * Niveau INF02 : liveness check (le process répond, mémoire sous contrôle).
- * Les indicateurs de readiness (Postgres prêt, Redis joignable) seront ajoutés
- * plus tard — c'est ce check que Docker Compose interroge via son healthcheck
- * pour ordonnancer le démarrage (l'API attend Postgres prêt).
+ * Endpoint de santé — US-INFRA-02. @Public() : le healthcheck Docker ne
+ * présente aucun jeton, la route doit rester ouverte malgré le JwtAuthGuard
+ * global (US-AUTH-11).
  */
 @ApiTags('health')
 @Controller('health')
@@ -28,20 +26,23 @@ export class HealthController {
   ) {}
 
   /**
-   * Seuil du heap. En production l'API seule reste très en deçà de 300 Mo.
-   * En test (jest + ts-jest), le MÊME process Node garde le compilateur
-   * TypeScript en mémoire ET démarre l'application plusieurs fois : le heap
-   * réel dépasse alors 300 Mo sans la moindre fuite. On relève donc le seuil
-   * uniquement en environnement de test — en prod/dev il reste volontairement
-   * strict (son vrai rôle : détecter une fuite mémoire).
+   * Seuil du heap. En prod/dev : 300 Mo (détection de fuite réelle). Sous les
+   * tests, le MÊME process Node héberge le compilateur TS + plusieurs instances
+   * de l'app : le heap mesuré n'a plus de rapport avec la conso réelle. On
+   * relève donc largement le seuil dès qu'on tourne sous jest — détecté par
+   * JEST_WORKER_ID (toujours défini par le runner, même quand le conteneur
+   * force NODE_ENV=development) ou par NODE_ENV=test.
    */
   private get heapThresholdBytes(): number {
     const { nodeEnv } = this.configService.getOrThrow<AppConfig>('app');
-    const megabytes = nodeEnv === 'test' ? 1024 : 300;
+    const isTestRun =
+      nodeEnv === 'test' || process.env.JEST_WORKER_ID !== undefined;
+    const megabytes = isTestRun ? 4096 : 300;
     return megabytes * 1024 * 1024;
   }
 
   @Get()
+  @Public()
   @HealthCheck()
   @ApiOperation({ summary: 'Vérifie la disponibilité de l’API (liveness)' })
   check(): Promise<HealthCheckResult> {
