@@ -1,6 +1,7 @@
 import {
   Body,
   Controller,
+  Get,
   HttpCode,
   HttpStatus,
   Post,
@@ -14,6 +15,8 @@ import { Request, Response } from 'express';
 import { AuthService } from './auth.service';
 import { LoginDto } from './dto/login.dto';
 import { JwtConfig } from '../../config/configuration';
+import { Public } from './decorators/public.decorator';
+import { AuthenticatedRequest } from './auth.types';
 
 interface LoginResponseBody {
   accessToken: string;
@@ -24,10 +27,6 @@ interface LoginResponseBody {
   };
 }
 
-/**
- * Contrôleur d'authentification (US-AUTH-01, US-AUTH-03, US-AUTH-04).
- * HTTP uniquement : validation déléguée aux DTO/pipes, métier à AuthService.
- */
 @ApiTags('auth')
 @Controller('auth')
 export class AuthController {
@@ -40,11 +39,12 @@ export class AuthController {
     this.jwtConfig = this.configService.getOrThrow<JwtConfig>('jwt');
   }
 
+  @Public()
   @Post('login')
   @HttpCode(HttpStatus.OK)
   @ApiOperation({ summary: 'Connexion par email + mot de passe (US-AUTH-01)' })
   @ApiResponse({ status: 200, description: 'accessToken en JSON, refreshToken en cookie httpOnly.' })
-  @ApiResponse({ status: 401, description: 'Identifiants invalides ou compte inactif (message générique).' })
+  @ApiResponse({ status: 401, description: 'Identifiants invalides ou compte inactif.' })
   async login(
     @Body() dto: LoginDto,
     @Req() req: Request,
@@ -54,45 +54,33 @@ export class AuthController {
       adresseIp: req.ip ?? null,
       userAgent: req.headers['user-agent'] ?? null,
     });
-
     this.setRefreshTokenCookie(res, result.refreshToken);
-
     return { accessToken: result.accessToken, user: result.user };
   }
 
+  @Public()
   @Post('refresh')
   @HttpCode(HttpStatus.OK)
   @ApiOperation({ summary: 'Rafraîchir la session avec rotation (US-AUTH-03)' })
-  @ApiResponse({ status: 200, description: 'Nouvel access token ; refresh token pivoté dans le cookie.' })
-  @ApiResponse({ status: 401, description: 'Refresh absent/invalide/expiré/révoqué -> /login côté frontend.' })
+  @ApiResponse({ status: 200, description: 'Nouvel access token ; refresh token pivoté.' })
+  @ApiResponse({ status: 401, description: 'Refresh absent/invalide/expiré/révoqué.' })
   async refresh(
     @Req() req: Request,
     @Res({ passthrough: true }) res: Response,
   ): Promise<LoginResponseBody> {
     const refreshToken = req.cookies?.['refreshToken'] as string | undefined;
-
     if (!refreshToken) {
       throw new UnauthorizedException('Session invalide ou expirée.');
     }
-
     const result = await this.authService.refresh(refreshToken, {
       adresseIp: req.ip ?? null,
       userAgent: req.headers['user-agent'] ?? null,
     });
-
     this.setRefreshTokenCookie(res, result.refreshToken);
-
     return { accessToken: result.accessToken, user: result.user };
   }
 
-  /**
-   * POST /auth/logout (US-AUTH-04).
-   *
-   * L'access token vient de l'en-tête Authorization (pas de JwtAuthGuard
-   * avant US-AUTH-11), le refresh token du cookie httpOnly. AuthService
-   * révoque les deux (idempotent). On efface ensuite le cookie et on renvoie
-   * toujours 200 — une déconnexion ne doit jamais échouer côté utilisateur.
-   */
+  @Public()
   @Post('logout')
   @HttpCode(HttpStatus.OK)
   @ApiOperation({ summary: 'Déconnexion : révoque access + refresh (US-AUTH-04)' })
@@ -112,10 +100,30 @@ export class AuthController {
       adresseIp: req.ip ?? null,
     });
 
-    // On efface le cookie côté client (mêmes scope/attributs que la pose).
     res.clearCookie('refreshToken', { path: '/api/auth' });
-
     return { message: 'Déconnexion effectuée.' };
+  }
+
+  /**
+   * GET /auth/me (US-AUTH-11) — route PROTÉGÉE (pas de @Public). Le
+   * JwtAuthGuard global valide l'access token et attache req.user ; on renvoie
+   * l'utilisateur courant. Sert aussi de route de démonstration pour tester le
+   * guard d'authentification.
+   */
+  @Get('me')
+  @ApiOperation({ summary: 'Utilisateur authentifié courant (US-AUTH-11)' })
+  @ApiResponse({ status: 200, description: 'Utilisateur courant.' })
+  @ApiResponse({ status: 401, description: 'Non authentifié / jeton révoqué.' })
+  me(@Req() req: AuthenticatedRequest): {
+    id: string;
+    email: string;
+    role: string;
+  } {
+    const user = req.user;
+    if (!user) {
+      throw new UnauthorizedException('Non authentifié.');
+    }
+    return { id: user.sub, email: user.email, role: user.role };
   }
 
   private setRefreshTokenCookie(res: Response, refreshToken: string): void {
