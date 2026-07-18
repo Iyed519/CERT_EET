@@ -8,6 +8,7 @@ import * as bcrypt from 'bcryptjs';
 import * as fs from 'fs';
 import { User } from '../../database/entities/user.entity';
 import { RefreshToken } from '../../database/entities/refresh-token.entity';
+import { AuditLog } from '../../database/entities/audit-log.entity';
 import { StatutCompte } from '../../database/enums/statut-compte.enum';
 import { LoginDto } from './dto/login.dto';
 import { JwtConfig } from '../../config/configuration';
@@ -16,9 +17,8 @@ import { RedisService } from '../../redis/redis.service';
 const GENERIC_LOGIN_ERROR = 'Identifiants invalides ou compte inactif.';
 
 /**
- * US-AUTH-03 — Message générique pour TOUT échec de refresh (token absent,
- * invalide, expiré, révoqué, ou rejeu détecté). Même opacité qu'au login ;
- * côté frontend la réaction est identique : redirection vers /login.
+ * US-AUTH-03 — Message générique pour TOUT échec de refresh. Même opacité
+ * qu'au login ; côté frontend la réaction est identique : redirection /login.
  */
 const GENERIC_REFRESH_ERROR = 'Session invalide ou expirée.';
 
@@ -41,6 +41,8 @@ export class AuthService {
     private readonly userRepository: Repository<User>,
     @InjectRepository(RefreshToken)
     private readonly refreshTokenRepository: Repository<RefreshToken>,
+    @InjectRepository(AuditLog)
+    private readonly auditLogRepository: Repository<AuditLog>,
     private readonly jwtService: JwtService,
     private readonly configService: ConfigService,
     private readonly redisService: RedisService,
@@ -50,8 +52,6 @@ export class AuthService {
 
   /**
    * US-AUTH-01 — Connexion par email + mot de passe (voir DS-01, étapes 1-2).
-   * Toute erreur (compte inconnu, mauvais mot de passe, compte inactif) lève
-   * la MÊME exception avec le MÊME message.
    */
   async login(
     dto: LoginDto,
@@ -78,8 +78,6 @@ export class AuthService {
     const accessToken = await this.signAccessToken(user);
     const refreshToken = await this.signRefreshToken(user);
 
-    // Nouvelle connexion = nouvelle "famille" de refresh tokens. Ce premier
-    // token en est la racine ; les rotations hériteront de ce famille_id.
     const familleId = crypto.randomUUID();
     await this.persistRefreshToken(user.id, refreshToken, familleId, context);
 
@@ -95,9 +93,6 @@ export class AuthService {
 
   /**
    * US-AUTH-03 — Rafraîchir la session AVEC rotation (ADR-08).
-   * Vérif RS256 (clé publique) + type refresh -> denylist Redis -> session en
-   * base (inconnue / rejeu -> révocation famille / expirée) -> compte ACTIF ->
-   * rotation (brûle l'ancien, émet une nouvelle paire dans la même famille).
    */
   async refresh(
     refreshToken: string,
@@ -122,7 +117,7 @@ export class AuthService {
       throw new UnauthorizedException(GENERIC_REFRESH_ERROR);
     }
 
-    if (await this.redisService.exists(this.denylistKey(tokenHash))) {
+    if (await this.redisService.exists(this.refreshDenylistKey(tokenHash))) {
       throw new UnauthorizedException(GENERIC_REFRESH_ERROR);
     }
 
@@ -134,8 +129,6 @@ export class AuthService {
       throw new UnauthorizedException(GENERIC_REFRESH_ERROR);
     }
 
-    // DÉTECTION DE REJEU : token existant mais déjà consommé/révoqué et
-    // represente => compromission probable => on révoque toute la famille.
     if (!stored.active) {
       await this.revokeFamille(stored.familleId);
       throw new UnauthorizedException(GENERIC_REFRESH_ERROR);
@@ -152,8 +145,6 @@ export class AuthService {
       throw new UnauthorizedException(GENERIC_REFRESH_ERROR);
     }
 
-    // ROTATION : on brûle l'ancien, on émet une nouvelle paire dans la même
-    // famille.
     await this.burnRefreshToken(stored);
 
     const accessToken = await this.signAccessToken(user);
@@ -173,10 +164,65 @@ export class AuthService {
   }
 
   /**
-   * Signe l'access token (15 min — ADR-08). Porte sub + rôle. Le jti est un
-   * identifiant UNIQUE du jeton (crypto.randomUUID) : il rend chaque token
-   * distinct même émis la même seconde, et servira à la révocation ciblée d'un
-   * access token précis (denylist Redis, US-AUTH-04).
+   * US-AUTH-04 — Déconnexion (voir DS-01, étape 5).
+   *
+   * Idempotente et tolérante : on révoque ce qu'on peut, sans jamais lever
+   * d'erreur exploitable (rejeu d'un logout = 200 sans effet).
+   *   1. Access token : blacklist par son jti dans Redis (TTL = durée
+   *      restante). NB : cette denylist ne sera CONSULTÉE à chaque requête
+   *      qu'une fois le JwtAuthGuard livré (US-AUTH-11) ; on la remplit dès
+   *      maintenant pour que la révocation soit effective à ce moment-là.
+   *   2. Refresh token : on brûle la session courante (active=false + denylist),
+   *      via le helper déjà utilisé par la rotation.
+   *   3. Journal d'audit LOGOUT (écrit une seule fois, si quelque chose a
+   *      réellement été révoqué — pas de doublon au rejeu).
+   */
+  async logout(
+    accessToken: string | null,
+    refreshToken: string | null,
+    context: { adresseIp: string | null },
+  ): Promise<void> {
+    let userId: string | null = null;
+    let revoked = false;
+
+    // 1. Access token -> denylist par jti.
+    if (accessToken) {
+      const claims = await this.decodeAccessToken(accessToken);
+      if (claims) {
+        userId = claims.sub;
+        const key = this.accessDenylistKey(claims.jti);
+        const ttl = this.remainingSeconds(claims.exp);
+        // Idempotence : on n'écrit (et on ne journalise) que si ce n'est pas
+        // déjà révoqué et si le token n'est pas déjà expiré.
+        if (ttl > 0 && !(await this.redisService.exists(key))) {
+          await this.redisService.set(key, '1', ttl);
+          revoked = true;
+        }
+      }
+    }
+
+    // 2. Refresh token -> on brûle la session courante.
+    if (refreshToken) {
+      const stored = await this.refreshTokenRepository.findOne({
+        where: { tokenHash: this.hashToken(refreshToken) },
+      });
+      if (stored) {
+        userId = userId ?? stored.userId;
+        if (stored.active) {
+          await this.burnRefreshToken(stored);
+          revoked = true;
+        }
+      }
+    }
+
+    // 3. Audit LOGOUT (une seule fois, seulement si on a révoqué quelque chose).
+    if (revoked && userId) {
+      await this.journaliserLogout(userId, context.adresseIp);
+    }
+  }
+
+  /**
+   * Signe l'access token (15 min — ADR-08). jti unique (révocation ciblée).
    */
   private async signAccessToken(user: User): Promise<string> {
     return this.jwtService.signAsync(
@@ -195,10 +241,7 @@ export class AuthService {
   }
 
   /**
-   * Signe le refresh token (7 j — ADR-08). Payload minimal : sub + type +
-   * jti unique. Le jti garantit que chaque refresh token est unique -> son
-   * empreinte SHA-256 aussi -> jamais deux lignes de même hash en base ->
-   * rotation et détection de rejeu non ambiguës.
+   * Signe le refresh token (7 j — ADR-08). jti unique -> empreinte unique.
    */
   private async signRefreshToken(user: User): Promise<string> {
     return this.jwtService.signAsync(
@@ -211,11 +254,6 @@ export class AuthService {
     );
   }
 
-  /**
-   * Persiste une session (table refresh_tokens). On ne stocke jamais le token
-   * en clair : uniquement son empreinte SHA-256. familleId regroupe les tokens
-   * d'une même connexion (login = racine, rotations = même famille).
-   */
   private async persistRefreshToken(
     userId: string,
     refreshToken: string,
@@ -239,8 +277,8 @@ export class AuthService {
   }
 
   /**
-   * Brûle un refresh token : inactif en base + inscrit sur la denylist Redis
-   * avec un TTL = durée restante (au-delà il serait de toute façon expiré).
+   * Brûle un refresh token : inactif en base + denylist Redis (TTL = durée
+   * restante). Réutilisé par la rotation (US-AUTH-03) ET le logout (US-AUTH-04).
    */
   private async burnRefreshToken(token: RefreshToken): Promise<void> {
     token.active = false;
@@ -251,16 +289,13 @@ export class AuthService {
       Math.ceil((token.dateExpiration.getTime() - Date.now()) / 1000),
     );
     await this.redisService.set(
-      this.denylistKey(token.tokenHash),
+      this.refreshDenylistKey(token.tokenHash),
       '1',
       ttlSeconds,
     );
   }
 
-  /**
-   * Détection de rejeu : révoque en une requête toute la famille (toutes les
-   * sessions encore actives issues de la même connexion).
-   */
+  /** Détection de rejeu : révoque toute la famille (US-AUTH-03). */
   private async revokeFamille(familleId: string): Promise<void> {
     await this.refreshTokenRepository.update(
       { familleId, active: true },
@@ -268,22 +303,72 @@ export class AuthService {
     );
   }
 
-  /** Empreinte SHA-256 : rapide, déterministe, sans limite de longueur. */
+  /**
+   * Écrit une entrée d'audit LOGOUT. Volontairement minimal et isolé ici :
+   * US-AUTH-12 (journal d'audit complet) remplacera cet appel par un
+   * AuditService dédié sans toucher au reste de la logique de logout.
+   */
+  private async journaliserLogout(
+    userId: string,
+    adresseIp: string | null,
+  ): Promise<void> {
+    const entry = this.auditLogRepository.create({
+      userId,
+      action: 'LOGOUT',
+      adresseIp,
+      resultat: 'Succès',
+    });
+    await this.auditLogRepository.save(entry);
+  }
+
+  /**
+   * Décode + vérifie un access token (clé publique RS256). Renvoie null si
+   * invalide ou expiré — au logout, un token invalide/expiré n'a pas besoin
+   * d'être blacklisté, on l'ignore silencieusement (tolérance).
+   */
+  private async decodeAccessToken(
+    token: string,
+  ): Promise<{ sub: string; jti: string; exp: number } | null> {
+    try {
+      return await this.jwtService.verifyAsync<{
+        sub: string;
+        jti: string;
+        exp: number;
+      }>(token, {
+        publicKey: this.getPublicKey(),
+        algorithms: ['RS256'],
+      });
+    } catch {
+      return null;
+    }
+  }
+
+  /** Secondes restantes avant l'expiration (exp du JWT, en secondes). */
+  private remainingSeconds(expSeconds: number): number {
+    return Math.max(0, expSeconds - Math.floor(Date.now() / 1000));
+  }
+
+  /** Empreinte SHA-256 (rapide, déterministe, sans limite de longueur). */
   private hashToken(token: string): string {
     return crypto.createHash('sha256').update(token).digest('hex');
   }
 
-  /** Clé Redis d'un jeton sur la denylist. */
-  private denylistKey(tokenHash: string): string {
+  /** Clé Redis d'un refresh token révoqué. */
+  private refreshDenylistKey(tokenHash: string): string {
     return `denylist:refresh:${tokenHash}`;
   }
 
-  /** Clé privée RS256 (signature). Lue depuis le secret Docker (INF07). */
+  /** Clé Redis d'un access token révoqué (par son jti). */
+  private accessDenylistKey(jti: string): string {
+    return `denylist:access:${jti}`;
+  }
+
+  /** Clé privée RS256 (signature). */
   private getPrivateKey(): string {
     return fs.readFileSync(this.jwtConfig.privateKeyPath, 'utf8');
   }
 
-  /** Clé publique RS256 (vérification du refresh token). */
+  /** Clé publique RS256 (vérification). */
   private getPublicKey(): string {
     return fs.readFileSync(this.jwtConfig.publicKeyPath, 'utf8');
   }
