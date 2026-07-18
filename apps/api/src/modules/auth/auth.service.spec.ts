@@ -7,17 +7,14 @@ import * as bcrypt from 'bcryptjs';
 import { AuthService } from './auth.service';
 import { User } from '../../database/entities/user.entity';
 import { RefreshToken } from '../../database/entities/refresh-token.entity';
+import { AuditLog } from '../../database/entities/audit-log.entity';
 import { Role } from '../../database/enums/role.enum';
 import { StatutCompte } from '../../database/enums/statut-compte.enum';
 import { RedisService } from '../../redis/redis.service';
 
 /**
- * Tests unitaires d'AuthService (US-AUTH-01 + US-AUTH-03).
- *
- * On isole AuthService : repositories TypeORM, JwtService et RedisService
- * sont REMPLACÉS par des faux (jest.fn()). But : tester la LOGIQUE (qui peut
- * se connecter/rafraîchir et pourquoi) vite, sans Docker/Postgres/Redis. La
- * vraie signature RS256 et la vraie base sont couvertes par le test e2e.
+ * Tests unitaires d'AuthService (US-AUTH-01 + US-AUTH-03 + US-AUTH-04).
+ * Repositories, JwtService et RedisService remplacés par des faux (jest.fn()).
  */
 describe('AuthService', () => {
   let service: AuthService;
@@ -33,6 +30,10 @@ describe('AuthService', () => {
     save: jest.fn(),
     findOne: jest.fn(),
     update: jest.fn(),
+  };
+  const mockAuditLogRepository = {
+    create: jest.fn(),
+    save: jest.fn(),
   };
   const mockJwtService = {
     signAsync: jest.fn(),
@@ -65,8 +66,6 @@ describe('AuthService', () => {
       derniereConnexion: null,
     }) as User;
 
-  // Session active, non expirée, appartenant à une famille — point de départ
-  // du cas nominal de refresh.
   const sessionActive = (): RefreshToken =>
     ({
       id: 'rt-1',
@@ -91,7 +90,6 @@ describe('AuthService', () => {
       .mockResolvedValueOnce('fake-access-token')
       .mockResolvedValueOnce('fake-refresh-token');
 
-    // Valeurs par défaut pour le refresh (surchargées dans chaque test au besoin).
     mockJwtService.verifyAsync.mockResolvedValue({
       sub: 'user-uuid-1',
       type: 'refresh',
@@ -106,6 +104,10 @@ describe('AuthService', () => {
           provide: getRepositoryToken(RefreshToken),
           useValue: mockRefreshTokenRepository,
         },
+        {
+          provide: getRepositoryToken(AuditLog),
+          useValue: mockAuditLogRepository,
+        },
         { provide: JwtService, useValue: mockJwtService },
         { provide: ConfigService, useValue: mockConfigService },
         { provide: RedisService, useValue: mockRedisService },
@@ -114,8 +116,6 @@ describe('AuthService', () => {
 
     service = moduleRef.get<AuthService>(AuthService);
 
-    // getPrivateKey()/getPublicKey() lisent des fichiers réels sur disque :
-    // inexistants en test unitaire, on les remplace par des chaînes factices.
     jest
       .spyOn(
         service as unknown as { getPrivateKey: () => string },
@@ -184,10 +184,7 @@ describe('AuthService', () => {
     });
 
     it('rejette avec le meme message generique si le compte n est pas ACTIF', async () => {
-      const user = {
-        ...utilisateurActif(),
-        statut: StatutCompte.DESACTIVE,
-      };
+      const user = { ...utilisateurActif(), statut: StatutCompte.DESACTIVE };
       mockUserRepository.findOne.mockResolvedValue(user);
       await expect(
         service.login(
@@ -200,42 +197,42 @@ describe('AuthService', () => {
 
     it('renvoie exactement le meme message pour email inconnu, mauvais mot de passe et compte inactif', async () => {
       mockUserRepository.findOne.mockResolvedValueOnce(null);
-      let messageEmailInconnu = '';
+      let m1 = '';
       try {
         await service.login(
           { email: 'inconnu@cert-eet.local', password: 'x' },
           { adresseIp: null, userAgent: null },
         );
       } catch (e) {
-        messageEmailInconnu = (e as UnauthorizedException).message;
+        m1 = (e as UnauthorizedException).message;
       }
 
       const user = utilisateurActif();
       mockUserRepository.findOne.mockResolvedValueOnce(user);
-      let messageMauvaisMdp = '';
+      let m2 = '';
       try {
         await service.login(
           { email: user.email, password: 'mauvais' },
           { adresseIp: null, userAgent: null },
         );
       } catch (e) {
-        messageMauvaisMdp = (e as UnauthorizedException).message;
+        m2 = (e as UnauthorizedException).message;
       }
 
       const userInactif = { ...user, statut: StatutCompte.DESACTIVE };
       mockUserRepository.findOne.mockResolvedValueOnce(userInactif);
-      let messageInactif = '';
+      let m3 = '';
       try {
         await service.login(
           { email: user.email, password: MOT_DE_PASSE_CORRECT },
           { adresseIp: null, userAgent: null },
         );
       } catch (e) {
-        messageInactif = (e as UnauthorizedException).message;
+        m3 = (e as UnauthorizedException).message;
       }
 
-      expect(messageEmailInconnu).toBe(messageMauvaisMdp);
-      expect(messageMauvaisMdp).toBe(messageInactif);
+      expect(m1).toBe(m2);
+      expect(m2).toBe(m3);
     });
   });
 
@@ -253,15 +250,12 @@ describe('AuthService', () => {
 
       expect(result.accessToken).toBe('fake-access-token');
       expect(result.refreshToken).toBe('fake-refresh-token');
-      // L ancien token est brûlé (inactif) ...
       expect(stored.active).toBe(false);
-      // ... et inscrit sur la denylist Redis.
       expect(mockRedisService.set).toHaveBeenCalled();
-      // Une nouvelle session est persistée.
       expect(mockRefreshTokenRepository.save).toHaveBeenCalled();
     });
 
-    it('détection de rejeu : un token déjà consommé (active=false) révoque toute la famille et lève 401', async () => {
+    it('détection de rejeu : un token déjà consommé révoque la famille et lève 401', async () => {
       const stored = { ...sessionActive(), active: false };
       mockRefreshTokenRepository.findOne.mockResolvedValue(stored);
 
@@ -280,7 +274,6 @@ describe('AuthService', () => {
       await expect(
         service.refresh('token-revoque', contexte),
       ).rejects.toThrow(UnauthorizedException);
-      // On n a même pas eu besoin d aller en base.
       expect(mockRefreshTokenRepository.findOne).not.toHaveBeenCalled();
     });
 
@@ -291,7 +284,7 @@ describe('AuthService', () => {
       ).rejects.toThrow(UnauthorizedException);
     });
 
-    it('rejette un token dont le type n est pas "refresh" (ex : un access token présenté)', async () => {
+    it('rejette un token dont le type n est pas "refresh"', async () => {
       mockJwtService.verifyAsync.mockResolvedValue({
         sub: 'user-uuid-1',
         type: 'access',
@@ -302,8 +295,8 @@ describe('AuthService', () => {
       expect(mockRefreshTokenRepository.findOne).not.toHaveBeenCalled();
     });
 
-    it('rejette un token à la signature invalide (verifyAsync échoue)', async () => {
-      mockJwtService.verifyAsync.mockRejectedValue(new Error('invalid signature'));
+    it('rejette un token à la signature invalide', async () => {
+      mockJwtService.verifyAsync.mockRejectedValue(new Error('invalid'));
       await expect(
         service.refresh('token-trafique', contexte),
       ).rejects.toThrow(UnauthorizedException);
@@ -329,6 +322,60 @@ describe('AuthService', () => {
       await expect(
         service.refresh('token-compte-desactive', contexte),
       ).rejects.toThrow(UnauthorizedException);
+    });
+  });
+
+  describe('logout — US-AUTH-04', () => {
+    const contexte = { adresseIp: '127.0.0.1' };
+    const accessClaims = (): { sub: string; jti: string; exp: number } => ({
+      sub: 'user-uuid-1',
+      jti: 'jti-access-1',
+      exp: Math.floor(Date.now() / 1000) + 900,
+    });
+
+    it('blackliste l access token, brûle le refresh et journalise LOGOUT', async () => {
+      mockJwtService.verifyAsync.mockResolvedValue(accessClaims());
+      mockRedisService.exists.mockResolvedValue(false);
+      const stored = sessionActive();
+      mockRefreshTokenRepository.findOne.mockResolvedValue(stored);
+      mockRefreshTokenRepository.save.mockResolvedValue({});
+      mockAuditLogRepository.create.mockReturnValue({});
+      mockAuditLogRepository.save.mockResolvedValue({});
+
+      await service.logout('access-token', 'refresh-token', contexte);
+
+      // access blacklisté + refresh brûlé -> set appelé (au moins une fois)
+      expect(mockRedisService.set).toHaveBeenCalled();
+      expect(stored.active).toBe(false);
+      // audit LOGOUT écrit
+      expect(mockAuditLogRepository.create).toHaveBeenCalledWith(
+        expect.objectContaining({ action: 'LOGOUT', resultat: 'Succès' }),
+      );
+      expect(mockAuditLogRepository.save).toHaveBeenCalledTimes(1);
+    });
+
+    it('idempotent : rejeu (access déjà blacklisté + refresh déjà inactif) ne journalise pas et ne lève pas', async () => {
+      mockJwtService.verifyAsync.mockResolvedValue(accessClaims());
+      mockRedisService.exists.mockResolvedValue(true); // access déjà sur la denylist
+      mockRefreshTokenRepository.findOne.mockResolvedValue({
+        ...sessionActive(),
+        active: false, // refresh déjà brûlé
+      });
+
+      await expect(
+        service.logout('access-token', 'refresh-token', contexte),
+      ).resolves.toBeUndefined();
+
+      expect(mockRedisService.set).not.toHaveBeenCalled();
+      expect(mockAuditLogRepository.save).not.toHaveBeenCalled();
+    });
+
+    it('sans jetons : ne fait rien et ne lève pas', async () => {
+      await expect(
+        service.logout(null, null, contexte),
+      ).resolves.toBeUndefined();
+      expect(mockRefreshTokenRepository.findOne).not.toHaveBeenCalled();
+      expect(mockAuditLogRepository.save).not.toHaveBeenCalled();
     });
   });
 });

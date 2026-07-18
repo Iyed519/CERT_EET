@@ -1,10 +1,9 @@
 /**
- * Client API du frontend (US-AUTH-01, US-AUTH-03).
+ * Client API du frontend (US-AUTH-01, US-AUTH-03, US-AUTH-04).
  *
- * Centralise les appels HTTP vers le backend NestJS pour que les composants
- * n'écrivent jamais fetch(...) directement. Chemins relatifs ("/api/...") :
- * frontend et API partagent le même reverse proxy Nginx (INF03), donc pas de
- * CORS ni d'URL de base à configurer.
+ * Centralise les appels HTTP vers le backend NestJS. Chemins relatifs
+ * ("/api/...") : frontend et API partagent le même reverse proxy Nginx (INF03),
+ * donc pas de CORS ni d'URL de base à configurer.
  */
 export interface LoginResponse {
   accessToken: string;
@@ -42,28 +41,20 @@ export async function loginRequest(
 }
 
 /* ============================================================
- * US-AUTH-03 — Access token en mémoire + intercepteur 401
+ * US-AUTH-03 / US-AUTH-04 — Access token en mémoire + intercepteur 401 + logout
  * ============================================================ */
 
 /**
- * Access token courant, gardé en variable de MODULE (miroir de l'état React
- * d'AuthContext). Nécessaire car apiFetch n'est pas un hook React et doit
- * pouvoir lire le token sans passer par le rendu.
+ * Access token courant, en variable de MODULE (miroir de l'état React
+ * d'AuthContext) : apiFetch n'est pas un hook et doit lire le token hors rendu.
  */
 let currentAccessToken: string | null = null;
 
-/**
- * Handlers fournis par AuthContext pour resynchroniser l'état React quand le
- * token change EN DEHORS d'un rendu (refresh silencieux, déconnexion forcée).
- */
+/** Handlers fournis par AuthContext pour resynchroniser l'état React. */
 let onRefreshed: ((session: LoginResponse) => void) | null = null;
 let onCleared: (() => void) | null = null;
 
-/**
- * Promesse de refresh PARTAGÉE (single-flight). Si plusieurs requêtes tombent
- * en 401 simultanément, elles partagent un seul appel /auth/refresh au lieu
- * d'en déclencher un chacune.
- */
+/** Promesse de refresh partagée (single-flight). */
 let refreshInFlight: Promise<string | null> | null = null;
 
 /** Met à jour le miroir du token (appelé par AuthContext.setSession). */
@@ -81,8 +72,7 @@ export function registerSessionHandlers(handlers: {
 }
 
 /**
- * fetch authentifié : attache l'access token courant en en-tête Authorization
- * et envoie toujours les cookies (refresh token httpOnly).
+ * fetch authentifié : attache l'access token courant + envoie les cookies.
  */
 async function fetchWithAuth(
   input: string,
@@ -97,10 +87,9 @@ async function fetchWithAuth(
 
 /**
  * US-AUTH-03 — Point d'entrée de TOUT appel authentifié.
- *   1. envoie la requête avec l'access token courant ;
- *   2. si 401 (access token expiré), tente UN refresh silencieux ;
- *   3a. refresh OK -> rejoue la requête initiale avec le nouveau token ;
- *   3b. refresh KO -> nettoie la session et redirige vers /login.
+ *   1. envoie avec l'access token courant ;
+ *   2. si 401, tente UN refresh silencieux ;
+ *   3a. OK -> rejoue la requête ; 3b. KO -> nettoie + /login.
  */
 export async function apiFetch(
   input: string,
@@ -117,11 +106,10 @@ export async function apiFetch(
     return response;
   }
 
-  // Rejeu transparent : l'utilisateur ne voit jamais que son token avait expiré.
   return fetchWithAuth(input, init);
 }
 
-/** Refresh single-flight : un seul appel réseau partagé par les requêtes. */
+/** Refresh single-flight : un seul appel réseau partagé. */
 function refreshSession(): Promise<string | null> {
   if (!refreshInFlight) {
     refreshInFlight = doRefresh().finally(() => {
@@ -131,7 +119,7 @@ function refreshSession(): Promise<string | null> {
   return refreshInFlight;
 }
 
-/** Appelle POST /api/auth/refresh (le cookie part tout seul). */
+/** POST /api/auth/refresh (le cookie part tout seul). */
 async function doRefresh(): Promise<string | null> {
   const response = await fetch('/api/auth/refresh', {
     method: 'POST',
@@ -156,5 +144,27 @@ function forceLogout(): void {
   }
   if (typeof window !== 'undefined') {
     window.location.href = '/login';
+  }
+}
+
+/**
+ * US-AUTH-04 — Déconnexion volontaire.
+ *
+ * Appelle POST /api/auth/logout en envoyant l'access token courant (pour que
+ * le serveur le blackliste) ET le cookie de refresh (envoyé automatiquement).
+ * Quoi qu'il arrive côté réseau, on nettoie la session locale et on redirige :
+ * une déconnexion ne doit jamais "échouer" pour l'utilisateur (d'où le finally).
+ */
+export async function logout(): Promise<void> {
+  try {
+    await fetch('/api/auth/logout', {
+      method: 'POST',
+      credentials: 'include',
+      headers: currentAccessToken
+        ? { Authorization: `Bearer ${currentAccessToken}` }
+        : {},
+    });
+  } finally {
+    forceLogout();
   }
 }
