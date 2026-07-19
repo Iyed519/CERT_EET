@@ -1,0 +1,323 @@
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Cert_EET — Diagramme de Gantt détaillé</title>
+<style>
+  * { box-sizing: border-box; margin: 0; padding: 0; }
+  body { font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif; background: #f5f4f0; color: #2c2c2a; padding: 1.5rem; }
+  h1 { font-size: 19px; font-weight: 600; margin-bottom: 4px; }
+  .subtitle { font-size: 13px; color: #73726c; margin-bottom: 1.25rem; }
+
+  .toolbar { display: flex; gap: 8px; margin-bottom: 1rem; flex-wrap: wrap; }
+  .btn { font-size: 12px; padding: 6px 12px; border: 0.5px solid #c9c7bd; background: white; border-radius: 6px; cursor: pointer; color: #444; }
+  .btn:hover { background: #ecebe5; }
+
+  .legend { display: flex; flex-wrap: wrap; gap: 8px 14px; margin-bottom: 1.25rem; font-size: 11px; color: #5f5e5a; }
+  .legend-item { display: flex; align-items: center; gap: 5px; }
+  .legend-dot { width: 11px; height: 11px; border-radius: 3px; flex-shrink: 0; }
+
+  .gantt-outer { background: white; border-radius: 12px; border: 0.5px solid #d3d1c7; padding: 1.25rem 1.5rem 1.5rem; overflow-x: auto; }
+  .gantt { min-width: 980px; position: relative; }
+
+  /* Header */
+  .grid-header { display: flex; position: sticky; top: 0; z-index: 5; background: white; padding-bottom: 6px; border-bottom: 0.5px solid #d3d1c7; }
+  .label-col { width: 290px; flex-shrink: 0; }
+  .timeline { flex: 1; position: relative; height: 22px; }
+  .month-label { position: absolute; font-size: 11px; font-weight: 500; color: #888780; transform: translateX(-50%); top: 4px; }
+  .month-tick { position: absolute; top: 0; bottom: -2000px; width: 0.5px; background: #ececec; }
+
+  /* Phase header */
+  .phase-head { font-size: 10px; font-weight: 600; color: #888780; text-transform: uppercase; letter-spacing: 0.06em; padding: 16px 0 6px; }
+
+  /* Rows */
+  .row { display: flex; align-items: center; min-height: 24px; position: relative; }
+  .row:hover .bar { filter: brightness(0.94); }
+  .row-label { flex-shrink: 0; font-size: 12px; padding-right: 12px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+
+  .sprint-row .row-label { font-weight: 600; color: #2c2c2a; cursor: pointer; user-select: none; display:flex; align-items:center; gap:5px; }
+  .sprint-row .chevron { font-size: 9px; color: #999; transition: transform .15s; display:inline-block; width:9px; }
+  .sprint-row.collapsed .chevron { transform: rotate(-90deg); }
+
+  .task-row .row-label { font-weight: 400; color: #5f5e5a; font-size: 11px; padding-left: 22px; }
+
+  .track { flex: 1; position: relative; height: 100%; min-height: 22px; }
+  .bar { position: absolute; border-radius: 4px; display: flex; align-items: center; }
+  .bar.sprint-bar { height: 18px; top: 2px; box-shadow: inset 0 -1px 0 rgba(0,0,0,0.08); }
+  .bar.task-bar { height: 12px; top: 5px; opacity: 0.78; border-radius: 3px; }
+  .bar-text { font-size: 9px; color: white; padding: 0 6px; white-space: nowrap; overflow: hidden; pointer-events: none; font-weight: 500; }
+
+  /* Today line */
+  .today { position: absolute; top: 28px; bottom: 0; width: 1.5px; background: #c04828; opacity: 0.6; z-index: 4; pointer-events: none; }
+  .today-flag { position: absolute; top: 26px; font-size: 9px; color: #c04828; transform: translateX(-50%); white-space: nowrap; z-index: 4; font-weight: 600; }
+
+  /* Milestone */
+  .ms-diamond { position: absolute; width: 11px; height: 11px; background: #c04828; transform: translateX(-50%) rotate(45deg); top: 6px; border: 1.5px solid white; }
+
+  .footer { font-size: 10px; color: #a0a09a; margin-top: 14px; text-align: right; }
+  .note { font-size: 10.5px; color: #999; margin-top: 6px; font-style: italic; }
+</style>
+</head>
+<body>
+
+<h1>Cert_EET — Diagramme de Gantt détaillé</h1>
+<p class="subtitle">Planning prévisionnel · 24 avril – 24 octobre 2026 · 12 sprints de 2 semaines · Méthodologie Agile / Scrum</p>
+
+<div class="toolbar">
+  <button class="btn" onclick="setAll(false)">Tout déplier</button>
+  <button class="btn" onclick="setAll(true)">Tout replier</button>
+</div>
+
+<div class="legend">
+  <span class="legend-item"><span class="legend-dot" style="background:#D4537E"></span>Cadrage</span>
+  <span class="legend-item"><span class="legend-dot" style="background:#185FA5"></span>Auth &amp; Infra</span>
+  <span class="legend-item"><span class="legend-dot" style="background:#1D9E75"></span>Module QCM</span>
+  <span class="legend-item"><span class="legend-dot" style="background:#639922"></span>Ateliers</span>
+  <span class="legend-item"><span class="legend-dot" style="background:#BA7517"></span>Certification</span>
+  <span class="legend-item"><span class="legend-dot" style="background:#7F77DD"></span>Chatbot IA</span>
+  <span class="legend-item"><span class="legend-dot" style="background:#D85A30"></span>Analytics</span>
+  <span class="legend-item"><span class="legend-dot" style="background:#993C1D"></span>Tests &amp; Sécurité</span>
+  <span class="legend-item"><span class="legend-dot" style="background:#5F5E5A"></span>Recette &amp; Soutenance</span>
+  <span class="legend-item"><span class="legend-dot" style="background:#c04828; border-radius:0; transform:rotate(45deg); width:9px; height:9px"></span>Jalon clé</span>
+</div>
+
+<div class="gantt-outer">
+  <div id="gantt" class="gantt"></div>
+</div>
+
+<p class="note">Note : le découpage des tâches à l'intérieur de chaque sprint est indicatif (les sprints durent 2 semaines, priorités ajustées à chaque Sprint Planning). La ligne rouge marque la date du jour, le 15 juin 2026.</p>
+<p class="footer">Cert_EET — PFE ESPRIT Ingénierie Logicielle · Iyed Omri · Commanditaire : ESPRIT Entreprise</p>
+
+<script>
+const START = new Date(2026, 3, 24);  // 24 avril 2026
+const END   = new Date(2026, 9, 24);  // 24 octobre 2026
+const TODAY = new Date(2026, 5, 15);  // 15 juin 2026
+const TOTAL = (END - START) / 86400000;
+const D = (y,m,d) => new Date(y, m-1, d);
+const off = dt => (dt - START) / 86400000;
+const pct = dt => (off(dt) / TOTAL * 100);
+const MONTHS = ['Janv.','Févr.','Mars','Avr.','Mai','Juin','Juil.','Août','Sept.','Oct.','Nov.','Déc.'];
+
+// Distribute N tasks across a sprint window as a cascade (start staggered, each runs to ~end)
+function cascade(from, to, n, i) {
+  const span = (to - from);
+  const startFrac = (i / n) * 0.55;        // staggered starts over first ~55% of sprint
+  const s = new Date(from.getTime() + span * startFrac);
+  const e = new Date(from.getTime() + span * Math.min(1, startFrac + 0.5 + 0.04*i));
+  return { s, e: e > to ? to : e };
+}
+
+// ===== SPRINT DATA =====
+const sprints = [
+  { id:'S0', name:'Sprint 0 · Cadrage', from:D(2026,4,24), to:D(2026,5,7), color:'#D4537E', phase:'init',
+    tasks:[
+      'ADR — choix techniques majeurs justifiés',
+      'ERD / Domain Model (~25 entités)',
+      'Maquettes UX — wireframes par rôle',
+      'Backlog initial — Epics &amp; User Stories',
+      'Dépôt Git + structure projet',
+    ]},
+  { id:'S1', name:'Sprint 1 · Fondations Backend', from:D(2026,5,8), to:D(2026,5,21), color:'#185FA5', phase:'dev',
+    tasks:[
+      'Docker Compose (dev/recette)',
+      'Pipeline CI/CD de base',
+      'Authentification JWT + refresh tokens',
+      'MFA optionnelle',
+      'RBAC — 3 rôles (Admin / Formateur / Apprenant)',
+      'Structure base de données PostgreSQL',
+    ]},
+  { id:'S2', name:'Sprint 2 · QCM — Moteur', from:D(2026,5,22), to:D(2026,6,4), color:'#1D9E75', phase:'dev',
+    tasks:[
+      'Moteur de questions (QCM, V/F, courte, association)',
+      'Randomisation questions &amp; options côté serveur',
+      'Minuterie configurable contrôlée serveur',
+      'Scoring automatique pondéré par question',
+    ]},
+  { id:'S3', name:'Sprint 3 · QCM — Anti-fraude', from:D(2026,6,5), to:D(2026,6,18), color:'#0F6E56', phase:'dev',
+    tasks:[
+      'Anti-fraude avancé (logique 100% serveur)',
+      'Historique complet des tentatives (immuable)',
+      'Limitation du nombre de tentatives',
+      'Blocage des sessions simultanées',
+    ]},
+  { id:'S4', name:'Sprint 4 · Ateliers — Création', from:D(2026,6,19), to:D(2026,7,2), color:'#639922', phase:'dev',
+    tasks:[
+      'Création atelier (énoncé, ressources, date limite)',
+      'Grille de notation pondérée (critères, niveaux)',
+      'Soumission de livrables (fichiers, texte, liens)',
+      'Workflow de statuts (Soumis → Noté)',
+    ]},
+  { id:'S5', name:'Sprint 5 · Ateliers — Correction', from:D(2026,7,3), to:D(2026,7,16), color:'#3B6D11', phase:'dev',
+    tasks:[
+      'Interface de correction (notation par critère)',
+      'Application de la grille de notation',
+      'Feedback structuré archivé &amp; consultable',
+      'Notifications automatiques (formateur / apprenant)',
+    ]},
+  { id:'S6', name:'Sprint 6 · Certification', from:D(2026,7,17), to:D(2026,7,30), color:'#BA7517', phase:'dev',
+    tasks:[
+      'Génération PDF asynchrone (file Bull)',
+      'QR code unique par certificat',
+      'Empreinte cryptographique SHA-256',
+      'Page de vérification publique',
+      'Cycle de vie (émission / révocation)',
+    ]},
+  { id:'S7', name:'Sprint 7 · Chatbot IA V1', from:D(2026,7,31), to:D(2026,8,13), color:'#7F77DD', phase:'dev',
+    tasks:[
+      'Intégration API LLM (architecture swappable)',
+      'Interface conversationnelle (tableau de bord)',
+      'Historique de conversation',
+    ]},
+  { id:'S8', name:'Sprint 8 · Chatbot IA V2', from:D(2026,8,14), to:D(2026,8,27), color:'#534AB7', phase:'dev',
+    tasks:[
+      'Contextualisation (scores, ateliers, progression)',
+      'Mode Support (réponses sur le contenu)',
+      'Mode Suivi — détection de décrochage',
+      'Alertes proactives au formateur',
+    ]},
+  { id:'S9', name:'Sprint 9 · Analytics', from:D(2026,8,28), to:D(2026,9,10), color:'#D85A30', phase:'dev',
+    tasks:[
+      'Tableau de bord Administrateur (vue globale)',
+      'Tableau de bord Formateur (progression, alertes)',
+      'Tableau de bord Apprenant (historique, scores)',
+      'Exports PDF / CSV',
+    ]},
+  { id:'S10', name:'Sprint 10 · Tests &amp; Sécurité', from:D(2026,9,11), to:D(2026,9,24), color:'#993C1D', phase:'dev',
+    tasks:[
+      'Tests de charge (perf API ≤ 500 ms)',
+      'Audit sécurité OWASP',
+      'Corrections de bugs',
+      'Optimisations de performance',
+    ]},
+  { id:'S1112', name:'Sprints 11-12 · Recette &amp; Soutenance', from:D(2026,9,25), to:D(2026,10,24), color:'#5F5E5A', phase:'cloture',
+    tasks:[
+      'Recette finale (tous modules)',
+      'Documentation technique (OpenAPI, Docker, README)',
+      'Rédaction du rapport PFE',
+      'Préparation de la soutenance',
+    ]},
+];
+
+const milestones = [
+  { label:'Architecture &amp; backlog validés', date:D(2026,5,7) },
+  { label:'Authentification + RBAC en place', date:D(2026,5,21) },
+  { label:'Module QCM opérationnel', date:D(2026,6,18) },
+  { label:'Module Ateliers opérationnel', date:D(2026,7,16) },
+  { label:'1er certificat vérifiable émis', date:D(2026,7,30) },
+  { label:'Chatbot IA contextualisé livré', date:D(2026,8,27) },
+  { label:'Rapport PFE finalisé', date:D(2026,10,10) },
+  { label:'Soutenance', date:D(2026,10,24) },
+];
+
+const PHASES = { init:'Phase 1 · Initialisation', dev:'Phase 2 · Développement itératif', cloture:'Phase 3 · Clôture' };
+
+const root = document.getElementById('gantt');
+
+// ---- Build chart months ----
+const chartMonths = [];
+let cm = new Date(2026,3,1);
+while (cm <= new Date(2026,9,31)) { chartMonths.push(new Date(cm)); cm.setMonth(cm.getMonth()+1); }
+
+function monthMid(m){
+  const a = new Date(Math.max(m.getTime(), START.getTime()));
+  const next = new Date(m.getFullYear(), m.getMonth()+1, 1);
+  const b = new Date(Math.min(next.getTime(), END.getTime()));
+  return new Date((a.getTime()+b.getTime())/2);
+}
+
+// ---- Header ----
+let html = `<div class="grid-header"><div class="label-col" style="font-size:11px;font-weight:600;color:#888;display:flex;align-items:flex-end;padding-bottom:2px;">Sprint / Tâche</div><div class="timeline">`;
+chartMonths.forEach(m=>{
+  const a = new Date(Math.max(m.getTime(), START.getTime()));
+  const next = new Date(m.getFullYear(), m.getMonth()+1, 1);
+  const b = new Date(Math.min(next.getTime(), END.getTime()));
+  if (b<=a) return;
+  html += `<span class="month-tick" style="left:${pct(a)}%"></span>`;
+  html += `<span class="month-label" style="left:${pct(monthMid(m))}%">${MONTHS[m.getMonth()]}</span>`;
+});
+html += `<span class="month-tick" style="left:100%"></span>`;
+html += `</div></div>`;
+
+// ---- Today overlay (positioned over timeline area) ----
+// computed via JS after render for pixel accuracy; here approximate with % inside track cells
+
+function trackCell(inner){ return `<div class="track">${inner}</div>`; }
+
+let lastPhase = null;
+sprints.forEach(sp=>{
+  if (sp.phase !== lastPhase){
+    html += `<div class="row"><div class="label-col"><div class="phase-head">${PHASES[sp.phase]}</div></div><div class="track"></div></div>`;
+    lastPhase = sp.phase;
+  }
+  const l = pct(sp.from), w = pct(sp.to)-pct(sp.from);
+  const sprintBar = `<div class="bar sprint-bar" style="left:${l}%;width:${w}%;background:${sp.color}"><span class="bar-text">${sp.id.replace('S','S')}</span></div>`;
+  html += `<div class="row sprint-row" data-sprint="${sp.id}" onclick="toggle('${sp.id}')">
+    <div class="label-col"><div class="row-label"><span class="chevron">▾</span>${sp.name}</div></div>
+    ${trackCell(sprintBar)}
+  </div>`;
+
+  sp.tasks.forEach((t,i)=>{
+    const c = cascade(sp.from, sp.to, sp.tasks.length, i);
+    const tl = pct(c.s), tw = Math.max(2, pct(c.e)-pct(c.s));
+    const taskBar = `<div class="bar task-bar" style="left:${tl}%;width:${tw}%;background:${sp.color}"></div>`;
+    html += `<div class="row task-row tr-${sp.id}">
+      <div class="label-col"><div class="row-label" title="${t}">${t}</div></div>
+      ${trackCell(taskBar)}
+    </div>`;
+  });
+});
+
+// ---- Milestones section ----
+html += `<div class="row"><div class="label-col"><div class="phase-head">Jalons clés</div></div><div class="track"></div></div>`;
+milestones.forEach(ms=>{
+  const ml = pct(ms.date);
+  html += `<div class="row">
+    <div class="label-col"><div class="row-label" style="font-size:11px;color:#5f5e5a;" title="${ms.label}">${ms.label}</div></div>
+    ${trackCell(`<div class="ms-diamond" style="left:${ml}%" title="${ms.label}"></div>`)}
+  </div>`;
+});
+
+root.innerHTML = html;
+
+// ---- Today line + flag (absolute over the whole gantt, aligned to track area) ----
+function placeToday(){
+  const header = root.querySelector('.grid-header');
+  const labelCol = header.querySelector('.label-col');
+  const timeline = header.querySelector('.timeline');
+  const ganttRect = root.getBoundingClientRect();
+  const tlRect = timeline.getBoundingClientRect();
+  const x = (tlRect.left - ganttRect.left) + (pct(TODAY)/100)*tlRect.width;
+
+  let line = root.querySelector('.today');
+  let flag = root.querySelector('.today-flag');
+  if(!line){ line = document.createElement('div'); line.className='today'; root.appendChild(line); }
+  if(!flag){ flag = document.createElement('div'); flag.className='today-flag'; flag.textContent='◆ 15 juin'; root.appendChild(flag); }
+  line.style.left = x+'px';
+  flag.style.left = x+'px';
+  line.style.height = (root.scrollHeight - 28) + 'px';
+}
+placeToday();
+window.addEventListener('resize', placeToday);
+
+// ---- Collapse / expand ----
+function toggle(id){
+  const head = root.querySelector(`.sprint-row[data-sprint="${id}"]`);
+  head.classList.toggle('collapsed');
+  const collapsed = head.classList.contains('collapsed');
+  root.querySelectorAll(`.tr-${id}`).forEach(r => r.style.display = collapsed ? 'none' : '');
+  placeToday();
+}
+function setAll(collapse){
+  sprints.forEach(sp=>{
+    const head = root.querySelector(`.sprint-row[data-sprint="${sp.id}"]`);
+    head.classList.toggle('collapsed', collapse);
+    root.querySelectorAll(`.tr-${sp.id}`).forEach(r => r.style.display = collapse ? 'none' : '');
+  });
+  placeToday();
+}
+window.toggle = toggle;
+window.setAll = setAll;
+</script>
+</body>
+</html>

@@ -1,0 +1,230 @@
+@startuml Cert_EET_DS03_Livrable_Correction
+' =====================================================================
+'  Projet    : Cert_EET
+'  Diagramme : DS-03 — Soumettre + Corriger un livrable
+'  Acteurs   : Apprenant (soumission) + Formateur (correction)
+'  Ref CdC   : F2 (Ateliers pratiques)
+'  Auteur    : Iyed Omri — PFE ESPRIT 2026
+' =====================================================================
+!pragma teoz true
+skinparam backgroundColor #FFFFFF
+skinparam shadowing false
+skinparam DefaultFontName "Segoe UI"
+skinparam DefaultFontSize 10
+skinparam sequenceMessageAlign center
+skinparam responseMessageBelowArrow true
+skinparam ParticipantPadding 18
+skinparam ArrowThickness 1.2
+skinparam LifeLineBorderThickness 1.0
+skinparam participant {
+  BackgroundColor #FFFFFF
+  BorderColor #5D6D7E
+}
+skinparam actor {
+  BackgroundColor #ECF0F1
+  BorderColor #1B4F72
+  FontStyle bold
+}
+skinparam database {
+  BackgroundColor #EBF5FB
+  BorderColor #1B4F72
+}
+skinparam collections {
+  BackgroundColor #E8F8F5
+  BorderColor #1E8449
+}
+skinparam boundary {
+  BackgroundColor #FEF9E7
+  BorderColor #B7950B
+}
+skinparam control {
+  BackgroundColor #FAE5D3
+  BorderColor #BA4A00
+}
+skinparam note {
+  BackgroundColor #FEF9E7
+  BorderColor #B7950B
+  FontSize 9
+}
+skinparam sequence {
+  ArrowColor #34495E
+  LifeLineBorderColor #7F8C8D
+  LifeLineBackgroundColor #FDFEFE
+  GroupBorderColor #1B4F72
+  GroupHeaderFontColor #1B4F72
+  GroupHeaderFontStyle bold
+  DividerBorderColor #1B4F72
+  DividerBackgroundColor #D6EAF8
+  DividerFontColor #1B4F72
+  DividerFontStyle bold
+}
+
+title <size:14><b>Cert_EET — DS-03 : Soumettre + Corriger un livrable</b></size>\n<size:10>Verrouillage progressif · Grille de notation · Feedback immuable · F2</size>
+
+actor       "Apprenant" as APP
+actor       "Formateur" as FOR
+boundary    "Frontend\n(Next.js)" as FE
+control     "AtelierController\n(NestJS)" as ATC
+control     "AtelierService\n(NestJS)" as ATS
+control     "StorageService\n(S3 / MinIO)" as STO
+database    "PostgreSQL" as DB
+collections "NotifService" as NOTIF
+
+' =====================================================================
+'  PARTIE 1 — SOUMISSION DU LIVRABLE (Apprenant)
+' =====================================================================
+== Partie 1 — Soumission du livrable (Apprenant) ==
+
+APP  ->  FE  : Ouvre l'atelier depuis son\ntableau de bord
+FE   ->  ATC : GET /ateliers/:atelierId\n(Bearer token)
+ATC  ->  ATS : getAtelier(atelierId, apprenantId)
+ATS  ->  DB  : SELECT atelier, livrable_existant\nWHERE atelierId = :id\nAND apprenantId = :appId
+DB  --> ATS  : { atelier, livrableExistant? }
+ATS --> ATC  : { atelier, livrableStatut }
+ATC --> FE   : HTTP 200 OK
+FE  --> APP  : Affiche l'énoncé\n+ formulaire de soumission\n(ou bouton "Remplacer" si déjà soumis)
+
+APP  ->  FE  : Uploade fichiers\n+ saisit commentaire libre\n+ ajoute liens externes
+FE   ->  ATC : POST /ateliers/:atelierId/livrable\n{ fichiers[], commentaire,\n  liensExternes[] }
+
+ATC  ->  ATS : soumettreLivrable(\n  atelierId, apprenantId, payload\n)
+
+group #FFE8E8 Vérifications avant soumission
+  ATS  ->  ATS : NOW() <= atelier.dateLimite ?
+  ATS  ->  ATS : taille(fichiers) <=\ntailleMaxFichier ?
+  ATS  ->  ATS : typeMime IN\ntypesLivrablesAcceptes ?
+
+  alt #FFE8E8 Date limite dépassée
+    ATS --> ATC : ForbiddenException\n"Date limite dépassée"
+    ATC --> FE  : HTTP 403
+    FE  --> APP : "La date limite est dépassée"
+  else #FFE8E8 Fichier trop volumineux ou format refusé
+    ATS --> ATC : BadRequestException
+    ATC --> FE  : HTTP 400
+    FE  --> APP : Message d'erreur précis
+  end
+end
+
+ATS  ->  ATS : sha256(contenuFichier)\n→ hashTracabilite
+ATS  ->  STO : upload(fichiers,\n  chemin: livrables/{apprenantId}/\n  {atelierId}/{timestamp}/)
+STO --> ATS  : { cheminStockage[], taille }
+
+ATS  ->  DB  : SELECT livrable WHERE\natelierId = :id\nAND apprenantId = :appId
+
+alt #EBF5FB Première soumission
+  ATS  ->  DB  : INSERT INTO livrables\n({ apprenantId, atelierId,\n  statut: SOUMIS,\n  dateSoumission: NOW(),\n  hashTracabilite, version: 1 })
+  ATS  ->  DB  : INSERT INTO fichiers_livrables\n(fichiers[])
+else #FEF9E7 Remplacement (avant date limite,\nstatut = SOUMIS uniquement)
+  ATS  ->  STO : delete(ancienCheminStockage)
+  ATS  ->  DB  : UPDATE livrables SET\n{ statut: SOUMIS,\n  version: version + 1,\n  dateSoumission: NOW(),\n  hashTracabilite }\nWHERE id = :livrableId
+  ATS  ->  DB  : DELETE + REINSERT\nfichiers_livrables
+end
+
+ATS  ->  NOTIF : notifier(formateur,\n  "Nouveau livrable soumis",\n  { apprenantId, atelierId })
+NOTIF  ->  DB  : INSERT INTO notifications
+NOTIF --> ATS  : OK
+
+ATS --> ATC : { livrable, version }
+ATC --> FE  : HTTP 201 Created
+FE  --> APP : "Livrable soumis avec succès\n(version X)"
+
+' =====================================================================
+'  PARTIE 2 — CORRECTION DU LIVRABLE (Formateur)
+' =====================================================================
+== Partie 2 — Ouverture et correction (Formateur) ==
+
+FOR  ->  FE  : Ouvre la liste des livrables\nà corriger (UC5)
+FE   ->  ATC : GET /ateliers/:atelierId/livrables\n?statut=SOUMIS\n(Bearer token formateur)
+ATC  ->  ATS : getLivrablesACorreger(\n  atelierId, formateurId\n)
+ATS  ->  DB  : SELECT livrables\nWHERE atelierId = :id\nAND statut = "SOUMIS"
+DB  --> ATS  : Liste des livrables soumis
+ATS --> ATC  : livrables[]
+ATC --> FE   : HTTP 200 OK
+FE  --> FOR  : Affiche la liste avec\nnom apprenant, date, version
+
+FOR  ->  FE  : Sélectionne un livrable\net clique "Corriger"
+FE   ->  ATC : PATCH /livrables/:livrableId/ouvrir
+ATC  ->  ATS : ouvrirPourCorrection(livrableId)
+
+ATS  ->  DB  : UPDATE livrables SET\nstatut = EN_CORRECTION\nWHERE id = :livrableId
+DB  --> ATS  : OK
+
+note right of ATS
+  Verrouillage : une fois EN_CORRECTION,
+  l'apprenant ne peut plus remplacer
+  son livrable (StatutLivrable).
+end note
+
+ATS  ->  DB  : SELECT livrable, fichiers,\ngrille_notation, criteres,\nniveaux_performance
+DB  --> ATS  : Données complètes
+ATS --> ATC  : { livrable, grille, criteres }
+ATC --> FE   : HTTP 200 OK
+FE  --> FOR  : Affiche le livrable\n+ grille de notation
+
+== Saisie des notes par critère ==
+
+loop Pour chaque critère de la grille
+  FOR  ->  FE  : Sélectionne le niveau atteint\n+ saisit un commentaire
+  FE   ->  ATC : PATCH /corrections/:correctionId/critere\n{ critereId, niveauAtteintId,\n  commentaire }
+  ATC  ->  ATS : noterCritere(correctionId,\n  critereId, niveauAtteintId, commentaire)
+  ATS  ->  DB  : INSERT OR UPDATE note_criteres\n({ correctionId, critereId,\n  note, commentaire,\n  niveauAtteint })
+  DB  --> ATS  : OK
+  ATS  ->  ATS : recalculerScoreTotal()\n= Σ(note * ponderation / 100)
+  ATS --> ATC  : { scorePartiel, avancement }
+  ATC --> FE   : HTTP 200 OK
+  FE  --> FOR  : Met à jour le score\nen temps réel
+end
+
+== Finalisation de la correction ==
+
+FOR  ->  FE  : Saisit le commentaire général\n(obligatoire)\nJoint éventuellement des\nfichiers annotés
+FE   ->  ATC : POST /corrections/:correctionId/finaliser\n{ commentaireGeneral,\n  fichiersAnnotes[] }
+
+ATC  ->  ATS : finaliserCorrection(\n  correctionId, formateurId,\n  commentaire, fichiers\n)
+
+ATS  ->  ATS : validerPonderations()\n(total = 100% ?)
+ATS  ->  ATS : tousLesCriteresNotes() ?
+
+alt #FFE8E8 Correction incomplète
+  ATS --> ATC : BadRequestException\n"Tous les critères doivent être notés"
+  ATC --> FE  : HTTP 400
+  FE  --> FOR : Message d'erreur
+else #E8F8F5 Correction complète et valide
+  ATS  ->  DB  : UPDATE corrections SET\n{ statut: "Terminée",\n  scoreTotal,\n  dateCorrection: NOW() }
+  ATS  ->  DB  : UPDATE livrables SET\nstatut = NOTE
+  ATS  ->  DB  : INSERT INTO feedbacks\n({ correctionId, commentaireGeneral,\n  fichiersAnnotes, dateEnvoi: NOW() })
+  DB  --> ATS  : OK
+
+  note right of ATS
+    Le feedback est IMMUABLE
+    après envoi (StatutLivrable = NOTE).
+    Aucune modification possible.
+  end note
+
+  ATS  ->  NOTIF : notifier(apprenant,\n  "Votre livrable a été corrigé",\n  { score, lienFeedback })
+  NOTIF  ->  DB  : INSERT INTO notifications
+  ATS  ->  DB  : INSERT INTO audit_log\n({ action: "CORRECTION_FINALISEE",\n  livrableId, formateurId, score })
+  DB  --> ATS  : OK
+
+  ATS --> ATC : { correction, feedback }
+  ATC --> FE  : HTTP 200 OK
+  FE  --> FOR : "Correction envoyée à l'apprenant"
+end
+
+note over ATS, NOTIF
+  **Déclenchement de la certification (F3)**
+  Si scoreTotal >= noteMinCertification
+  AND tous les modules validés :
+  → Déclenche le workflow d'émission du certificat
+    (voir DS-04)
+end note
+
+legend bottom
+  | <b>Couleur</b> | <b>Signification</b> |
+  | <back:#FFE8E8> rouge  </back> | Erreur / refus |
+  | <back:#E8F8F5> vert   </back> | Chemin nominal |
+  | <back:#EBF5FB> bleu   </back> | Première soumission |
+  | <back:#FEF9E7> jaune  </back> | Remplacement / variante |
+endlegend
+
+@enduml

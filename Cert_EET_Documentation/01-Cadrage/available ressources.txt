@@ -1,0 +1,45 @@
+
+** SCORM = Sharable Content Object Reference Model
+C’est un standard international (le plus connu) pour créer et diffuser des contenus e-learning.
+En clair, qu’est-ce que ça veut dire pour Moodle ?
+
+Tu peux importer dans Moodle des modules de formation créés avec des outils comme Articulate Storyline, Adobe Captivate, iSpring, etc.
+Une fois importé, le module SCORM fonctionne comme un cours : il suit la progression de l’apprenant, enregistre les notes, le temps passé, s’il a terminé, etc.
+Moodle peut communiquer avec ce contenu (ex : savoir si l’utilisateur a fini le module à 100%).
+
+En résumé :
+SCORM permet à Moodle d’être compatible avec presque tous les contenus e-learning professionnels du marché. C’est un point très important si tu as déjà des modules déjà créés ou si tu veux en acheter.
+
+** xAPI (Tin Can API)
+
+C’est le standard moderne qui remplace peu à peu SCORM.
+Il permet de suivre des activités d’apprentissage très variées (pas seulement des modules e-learning).
+Exemples : suivre une simulation, une formation en présentiel, une vidéo YouTube, une session sur mobile, une expérience en réalité virtuelle, etc.
+Il enregistre tout sous forme de "statements" (ex : "Omri a terminé la formation Sécurité" ou "Omri a regardé la vidéo 3 min 45").
+
+Avantage : Beaucoup plus flexible et puissant que SCORM.
+
+** LTI 1.3 (Learning Tools Interoperability)
+
+C’est un standard qui permet d’intégrer facilement des outils externes dans Moodle.
+Exemples : intégrer Zoom, Microsoft Teams, Google Docs, Khan Academy, un simulateur, ou une plateforme externe directement dans un cours Moodle.
+L’intégration est propre, sécurisée (avec Single Sign-On), et l’utilisateur n’a pas besoin de se reconnecter.
+
+En résumé :
+
+Standard		Usage 								principal,Niveau
+
+SCORM,			Importer des modules e-learning,				Classique
+xAPI,			Suivre toutes sortes d'activités,				Moderne & puissant
+LTI 1.3,		Intégrer des outils externes,					Interopérabilité
+
+-----------------------------------------------------------------------------------------------------------
+étape de la phase 2:
+
+
+–	Validation formelle — Présenter ce document à l'encadrant pédagogique et obtenir un accord sur la recommandation de développement sur mesure
+–	Architecture Decision Records (ADR) — Formaliser les décisions architecturales fondamentales : style architectural, base de données, authentification, mécanisme de certification, stratégie LLM
+–	Conception générale — Élaborer le modèle de données (ERD), les diagrammes d'architecture système, les maquettes UX par rôle et le backlog produit initial
+–	Sprint 0 — Initialiser le dépôt Git, le pipeline CI/CD (GitHub Actions), les environnements Docker (dev/staging/prod) et la structure NestJS + Next.js
+–	Backlog produit — Rédiger les Epics, User Stories et critères d'acceptation pour chacun des modules fonctionnels identifiés
+
