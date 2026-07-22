@@ -1,4 +1,5 @@
 import {
+  BadRequestException,
   ConflictException,
   Injectable,
   UnauthorizedException,
@@ -106,6 +107,39 @@ export class AuthService {
       userId: saved.id,
       action: 'COMPTE_CREE',
       adresseIp: context.adresseIp,
+      resultat: 'Succès',
+    });
+    await this.auditLogRepository.save(audit);
+  }
+  /**
+   * US-CPT-05 — Vérification de l'adresse email (activation du compte).
+   *
+   * Consomme le jeton de vérification (usage unique) déposé en Redis à
+   * l'inscription : s'il existe encore (non expiré, non consommé), on passe le
+   * compte en ACTIF et on supprime la clé. Sinon on refuse. Idempotence
+   * naturelle : un 2e clic ne trouve plus la clé -> refus explicite.
+   */
+  async verifyEmail(token: string): Promise<void> {
+    const key = verifyEmailKey(token);
+    const userId = await this.redisService.get(key);
+    if (!userId) {
+      // Jeton absent = invalide, expiré (TTL 48 h écoulé) ou déjà consommé.
+      throw new BadRequestException('Lien de vérification invalide ou expiré.');
+    }
+    const user = await this.userRepository.findOne({ where: { id: userId } });
+    if (!user) {
+      // Cas limite : compte supprimé entre-temps. On nettoie la clé et on refuse.
+      await this.redisService.del(key);
+      throw new BadRequestException('Lien de vérification invalide ou expiré.');
+    }
+    user.statut = StatutCompte.ACTIF;
+    await this.userRepository.save(user);
+    // Consommation du jeton : usage unique (supprimé après succès).
+    await this.redisService.del(key);
+    // Audit léger de l'activation (même motif que COMPTE_CREE / LOGOUT).
+    const audit = this.auditLogRepository.create({
+      userId: user.id,
+      action: 'EMAIL_VERIFIE',
       resultat: 'Succès',
     });
     await this.auditLogRepository.save(audit);

@@ -15,6 +15,7 @@ import { Request, Response } from 'express';
 import { AuthService } from './auth.service';
 import { LoginDto } from './dto/login.dto';
 import { RegisterDto } from './dto/register.dto';
+import { VerifyEmailDto } from './dto/verify-email.dto';
 import { JwtConfig } from '../../config/configuration';
 import { Public } from './decorators/public.decorator';
 import { AuthenticatedRequest } from './auth.types';
@@ -61,6 +62,26 @@ export class AuthController {
     return {
       message:
         'Compte créé. Un email de vérification vous a été envoyé pour activer votre compte.',
+    };
+  }
+  /**
+   * US-CPT-05 — Vérification d'email. Route @Public : la page frontend
+   * /verifier-email appelle cet endpoint avec le token du lien. Un jeton
+   * valide et non expiré active le compte (statut ACTIF) ; sinon 400.
+   */
+  @Public()
+  @Post('verify-email')
+  @HttpCode(HttpStatus.OK)
+  @ApiOperation({ summary: "Vérifier l'email et activer le compte (US-CPT-05)" })
+  @ApiResponse({ status: 200, description: 'Compte activé (statut ACTIF).' })
+  @ApiResponse({ status: 400, description: 'Jeton invalide ou expiré.' })
+  async verifyEmail(
+    @Body() dto: VerifyEmailDto,
+  ): Promise<{ message: string }> {
+    await this.authService.verifyEmail(dto.token);
+    return {
+      message:
+        'Votre adresse email a été vérifiée. Vous pouvez maintenant vous connecter.',
     };
   }
   @Public()
