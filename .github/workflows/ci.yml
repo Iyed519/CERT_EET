@@ -2,25 +2,20 @@
 # Runs on every push to main and every PR targeting main.
 # Order: install -> generate test keys -> lint -> unit tests + coverage -> integration tests -> upload coverage.
 # Scope for now: apps/api only (backend). apps/web can be added later.
-
 name: CI
-
 on:
   push:
     branches: [main]
   pull_request:
     branches: [main]
-
 jobs:
   api:
     name: API (lint + tests + coverage)
     runs-on: ubuntu-latest
-
     # Every "run:" step below executes inside apps/api.
     defaults:
       run:
         working-directory: apps/api
-
     # Throwaway Postgres + Redis that GitHub starts just for this run.
     # On the runner they are reachable at localhost.
     services:
@@ -37,7 +32,6 @@ jobs:
           --health-interval 10s
           --health-timeout 5s
           --health-retries 5
-
       redis:
         image: redis:7-alpine
         ports:
@@ -47,7 +41,6 @@ jobs:
           --health-interval 10s
           --health-timeout 5s
           --health-retries 5
-
     # Settings the app reads when tests boot it.
     # DB/Redis point at the service containers above.
     # The two JWT paths point at throwaway keys generated in a step below.
@@ -63,21 +56,26 @@ jobs:
       ADMIN_PASSWORD: ChangeMe_CI_123
       JWT_PRIVATE_KEY_PATH: /tmp/jwt_private.pem
       JWT_PUBLIC_KEY_PATH: /tmp/jwt_public.pem
-
+      # --- Email / SMTP (US-CPT-05) ---
+      # L'e2e d'inscription REMPLACE MailService par un mock (aucun envoi reel).
+      # Mais le boot d'AppModule valide quand meme les variables SMTP (fail-fast) :
+      # on fournit un SMTP_HOST factice pour satisfaire la validation, sans
+      # qu'aucun serveur mail ne soit necessaire dans la CI.
+      SMTP_HOST: localhost
+      SMTP_PORT: '1025'
+      MAIL_FROM: "Cert_EET <ci@cert-eet.test>"
+      APP_BASE_URL: "http://localhost:3001"
     steps:
       - name: Checkout the code
         uses: actions/checkout@v4
-
       - name: Set up Node.js
         uses: actions/setup-node@v4
         with:
           node-version: '20'
           cache: 'npm'
           cache-dependency-path: apps/api/package-lock.json
-
       - name: Install dependencies (clean, from lockfile)
         run: npm ci
-
       # Real, throwaway RS256 keys for this run only. Same commands as INF07.
       # They live at /tmp on the CI machine and are gone when the run ends.
       # No secret ever enters the repo.
@@ -85,10 +83,8 @@ jobs:
         run: |
           openssl genrsa -out "$JWT_PRIVATE_KEY_PATH" 2048
           openssl rsa -in "$JWT_PRIVATE_KEY_PATH" -pubout -out "$JWT_PUBLIC_KEY_PATH"
-
       - name: Lint
         run: npm run lint
-
       - name: Unit tests + coverage
         run: npm run test:cov -- --passWithNoTests
       # Le service Postgres ci-dessus démarre COMPLÈTEMENT vide (aucune
@@ -101,7 +97,6 @@ jobs:
         run: npm run migration:run
       - name: Integration tests
         run: npm run test:e2e -- --passWithNoTests
-
       - name: Upload coverage report
         if: always()
         uses: actions/upload-artifact@v4
