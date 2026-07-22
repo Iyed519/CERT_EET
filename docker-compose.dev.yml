@@ -36,5 +36,9 @@ services:
   # affiche dans une UI web. SMTP interne sur 1025, UI sur http://localhost:8025.
   mailhog:
     image: mailhog/mailhog:latest
+    # MÊME réseau que le reste de la stack (défini dans docker-compose.yml) :
+    # sans ça Mailhog atterrit sur le réseau "default" et l'api ne peut pas
+    # résoudre le nom "mailhog" (erreur getaddrinfo ENOTFOUND mailhog).
+    networks: [cert_eet_net]
     ports:
       - "8025:8025"              # UI web — http://localhost:8025

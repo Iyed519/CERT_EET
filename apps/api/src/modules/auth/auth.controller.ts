@@ -14,10 +14,10 @@ import { ConfigService } from '@nestjs/config';
 import { Request, Response } from 'express';
 import { AuthService } from './auth.service';
 import { LoginDto } from './dto/login.dto';
+import { RegisterDto } from './dto/register.dto';
 import { JwtConfig } from '../../config/configuration';
 import { Public } from './decorators/public.decorator';
 import { AuthenticatedRequest } from './auth.types';
-
 interface LoginResponseBody {
   accessToken: string;
   user: {
@@ -26,19 +26,43 @@ interface LoginResponseBody {
     role: string;
   };
 }
-
 @ApiTags('auth')
 @Controller('auth')
 export class AuthController {
   private readonly jwtConfig: JwtConfig;
-
   constructor(
     private readonly authService: AuthService,
     private readonly configService: ConfigService,
   ) {
     this.jwtConfig = this.configService.getOrThrow<JwtConfig>('jwt');
   }
-
+  /**
+   * US-CPT-05 — Auto-inscription publique. Route @Public (le JwtAuthGuard
+   * global ne s'applique pas). Renvoie 201 SANS ouvrir de session : le compte
+   * est EN_ATTENTE_ACTIVATION, l'utilisateur doit d'abord vérifier son email.
+   */
+  @Public()
+  @Post('register')
+  @HttpCode(HttpStatus.CREATED)
+  @ApiOperation({ summary: 'Auto-inscription publique (US-CPT-05)' })
+  @ApiResponse({
+    status: 201,
+    description:
+      'Compte créé (APPRENANT, EN_ATTENTE_ACTIVATION) ; email de vérification envoyé. Aucune session ouverte.',
+  })
+  @ApiResponse({ status: 409, description: 'Cet email est déjà utilisé.' })
+  async register(
+    @Body() dto: RegisterDto,
+    @Req() req: Request,
+  ): Promise<{ message: string }> {
+    await this.authService.register(dto, {
+      adresseIp: req.ip ?? null,
+    });
+    return {
+      message:
+        'Compte créé. Un email de vérification vous a été envoyé pour activer votre compte.',
+    };
+  }
   @Public()
   @Post('login')
   @HttpCode(HttpStatus.OK)
@@ -57,7 +81,6 @@ export class AuthController {
     this.setRefreshTokenCookie(res, result.refreshToken);
     return { accessToken: result.accessToken, user: result.user };
   }
-
   @Public()
   @Post('refresh')
   @HttpCode(HttpStatus.OK)
@@ -79,7 +102,6 @@ export class AuthController {
     this.setRefreshTokenCookie(res, result.refreshToken);
     return { accessToken: result.accessToken, user: result.user };
   }
-
   @Public()
   @Post('logout')
   @HttpCode(HttpStatus.OK)
@@ -95,15 +117,12 @@ export class AuthController {
         ? authHeader.slice('Bearer '.length)
         : null;
     const refreshToken = (req.cookies?.['refreshToken'] as string) ?? null;
-
     await this.authService.logout(accessToken, refreshToken, {
       adresseIp: req.ip ?? null,
     });
-
     res.clearCookie('refreshToken', { path: '/api/auth' });
     return { message: 'Déconnexion effectuée.' };
   }
-
   /**
    * GET /auth/me (US-AUTH-11) — route PROTÉGÉE (pas de @Public). Le
    * JwtAuthGuard global valide l'access token et attache req.user ; on renvoie
@@ -125,7 +144,6 @@ export class AuthController {
     }
     return { id: user.sub, email: user.email, role: user.role };
   }
-
   private setRefreshTokenCookie(res: Response, refreshToken: string): void {
     res.cookie('refreshToken', refreshToken, {
       httpOnly: true,
