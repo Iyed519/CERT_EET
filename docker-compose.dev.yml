@@ -12,8 +12,10 @@ services:
       SMTP_HOST: mailhog
       SMTP_PORT: "1025"
       MAIL_FROM: "Cert_EET <no-reply@cert-eet.local>"
-      # Base du frontend pour le lien de vérification (le conteneur web écoute 3001).
-      APP_BASE_URL: "http://localhost:3001"
+      # Base publique du site = origine Nginx (https://localhost), là où le
+      # frontend est servi ET où /api est proxifié. Le lien de vérification de
+      # l'email doit pointer ici (pas sur :3001, où /api n'existe pas).
+      APP_BASE_URL: "https://localhost"
     command: ["npm", "run", "start:dev"]
     volumes:
       - ./apps/api:/app          # live source for hot reload
