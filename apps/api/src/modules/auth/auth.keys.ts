@@ -5,10 +5,8 @@
  */
 export const accessDenylistKey = (jti: string): string =>
   `denylist:access:${jti}`;
-
 export const refreshDenylistKey = (tokenHash: string): string =>
   `denylist:refresh:${tokenHash}`;
-
 /**
  * Marqueur "sessions valides à partir de" (timestamp Unix en secondes) : tout
  * access token de l'utilisateur émis AVANT cette date est refusé. Base de
@@ -16,3 +14,10 @@ export const refreshDenylistKey = (tokenHash: string): string =>
  */
 export const sessionsValidAfterKey = (userId: string): string =>
   `sessions-valid-after:${userId}`;
+/**
+ * Jeton de vérification d'email (US-CPT-05) : clé -> userId, TTL 48 h. Créée à
+ * l'inscription, consommée (supprimée) à la vérification. Usage unique, sans
+ * table dédiée — Redis expire la clé seul si l'utilisateur ne vérifie jamais.
+ */
+export const verifyEmailKey = (token: string): string =>
+  `verify-email:${token}`;

@@ -14,7 +14,6 @@ export interface AppConfig {
   databaseUrl?: string;
   redisUrl?: string;
 }
-
 export interface JwtConfig {
   privateKeyPath: string;
   publicKeyPath: string;
@@ -26,7 +25,6 @@ export interface JwtConfig {
   /** ADR-08 : 7 jours = 604800 s. */
   refreshTokenExpiresIn: number;
 }
-
 /**
  * Configuration de connexion Redis (US-AUTH-03).
  * Redis devient load-bearing à partir de cette story : il porte la denylist
@@ -38,11 +36,24 @@ export interface RedisConfig {
   host: string;
   port: number;
 }
-
+/**
+ * Configuration email / SMTP (US-CPT-05).
+ * On lit host + port séparément (comme Redis) car le conteneur api reçoit
+ * SMTP_HOST=mailhog / SMTP_PORT=1025 via docker-compose (réseau interne).
+ * `from` = expéditeur affiché des emails ; `appBaseUrl` = base du FRONTEND,
+ * utilisée pour construire le lien de vérification envoyé à l'inscrit.
+ */
+export interface MailConfig {
+  host: string;
+  port: number;
+  from: string;
+  appBaseUrl: string;
+}
 export default (): {
   app: AppConfig;
   jwt: JwtConfig;
   redis: RedisConfig;
+  mail: MailConfig;
 } => ({
   app: {
     nodeEnv: (process.env.NODE_ENV as AppConfig['nodeEnv']) ?? 'development',
@@ -61,5 +72,11 @@ export default (): {
   redis: {
     host: process.env.REDIS_HOST as string,
     port: parseInt(process.env.REDIS_PORT ?? '6379', 10),
+  },
+  mail: {
+    host: process.env.SMTP_HOST as string,
+    port: parseInt(process.env.SMTP_PORT ?? '1025', 10),
+    from: process.env.MAIL_FROM ?? 'Cert_EET <no-reply@cert-eet.local>',
+    appBaseUrl: process.env.APP_BASE_URL ?? 'http://localhost:3001',
   },
 });

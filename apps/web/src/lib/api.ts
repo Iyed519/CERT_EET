@@ -168,3 +168,61 @@ export async function logout(): Promise<void> {
     forceLogout();
   }
 }
+
+/* ============================================================
+ * US-CPT-05 — Auto-inscription publique + vérification d'email
+ * ============================================================ */
+export class RegisterError extends Error {}
+export interface RegisterInput {
+  nom: string;
+  prenom: string;
+  email: string;
+  password: string;
+}
+/**
+ * POST /api/auth/register. Aucun cookie/token en retour (le compte doit
+ * d'abord être vérifié) : on renvoie juste le message de confirmation.
+ * data.message peut être une chaîne (409) ou un tableau (erreurs de validation).
+ */
+export async function registerRequest(
+  input: RegisterInput,
+): Promise<{ message: string }> {
+  const response = await fetch('/api/auth/register', {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify(input),
+  });
+  const data = await response.json();
+  if (!response.ok) {
+    const message = Array.isArray(data.message)
+      ? data.message.join(' ')
+      : data.message;
+    throw new RegisterError(
+      message ?? 'Une erreur est survenue. Veuillez réessayer.',
+    );
+  }
+  return data as { message: string };
+}
+export class VerifyEmailError extends Error {}
+/**
+ * POST /api/auth/verify-email. Active le compte si le jeton est valide.
+ */
+export async function verifyEmailRequest(
+  token: string,
+): Promise<{ message: string }> {
+  const response = await fetch('/api/auth/verify-email', {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ token }),
+  });
+  const data = await response.json();
+  if (!response.ok) {
+    const message = Array.isArray(data.message)
+      ? data.message.join(' ')
+      : data.message;
+    throw new VerifyEmailError(
+      message ?? 'Une erreur est survenue. Veuillez réessayer.',
+    );
+  }
+  return data as { message: string };
+}
