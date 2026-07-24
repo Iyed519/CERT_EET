@@ -14,10 +14,12 @@ import * as fs from 'fs';
 import { User } from '../../database/entities/user.entity';
 import { RefreshToken } from '../../database/entities/refresh-token.entity';
 import { AuditLog } from '../../database/entities/audit-log.entity';
+import { CompteOauth } from '../../database/entities/compte-oauth.entity';
 import { StatutCompte } from '../../database/enums/statut-compte.enum';
 import { Role } from '../../database/enums/role.enum';
 import { LoginDto } from './dto/login.dto';
 import { RegisterDto } from './dto/register.dto';
+import { OauthProfile } from './auth.types';
 import { JwtConfig } from '../../config/configuration';
 import { RedisService } from '../../redis/redis.service';
 import { MailService } from '../../mail/mail.service';
@@ -29,6 +31,7 @@ import {
 } from './auth.keys';
 const GENERIC_LOGIN_ERROR = 'Identifiants invalides ou compte inactif.';
 const GENERIC_REFRESH_ERROR = 'Session invalide ou expirée.';
+const GENERIC_OAUTH_ERROR = 'Connexion sociale impossible.';
 // ADR-11 : le jeton de vérification d'email est valable 48 h.
 const VERIFY_EMAIL_TTL_SECONDS = 48 * 3600;
 export interface LoginResult {
@@ -50,6 +53,8 @@ export class AuthService {
     private readonly refreshTokenRepository: Repository<RefreshToken>,
     @InjectRepository(AuditLog)
     private readonly auditLogRepository: Repository<AuditLog>,
+    @InjectRepository(CompteOauth)
+    private readonly compteOauthRepository: Repository<CompteOauth>,
     private readonly jwtService: JwtService,
     private readonly configService: ConfigService,
     private readonly redisService: RedisService,
@@ -168,6 +173,96 @@ export class AuthService {
     await this.persistRefreshToken(user.id, refreshToken, familleId, context);
     user.derniereConnexion = new Date();
     await this.userRepository.save(user);
+    return {
+      accessToken,
+      refreshToken,
+      user: { id: user.id, email: user.email, role: user.role },
+    };
+  }
+  /**
+   * US-AUTH-14 — Connexion / inscription via un fournisseur OAuth (Google...).
+   *
+   * Stratégie « find-link-or-create » :
+   *   1. identité déjà liée (provider + providerId) -> on récupère le compte ;
+   *   2. sinon, un compte avec le même email existe -> on LIE l'identité à ce
+   *      compte (ADR-11 : liaison si l'email existe) ;
+   *   3. sinon, on CRÉE un compte APPRENANT (rôle forcé) directement ACTIF — le
+   *      fournisseur a déjà vérifié l'email, aucune vérification à refaire.
+   * Le fournisseur ayant vérifié l'email, un compte trouvé encore
+   * EN_ATTENTE_ACTIVATION est promu ACTIF ; un compte DESACTIVE/ANONYMISE est
+   * refusé. Ensuite : émission de session JWT identique au login classique.
+   */
+  async loginWithOauth(
+    oauth: OauthProfile,
+    context: { adresseIp: string | null; userAgent: string | null },
+  ): Promise<LoginResult> {
+    const lien = await this.compteOauthRepository.findOne({
+      where: { provider: oauth.provider, providerId: oauth.providerId },
+    });
+    let user: User | null = null;
+    if (lien) {
+      user = await this.userRepository.findOne({ where: { id: lien.userId } });
+    } else {
+      // Google fournit l'email avec le scope 'email' ; garde de sécurité sinon.
+      if (!oauth.email) {
+        throw new UnauthorizedException(GENERIC_OAUTH_ERROR);
+      }
+      // Liaison par email si un compte existe déjà (ADR-11).
+      user = await this.userRepository.findOne({
+        where: { email: oauth.email },
+      });
+      if (!user) {
+        // Création d'un compte APPRENANT ACTIF (email vérifié par le fournisseur).
+        user = this.userRepository.create({
+          email: oauth.email,
+          nom: oauth.nom,
+          prenom: oauth.prenom,
+          motDePasseHash: null,
+          role: Role.APPRENANT,
+          statut: StatutCompte.ACTIF,
+        });
+        user = await this.userRepository.save(user);
+        const auditCreation = this.auditLogRepository.create({
+          userId: user.id,
+          action: 'COMPTE_CREE',
+          adresseIp: context.adresseIp,
+          resultat: 'Succès',
+        });
+        await this.auditLogRepository.save(auditCreation);
+      }
+      // Enregistrement du lien identité externe -> compte.
+      const nouveauLien = this.compteOauthRepository.create({
+        userId: user.id,
+        provider: oauth.provider,
+        providerId: oauth.providerId,
+        email: oauth.email,
+      });
+      await this.compteOauthRepository.save(nouveauLien);
+    }
+    if (!user) {
+      throw new UnauthorizedException(GENERIC_OAUTH_ERROR);
+    }
+    // Email vérifié par le fournisseur -> un compte en attente devient ACTIF.
+    if (user.statut === StatutCompte.EN_ATTENTE_ACTIVATION) {
+      user.statut = StatutCompte.ACTIF;
+    }
+    if (user.statut !== StatutCompte.ACTIF) {
+      // DESACTIVE ou ANONYMISE : connexion refusée.
+      throw new UnauthorizedException(GENERIC_OAUTH_ERROR);
+    }
+    const accessToken = await this.signAccessToken(user);
+    const refreshToken = await this.signRefreshToken(user);
+    const familleId = crypto.randomUUID();
+    await this.persistRefreshToken(user.id, refreshToken, familleId, context);
+    user.derniereConnexion = new Date();
+    await this.userRepository.save(user);
+    const auditConnexion = this.auditLogRepository.create({
+      userId: user.id,
+      action: 'CONNEXION_OAUTH',
+      adresseIp: context.adresseIp,
+      resultat: 'Succès',
+    });
+    await this.auditLogRepository.save(auditConnexion);
     return {
       accessToken,
       refreshToken,

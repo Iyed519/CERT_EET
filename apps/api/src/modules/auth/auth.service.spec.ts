@@ -17,6 +17,8 @@ import { StatutCompte } from '../../database/enums/statut-compte.enum';
 import { RedisService } from '../../redis/redis.service';
 import { MailService } from '../../mail/mail.service';
 import { RegisterDto } from './dto/register.dto';
+import { CompteOauth } from '../../database/entities/compte-oauth.entity';
+import { OauthProfile } from './auth.types';
 /**
  * Tests unitaires d'AuthService (US-AUTH-01/03/04 + US-CPT-05).
  * Repositories, JwtService, RedisService et MailService remplacés par des faux.
@@ -60,6 +62,12 @@ describe('AuthService', () => {
   };
   const mockMailService = {
     sendVerificationEmail: jest.fn(),
+  };
+  // US-AUTH-14 : table de liaison identité externe -> compte.
+  const mockCompteOauthRepository = {
+    findOne: jest.fn(),
+    create: jest.fn(),
+    save: jest.fn(),
   };
   const utilisateurActif = (): User =>
     ({
@@ -113,6 +121,10 @@ describe('AuthService', () => {
         { provide: ConfigService, useValue: mockConfigService },
         { provide: RedisService, useValue: mockRedisService },
         { provide: MailService, useValue: mockMailService },
+        {
+          provide: getRepositoryToken(CompteOauth),
+          useValue: mockCompteOauthRepository,
+        },
       ],
     }).compile();
     service = moduleRef.get<AuthService>(AuthService);
@@ -428,6 +440,138 @@ describe('AuthService', () => {
         BadRequestException,
       );
       expect(mockRedisService.del).toHaveBeenCalledTimes(1);
+    });
+  });
+  describe('loginWithOauth — US-AUTH-14 (connexion sociale Google)', () => {
+    // Profil normalisé tel que le renvoie GoogleStrategy.validate().
+    const profil = (): OauthProfile => ({
+      provider: 'google',
+      providerId: 'google-sub-123',
+      email: 'social@cert-eet.local',
+      nom: 'Omri',
+      prenom: 'Iyed',
+    });
+    const contexte = { adresseIp: '127.0.0.1', userAgent: 'jest' };
+
+    it('identité déjà liée -> connexion directe, aucun compte ni lien créé', async () => {
+      // Le lien existe déjà : on récupère l'utilisateur par lien.userId.
+      mockCompteOauthRepository.findOne.mockResolvedValue({
+        userId: 'user-uuid-1',
+        provider: 'google',
+        providerId: 'google-sub-123',
+      });
+      mockUserRepository.findOne.mockResolvedValue(utilisateurActif());
+      mockRefreshTokenRepository.create.mockReturnValue({});
+      mockRefreshTokenRepository.save.mockResolvedValue({});
+      mockUserRepository.save.mockResolvedValue(utilisateurActif());
+      mockAuditLogRepository.create.mockReturnValue({});
+      mockAuditLogRepository.save.mockResolvedValue({});
+
+      const res = await service.loginWithOauth(profil(), contexte);
+
+      expect(res.accessToken).toBe('fake-access-token');
+      expect(res.refreshToken).toBe('fake-refresh-token');
+      // Aucune création : ni compte, ni nouveau lien.
+      expect(mockUserRepository.create).not.toHaveBeenCalled();
+      expect(mockCompteOauthRepository.create).not.toHaveBeenCalled();
+      expect(mockCompteOauthRepository.save).not.toHaveBeenCalled();
+      expect(mockAuditLogRepository.create).toHaveBeenCalledWith(
+        expect.objectContaining({ action: 'CONNEXION_OAUTH', resultat: 'Succès' }),
+      );
+    });
+
+    it('email déjà connu (compte local) -> on lie l identité, sans créer de compte', async () => {
+      // Pas de lien, mais un compte existe avec le même email.
+      mockCompteOauthRepository.findOne.mockResolvedValue(null);
+      const existant = utilisateurActif();
+      mockUserRepository.findOne.mockResolvedValue(existant);
+      mockCompteOauthRepository.create.mockImplementation((l) => l);
+      mockCompteOauthRepository.save.mockResolvedValue({});
+      mockRefreshTokenRepository.create.mockReturnValue({});
+      mockRefreshTokenRepository.save.mockResolvedValue({});
+      mockUserRepository.save.mockResolvedValue(existant);
+      mockAuditLogRepository.create.mockReturnValue({});
+      mockAuditLogRepository.save.mockResolvedValue({});
+
+      const res = await service.loginWithOauth(profil(), contexte);
+
+      expect(res.accessToken).toBe('fake-access-token');
+      // Compte NON créé, mais lien créé vers le compte existant.
+      expect(mockUserRepository.create).not.toHaveBeenCalled();
+      const lienArg = mockCompteOauthRepository.create.mock.calls[0][0];
+      expect(lienArg).toEqual(
+        expect.objectContaining({
+          userId: 'user-uuid-1',
+          provider: 'google',
+          providerId: 'google-sub-123',
+        }),
+      );
+      expect(mockCompteOauthRepository.save).toHaveBeenCalledTimes(1);
+    });
+
+    it('identité inconnue + email inconnu -> crée un APPRENANT ACTIF et lie l identité', async () => {
+      // Ni lien, ni compte : création complète (email vérifié par Google).
+      mockCompteOauthRepository.findOne.mockResolvedValue(null);
+      mockUserRepository.findOne.mockResolvedValue(null);
+      mockUserRepository.create.mockImplementation((u) => u);
+      mockUserRepository.save.mockImplementation((u) =>
+        Promise.resolve({ ...u, id: 'new-oauth-user-id' }),
+      );
+      mockCompteOauthRepository.create.mockImplementation((l) => l);
+      mockCompteOauthRepository.save.mockResolvedValue({});
+      mockRefreshTokenRepository.create.mockReturnValue({});
+      mockRefreshTokenRepository.save.mockResolvedValue({});
+      mockAuditLogRepository.create.mockReturnValue({});
+      mockAuditLogRepository.save.mockResolvedValue({});
+
+      const res = await service.loginWithOauth(profil(), contexte);
+
+      // Compte créé avec rôle APPRENANT forcé, statut ACTIF, sans mot de passe.
+      const createArg = mockUserRepository.create.mock.calls[0][0];
+      expect(createArg.role).toBe(Role.APPRENANT);
+      expect(createArg.statut).toBe(StatutCompte.ACTIF);
+      expect(createArg.motDePasseHash).toBeNull();
+      expect(createArg.email).toBe('social@cert-eet.local');
+      // Un lien est créé vers le compte fraîchement créé.
+      expect(mockCompteOauthRepository.create).toHaveBeenCalledTimes(1);
+      // Deux journaux : COMPTE_CREE puis CONNEXION_OAUTH.
+      const actions = mockAuditLogRepository.create.mock.calls.map(
+        (c) => c[0].action,
+      );
+      expect(actions).toEqual(
+        expect.arrayContaining(['COMPTE_CREE', 'CONNEXION_OAUTH']),
+      );
+      expect(res.user.role).toBe(Role.APPRENANT);
+    });
+
+    it('compte lié mais DESACTIVE -> 401 (connexion refusée)', async () => {
+      // L'identité pointe vers un compte désactivé : accès refusé.
+      mockCompteOauthRepository.findOne.mockResolvedValue({
+        userId: 'user-uuid-1',
+        provider: 'google',
+        providerId: 'google-sub-123',
+      });
+      mockUserRepository.findOne.mockResolvedValue({
+        ...utilisateurActif(),
+        statut: StatutCompte.DESACTIVE,
+      });
+
+      await expect(
+        service.loginWithOauth(profil(), contexte),
+      ).rejects.toThrow(UnauthorizedException);
+      // Aucune session émise pour un compte refusé.
+      expect(mockRefreshTokenRepository.save).not.toHaveBeenCalled();
+    });
+
+    it('identité inconnue sans email fourni -> 401 (garde de sécurité)', async () => {
+      // Sans lien ET sans email, impossible de rattacher/créer : refus.
+      mockCompteOauthRepository.findOne.mockResolvedValue(null);
+      const sansEmail: OauthProfile = { ...profil(), email: null };
+
+      await expect(
+        service.loginWithOauth(sansEmail, contexte),
+      ).rejects.toThrow(UnauthorizedException);
+      expect(mockUserRepository.create).not.toHaveBeenCalled();
     });
   });
 });
