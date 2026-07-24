@@ -112,3 +112,8 @@ a:hover { color: var(--primary-dark); text-decoration: underline; }
 }
 .btn-oauth:hover { background: #f7f8fa; border-color: #d8d1c5; color: #33414f; text-decoration: none; }
 .btn-oauth svg { width: 18px; height: 18px; }
+/* Deux boutons OAuth empilés (Google puis GitHub) : petit espace entre eux. */
+.btn-oauth + .btn-oauth { margin-top: 10px; }
+/* Variante GitHub : bouton sombre, marque Octocat en blanc (US-AUTH-14). */
+.btn-oauth-github { background: #24292f; border-color: #24292f; color: #fff; }
+.btn-oauth-github:hover { background: #1b1f24; border-color: #1b1f24; color: #fff; }

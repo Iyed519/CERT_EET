@@ -48,6 +48,14 @@ export const envValidationSchema = Joi.object({
   GOOGLE_CALLBACK_URL: Joi.string()
     .uri()
     .default('https://localhost/api/auth/oauth/google/callback'),
+// --- OAuth GitHub (US-AUTH-14 : 2e fournisseur) ---
+  // Identifiants de l'OAuth App GitHub. Requis (fail-fast) : la stratégie GitHub
+  // est instanciée au démarrage, comme Google. En CI, on fournit des valeurs factices.
+  GITHUB_CLIENT_ID: Joi.string().required(),
+  GITHUB_CLIENT_SECRET: Joi.string().required(),
+  GITHUB_CALLBACK_URL: Joi.string()
+    .uri()
+    .default('https://localhost/api/auth/oauth/github/callback'),
 })
   // Refuse les clés inconnues seulement en avertissement : on n'échoue pas
   // sur des variables système, mais on valide strictement celles qu'on connaît.
