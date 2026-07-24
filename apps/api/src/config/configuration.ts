@@ -61,12 +61,25 @@ export interface OauthGoogleConfig {
   clientSecret: string;
   callbackUrl: string;
 }
+/**
+ * Configuration OAuth GitHub (US-AUTH-14 — 2e fournisseur).
+ * Même forme que Google : clientId / clientSecret viennent de l'OAuth App
+ * GitHub (secrets, jamais committés) ; callbackUrl = URL de redirection
+ * enregistrée chez GitHub, sur l'origine Nginx (https://localhost) pour que le
+ * cookie de session soit utilisable par le frontend après le retour de GitHub.
+ */
+export interface OauthGithubConfig {
+  clientId: string;
+  clientSecret: string;
+  callbackUrl: string;
+}
 export default (): {
   app: AppConfig;
   jwt: JwtConfig;
   redis: RedisConfig;
   mail: MailConfig;
   oauthGoogle: OauthGoogleConfig;
+  oauthGithub: OauthGithubConfig;
 } => ({
   app: {
     nodeEnv: (process.env.NODE_ENV as AppConfig['nodeEnv']) ?? 'development',
@@ -98,5 +111,12 @@ export default (): {
     callbackUrl:
       process.env.GOOGLE_CALLBACK_URL ??
       'https://localhost/api/auth/oauth/google/callback',
+  },
+  oauthGithub: {
+    clientId: process.env.GITHUB_CLIENT_ID as string,
+    clientSecret: process.env.GITHUB_CLIENT_SECRET as string,
+    callbackUrl:
+      process.env.GITHUB_CALLBACK_URL ??
+      'https://localhost/api/auth/oauth/github/callback',
   },
 });

@@ -112,22 +112,34 @@ export class AuthController {
     @Req() req: Request & { user?: OauthProfile },
     @Res() res: Response,
   ): Promise<void> {
-    const { appBaseUrl } = this.configService.getOrThrow<MailConfig>('mail');
-    const oauth = req.user;
-    if (!oauth) {
-      res.redirect(`${appBaseUrl}/login?erreur=oauth`);
-      return;
-    }
-    try {
-      const result = await this.authService.loginWithOauth(oauth, {
-        adresseIp: req.ip ?? null,
-        userAgent: req.headers['user-agent'] ?? null,
-      });
-      this.setRefreshTokenCookie(res, result.refreshToken);
-      res.redirect(`${appBaseUrl}/oauth/callback`);
-    } catch {
-      res.redirect(`${appBaseUrl}/login?erreur=oauth`);
-    }
+    await this.completeOauthLogin(req, res);
+  }
+  /**
+   * US-AUTH-14 — Démarre la connexion GitHub. Même mécanique que Google : le
+   * guard Passport 'github' construit l'URL d'autorisation et redirige. Le corps
+   * n'est jamais exécuté.
+   */
+  @Public()
+  @Get('oauth/github')
+  @UseGuards(AuthGuard('github'))
+  @ApiOperation({ summary: 'Démarrer la connexion GitHub (US-AUTH-14)' })
+  githubAuth(): void {
+    // Redirection vers GitHub gérée par le guard Passport.
+  }
+  /**
+   * US-AUTH-14 — Callback GitHub. Passport a posé le profil normalisé sur
+   * req.user ; on ouvre la session exactement comme pour Google (find-link-or-
+   * create + cookie refresh httpOnly), puis on redirige vers le frontend.
+   */
+  @Public()
+  @Get('oauth/github/callback')
+  @UseGuards(AuthGuard('github'))
+  @ApiOperation({ summary: 'Callback GitHub : ouvre la session (US-AUTH-14)' })
+  async githubCallback(
+    @Req() req: Request & { user?: OauthProfile },
+    @Res() res: Response,
+  ): Promise<void> {
+    await this.completeOauthLogin(req, res);
   }
   @Public()
   @Post('login')
@@ -209,6 +221,34 @@ export class AuthController {
       throw new UnauthorizedException('Non authentifié.');
     }
     return { id: user.sub, email: user.email, role: user.role };
+  }
+  /**
+   * US-AUTH-14 — Logique commune aux callbacks OAuth (Google, GitHub). Passport
+   * a déjà validé l'identité et posé le profil normalisé sur req.user. On ouvre
+   * une session (cookie refresh httpOnly via loginWithOauth) puis on redirige
+   * vers le frontend, qui récupérera l'access token via /auth/refresh. En cas
+   * d'échec (pas de profil, compte inactif, email absent…) -> /login?erreur=oauth.
+   */
+  private async completeOauthLogin(
+    req: Request & { user?: OauthProfile },
+    res: Response,
+  ): Promise<void> {
+    const { appBaseUrl } = this.configService.getOrThrow<MailConfig>('mail');
+    const oauth = req.user;
+    if (!oauth) {
+      res.redirect(`${appBaseUrl}/login?erreur=oauth`);
+      return;
+    }
+    try {
+      const result = await this.authService.loginWithOauth(oauth, {
+        adresseIp: req.ip ?? null,
+        userAgent: req.headers['user-agent'] ?? null,
+      });
+      this.setRefreshTokenCookie(res, result.refreshToken);
+      res.redirect(`${appBaseUrl}/oauth/callback`);
+    } catch {
+      res.redirect(`${appBaseUrl}/login?erreur=oauth`);
+    }
   }
   private setRefreshTokenCookie(res: Response, refreshToken: string): void {
     res.cookie('refreshToken', refreshToken, {

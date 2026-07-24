@@ -56,12 +56,13 @@ jobs:
       MAIL_FROM: "Cert_EET <ci@cert-eet.test>"
       APP_BASE_URL: "http://localhost:3001"
       # --- OAuth Google (US-AUTH-14) ---
-      # GoogleStrategy s'instancie au boot d'AppModule, et la validation Joi
-      # exige CLIENT_ID/SECRET (fail-fast). L'e2e ne declenche jamais le vrai
-      # flux OAuth, donc des valeurs factices suffisent pour laisser l'app demarrer.
       GOOGLE_CLIENT_ID: ci-dummy-google-client-id
       GOOGLE_CLIENT_SECRET: ci-dummy-google-client-secret
       GOOGLE_CALLBACK_URL: "http://localhost:3001/api/auth/oauth/google/callback"
+      # --- OAuth GitHub (US-AUTH-14 - 2e fournisseur) ---
+      GITHUB_CLIENT_ID: ci-dummy-github-client-id
+      GITHUB_CLIENT_SECRET: ci-dummy-github-client-secret
+      GITHUB_CALLBACK_URL: "http://localhost:3001/api/auth/oauth/github/callback"
     steps:
       - name: Checkout the code
         uses: actions/checkout@v4

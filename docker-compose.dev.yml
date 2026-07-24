@@ -21,6 +21,11 @@ services:
       GOOGLE_CLIENT_SECRET: ${GOOGLE_CLIENT_SECRET}
       # Callback = origine Nginx (là où /api est proxifié et le cookie utilisable).
       GOOGLE_CALLBACK_URL: "https://localhost/api/auth/oauth/google/callback"
+      # --- OAuth GitHub (US-AUTH-14 — 2e fournisseur) ---
+      # Mêmes identifiants depuis le .env racine (jamais committés).
+      GITHUB_CLIENT_ID: ${GITHUB_CLIENT_ID}
+      GITHUB_CLIENT_SECRET: ${GITHUB_CLIENT_SECRET}
+      GITHUB_CALLBACK_URL: "https://localhost/api/auth/oauth/github/callback"
     command: ["npm", "run", "start:dev"]
     volumes:
       - ./apps/api:/app          # live source for hot reload

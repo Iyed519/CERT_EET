@@ -12,12 +12,14 @@ import { AuthService } from './auth.service';
 import { JwtAuthGuard } from './guards/jwt-auth.guard';
 import { RolesGuard } from './guards/roles.guard';
 import { GoogleStrategy } from './strategies/google.strategy';
+import { GithubStrategy } from './strategies/github.strategy';
 /**
  * Module d'authentification (US-AUTH-01/03/04/11 + US-CPT-05 + US-AUTH-14).
  *
- * Les deux guards restent GLOBAUX (APP_GUARD). PassportModule + GoogleStrategy
- * ajoutent la connexion sociale : Passport n'intervient QUE sur l'acquisition
- * d'identité OAuth (routes /auth/oauth/google*) ; la session JWT reste maison.
+ * Les deux guards restent GLOBAUX (APP_GUARD). PassportModule + les stratégies
+ * OAuth (Google, GitHub) ajoutent la connexion sociale : Passport n'intervient
+ * QUE sur l'acquisition d'identité OAuth (routes /auth/oauth/*) ; la session JWT
+ * reste maison.
  */
 @Module({
   imports: [
@@ -29,6 +31,7 @@ import { GoogleStrategy } from './strategies/google.strategy';
   providers: [
     AuthService,
     GoogleStrategy,
+    GithubStrategy,
     { provide: APP_GUARD, useClass: JwtAuthGuard },
     { provide: APP_GUARD, useClass: RolesGuard },
   ],
