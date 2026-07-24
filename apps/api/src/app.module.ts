@@ -5,6 +5,7 @@ import { RedisModule } from './redis/redis.module';
 import { MailModule } from './mail/mail.module';
 import { HealthModule } from './modules/health/health.module';
 import { AuthModule } from './modules/auth/auth.module';
+import { ReferentielModule } from './modules/referentiel/referentiel.module';
 /**
  * Module racine (AppModule).
  *
@@ -23,6 +24,7 @@ import { AuthModule } from './modules/auth/auth.module';
     MailModule,
     HealthModule,
     AuthModule,
+    ReferentielModule,
   ],
 })
 export class AppModule {}

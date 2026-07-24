@@ -1,6 +1,7 @@
 import type { Metadata } from 'next';
 import './globals.css';
 import { AuthProvider } from '../contexts/AuthContext';
+import { ProfilGate } from '../components/ProfilGate';
 export const metadata: Metadata = {
   title: 'Cert_EET — Certification numérique vérifiable',
   description:
@@ -24,6 +25,7 @@ export default function RootLayout({
             <span className="brand-name">Cert_EET</span>
           </header>
           <main className="site-main">{children}</main>
+          <ProfilGate />
         </AuthProvider>
       </body>
     </html>

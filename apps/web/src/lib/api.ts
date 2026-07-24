@@ -242,3 +242,95 @@ export async function bootstrapSession(): Promise<LoginResponse | null> {
   }
   return (await response.json()) as LoginResponse;
 }
+
+/* ============================================================
+ * US-AUTH-15 — Profil apprenant (carte de complétion) + référentiel
+ * ============================================================ */
+export type NiveauEtudes =
+  | 'SANS_BAC'
+  | 'BAC'
+  | 'PREPA'
+  | 'BTS'
+  | 'LICENCE'
+  | 'MAITRISE'
+  | 'MASTERE'
+  | 'INGENIEUR'
+  | 'DOCTORAT'
+  | 'AUTRE';
+export interface ProfilResponse {
+  id: string;
+  email: string;
+  role: string;
+  profilComplet: boolean;
+  dateNaissance: string | null;
+  age: number | null;
+  niveauEtudes: NiveauEtudes | null;
+  domaineEtudesId: string | null;
+  etablissementId: string | null;
+  etablissementAutre: string | null;
+}
+export interface Domaine {
+  id: string;
+  code: string;
+  libelle: string;
+}
+export interface EtablissementVue {
+  id: string;
+  nom: string;
+  type: string;
+  gouvernorat: string | null;
+  universite: { id: string; nom: string; type: string } | null;
+}
+export interface CompleteProfileInput {
+  dateNaissance: string;
+  niveauEtudes: NiveauEtudes;
+  enEtudes: boolean;
+  domaineEtudesId?: string;
+  etablissementId?: string;
+  etablissementAutre?: string;
+}
+export class ProfilError extends Error {}
+/** GET /api/auth/me — profil courant (incl. profil_complet). */
+export async function getMe(): Promise<ProfilResponse> {
+  const response = await apiFetch('/api/auth/me');
+  if (!response.ok) {
+    throw new ProfilError('Impossible de charger le profil.');
+  }
+  return (await response.json()) as ProfilResponse;
+}
+/** GET /api/referentiel/domaines. */
+export async function getDomaines(): Promise<Domaine[]> {
+  const response = await apiFetch('/api/referentiel/domaines');
+  if (!response.ok) {
+    throw new ProfilError('Impossible de charger les domaines.');
+  }
+  return (await response.json()) as Domaine[];
+}
+/** GET /api/referentiel/etablissements. */
+export async function getEtablissements(): Promise<EtablissementVue[]> {
+  const response = await apiFetch('/api/referentiel/etablissements');
+  if (!response.ok) {
+    throw new ProfilError('Impossible de charger les établissements.');
+  }
+  return (await response.json()) as EtablissementVue[];
+}
+/** PATCH /api/auth/profile — complète le profil apprenant. */
+export async function completeProfile(
+  input: CompleteProfileInput,
+): Promise<ProfilResponse> {
+  const response = await apiFetch('/api/auth/profile', {
+    method: 'PATCH',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify(input),
+  });
+  const data = await response.json();
+  if (!response.ok) {
+    const message = Array.isArray(data.message)
+      ? data.message.join(' ')
+      : data.message;
+    throw new ProfilError(
+      message ?? 'Une erreur est survenue. Veuillez réessayer.',
+    );
+  }
+  return data as ProfilResponse;
+}

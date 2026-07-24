@@ -4,6 +4,7 @@ import {
   Get,
   HttpCode,
   HttpStatus,
+  Patch,
   Post,
   Req,
   Res,
@@ -14,10 +15,11 @@ import { AuthGuard } from '@nestjs/passport';
 import { ApiOperation, ApiResponse, ApiTags } from '@nestjs/swagger';
 import { ConfigService } from '@nestjs/config';
 import { Request, Response } from 'express';
-import { AuthService } from './auth.service';
+import { AuthService, ProfilResult } from './auth.service';
 import { LoginDto } from './dto/login.dto';
 import { RegisterDto } from './dto/register.dto';
 import { VerifyEmailDto } from './dto/verify-email.dto';
+import { CompleteProfileDto } from './dto/complete-profile.dto';
 import { JwtConfig, MailConfig } from '../../config/configuration';
 import { Public } from './decorators/public.decorator';
 import { AuthenticatedRequest, OauthProfile } from './auth.types';
@@ -208,19 +210,42 @@ export class AuthController {
    * guard d'authentification.
    */
   @Get('me')
-  @ApiOperation({ summary: 'Utilisateur authentifié courant (US-AUTH-11)' })
-  @ApiResponse({ status: 200, description: 'Utilisateur courant.' })
+  @ApiOperation({ summary: 'Utilisateur authentifié courant (US-AUTH-11/15)' })
+  @ApiResponse({
+    status: 200,
+    description: 'Profil courant (incl. profil_complet).',
+  })
   @ApiResponse({ status: 401, description: 'Non authentifié / jeton révoqué.' })
-  me(@Req() req: AuthenticatedRequest): {
-    id: string;
-    email: string;
-    role: string;
-  } {
+  async me(@Req() req: AuthenticatedRequest): Promise<ProfilResult> {
     const user = req.user;
     if (!user) {
       throw new UnauthorizedException('Non authentifié.');
     }
-    return { id: user.sub, email: user.email, role: user.role };
+    // US-AUTH-15 : on charge le profil complet (dont profil_complet) depuis la
+    // base, pas seulement les claims du JWT — le frontend décide d'afficher la
+    // carte de complétion à partir de profil_complet.
+    return this.authService.getMe(user.sub);
+  }
+  /**
+   * US-AUTH-15 — Compléter le profil apprenant (route PROTÉGÉE). Appelée par la
+   * carte bloquante à la première connexion. Renvoie le profil mis à jour.
+   */
+  @Patch('profile')
+  @ApiOperation({ summary: 'Compléter le profil apprenant (US-AUTH-15)' })
+  @ApiResponse({ status: 200, description: 'Profil complété.' })
+  @ApiResponse({ status: 400, description: 'Données invalides (âge, domaine…).' })
+  @ApiResponse({ status: 401, description: 'Non authentifié.' })
+  async completeProfile(
+    @Body() dto: CompleteProfileDto,
+    @Req() req: AuthenticatedRequest,
+  ): Promise<ProfilResult> {
+    const user = req.user;
+    if (!user) {
+      throw new UnauthorizedException('Non authentifié.');
+    }
+    return this.authService.completeProfile(user.sub, dto, {
+      adresseIp: req.ip ?? null,
+    });
   }
   /**
    * US-AUTH-14 — Logique commune aux callbacks OAuth (Google, GitHub). Passport
