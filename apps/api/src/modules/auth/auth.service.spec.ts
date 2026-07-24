@@ -18,6 +18,7 @@ import { RedisService } from '../../redis/redis.service';
 import { MailService } from '../../mail/mail.service';
 import { RegisterDto } from './dto/register.dto';
 import { CompteOauth } from '../../database/entities/compte-oauth.entity';
+import { NiveauEtudes } from '../../database/enums/niveau-etudes.enum';
 import { OauthProfile } from './auth.types';
 /**
  * Tests unitaires d'AuthService (US-AUTH-01/03/04 + US-CPT-05).
@@ -31,6 +32,9 @@ describe('AuthService', () => {
     findOne: jest.fn(),
     create: jest.fn(),
     save: jest.fn(),
+    // US-AUTH-15 : completeProfile vérifie l'existence domaine/établissement
+    // via userRepository.manager.findOne (pas de repo injecté en plus).
+    manager: { findOne: jest.fn() },
   };
   const mockRefreshTokenRepository = {
     create: jest.fn(),
@@ -572,6 +576,127 @@ describe('AuthService', () => {
         service.loginWithOauth(sansEmail, contexte),
       ).rejects.toThrow(UnauthorizedException);
       expect(mockUserRepository.create).not.toHaveBeenCalled();
+    });
+  });
+  describe('completeProfile — US-AUTH-15', () => {
+    const contexte = { adresseIp: '127.0.0.1' };
+    // Compte apprenant au profil vide (comme après inscription).
+    const apprenantIncomplet = (): User =>
+      ({
+        id: 'user-uuid-1',
+        email: 'appr@cert-eet.local',
+        role: Role.APPRENANT,
+        statut: StatutCompte.ACTIF,
+        profilComplet: false,
+        dateNaissance: null,
+        niveauEtudes: null,
+        domaineEtudesId: null,
+        etablissementId: null,
+        etablissementAutre: null,
+      }) as unknown as User;
+    it('401 si l utilisateur n existe pas', async () => {
+      mockUserRepository.findOne.mockResolvedValue(null);
+      await expect(
+        service.completeProfile(
+          'inconnu',
+          { dateNaissance: '2000-01-01', niveauEtudes: NiveauEtudes.LICENCE, enEtudes: false },
+          contexte,
+        ),
+      ).rejects.toThrow(UnauthorizedException);
+    });
+    it('400 si âge < 13 ans — rien enregistré', async () => {
+      mockUserRepository.findOne.mockResolvedValue(apprenantIncomplet());
+      await expect(
+        service.completeProfile(
+          'user-uuid-1',
+          { dateNaissance: '2020-01-01', niveauEtudes: NiveauEtudes.BAC, enEtudes: false },
+          contexte,
+        ),
+      ).rejects.toThrow(BadRequestException);
+      expect(mockUserRepository.save).not.toHaveBeenCalled();
+    });
+    it('en études : domaine valide, sans établissement -> enregistre + PROFIL_COMPLETE', async () => {
+      const user = apprenantIncomplet();
+      mockUserRepository.findOne.mockResolvedValue(user);
+      mockUserRepository.manager.findOne.mockResolvedValueOnce({ id: 'dom-1' }); // domaine trouvé
+      mockUserRepository.save.mockResolvedValue(user);
+      mockAuditLogRepository.create.mockReturnValue({});
+      mockAuditLogRepository.save.mockResolvedValue({});
+      const res = await service.completeProfile(
+        'user-uuid-1',
+        {
+          dateNaissance: '2003-05-19',
+          niveauEtudes: NiveauEtudes.LICENCE,
+          enEtudes: true,
+          domaineEtudesId: 'dom-1',
+        },
+        contexte,
+      );
+      expect(user.profilComplet).toBe(true);
+      expect(user.domaineEtudesId).toBe('dom-1');
+      expect(user.etablissementId).toBeNull();
+      expect(res.profilComplet).toBe(true);
+      expect(mockAuditLogRepository.create).toHaveBeenCalledWith(
+        expect.objectContaining({ action: 'PROFIL_COMPLETE', resultat: 'Succès' }),
+      );
+    });
+    it('en études : domaine inconnu -> 400', async () => {
+      mockUserRepository.findOne.mockResolvedValue(apprenantIncomplet());
+      mockUserRepository.manager.findOne.mockResolvedValueOnce(null); // domaine absent
+      await expect(
+        service.completeProfile(
+          'user-uuid-1',
+          {
+            dateNaissance: '2003-05-19',
+            niveauEtudes: NiveauEtudes.LICENCE,
+            enEtudes: true,
+            domaineEtudesId: 'dom-x',
+          },
+          contexte,
+        ),
+      ).rejects.toThrow(BadRequestException);
+      expect(mockUserRepository.save).not.toHaveBeenCalled();
+    });
+    it('plus en études : domaine + établissement remis à null', async () => {
+      const user = { ...apprenantIncomplet(), domaineEtudesId: 'x', etablissementId: 'y' } as User;
+      mockUserRepository.findOne.mockResolvedValue(user);
+      mockUserRepository.save.mockResolvedValue(user);
+      mockAuditLogRepository.create.mockReturnValue({});
+      mockAuditLogRepository.save.mockResolvedValue({});
+      await service.completeProfile(
+        'user-uuid-1',
+        { dateNaissance: '1999-01-01', niveauEtudes: NiveauEtudes.MASTERE, enEtudes: false },
+        contexte,
+      );
+      expect(user.domaineEtudesId).toBeNull();
+      expect(user.etablissementId).toBeNull();
+      expect(user.etablissementAutre).toBeNull();
+      expect(user.profilComplet).toBe(true);
+    });
+  });
+  describe('getMe — US-AUTH-15', () => {
+    it('renvoie le profil avec âge dérivé', async () => {
+      mockUserRepository.findOne.mockResolvedValue({
+        id: 'user-uuid-1',
+        email: 'appr@cert-eet.local',
+        role: Role.APPRENANT,
+        profilComplet: true,
+        dateNaissance: '2000-01-01',
+        niveauEtudes: NiveauEtudes.LICENCE,
+        domaineEtudesId: null,
+        etablissementId: null,
+        etablissementAutre: null,
+      } as unknown as User);
+      const res = await service.getMe('user-uuid-1');
+      expect(res.profilComplet).toBe(true);
+      expect(res.age).toBeGreaterThanOrEqual(24);
+      expect(res.role).toBe(Role.APPRENANT);
+    });
+    it('401 si l utilisateur n existe pas', async () => {
+      mockUserRepository.findOne.mockResolvedValue(null);
+      await expect(service.getMe('inconnu')).rejects.toThrow(
+        UnauthorizedException,
+      );
     });
   });
 });

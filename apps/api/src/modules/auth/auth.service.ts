@@ -19,6 +19,10 @@ import { StatutCompte } from '../../database/enums/statut-compte.enum';
 import { Role } from '../../database/enums/role.enum';
 import { LoginDto } from './dto/login.dto';
 import { RegisterDto } from './dto/register.dto';
+import { CompleteProfileDto } from './dto/complete-profile.dto';
+import { NiveauEtudes } from '../../database/enums/niveau-etudes.enum';
+import { DomaineEtudes } from '../../database/entities/domaine-etudes.entity';
+import { Etablissement } from '../../database/entities/etablissement.entity';
 import { OauthProfile } from './auth.types';
 import { JwtConfig } from '../../config/configuration';
 import { RedisService } from '../../redis/redis.service';
@@ -42,6 +46,19 @@ export interface LoginResult {
     email: string;
     role: User['role'];
   };
+}
+/** Vue profil renvoyée par getMe / completeProfile (US-AUTH-15). */
+export interface ProfilResult {
+  id: string;
+  email: string;
+  role: User['role'];
+  profilComplet: boolean;
+  dateNaissance: string | null;
+  age: number | null;
+  niveauEtudes: NiveauEtudes | null;
+  domaineEtudesId: string | null;
+  etablissementId: string | null;
+  etablissementAutre: string | null;
 }
 @Injectable()
 export class AuthService {
@@ -382,6 +399,116 @@ export class AuthService {
       String(nowSeconds),
       this.jwtConfig.accessTokenExpiresIn,
     );
+  }
+  /**
+   * US-AUTH-15 — Profil courant (incl. profil_complet). Alimente /auth/me : le
+   * frontend affiche la carte de complétion tant que profil_complet est faux.
+   */
+  async getMe(userId: string): Promise<ProfilResult> {
+    const user = await this.userRepository.findOne({ where: { id: userId } });
+    if (!user) {
+      throw new UnauthorizedException('Non authentifié.');
+    }
+    return this.mapProfil(user);
+  }
+  /**
+   * US-AUTH-15 — Complète le profil apprenant (première connexion).
+   *
+   *   - âge >= 13 (dérivé de date_naissance, jamais stocké) ;
+   *   - si en études : domaine requis (FK vérifiée) + établissement (FK, ou
+   *     texte libre `etablissementAutre`, ou aucun) ;
+   *   - si plus en études : domaine/établissement remis à null ;
+   *   - profil_complet passe à true ; audit PROFIL_COMPLETE.
+   *
+   * Les repos référentiels sont interrogés via userRepository.manager pour ne
+   * PAS alourdir le constructeur d'AuthService (et ne pas casser son spec DI).
+   */
+  async completeProfile(
+    userId: string,
+    dto: CompleteProfileDto,
+    context: { adresseIp: string | null },
+  ): Promise<ProfilResult> {
+    const user = await this.userRepository.findOne({ where: { id: userId } });
+    if (!user) {
+      throw new UnauthorizedException('Non authentifié.');
+    }
+    if (this.calculerAge(dto.dateNaissance) < 13) {
+      throw new BadRequestException("L'âge minimum requis est de 13 ans.");
+    }
+    if (dto.enEtudes) {
+      if (!dto.domaineEtudesId) {
+        throw new BadRequestException("Le domaine d'études est requis.");
+      }
+      const domaine = await this.userRepository.manager.findOne(DomaineEtudes, {
+        where: { id: dto.domaineEtudesId },
+      });
+      if (!domaine) {
+        throw new BadRequestException("Domaine d'études inconnu.");
+      }
+      user.domaineEtudesId = dto.domaineEtudesId;
+      if (dto.etablissementId) {
+        const etab = await this.userRepository.manager.findOne(Etablissement, {
+          where: { id: dto.etablissementId },
+        });
+        if (!etab) {
+          throw new BadRequestException('Établissement inconnu.');
+        }
+        user.etablissementId = dto.etablissementId;
+        user.etablissementAutre = null;
+      } else if (dto.etablissementAutre) {
+        user.etablissementId = null;
+        user.etablissementAutre = dto.etablissementAutre;
+      } else {
+        user.etablissementId = null;
+        user.etablissementAutre = null;
+      }
+    } else {
+      // Plus en études : aucun domaine ni établissement.
+      user.domaineEtudesId = null;
+      user.etablissementId = null;
+      user.etablissementAutre = null;
+    }
+    user.dateNaissance = dto.dateNaissance;
+    user.niveauEtudes = dto.niveauEtudes;
+    user.profilComplet = true;
+    await this.userRepository.save(user);
+    const audit = this.auditLogRepository.create({
+      userId: user.id,
+      action: 'PROFIL_COMPLETE',
+      adresseIp: context.adresseIp,
+      resultat: 'Succès',
+    });
+    await this.auditLogRepository.save(audit);
+    return this.mapProfil(user);
+  }
+  /** Projette un User vers la vue profil (âge dérivé, jamais stocké). */
+  private mapProfil(user: User): ProfilResult {
+    return {
+      id: user.id,
+      email: user.email,
+      role: user.role,
+      profilComplet: user.profilComplet,
+      dateNaissance: user.dateNaissance,
+      age: user.dateNaissance ? this.calculerAge(user.dateNaissance) : null,
+      niveauEtudes: user.niveauEtudes,
+      domaineEtudesId: user.domaineEtudesId,
+      etablissementId: user.etablissementId,
+      etablissementAutre: user.etablissementAutre,
+    };
+  }
+  /** Âge en années à partir d'une date ISO (AAAA-MM-JJ). */
+  private calculerAge(dateNaissance: string): number {
+    const naissance = new Date(dateNaissance);
+    const maintenant = new Date();
+    let age = maintenant.getFullYear() - naissance.getFullYear();
+    const mois = maintenant.getMonth() - naissance.getMonth();
+    if (
+      mois < 0 ||
+      (mois === 0 && maintenant.getDate() < naissance.getDate())
+    ) {
+      age -= 1;
+    }
+    return age;
   }
   /** Access token (15 min — ADR-08). jti unique (révocation ciblée). */
   private async signAccessToken(user: User): Promise<string> {

@@ -117,3 +117,23 @@ a:hover { color: var(--primary-dark); text-decoration: underline; }
 /* Variante GitHub : bouton sombre, marque Octocat en blanc (US-AUTH-14). */
 .btn-oauth-github { background: #24292f; border-color: #24292f; color: #fff; }
 .btn-oauth-github:hover { background: #1b1f24; border-color: #1b1f24; color: #fff; }
+/* --- Carte de complétion du profil apprenant (US-AUTH-15) --- */
+.profil-overlay {
+  position: fixed; inset: 0; z-index: 50;
+  background: rgba(16, 24, 40, 0.45);
+  display: grid; place-items: center;
+  padding: 20px; overflow: auto;
+}
+.profil-card {
+  width: 100%; max-width: 480px;
+  background: var(--surface); border: 1px solid var(--border);
+  border-radius: var(--radius); box-shadow: var(--shadow);
+  padding: 28px 26px; animation: rise .35s ease both;
+}
+/* Les <select> réutilisent le style .input ; on garde une flèche native. */
+select.input { appearance: auto; background: #fff; }
+.toggle-row {
+  display: flex; align-items: center; gap: 10px;
+  font-size: 0.9rem; color: #33414f; cursor: pointer;
+}
+.toggle-row input { width: 16px; height: 16px; accent-color: var(--primary); }
