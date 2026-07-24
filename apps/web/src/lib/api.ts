@@ -226,3 +226,19 @@ export async function verifyEmailRequest(
   }
   return data as { message: string };
 }
+
+/**
+ * US-AUTH-14 — Bootstrap de session après une connexion OAuth. Le callback
+ * backend a posé le cookie refresh (httpOnly) ; on échange ce cookie contre un
+ * access token en mémoire via /api/auth/refresh. Retourne la session ou null.
+ */
+export async function bootstrapSession(): Promise<LoginResponse | null> {
+  const response = await fetch('/api/auth/refresh', {
+    method: 'POST',
+    credentials: 'include',
+  });
+  if (!response.ok) {
+    return null;
+  }
+  return (await response.json()) as LoginResponse;
+}

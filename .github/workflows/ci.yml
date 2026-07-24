@@ -12,12 +12,9 @@ jobs:
   api:
     name: API (lint + tests + coverage)
     runs-on: ubuntu-latest
-    # Every "run:" step below executes inside apps/api.
     defaults:
       run:
         working-directory: apps/api
-    # Throwaway Postgres + Redis that GitHub starts just for this run.
-    # On the runner they are reachable at localhost.
     services:
       postgres:
         image: pgvector/pgvector:pg16
@@ -41,9 +38,6 @@ jobs:
           --health-interval 10s
           --health-timeout 5s
           --health-retries 5
-    # Settings the app reads when tests boot it.
-    # DB/Redis point at the service containers above.
-    # The two JWT paths point at throwaway keys generated in a step below.
     env:
       DB_HOST: localhost
       DB_PORT: '5432'
@@ -57,14 +51,17 @@ jobs:
       JWT_PRIVATE_KEY_PATH: /tmp/jwt_private.pem
       JWT_PUBLIC_KEY_PATH: /tmp/jwt_public.pem
       # --- Email / SMTP (US-CPT-05) ---
-      # L'e2e d'inscription REMPLACE MailService par un mock (aucun envoi reel).
-      # Mais le boot d'AppModule valide quand meme les variables SMTP (fail-fast) :
-      # on fournit un SMTP_HOST factice pour satisfaire la validation, sans
-      # qu'aucun serveur mail ne soit necessaire dans la CI.
       SMTP_HOST: localhost
       SMTP_PORT: '1025'
       MAIL_FROM: "Cert_EET <ci@cert-eet.test>"
       APP_BASE_URL: "http://localhost:3001"
+      # --- OAuth Google (US-AUTH-14) ---
+      # GoogleStrategy s'instancie au boot d'AppModule, et la validation Joi
+      # exige CLIENT_ID/SECRET (fail-fast). L'e2e ne declenche jamais le vrai
+      # flux OAuth, donc des valeurs factices suffisent pour laisser l'app demarrer.
+      GOOGLE_CLIENT_ID: ci-dummy-google-client-id
+      GOOGLE_CLIENT_SECRET: ci-dummy-google-client-secret
+      GOOGLE_CALLBACK_URL: "http://localhost:3001/api/auth/oauth/google/callback"
     steps:
       - name: Checkout the code
         uses: actions/checkout@v4
@@ -76,9 +73,6 @@ jobs:
           cache-dependency-path: apps/api/package-lock.json
       - name: Install dependencies (clean, from lockfile)
         run: npm ci
-      # Real, throwaway RS256 keys for this run only. Same commands as INF07.
-      # They live at /tmp on the CI machine and are gone when the run ends.
-      # No secret ever enters the repo.
       - name: Generate throwaway RS256 keys for tests
         run: |
           openssl genrsa -out "$JWT_PRIVATE_KEY_PATH" 2048
@@ -87,12 +81,6 @@ jobs:
         run: npm run lint
       - name: Unit tests + coverage
         run: npm run test:cov -- --passWithNoTests
-      # Le service Postgres ci-dessus démarre COMPLÈTEMENT vide (aucune
-      # table). En local, ça ne se voit jamais car le volume Docker est
-      # persistant depuis INF04 — mais CI recrée une base neuve à chaque
-      # run. Sans cette étape, tout test e2e qui touche la base échoue
-      # avec "relation \"users\" does not exist" (repéré en AUTH-01,
-      # premier e2e à réellement lire/écrire des lignes).
       - name: Run database migrations
         run: npm run migration:run
       - name: Integration tests

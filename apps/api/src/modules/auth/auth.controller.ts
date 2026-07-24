@@ -8,7 +8,9 @@ import {
   Req,
   Res,
   UnauthorizedException,
+  UseGuards,
 } from '@nestjs/common';
+import { AuthGuard } from '@nestjs/passport';
 import { ApiOperation, ApiResponse, ApiTags } from '@nestjs/swagger';
 import { ConfigService } from '@nestjs/config';
 import { Request, Response } from 'express';
@@ -16,9 +18,9 @@ import { AuthService } from './auth.service';
 import { LoginDto } from './dto/login.dto';
 import { RegisterDto } from './dto/register.dto';
 import { VerifyEmailDto } from './dto/verify-email.dto';
-import { JwtConfig } from '../../config/configuration';
+import { JwtConfig, MailConfig } from '../../config/configuration';
 import { Public } from './decorators/public.decorator';
-import { AuthenticatedRequest } from './auth.types';
+import { AuthenticatedRequest, OauthProfile } from './auth.types';
 interface LoginResponseBody {
   accessToken: string;
   user: {
@@ -83,6 +85,49 @@ export class AuthController {
       message:
         'Votre adresse email a été vérifiée. Vous pouvez maintenant vous connecter.',
     };
+  }
+  /**
+   * US-AUTH-14 — Démarre la connexion Google. @Public + guard Passport 'google' :
+   * Passport construit l'URL d'autorisation et redirige vers Google. Le corps de
+   * la méthode n'est jamais exécuté (la redirection est faite par le guard).
+   */
+  @Public()
+  @Get('oauth/google')
+  @UseGuards(AuthGuard('google'))
+  @ApiOperation({ summary: 'Démarrer la connexion Google (US-AUTH-14)' })
+  googleAuth(): void {
+    // Redirection vers Google gérée par le guard Passport.
+  }
+  /**
+   * US-AUTH-14 — Callback Google. Passport a validé le retour et posé le profil
+   * normalisé sur req.user. On ouvre une session (cookie refresh httpOnly via
+   * loginWithOauth), puis on redirige vers le frontend, qui récupérera l'access
+   * token en mémoire via /auth/refresh. En cas d'échec métier -> /login.
+   */
+  @Public()
+  @Get('oauth/google/callback')
+  @UseGuards(AuthGuard('google'))
+  @ApiOperation({ summary: 'Callback Google : ouvre la session (US-AUTH-14)' })
+  async googleCallback(
+    @Req() req: Request & { user?: OauthProfile },
+    @Res() res: Response,
+  ): Promise<void> {
+    const { appBaseUrl } = this.configService.getOrThrow<MailConfig>('mail');
+    const oauth = req.user;
+    if (!oauth) {
+      res.redirect(`${appBaseUrl}/login?erreur=oauth`);
+      return;
+    }
+    try {
+      const result = await this.authService.loginWithOauth(oauth, {
+        adresseIp: req.ip ?? null,
+        userAgent: req.headers['user-agent'] ?? null,
+      });
+      this.setRefreshTokenCookie(res, result.refreshToken);
+      res.redirect(`${appBaseUrl}/oauth/callback`);
+    } catch {
+      res.redirect(`${appBaseUrl}/login?erreur=oauth`);
+    }
   }
   @Public()
   @Post('login')

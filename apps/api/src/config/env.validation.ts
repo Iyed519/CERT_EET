@@ -40,6 +40,14 @@ export const envValidationSchema = Joi.object({
   MAIL_FROM: Joi.string().default('Cert_EET <no-reply@cert-eet.local>'),
   // Base du frontend : sert à construire le lien de vérification (page Next.js).
   APP_BASE_URL: Joi.string().uri().default('http://localhost:3001'),
+// --- OAuth Google (US-AUTH-14 : connexion sociale) ---
+  // Identifiants de la console Google. Requis (fail-fast) : la stratégie Google
+  // est instanciée au démarrage. En CI, on fournit des valeurs factices.
+  GOOGLE_CLIENT_ID: Joi.string().required(),
+  GOOGLE_CLIENT_SECRET: Joi.string().required(),
+  GOOGLE_CALLBACK_URL: Joi.string()
+    .uri()
+    .default('https://localhost/api/auth/oauth/google/callback'),
 })
   // Refuse les clés inconnues seulement en avertissement : on n'échoue pas
   // sur des variables système, mais on valide strictement celles qu'on connaît.

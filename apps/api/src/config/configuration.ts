@@ -49,11 +49,24 @@ export interface MailConfig {
   from: string;
   appBaseUrl: string;
 }
+/**
+ * Configuration OAuth Google (US-AUTH-14).
+ * clientId / clientSecret viennent de la console Google (secrets, jamais
+ * committés) ; callbackUrl = URL de redirection enregistrée chez Google, sur
+ * l'origine Nginx (https://localhost) pour que le cookie de session soit
+ * utilisable par le frontend après le retour de Google.
+ */
+export interface OauthGoogleConfig {
+  clientId: string;
+  clientSecret: string;
+  callbackUrl: string;
+}
 export default (): {
   app: AppConfig;
   jwt: JwtConfig;
   redis: RedisConfig;
   mail: MailConfig;
+  oauthGoogle: OauthGoogleConfig;
 } => ({
   app: {
     nodeEnv: (process.env.NODE_ENV as AppConfig['nodeEnv']) ?? 'development',
@@ -78,5 +91,12 @@ export default (): {
     port: parseInt(process.env.SMTP_PORT ?? '1025', 10),
     from: process.env.MAIL_FROM ?? 'Cert_EET <no-reply@cert-eet.local>',
     appBaseUrl: process.env.APP_BASE_URL ?? 'http://localhost:3001',
+  },
+  oauthGoogle: {
+    clientId: process.env.GOOGLE_CLIENT_ID as string,
+    clientSecret: process.env.GOOGLE_CLIENT_SECRET as string,
+    callbackUrl:
+      process.env.GOOGLE_CALLBACK_URL ??
+      'https://localhost/api/auth/oauth/google/callback',
   },
 });

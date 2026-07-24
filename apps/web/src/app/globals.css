@@ -97,3 +97,18 @@ a:hover { color: var(--primary-dark); text-decoration: underline; }
   animation: spin .8s linear infinite; margin: 4px auto 16px;
 }
 @keyframes spin { to { transform: rotate(360deg); } }
+/* --- Connexion sociale (US-AUTH-14) --- */
+.oauth-sep {
+  display: flex; align-items: center; gap: 12px;
+  margin: 18px 0; color: var(--muted); font-size: 0.78rem; text-transform: uppercase; letter-spacing: 0.5px;
+}
+.oauth-sep::before, .oauth-sep::after { content: ''; flex: 1; height: 1px; background: var(--border); }
+.btn-oauth {
+  display: flex; align-items: center; justify-content: center; gap: 10px;
+  width: 100%; padding: 12px 16px;
+  border: 1.5px solid var(--border); border-radius: var(--radius-sm);
+  background: #fff; color: #33414f; font-size: 0.95rem; font-weight: 600;
+  cursor: pointer; transition: background .15s, border-color .15s;
+}
+.btn-oauth:hover { background: #f7f8fa; border-color: #d8d1c5; color: #33414f; text-decoration: none; }
+.btn-oauth svg { width: 18px; height: 18px; }

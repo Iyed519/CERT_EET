@@ -13,9 +13,14 @@ services:
       SMTP_PORT: "1025"
       MAIL_FROM: "Cert_EET <no-reply@cert-eet.local>"
       # Base publique du site = origine Nginx (https://localhost), là où le
-      # frontend est servi ET où /api est proxifié. Le lien de vérification de
-      # l'email doit pointer ici (pas sur :3001, où /api n'existe pas).
+      # frontend est servi ET où /api est proxifié.
       APP_BASE_URL: "https://localhost"
+      # --- OAuth Google (US-AUTH-14) ---
+      # Les identifiants viennent du .env racine (jamais committés).
+      GOOGLE_CLIENT_ID: ${GOOGLE_CLIENT_ID}
+      GOOGLE_CLIENT_SECRET: ${GOOGLE_CLIENT_SECRET}
+      # Callback = origine Nginx (là où /api est proxifié et le cookie utilisable).
+      GOOGLE_CALLBACK_URL: "https://localhost/api/auth/oauth/google/callback"
     command: ["npm", "run", "start:dev"]
     volumes:
       - ./apps/api:/app          # live source for hot reload

@@ -16,18 +16,30 @@ export class User {
   @Column({ type: 'varchar', length: 255 })
   email: string;
   // Nom + prénom saisis à l'auto-inscription (US-CPT-05). Nullable en base car
-  // les comptes créés avant cette story (admin bootstrap) n'en ont pas ; tout
-  // compte auto-inscrit les fournit toujours (imposé par le RegisterDto).
+  // les comptes créés avant cette story (admin bootstrap) n'en ont pas.
   @Column({ type: 'varchar', length: 100, nullable: true })
   nom: string | null;
   @Column({ type: 'varchar', length: 100, nullable: true })
   prenom: string | null;
-  // Jamais le mot de passe en clair — uniquement le haché bcrypt (cost 12).
-  @Column({ name: 'mot_de_passe_hash', type: 'varchar', length: 255 })
-  motDePasseHash: string;
+  // Haché bcrypt — NULLABLE depuis US-AUTH-14 : un compte créé via un
+  // fournisseur OAuth (Google...) n'a pas de mot de passe local. La sécurité
+  // tient : AuthService.login compare toujours contre un hash factice quand
+  // celui-ci est null, donc un compte sans mot de passe ne peut JAMAIS être
+  // authentifié par mot de passe.
+  @Column({
+    name: 'mot_de_passe_hash',
+    type: 'varchar',
+    length: 255,
+    nullable: true,
+  })
+  motDePasseHash: string | null;
   @Column({ type: 'enum', enum: Role })
   role: Role;
-  @Column({ type: 'enum', enum: StatutCompte, default: StatutCompte.EN_ATTENTE_ACTIVATION })
+  @Column({
+    type: 'enum',
+    enum: StatutCompte,
+    default: StatutCompte.EN_ATTENTE_ACTIVATION,
+  })
   statut: StatutCompte;
   @Column({ name: 'mfa_active', type: 'boolean', default: false })
   mfaActive: boolean;
