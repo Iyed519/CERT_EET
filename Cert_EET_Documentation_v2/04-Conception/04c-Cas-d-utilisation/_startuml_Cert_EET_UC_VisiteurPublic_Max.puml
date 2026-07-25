@@ -1,0 +1,197 @@
+@startuml Cert_EET_UC_VisiteurPublic_Maximal
+' =====================================================================
+'  Cert_EET — VISITEUR PUBLIC — Vue MAXIMALE
+'  Particularité : SEUL acteur NON authentifié de la plateforme
+'  Layout : 3 colonnes horizontales (paysage compact)
+'  Auteur : Iyed Omri — PFE ESPRIT 2026
+' =====================================================================
+
+!theme plain
+
+' --- Layout horizontal pour image compacte ---
+left to right direction
+skinparam linetype polyline
+skinparam nodesep 30
+skinparam ranksep 60
+
+skinparam backgroundColor #FFFFFF
+skinparam shadowing false
+skinparam DefaultFontName "Segoe UI"
+skinparam DefaultFontSize 10
+skinparam ArrowThickness 1.0
+skinparam ArrowColor #145A32
+skinparam packageStyle rectangle
+
+skinparam actor {
+  BackgroundColor #ECF0F1
+  BorderColor #145A32
+  BorderThickness 1.5
+  FontStyle bold
+}
+
+skinparam usecase {
+  BackgroundColor #FFFFFF
+  BorderColor #5D6D7E
+  FontSize 10
+}
+
+skinparam usecase<<main>> {
+  BackgroundColor #D5F5E3
+  BorderColor #145A32
+  BorderThickness 2.5
+  FontStyle bold
+  FontSize 12
+}
+
+skinparam usecase<<resultat>> {
+  BackgroundColor #FFFFFF
+  BorderColor #5D6D7E
+  BorderThickness 1.2
+  FontSize 9
+}
+
+skinparam usecase<<critique>> {
+  BackgroundColor #FADBD8
+  BorderColor #922B21
+  BorderThickness 1.5
+  FontSize 9
+}
+
+skinparam package {
+  BackgroundColor #EAFAF1
+  BorderColor #145A32
+  BorderThickness 1.5
+  FontStyle bold
+  FontSize 11
+  FontColor #145A32
+}
+
+skinparam note {
+  BackgroundColor #FEF9E7
+  BorderColor #B7950B
+  FontSize 9
+}
+
+title <size:14><b>Cert_EET — Cas d'Utilisation du Visiteur Public (Vue Maximale)</b></size>\n<size:10>Seul acteur **NON authentifié** de la plateforme · Zone publique uniquement</size>
+
+' =====================================================================
+'  ACTEUR PRINCIPAL — anonyme, non authentifié
+' =====================================================================
+actor "Visiteur Public\n(anonyme)" as Visiteur
+
+' =====================================================================
+'  ZONE PUBLIQUE — 3 packages alignés horizontalement
+' =====================================================================
+
+' --- UC1 : Scanner le QR code ---
+package "UC1 — Accès via QR code" as P1 {
+  usecase "**UC1**\nScanner le QR code\nd'un certificat" as UC1 <<main>>
+  usecase "Ouvrir l'app\nappareil photo" as UC1a
+  usecase "Décoder le\nQR code" as UC1b
+  usecase "Ouvrir l'URL\nde vérification" as UC1c
+  usecase "Saisir l'URL\nmanuellement" as UC1d
+
+  UC1 ..> UC1a : <<include>>
+  UC1 ..> UC1b : <<include>>
+  UC1 ..> UC1c : <<include>>
+  UC1d ..> UC1 : <<extend>>
+}
+
+' --- UC2 : Vérifier l'authenticité ---
+package "UC2 — Vérification (3 résultats possibles)" as P2 {
+  usecase "**UC2**\nVérifier\nl'authenticité\nd'un certificat" as UC2 <<main>>
+  usecase "Interroger la\nbase de données" as UC2a
+  usecase "Comparer le\nhash SHA-256" as UC2b
+
+  usecase "Résultat : ACTIF\net VALIDE\n(badge vert)" as UC2_ok <<resultat>>
+  usecase "Résultat : RÉVOQUÉ\n(badge rouge)" as UC2_revoked <<resultat>>
+  usecase "Résultat : INTROUVABLE\n(badge orange)" as UC2_404 <<resultat>>
+
+  usecase "Vérification\nCAPTCHA" as UC2_captcha <<critique>>
+
+  UC2 ..> UC2a : <<include>>
+  UC2 ..> UC2b : <<include>>
+  UC2_ok      ..> UC2 : <<extend>>
+  UC2_revoked ..> UC2 : <<extend>>
+  UC2_404     ..> UC2 : <<extend>>
+  UC2_captcha ..> UC2 : <<extend>>
+}
+
+' --- UC3 : Consulter métadonnées publiques ---
+package "UC3 — Consultation détaillée" as P3 {
+  usecase "**UC3**\nConsulter les\nmétadonnées\npubliques" as UC3 <<main>>
+  usecase "Voir la durée\nde formation" as UC3a
+  usecase "Voir les compétences\nvalidées" as UC3b
+  usecase "Voir la date\nd'expiration" as UC3c
+  usecase "Consulter la page\ninstitutionnelle\nde la formation" as UC3d
+  usecase "Télécharger un\nPDF certifié de\nla vérification" as UC3e
+
+  UC3 ..> UC3a : <<include>>
+  UC3 ..> UC3b : <<include>>
+  UC3c ..> UC3 : <<extend>>
+  UC3d ..> UC3 : <<extend>>
+  UC3e ..> UC3 : <<extend>>
+}
+
+' =====================================================================
+'  ASSOCIATIONS — Visiteur → UC principaux
+' =====================================================================
+Visiteur --> UC1
+Visiteur --> UC2
+Visiteur --> UC3
+
+' =====================================================================
+'  ENCHAÎNEMENT FONCTIONNEL — UC1 → UC2 → UC3
+'  (parcours utilisateur typique, modélisé par dépendances)
+' =====================================================================
+UC1 ..> UC2 : <<précède>>
+UC2 ..> UC3 : <<précède>>\n(si actif)
+
+' =====================================================================
+'  DISPOSITION FORCÉE — 3 colonnes alignées
+' =====================================================================
+P1 -[hidden]right- P2
+P2 -[hidden]right- P3
+
+' =====================================================================
+'  NOTES MÉTIER — règles critiques (3 notes compactes)
+' =====================================================================
+note bottom of UC1
+  **Aucune donnée personnelle**
+  dans le QR code — seulement
+  un UUID + URL HTTPS.
+  Fonctionne avec tout
+  lecteur QR du marché.
+end note
+
+note bottom of UC2
+  **Sécurité publique :**
+  • HTTPS uniquement (TLS)
+  • Rate limiting par IP
+  • CAPTCHA si abus détecté
+  • Toute consultation
+    journalisée (audit Admin)
+end note
+
+note bottom of UC3
+  **Principe : "vérification,
+  pas exposition"** (RGPD).
+  Aucun score, aucune note,
+  aucun commentaire formateur,
+  aucun email apprenant exposé.
+end note
+
+' =====================================================================
+'  LÉGENDE
+' =====================================================================
+legend bottom
+  | <b>Symbole</b> | <b>Signification</b> |
+  | <back:#D5F5E3>  **UCx**  </back> | Cas d'utilisation principal |
+  | <back:#FFFFFF>  sous-cas / résultat  </back> | Étape, variante ou résultat de vérification |
+  | <back:#FADBD8>  critique  </back> | Mécanisme de protection anti-abus |
+  | <b><<include>></b> | Sous-cas obligatoire |
+  | <b><<extend>></b> | Variante optionnelle ou résultat conditionnel |
+  | <b><<précède>></b> | Enchaînement fonctionnel typique |
+endlegend
+
+@enduml

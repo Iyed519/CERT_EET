@@ -1,0 +1,350 @@
+@startuml Cert_EET_UC_Administrateur_Maximal
+' =====================================================================
+'  Cert_EET — ADMINISTRATEUR — Vue MAXIMALE fusionnée
+'  Stratégie : grille 2×5, chaque UC est une "île" autonome
+'  Auteur : Iyed Omri — PFE ESPRIT 2026
+' =====================================================================
+
+!theme plain
+skinparam backgroundColor #FFFFFF
+skinparam shadowing false
+skinparam DefaultFontName "Segoe UI"
+skinparam DefaultFontSize 10
+skinparam ArrowThickness 1.0
+skinparam ArrowColor #4A235A
+skinparam packageStyle rectangle
+skinparam linetype polyline
+skinparam nodesep 30
+skinparam ranksep 55
+
+skinparam actor {
+  BackgroundColor #ECF0F1
+  BorderColor #4A235A
+  BorderThickness 1.5
+  FontStyle bold
+}
+
+skinparam usecase {
+  BackgroundColor #FFFFFF
+  BorderColor #5D6D7E
+  FontSize 10
+}
+
+skinparam usecase<<main>> {
+  BackgroundColor #E8DAEF
+  BorderColor #4A235A
+  BorderThickness 2.5
+  FontStyle bold
+  FontSize 12
+}
+
+skinparam usecase<<v2>> {
+  BackgroundColor #EAEDED
+  BorderColor #7B7D7D
+  FontSize 9
+  FontStyle italic
+}
+
+skinparam usecase<<critique>> {
+  BackgroundColor #FADBD8
+  BorderColor #922B21
+  BorderThickness 1.5
+}
+
+skinparam package {
+  BackgroundColor #F8F4FB
+  BorderColor #4A235A
+  BorderThickness 1.5
+  FontStyle bold
+  FontSize 11
+  FontColor #4A235A
+}
+
+skinparam note {
+  BackgroundColor #FEF9E7
+  BorderColor #B7950B
+  FontSize 9
+}
+
+title <size:15><b>Cert_EET — Cas d'Utilisation de l'Administrateur (Vue Maximale)</b></size>
+
+top to bottom direction
+
+' =====================================================================
+'  ACTEUR PRINCIPAL — en haut à gauche
+' =====================================================================
+actor "Administrateur" as Admin
+
+' =====================================================================
+'  LIGNE 1 : UC1 | UC2
+' =====================================================================
+package "UC1 — Gérer les comptes utilisateurs" as P_UC1 {
+  usecase "**UC1**\nGérer les\ncomptes" as UC1 <<main>>
+  usecase "Visualiser\nla liste" as UC1_a
+  usecase "Créer un\ncompte" as UC1_b
+  usecase "Éditer un\ncompte" as UC1_c
+  usecase "Envoyer email\nd'activation" as UC1_d
+  usecase "Import CSV\nen masse" as UC1_e
+  usecase "Désactiver /\nRéactiver" as UC1_f
+  usecase "Supprimer" as UC1_g <<critique>>
+  usecase "Anonymiser" as UC1_h
+
+  UC1 ..> UC1_a : <<include>>
+  UC1 ..> UC1_b : <<include>>
+  UC1 ..> UC1_c : <<include>>
+  UC1 ..> UC1_d : <<include>>
+  UC1_e .> UC1 : <<extend>>
+  UC1_f .> UC1 : <<extend>>
+  UC1_g .> UC1 : <<extend>>
+  UC1_h .> UC1 : <<extend>>
+}
+
+package "UC2 — Attribuer les rôles (RBAC)" as P_UC2 {
+  usecase "**UC2**\nAttribuer\nles rôles" as UC2 <<main>>
+  usecase "Voir rôle et\npermissions" as UC2_a
+  usecase "Sélectionner\nun nouveau rôle" as UC2_b
+  usecase "Confirmer le\nchangement" as UC2_c
+  usecase "Invalider la\nsession active" as UC2_d
+  usecase "Auto-\nrétrogradation" as UC2_e <<critique>>
+  usecase "Rôles\npersonnalisés" as UC2_f <<v2>>
+
+  UC2 ..> UC2_a : <<include>>
+  UC2 ..> UC2_b : <<include>>
+  UC2 ..> UC2_c : <<include>>
+  UC2 ..> UC2_d : <<include>>
+  UC2_e .> UC2 : <<extend>>
+  UC2_f .> UC2 : <<extend>>
+}
+
+' =====================================================================
+'  LIGNE 2 : UC3 | UC4
+' =====================================================================
+package "UC3 — Gérer les formations" as P_UC3 {
+  usecase "**UC3**\nGérer les\nformations" as UC3 <<main>>
+  usecase "Visualiser le\ncatalogue" as UC3_a
+  usecase "Créer une\nformation" as UC3_b
+  usecase "Saisir métadonnées\net période" as UC3_c
+  usecase "Définir critères\nde certification" as UC3_d
+  usecase "Choisir modèle\nde certificat" as UC3_e
+  usecase "Modifier une\nformation" as UC3_f
+  usecase "Clôturer" as UC3_g
+  usecase "Archiver" as UC3_h
+
+  UC3 ..> UC3_a : <<include>>
+  UC3 ..> UC3_b : <<include>>
+  UC3 ..> UC3_c : <<include>>
+  UC3 ..> UC3_d : <<include>>
+  UC3 ..> UC3_e : <<include>>
+  UC3_f .> UC3 : <<extend>>
+  UC3_g .> UC3 : <<extend>>
+  UC3_h .> UC3 : <<extend>>
+}
+
+package "UC4 — Affecter formateurs et apprenants" as P_UC4 {
+  usecase "**UC4**\nAffecter\nparticipants" as UC4 <<main>>
+  usecase "Voir\naffectations" as UC4_a
+  usecase "Affecter un\nformateur" as UC4_b
+  usecase "Inscrire un\napprenant" as UC4_c
+  usecase "Notifier les\nparticipants" as UC4_d
+  usecase "Import CSV\nmassif" as UC4_e
+  usecase "Lien d'inscription\npublic" as UC4_f
+  usecase "Retirer un\nparticipant" as UC4_g
+
+  UC4 ..> UC4_a : <<include>>
+  UC4 ..> UC4_b : <<include>>
+  UC4 ..> UC4_c : <<include>>
+  UC4 ..> UC4_d : <<include>>
+  UC4_e .> UC4 : <<extend>>
+  UC4_f .> UC4 : <<extend>>
+  UC4_g .> UC4 : <<extend>>
+}
+
+' =====================================================================
+'  LIGNE 3 : UC5 | UC6
+' =====================================================================
+package "UC5 — Superviser les certificats émis" as P_UC5 {
+  usecase "**UC5**\nSuperviser les\ncertificats" as UC5 <<main>>
+  usecase "Liste exhaustive\n(UUID, hash)" as UC5_a
+  usecase "Filtrer\n(période, statut)" as UC5_b
+  usecase "Consulter\nle détail" as UC5_c
+  usecase "Vue analytique\n(taux vérif.)" as UC5_d
+  usecase "Exporter\n(CSV / PDF)" as UC5_e
+
+  UC5 ..> UC5_a : <<include>>
+  UC5 ..> UC5_b : <<include>>
+  UC5 ..> UC5_c : <<include>>
+  UC5_d .> UC5 : <<extend>>
+  UC5_e .> UC5 : <<extend>>
+}
+
+package "UC6 — Révoquer un certificat (irréversible)" as P_UC6 {
+  usecase "**UC6**\nRévoquer un\ncertificat" as UC6 <<main>>
+  usecase "Saisir le motif\n(obligatoire)" as UC6_a
+  usecase "Joindre les\npreuves" as UC6_b
+  usecase "Double confirmation\n(mot de passe)" as UC6_c <<critique>>
+  usecase "MAJ page publique\nde vérification" as UC6_d
+
+  UC6 ..> UC6_a : <<include>>
+  UC6 ..> UC6_c : <<include>>
+  UC6 ..> UC6_d : <<include>>
+  UC6_b .> UC6 : <<extend>>
+}
+
+' =====================================================================
+'  LIGNE 4 : UC7 | UC8
+' =====================================================================
+package "UC7 — Tableau de bord global" as P_UC7 {
+  usecase "**UC7**\nTableau de bord\nglobal" as UC7 <<main>>
+  usecase "KPI globaux" as UC7_a
+  usecase "Graphiques\nde tendance" as UC7_b
+  usecase "Alertes\nsystème" as UC7_c
+  usecase "Activité\nrécente" as UC7_d
+  usecase "Filtrer par\npériode" as UC7_e
+  usecase "Drill-down\nsur widget" as UC7_f
+
+  UC7 ..> UC7_a : <<include>>
+  UC7 ..> UC7_b : <<include>>
+  UC7 ..> UC7_c : <<include>>
+  UC7 ..> UC7_d : <<include>>
+  UC7_e .> UC7 : <<extend>>
+  UC7_f .> UC7 : <<extend>>
+}
+
+package "UC8 — Exporter les rapports institutionnels" as P_UC8 {
+  usecase "**UC8**\nExporter rapports\ninstitutionnels" as UC8 <<main>>
+  usecase "Choisir le type\nde rapport" as UC8_a
+  usecase "Définir les\nparamètres" as UC8_b
+  usecase "Choisir le format\n(PDF / CSV)" as UC8_c
+  usecase "Télécharger le\nrapport généré" as UC8_d
+
+  UC8 ..> UC8_a : <<include>>
+  UC8 ..> UC8_b : <<include>>
+  UC8 ..> UC8_c : <<include>>
+  UC8 ..> UC8_d : <<include>>
+}
+
+' =====================================================================
+'  LIGNE 5 : UC9 | UC10
+' =====================================================================
+package "UC9 — Configurer la plateforme" as P_UC9 {
+  usecase "**UC9**\nConfigurer la\nplateforme" as UC9 <<main>>
+  usecase "Identité\ninstitutionnelle" as UC9_a
+  usecase "Politiques de\nsécurité (MFA/JWT)" as UC9_b
+  usecase "Paramètres\npédagogiques" as UC9_c
+  usecase "Intégrations\n(LLM, SMTP)" as UC9_d
+  usecase "Maintenance\n(flags, backups)" as UC9_e
+  usecase "Intégrations\nexternes" as UC9_f <<v2>>
+
+  UC9_a .> UC9 : <<extend>>
+  UC9_b .> UC9 : <<extend>>
+  UC9_c .> UC9 : <<extend>>
+  UC9_d .> UC9 : <<extend>>
+  UC9_e .> UC9 : <<extend>>
+  UC9_f .> UC9 : <<extend>>
+}
+
+package "UC10 — Journaux d'audit (immuables)" as P_UC10 {
+  usecase "**UC10**\nJournaux\nd'audit" as UC10 <<main>>
+  usecase "Visualiser le\njournal filtré" as UC10_a
+  usecase "Filtrer\n(période, type)" as UC10_b
+  usecase "Méta-audit\n(consultation\ntracée)" as UC10_c
+  usecase "Exporter\n(PDF / CSV)" as UC10_d
+
+  UC10 ..> UC10_a : <<include>>
+  UC10 ..> UC10_b : <<include>>
+  UC10 ..> UC10_c : <<include>>
+  UC10_d .> UC10 : <<extend>>
+}
+
+' =====================================================================
+'  ACTEURS SECONDAIRES — chaînés verticalement, hors flux principal
+' =====================================================================
+actor "Service Email\n(SMTP)" as Email
+actor "Service\nNotification" as Notif
+actor "Utilisateur\naffecté" as User
+
+' =====================================================================
+'  ASSOCIATIONS — Acteur principal → UC principaux UNIQUEMENT
+'  (10 flèches courtes, une par UC)
+' =====================================================================
+Admin --> UC1
+Admin --> UC2
+Admin --> UC3
+Admin --> UC4
+Admin --> UC5
+Admin --> UC6
+Admin --> UC7
+Admin --> UC8
+Admin --> UC9
+Admin --> UC10
+
+' =====================================================================
+'  DISPOSITION FORCÉE — grille 2 colonnes × 5 lignes
+' =====================================================================
+P_UC1  -[hidden]right- P_UC2
+P_UC3  -[hidden]right- P_UC4
+P_UC5  -[hidden]right- P_UC6
+P_UC7  -[hidden]right- P_UC8
+P_UC9  -[hidden]right- P_UC10
+
+P_UC1 -[hidden]down- P_UC3
+P_UC3 -[hidden]down- P_UC5
+P_UC5 -[hidden]down- P_UC7
+P_UC7 -[hidden]down- P_UC9
+
+' Acteurs secondaires en colonne à droite
+Email -[hidden]down- Notif
+Notif -[hidden]down- User
+
+' =====================================================================
+'  INTERACTIONS INTER-UC AVEC ACTEURS SECONDAIRES (4 seulement)
+' =====================================================================
+UC1_d ..> Email : <<envoie>>
+UC4_d ..> Email : <<envoie>>
+UC2   ..> Notif : <<déclenche>>
+UC6   ..> Notif : <<déclenche>>
+Email --> User
+Notif --> User
+
+' =====================================================================
+'  NOTES MÉTIER — placées à gauche, hors flux
+' =====================================================================
+note left of UC2
+  **Verrouillages :**
+  • 1 admin actif requis
+  • Auto-rétrogradation =
+    double validation
+  • Session invalidée
+end note
+
+note left of UC6
+  **Action IRRÉVERSIBLE :**
+  Le certificat n'est PAS supprimé.
+  Statut → "Révoqué".
+  Trace cryptographique conservée.
+  Effet public immédiat.
+end note
+
+note left of UC10
+  **Immuabilité :**
+  • Logs non supprimables
+  • Toute consultation tracée
+    (méta-audit)
+end note
+
+' =====================================================================
+'  LÉGENDE
+' =====================================================================
+legend bottom
+  | <b>Symbole</b> | <b>Signification</b> |
+  | <back:#E8DAEF>  **UCx**  </back> | Cas d'utilisation **principal** |
+  | <back:#FFFFFF>  sous-cas  </back> | Étape ou variante |
+  | <back:#FADBD8>  critique  </back> | Action sensible (garde-fous renforcés) |
+  | <back:#EAEDED>  V2  </back> | Évolution future |
+  | <b><<include>></b> | Sous-cas obligatoire |
+  | <b><<extend>></b> | Variante optionnelle |
+  | <b><<envoie>></b> | Envoi vers service externe |
+  | <b><<déclenche>></b> | Effet de bord (notification) |
+endlegend
+
+@enduml

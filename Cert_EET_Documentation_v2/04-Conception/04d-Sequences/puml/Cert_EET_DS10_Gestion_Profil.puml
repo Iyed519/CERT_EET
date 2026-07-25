@@ -1,0 +1,185 @@
+@startuml Cert_EET_DS10_Gestion_Profil
+' =====================================================================
+'  DS-10 — Gestion du profil utilisateur
+'  Acteur : Apprenant / Formateur / Admin (tout utilisateur authentifié)
+'  Ref : F7 (Sécurité) · UC compte propre
+' =====================================================================
+!pragma teoz true
+skinparam backgroundColor #FFFFFF
+skinparam shadowing false
+skinparam DefaultFontName "Segoe UI"
+skinparam DefaultFontSize 10
+skinparam sequenceMessageAlign center
+skinparam responseMessageBelowArrow true
+skinparam ParticipantPadding 18
+skinparam ArrowThickness 1.2
+skinparam LifeLineBorderThickness 1.0
+skinparam participant {
+  BackgroundColor #FFFFFF
+  BorderColor #5D6D7E
+}
+skinparam actor {
+  BackgroundColor #ECF0F1
+  BorderColor #1B4F72
+  FontStyle bold
+}
+skinparam database {
+  BackgroundColor #EBF5FB
+  BorderColor #1B4F72
+}
+skinparam boundary {
+  BackgroundColor #FEF9E7
+  BorderColor #B7950B
+}
+skinparam control {
+  BackgroundColor #FAE5D3
+  BorderColor #BA4A00
+}
+skinparam collections {
+  BackgroundColor #E8F8F5
+  BorderColor #1E8449
+}
+skinparam note {
+  BackgroundColor #FEF9E7
+  BorderColor #B7950B
+  FontSize 9
+}
+skinparam sequence {
+  ArrowColor #34495E
+  LifeLineBorderColor #7F8C8D
+  LifeLineBackgroundColor #FDFEFE
+  GroupBorderColor #1B4F72
+  GroupHeaderFontColor #1B4F72
+  GroupHeaderFontStyle bold
+  DividerBorderColor #1B4F72
+  DividerBackgroundColor #D6EAF8
+  DividerFontColor #1B4F72
+  DividerFontStyle bold
+}
+
+title <size:14><b>Cert_EET — DS-10 : Gestion du Profil Utilisateur</b></size>\n<size:10>Modifier infos · Changer mot de passe · Activer/désactiver MFA · F7</size>
+
+actor "Utilisateur\n(tout rôle)" as USR
+boundary "Frontend\n(Next.js)" as FE
+control "UserController\n(NestJS)" as UC
+control "UserService" as US
+control "AuthService" as AS
+collections "Redis" as RD
+database "PostgreSQL" as DB
+
+== Partie 1 — Modifier ses informations personnelles ==
+
+USR -> FE : Accède à "Mon profil"
+FE  -> UC : GET /users/me\n(Bearer token)
+UC  -> US : getProfile(userId)
+US  -> DB : SELECT user WHERE id = :userId
+DB --> US : profil complet
+US --> UC : { nom, prenom, email, role,\n  matricule, mfaActive }
+UC --> FE : HTTP 200 OK
+FE --> USR : Affiche le formulaire\nde profil pré-rempli
+
+USR -> FE : Modifie nom, prénom\n(email non modifiable\npar l'utilisateur)
+FE  -> UC : PATCH /users/me\n{ nom, prenom }
+UC  -> US : updateProfile(userId, data)
+US  -> DB : UPDATE users SET nom, prenom
+US  -> DB : INSERT INTO audit_log\n({ action: "PROFIL_MODIFIE", userId })
+DB --> US : OK
+US --> UC : { user }
+UC --> FE : HTTP 200 OK
+FE --> USR : "Profil mis à jour"
+
+== Partie 2 — Changer de mot de passe ==
+
+USR -> FE : Clique "Changer le mot de passe"
+FE --> USR : Formulaire :\n• Mot de passe actuel\n• Nouveau mot de passe\n• Confirmation
+
+USR -> FE : Soumet
+FE  -> UC : PATCH /users/me/password\n{ ancienMdp, nouveauMdp }
+UC  -> US : changePassword(userId,\n  ancienMdp, nouveauMdp)
+
+US  -> DB : SELECT motDePasseHash\nWHERE id = :userId
+DB --> US : motDePasseHash
+
+US  -> US : bcrypt.compare(\n  ancienMdp, motDePasseHash\n)
+
+alt #FFE8E8 Ancien mot de passe incorrect
+  US --> UC : UnauthorizedException
+  UC --> FE : HTTP 401
+  FE --> USR : "Mot de passe actuel incorrect"
+else #E8F8F5 Correct
+  US  -> US : valider(nouveauMdp)\n(longueur, complexité)
+  US  -> US : bcrypt.hash(nouveauMdp, 12)
+  US  -> DB : UPDATE users SET\nmotDePasseHash = :hash
+  US  -> RD : DEL toutes les sessions\nactives userId (invalide\ntous les tokens existants)
+  US  -> DB : INSERT INTO audit_log\n({ action: "MDP_CHANGE", userId })
+  DB --> US : OK
+  US --> UC : OK
+  UC --> FE : HTTP 200 OK
+  FE --> USR : "Mot de passe modifié.\nToutes vos sessions ont été\ndéconnectées par sécurité."
+end
+
+== Partie 3 — Activer la double authentification (MFA) ==
+
+USR -> FE : Clique "Activer le 2FA"
+FE  -> UC : POST /users/me/mfa/setup
+UC  -> US : initMfaSetup(userId)
+
+US  -> US : otplib.authenticator\n.generateSecret()
+US  -> DB : UPDATE users SET\nmfaSecret = :secret,\nmfaActive = false\n(non encore confirmé)
+US  -> US : otpauth://totp/Cert_EET:\n{email}?secret={secret}
+US --> UC : { secret, qrCodeUrl }
+UC --> FE : HTTP 200 OK
+FE --> USR : Affiche le QR code\n(scanner avec Google Authenticator)\n+ code secret texte
+
+USR -> FE : Saisit le code TOTP\nde confirmation (6 chiffres)
+FE  -> UC : POST /users/me/mfa/confirm\n{ totpCode }
+UC  -> US : confirmMfa(userId, totpCode)
+
+US  -> DB : SELECT mfaSecret\nWHERE id = :userId
+DB --> US : mfaSecret
+
+US  -> US : TOTP.verify(totpCode,\n  mfaSecret)
+
+alt #FFE8E8 Code TOTP invalide
+  US --> UC : UnauthorizedException\n"Code incorrect"
+  UC --> FE : HTTP 401
+  FE --> USR : "Code incorrect,\nrecommencez"
+else #E8F8F5 Code valide
+  US  -> DB : UPDATE users SET\nmfaActive = true
+  US  -> DB : INSERT INTO audit_log\n({ action: "MFA_ACTIVE", userId })
+  DB --> US : OK
+  US --> UC : OK
+  UC --> FE : HTTP 200 OK
+  FE --> USR : "2FA activé avec succès !\nIl sera demandé à chaque connexion."
+end
+
+== Partie 4 — Désactiver la MFA ==
+
+USR -> FE : Clique "Désactiver le 2FA"
+FE --> USR : Demande confirmation :\n"Saisir votre mot de passe\npour désactiver"
+USR -> FE : Saisit mot de passe + code TOTP actuel
+FE  -> UC : DELETE /users/me/mfa\n{ motDePasse, totpCode }
+UC  -> US : disableMfa(userId, mdp, totp)
+
+US  -> DB : SELECT motDePasseHash, mfaSecret
+DB --> US : données
+US  -> US : bcrypt.compare() + TOTP.verify()
+
+alt #FFE8E8 Vérifications échouées
+  US --> UC : UnauthorizedException
+  UC --> FE : HTTP 401
+  FE --> USR : "Vérification échouée"
+else #E8F8F5 OK
+  US  -> DB : UPDATE users SET\nmfaActive = false,\nmfaSecret = NULL
+  US  -> DB : INSERT INTO audit_log\n({ action: "MFA_DESACTIVE", userId })
+  DB --> US : OK
+  US --> UC : OK
+  UC --> FE : HTTP 200 OK
+  FE --> USR : "2FA désactivé"
+end
+
+legend bottom
+  | <back:#E8F8F5> vert  </back> | Succès |
+  | <back:#FFE8E8> rouge </back> | Erreur / refus |
+endlegend
+@enduml
