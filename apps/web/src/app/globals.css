@@ -137,3 +137,36 @@ select.input { appearance: auto; background: #fff; }
   font-size: 0.9rem; color: #33414f; cursor: pointer;
 }
 .toggle-row input { width: 16px; height: 16px; accent-color: var(--primary); }
+
+/* ============================================================
+   US-ROL-01 — Console d'administration des utilisateurs
+   ============================================================ */
+.header-link { margin-left: auto; font-size: 0.9rem; font-weight: 600; color: var(--primary-dark); text-decoration: none; }
+.header-link:hover { text-decoration: underline; }
+
+.page-head { display: flex; align-items: flex-start; justify-content: space-between; gap: 16px; margin-bottom: 20px; flex-wrap: wrap; }
+.page-title { margin: 0; font-size: 1.5rem; font-weight: 750; letter-spacing: -0.2px; }
+.page-subtitle { margin: 4px 0 0; color: var(--muted); font-size: 0.92rem; }
+
+.table-wrap { overflow-x: auto; border: 1px solid var(--border); border-radius: var(--radius); background: var(--surface); box-shadow: var(--shadow-sm); }
+.data-table { width: 100%; border-collapse: collapse; font-size: 0.9rem; }
+.data-table th, .data-table td { padding: 12px 14px; text-align: left; border-bottom: 1px solid var(--border); }
+.data-table th { font-size: 0.76rem; text-transform: uppercase; letter-spacing: 0.4px; color: var(--muted); background: #faf9f6; font-weight: 650; }
+.data-table tbody tr:last-child td { border-bottom: none; }
+.data-table tbody tr:hover { background: #fbfaf7; }
+.muted-cell { color: var(--muted); }
+
+.role-badge { display: inline-block; padding: 3px 10px; border-radius: 999px; font-size: 0.76rem; font-weight: 650; }
+.role-APPRENANT { background: #eef2f7; color: #475569; }
+.role-FORMATEUR { background: var(--primary-soft); color: var(--primary-dark); }
+.role-ADMINISTRATEUR { background: #fef3c7; color: var(--accent-dark); }
+
+.btn-sm { padding: 7px 14px; font-size: 0.83rem; border-radius: var(--radius-sm); border: 1px solid var(--border); background: var(--surface); color: #33414f; font-weight: 600; cursor: pointer; transition: background 0.15s, border-color 0.15s; }
+.btn-sm:hover:not(:disabled) { background: #f7f8fa; border-color: #d8d1c5; }
+.btn-sm:disabled { opacity: 0.6; cursor: not-allowed; }
+.btn-ghost { background: transparent; }
+
+.alert-success { background: var(--success-soft); color: var(--primary-dark); border: 1px solid #bfe3cd; }
+
+.modal-actions { display: flex; gap: 10px; margin-top: 2px; }
+.modal-actions .btn, .modal-actions .btn-sm { flex: 1; }

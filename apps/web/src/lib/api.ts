@@ -334,3 +334,79 @@ export async function completeProfile(
   }
   return data as ProfilResponse;
 }
+
+/* ============================================================
+ * US-ROL-01 — Administration des utilisateurs (rôles)
+ * ============================================================ */
+
+export type RoleUtilisateur = 'APPRENANT' | 'FORMATEUR' | 'ADMINISTRATEUR';
+
+/** Vue d'un utilisateur renvoyée par GET /api/admin/users (jamais le hash). */
+export interface AdminUser {
+  id: string;
+  email: string;
+  nom: string | null;
+  prenom: string | null;
+  role: RoleUtilisateur;
+  statut: string;
+}
+
+/** Erreur d'administration : porte le code HTTP pour distinguer 401/403/404. */
+export class AdminError extends Error {
+  constructor(
+    message: string,
+    public readonly statut?: number,
+  ) {
+    super(message);
+  }
+}
+
+/**
+ * GET /api/admin/users — liste des comptes (réservé ADMINISTRATEUR côté API).
+ * Passe par apiFetch : l'access token est attaché et un 401 déclenche le
+ * refresh silencieux. Un 403 signifie « pas admin » (RolesGuard, US-AUTH-11).
+ */
+export async function getAdminUsers(): Promise<AdminUser[]> {
+  const response = await apiFetch('/api/admin/users');
+  if (!response.ok) {
+    throw new AdminError(
+      response.status === 403
+        ? 'Accès réservé aux administrateurs.'
+        : 'Impossible de charger les utilisateurs.',
+      response.status,
+    );
+  }
+  return (await response.json()) as AdminUser[];
+}
+
+/**
+ * PATCH /api/admin/users/:id/role — change le rôle d'un utilisateur.
+ * Le mot de passe de l'admin est exigé par le backend (step-up, US-ROL-01) :
+ *   - 401 -> mot de passe admin invalide ;
+ *   - 403 -> rétrogradation du dernier admin actif refusée ;
+ *   - 400 -> rôle déjà appliqué / données invalides ;
+ *   - 404 -> cible introuvable.
+ * On remonte le message exact du backend dans AdminError.
+ */
+export async function changeUserRole(
+  userId: string,
+  nouveauRole: RoleUtilisateur,
+  motDePasseAdmin: string,
+): Promise<AdminUser> {
+  const response = await apiFetch(`/api/admin/users/${userId}/role`, {
+    method: 'PATCH',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ nouveauRole, motDePasseAdmin }),
+  });
+  const data = await response.json();
+  if (!response.ok) {
+    const message = Array.isArray(data.message)
+      ? data.message.join(' ')
+      : data.message;
+    throw new AdminError(
+      message ?? 'Une erreur est survenue. Veuillez réessayer.',
+      response.status,
+    );
+  }
+  return data as AdminUser;
+}
