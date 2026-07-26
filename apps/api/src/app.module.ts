@@ -6,6 +6,7 @@ import { MailModule } from './mail/mail.module';
 import { HealthModule } from './modules/health/health.module';
 import { AuthModule } from './modules/auth/auth.module';
 import { ReferentielModule } from './modules/referentiel/referentiel.module';
+import { AdminModule } from './modules/admin/admin.module';
 /**
  * Module racine (AppModule).
  *
@@ -25,6 +26,7 @@ import { ReferentielModule } from './modules/referentiel/referentiel.module';
     HealthModule,
     AuthModule,
     ReferentielModule,
+    AdminModule,
   ],
 })
 export class AppModule {}

@@ -35,5 +35,8 @@ import { GithubStrategy } from './strategies/github.strategy';
     { provide: APP_GUARD, useClass: JwtAuthGuard },
     { provide: APP_GUARD, useClass: RolesGuard },
   ],
+  // Export pour qu’AdminModule (US-ROL-01) puisse injecter
+  // AuthService.invalidateUserSessions (hook ADR-08-R1).
+  exports: [AuthService],
 })
 export class AuthModule {}
