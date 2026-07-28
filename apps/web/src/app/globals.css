@@ -170,3 +170,23 @@ select.input { appearance: auto; background: #fff; }
 
 .modal-actions { display: flex; gap: 10px; margin-top: 2px; }
 .modal-actions .btn, .modal-actions .btn-sm { flex: 1; }
+
+/* ============================================================
+   US-CPT-03 — Statut de compte : badge, actions par ligne, boutons danger
+   ============================================================ */
+.statut-badge { display: inline-block; padding: 3px 10px; border-radius: 999px; font-size: 0.76rem; font-weight: 650; }
+.statut-ACTIF { background: var(--success-soft); color: var(--primary-dark); }
+.statut-DESACTIVE { background: var(--danger-soft); color: #922b21; }
+.statut-EN_ATTENTE_ACTIVATION { background: #fef3c7; color: var(--accent-dark); }
+.statut-ANONYMISE { background: #eef2f7; color: #475569; }
+
+/* Boutons d'action d'une ligne, alignés à droite (rôle + statut). */
+.row-actions { display: flex; gap: 8px; justify-content: flex-end; flex-wrap: wrap; }
+
+/* Bouton secondaire « Désactiver » (contour rouge). */
+.btn-danger { color: var(--danger); border-color: #f5c6c0; }
+.btn-danger:hover:not(:disabled) { background: var(--danger-soft); border-color: var(--danger); }
+
+/* Bouton primaire de confirmation destructrice (modale de désactivation). */
+.btn-danger-solid { background: linear-gradient(180deg, #d0493b 0%, var(--danger) 100%); box-shadow: 0 8px 18px -8px rgba(192,57,43,0.7); }
+.btn-danger-solid:hover:not(:disabled) { box-shadow: 0 12px 24px -8px rgba(192,57,43,0.75); }
