@@ -39,7 +39,8 @@ export class AdminUsersService {
     @InjectRepository(AuditLog)
     private readonly auditLogRepository: Repository<AuditLog>,
     // Je réutilise le hook livré en ADR-08-R1 : c'est LE point d'invalidation
-    // des sessions après un changement de rôle (ne pas le réimplémenter ici).
+    // des sessions après un changement de rôle ou une désactivation (ne pas le
+    // réimplémenter ici).
     private readonly authService: AuthService,
   ) {}
 
@@ -71,7 +72,7 @@ export class AdminUsersService {
    *   1. réauthentification de l'admin par mot de passe (step-up) -> 401 si faux ;
    *   2. existence de la cible -> 404 ;
    *   3. rôle déjà appliqué -> 400 (on évite un kill de session + un audit inutiles) ;
-   *   4. anti-lockout : refus de rétrograder le DERNIER admin actif -> 403 (US-CPT-03) ;
+   *   4. anti-lockout : refus de rétrograder le DERNIER admin actif -> 403 ;
    *   5. mise à jour du rôle ;
    *   6. invalidation immédiate des sessions de la cible (ADR-08-R1) ;
    *   7. journalisation ROLE_CHANGE (ancien/nouveau, auteur = admin).
@@ -104,22 +105,20 @@ export class AdminUsersService {
       throw new BadRequestException('L\'utilisateur possède déjà ce rôle.');
     }
 
-    // 4. Anti-lockout (US-CPT-03) : on ne rétrograde jamais le dernier
-    // administrateur ACTIF, sinon plus personne ne peut administrer la
-    // plateforme. Ne concerne que le retrait du rôle ADMINISTRATEUR à un admin
-    // actuellement actif.
+    // 4. Anti-lockout : on ne rétrograde jamais le dernier administrateur ACTIF,
+    // sinon plus personne ne peut administrer la plateforme. Ne concerne que le
+    // retrait du rôle ADMINISTRATEUR à un admin actuellement actif.
     const estRetraitAdmin =
       cible.role === Role.ADMINISTRATEUR &&
       dto.nouveauRole !== Role.ADMINISTRATEUR;
-    if (estRetraitAdmin && cible.statut === StatutCompte.ACTIF) {
-      const adminsActifs = await this.userRepository.count({
-        where: { role: Role.ADMINISTRATEUR, statut: StatutCompte.ACTIF },
-      });
-      if (adminsActifs <= 1) {
-        throw new ForbiddenException(
-          'Impossible de rétrograder le dernier administrateur actif.',
-        );
-      }
+    if (
+      estRetraitAdmin &&
+      cible.statut === StatutCompte.ACTIF &&
+      (await this.compterAdminsActifs()) <= 1
+    ) {
+      throw new ForbiddenException(
+        'Impossible de rétrograder le dernier administrateur actif.',
+      );
     }
 
     // 5. Mise à jour du rôle (on conserve l'ancien pour l'audit).
@@ -147,13 +146,152 @@ export class AdminUsersService {
     });
     await this.auditLogRepository.save(audit);
 
+    return this.toVue(cible);
+  }
+
+  /**
+   * US-CPT-03 — Désactivation (bannissement) d'un compte par un administrateur.
+   *
+   * Ordre volontaire des vérifications (aucune écriture avant que TOUT soit
+   * validé) :
+   *   1. existence de la cible -> 404 ;
+   *   2. déjà désactivé -> 400 (no-op explicite) ;
+   *   3. anti-lockout : refus de désactiver le DERNIER admin actif -> 403,
+   *      AVANT toute écriture ;
+   *   4. passage à DESACTIVE ;
+   *   5. invalidation immédiate des sessions de la cible (le compte banni doit
+   *      perdre l'accès sur-le-champ, ADR-08-R1) ;
+   *   6. audit COMPTE_DESACTIVE, le motif étant tracé dans detailsAvantApres.
+   */
+  async desactiverCompte(
+    adminId: string,
+    cibleId: string,
+    motif: string,
+    context: { adresseIp: string | null },
+  ): Promise<UserAdminVue> {
+    // 1. Existence de la cible.
+    const cible = await this.userRepository.findOne({ where: { id: cibleId } });
+    if (!cible) {
+      throw new NotFoundException('Utilisateur cible introuvable.');
+    }
+
+    // 2. Déjà désactivé : on évite un kill de session + un audit inutiles.
+    if (cible.statut === StatutCompte.DESACTIVE) {
+      throw new BadRequestException('Le compte est déjà désactivé.');
+    }
+
+    // 3. Anti-lockout : désactiver le dernier administrateur ACTIF le
+    // verrouillerait hors de la plateforme. Vérifié AVANT toute écriture ->
+    // sur 403, rien n'est modifié (même socle que changeRole, US-ROL-01).
+    if (
+      cible.role === Role.ADMINISTRATEUR &&
+      cible.statut === StatutCompte.ACTIF &&
+      (await this.compterAdminsActifs()) <= 1
+    ) {
+      throw new ForbiddenException(
+        'Il doit rester au moins un administrateur actif.',
+      );
+    }
+
+    // 4. Passage à DESACTIVE (on conserve l'ancien statut pour l'audit).
+    const ancienStatut = cible.statut;
+    cible.statut = StatutCompte.DESACTIVE;
+    await this.userRepository.save(cible);
+
+    // 5. Invalidation immédiate : le login refuse déjà tout statut != ACTIF,
+    // mais une session déjà ouverte doit être coupée SANS attendre l'expiration
+    // de l'access token (ADR-08-R1).
+    await this.authService.invalidateUserSessions(cible.id);
+
+    // 6. Audit COMPTE_DESACTIVE : le motif est la trace de la décision.
+    const audit = this.auditLogRepository.create({
+      userId: adminId,
+      action: 'COMPTE_DESACTIVE',
+      cible: cible.id,
+      adresseIp: context.adresseIp,
+      resultat: 'Succès',
+      detailsAvantApres: {
+        cibleEmail: cible.email,
+        ancienStatut,
+        nouveauStatut: StatutCompte.DESACTIVE,
+        motif,
+      },
+    });
+    await this.auditLogRepository.save(audit);
+
+    return this.toVue(cible);
+  }
+
+  /**
+   * US-CPT-03 — Réactivation d'un compte désactivé par un administrateur.
+   *
+   *   1. existence de la cible -> 404 ;
+   *   2. déjà actif -> 400 (no-op explicite) ;
+   *   3. passage à ACTIF ;
+   *   4. audit COMPTE_REACTIVE (pas de motif requis).
+   *
+   * Pas d'invalidation de sessions : un compte désactivé n'a plus de session
+   * active à couper, et la réactivation ne doit rien révoquer.
+   */
+  async reactiverCompte(
+    adminId: string,
+    cibleId: string,
+    context: { adresseIp: string | null },
+  ): Promise<UserAdminVue> {
+    // 1. Existence de la cible.
+    const cible = await this.userRepository.findOne({ where: { id: cibleId } });
+    if (!cible) {
+      throw new NotFoundException('Utilisateur cible introuvable.');
+    }
+
+    // 2. Déjà actif : rien à faire.
+    if (cible.statut === StatutCompte.ACTIF) {
+      throw new BadRequestException('Le compte est déjà actif.');
+    }
+
+    // 3. Passage à ACTIF (on conserve l'ancien statut pour l'audit).
+    const ancienStatut = cible.statut;
+    cible.statut = StatutCompte.ACTIF;
+    await this.userRepository.save(cible);
+
+    // 4. Audit COMPTE_REACTIVE.
+    const audit = this.auditLogRepository.create({
+      userId: adminId,
+      action: 'COMPTE_REACTIVE',
+      cible: cible.id,
+      adresseIp: context.adresseIp,
+      resultat: 'Succès',
+      detailsAvantApres: {
+        cibleEmail: cible.email,
+        ancienStatut,
+        nouveauStatut: StatutCompte.ACTIF,
+      },
+    });
+    await this.auditLogRepository.save(audit);
+
+    return this.toVue(cible);
+  }
+
+  /**
+   * Anti-lockout (brique partagée US-ROL-01 / US-CPT-03) : nombre
+   * d'administrateurs actuellement ACTIF. Un retrait de rôle ou une
+   * désactivation qui ferait tomber ce compte à zéro est refusé (403).
+   */
+  private async compterAdminsActifs(): Promise<number> {
+    return this.userRepository.count({
+      where: { role: Role.ADMINISTRATEUR, statut: StatutCompte.ACTIF },
+    });
+  }
+
+  /** Projette une entité User vers la vue admin (jamais le hash / le secret MFA). */
+  private toVue(user: User): UserAdminVue {
     return {
-      id: cible.id,
-      email: cible.email,
-      nom: cible.nom,
-      prenom: cible.prenom,
-      role: cible.role,
-      statut: cible.statut,
+      id: user.id,
+      email: user.email,
+      nom: user.nom,
+      prenom: user.prenom,
+      role: user.role,
+      statut: user.statut,
     };
   }
 

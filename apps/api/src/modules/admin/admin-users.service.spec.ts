@@ -233,4 +233,161 @@ describe('AdminUsersService', () => {
       );
     });
   });
+
+  /**
+   * US-CPT-03 — Désactivation / réactivation de compte.
+   *
+   * Différence clé avec changeRole : PAS de step-up mot de passe, donc findOne
+   * n'est appelé qu'UNE fois (la cible). L'anti-lockout partage la même brique
+   * (compterAdminsActifs -> userRepository.count) et refuse de désactiver le
+   * dernier administrateur actif AVANT toute écriture.
+   */
+  describe('desactiverCompte', () => {
+    const desactive = (): User =>
+      ({ ...apprenant(), statut: StatutCompte.DESACTIVE }) as User;
+
+    it('désactive un compte actif, invalide les sessions et journalise avec le motif', async () => {
+      mockUserRepository.findOne.mockResolvedValueOnce(apprenant());
+      mockUserRepository.save.mockImplementation(async (u) => u);
+
+      const resultat = await service.desactiverCompte(
+        'admin-1',
+        'user-2',
+        'Départ de l’entreprise',
+        contexte,
+      );
+
+      // Statut basculé + renvoyé.
+      expect(resultat.statut).toBe(StatutCompte.DESACTIVE);
+      expect(mockUserRepository.save).toHaveBeenCalledWith(
+        expect.objectContaining({
+          id: 'user-2',
+          statut: StatutCompte.DESACTIVE,
+        }),
+      );
+      // Sessions de la cible coupées immédiatement (ADR-08-R1).
+      expect(mockAuthService.invalidateUserSessions).toHaveBeenCalledWith(
+        'user-2',
+      );
+      // Audit COMPTE_DESACTIVE en succès, motif tracé dans detailsAvantApres.
+      expect(mockAuditLogRepository.create).toHaveBeenCalledWith(
+        expect.objectContaining({
+          action: 'COMPTE_DESACTIVE',
+          userId: 'admin-1',
+          cible: 'user-2',
+          resultat: 'Succès',
+          detailsAvantApres: expect.objectContaining({
+            ancienStatut: StatutCompte.ACTIF,
+            nouveauStatut: StatutCompte.DESACTIVE,
+            motif: 'Départ de l’entreprise',
+          }),
+        }),
+      );
+    });
+
+    it('rejette (404) si la cible est introuvable', async () => {
+      mockUserRepository.findOne.mockResolvedValueOnce(null);
+
+      await expect(
+        service.desactiverCompte('admin-1', 'inconnu', 'motif', contexte),
+      ).rejects.toBeInstanceOf(NotFoundException);
+      expect(mockUserRepository.save).not.toHaveBeenCalled();
+      expect(mockAuthService.invalidateUserSessions).not.toHaveBeenCalled();
+    });
+
+    it('rejette (400) si le compte est déjà désactivé', async () => {
+      mockUserRepository.findOne.mockResolvedValueOnce(desactive());
+
+      await expect(
+        service.desactiverCompte('admin-1', 'user-2', 'motif', contexte),
+      ).rejects.toBeInstanceOf(BadRequestException);
+      expect(mockUserRepository.save).not.toHaveBeenCalled();
+      expect(mockAuthService.invalidateUserSessions).not.toHaveBeenCalled();
+    });
+
+    it('rejette (403) la désactivation du DERNIER administrateur actif (rien n’est modifié)', async () => {
+      const cibleAdmin = { ...admin(), id: 'admin-1' } as User;
+      mockUserRepository.findOne.mockResolvedValueOnce(cibleAdmin);
+      mockUserRepository.count.mockResolvedValue(1); // il n'en reste qu'un
+
+      await expect(
+        service.desactiverCompte('admin-1', 'admin-1', 'motif', contexte),
+      ).rejects.toBeInstanceOf(ForbiddenException);
+      // Anti-lockout vérifié AVANT toute écriture.
+      expect(mockUserRepository.save).not.toHaveBeenCalled();
+      expect(mockAuthService.invalidateUserSessions).not.toHaveBeenCalled();
+    });
+
+    it('autorise la désactivation d’un admin s’il reste d’autres admins actifs', async () => {
+      const cibleAdmin = { ...admin(), id: 'admin-2' } as User;
+      mockUserRepository.findOne.mockResolvedValueOnce(cibleAdmin);
+      mockUserRepository.count.mockResolvedValue(2); // un autre admin subsiste
+      mockUserRepository.save.mockImplementation(async (u) => u);
+
+      const resultat = await service.desactiverCompte(
+        'admin-1',
+        'admin-2',
+        'Suspension',
+        contexte,
+      );
+
+      expect(resultat.statut).toBe(StatutCompte.DESACTIVE);
+      expect(mockAuthService.invalidateUserSessions).toHaveBeenCalledWith(
+        'admin-2',
+      );
+    });
+  });
+
+  describe('reactiverCompte', () => {
+    const desactive = (): User =>
+      ({ ...apprenant(), statut: StatutCompte.DESACTIVE }) as User;
+
+    it('réactive un compte désactivé sans motif et journalise COMPTE_REACTIVE', async () => {
+      mockUserRepository.findOne.mockResolvedValueOnce(desactive());
+      mockUserRepository.save.mockImplementation(async (u) => u);
+
+      const resultat = await service.reactiverCompte(
+        'admin-1',
+        'user-2',
+        contexte,
+      );
+
+      expect(resultat.statut).toBe(StatutCompte.ACTIF);
+      expect(mockUserRepository.save).toHaveBeenCalledWith(
+        expect.objectContaining({ id: 'user-2', statut: StatutCompte.ACTIF }),
+      );
+      // Réactivation : on ne coupe aucune session (le compte n'en avait pas).
+      expect(mockAuthService.invalidateUserSessions).not.toHaveBeenCalled();
+      expect(mockAuditLogRepository.create).toHaveBeenCalledWith(
+        expect.objectContaining({
+          action: 'COMPTE_REACTIVE',
+          userId: 'admin-1',
+          cible: 'user-2',
+          resultat: 'Succès',
+          detailsAvantApres: expect.objectContaining({
+            ancienStatut: StatutCompte.DESACTIVE,
+            nouveauStatut: StatutCompte.ACTIF,
+          }),
+        }),
+      );
+    });
+
+    it('rejette (404) si la cible est introuvable', async () => {
+      mockUserRepository.findOne.mockResolvedValueOnce(null);
+
+      await expect(
+        service.reactiverCompte('admin-1', 'inconnu', contexte),
+      ).rejects.toBeInstanceOf(NotFoundException);
+      expect(mockUserRepository.save).not.toHaveBeenCalled();
+    });
+
+    it('rejette (400) si le compte est déjà actif', async () => {
+      mockUserRepository.findOne.mockResolvedValueOnce(apprenant());
+
+      await expect(
+        service.reactiverCompte('admin-1', 'user-2', contexte),
+      ).rejects.toBeInstanceOf(BadRequestException);
+      expect(mockUserRepository.save).not.toHaveBeenCalled();
+    });
+  });
 });

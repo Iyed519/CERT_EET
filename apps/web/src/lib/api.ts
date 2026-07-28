@@ -410,3 +410,44 @@ export async function changeUserRole(
   }
   return data as AdminUser;
 }
+
+/* ============================================================
+ * US-CPT-03 — Administration des utilisateurs (statut : désactiver / réactiver)
+ * ============================================================ */
+
+/** Statuts qu'un administrateur peut poser depuis la console (US-CPT-03). */
+export type StatutAdministrable = 'ACTIF' | 'DESACTIVE';
+
+/**
+ * PATCH /api/admin/users/:id — (dés)active un compte.
+ * Corps `{ statut, motif? }` : le motif n'est envoyé qu'à la désactivation
+ * (obligatoire côté backend). Aucun mot de passe admin ici (pas de step-up,
+ * différence avec le changement de rôle) :
+ *   - 400 -> motif manquant / statut déjà appliqué ;
+ *   - 403 -> désactivation du dernier admin actif refusée ;
+ *   - 404 -> cible introuvable.
+ * On remonte le message exact du backend dans AdminError.
+ */
+export async function changeUserStatut(
+  userId: string,
+  statut: StatutAdministrable,
+  motif?: string,
+): Promise<AdminUser> {
+  const body = statut === 'DESACTIVE' ? { statut, motif } : { statut };
+  const response = await apiFetch(`/api/admin/users/${userId}`, {
+    method: 'PATCH',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify(body),
+  });
+  const data = await response.json();
+  if (!response.ok) {
+    const message = Array.isArray(data.message)
+      ? data.message.join(' ')
+      : data.message;
+    throw new AdminError(
+      message ?? 'Une erreur est survenue. Veuillez réessayer.',
+      response.status,
+    );
+  }
+  return data as AdminUser;
+}
