@@ -451,3 +451,107 @@ export async function changeUserStatut(
   }
   return data as AdminUser;
 }
+
+/* ============================================================
+ * US-AUTH-12 — Journal d'audit (consultation + export CSV)
+ * ============================================================ */
+
+/** Une entrée du journal telle que renvoyée par l'API (lecture seule). */
+export interface AuditLogEntry {
+  id: string;
+  userId: string | null; // acteur
+  action: string;
+  cible: string | null;
+  adresseIp: string | null;
+  resultat: string | null; // "Succès" | "Échec"
+  detailsAvantApres: Record<string, unknown> | null;
+  horodatage: string;
+}
+
+/** Réponse paginée de GET /api/admin/audit-logs. */
+export interface AuditPage {
+  items: AuditLogEntry[];
+  total: number;
+  page: number;
+  limit: number;
+}
+
+/** Filtres de consultation / export (from & to en date AAAA-MM-JJ). */
+export interface AuditQuery {
+  action?: string;
+  userId?: string;
+  from?: string;
+  to?: string;
+  page?: number;
+  limit?: number;
+}
+
+/**
+ * Construit la query string. Les dates (AAAA-MM-JJ) sont converties en bornes
+ * ISO couvrant le jour entier en UTC : `from` au début du jour, `to` à la fin,
+ * pour que la borne haute inclue toute la journée saisie.
+ */
+function buildAuditParams(query: AuditQuery): string {
+  const params = new URLSearchParams();
+  if (query.action) params.set('action', query.action);
+  if (query.userId) params.set('userId', query.userId);
+  if (query.from) params.set('from', `${query.from}T00:00:00.000Z`);
+  if (query.to) params.set('to', `${query.to}T23:59:59.999Z`);
+  if (query.page) params.set('page', String(query.page));
+  if (query.limit) params.set('limit', String(query.limit));
+  const qs = params.toString();
+  return qs ? `?${qs}` : '';
+}
+
+/**
+ * GET /api/admin/audit-logs — journal paginé (ADMINISTRATEUR). Passe par
+ * apiFetch (token attaché, refresh silencieux sur 401). Un 403 = « pas admin ».
+ */
+export async function getAuditLogs(query: AuditQuery = {}): Promise<AuditPage> {
+  const response = await apiFetch(
+    `/api/admin/audit-logs${buildAuditParams(query)}`,
+  );
+  if (!response.ok) {
+    throw new AdminError(
+      response.status === 403
+        ? 'Accès réservé aux administrateurs.'
+        : "Impossible de charger le journal d'audit.",
+      response.status,
+    );
+  }
+  return (await response.json()) as AuditPage;
+}
+
+/**
+ * GET /api/admin/audit-logs/export — télécharge le CSV filtré (MÊMES filtres que
+ * la consultation, sans pagination : on exporte tout le résultat). On récupère
+ * le blob puis on déclenche un téléchargement navigateur ; le nom de fichier
+ * vient de l'en-tête Content-Disposition.
+ */
+export async function downloadAuditLogsCsv(
+  query: AuditQuery = {},
+): Promise<void> {
+  const response = await apiFetch(
+    `/api/admin/audit-logs/export${buildAuditParams(query)}`,
+  );
+  if (!response.ok) {
+    throw new AdminError(
+      response.status === 403
+        ? 'Accès réservé aux administrateurs.'
+        : "Impossible d'exporter le journal d'audit.",
+      response.status,
+    );
+  }
+  const blob = await response.blob();
+  const disposition = response.headers.get('Content-Disposition') ?? '';
+  const correspondance = /filename="?([^";]+)"?/.exec(disposition);
+  const nomFichier = correspondance?.[1] ?? 'audit-logs.csv';
+  const url = URL.createObjectURL(blob);
+  const lien = document.createElement('a');
+  lien.href = url;
+  lien.download = nomFichier;
+  document.body.appendChild(lien);
+  lien.click();
+  lien.remove();
+  URL.revokeObjectURL(url);
+}

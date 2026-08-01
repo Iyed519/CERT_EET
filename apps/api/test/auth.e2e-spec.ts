@@ -1,13 +1,12 @@
 import { Controller, Get, INestApplication, ValidationPipe } from '@nestjs/common';
 import { Test, TestingModule } from '@nestjs/testing';
 import { getRepositoryToken } from '@nestjs/typeorm';
-import { In, Repository } from 'typeorm';
+import { DataSource, Repository } from 'typeorm';
 import * as request from 'supertest';
 import * as bcrypt from 'bcryptjs';
 import * as cookieParser from 'cookie-parser';
 import { AppModule } from '../src/app.module';
 import { User } from '../src/database/entities/user.entity';
-import { AuditLog } from '../src/database/entities/audit-log.entity';
 import { Role } from '../src/database/enums/role.enum';
 import { StatutCompte } from '../src/database/enums/statut-compte.enum';
 import { AuthService } from '../src/modules/auth/auth.service';
@@ -42,7 +41,7 @@ describe('Auth (e2e)', () => {
   let app: INestApplication;
   let moduleRef: TestingModule;
   let userRepository: Repository<User>;
-  let auditLogRepository: Repository<AuditLog>;
+  let dataSource: DataSource;
 
   const MOT_DE_PASSE_TEST = 'MotDePasseTest123!';
   const EMAIL_ACTIF = 'e2e-actif@cert-eet.local';
@@ -89,9 +88,7 @@ describe('Auth (e2e)', () => {
     await app.init();
 
     userRepository = moduleRef.get<Repository<User>>(getRepositoryToken(User));
-    auditLogRepository = moduleRef.get<Repository<AuditLog>>(
-      getRepositoryToken(AuditLog),
-    );
+    dataSource = moduleRef.get(DataSource, { strict: false });
 
     const motDePasseHash = await bcrypt.hash(MOT_DE_PASSE_TEST, 12);
     await userRepository.save([
@@ -127,8 +124,24 @@ describe('Auth (e2e)', () => {
       where: ALL_EMAILS.map((email) => ({ email })),
     });
     const ids = testUsers.map((u) => u.id);
+    // US-AUTH-12 : audit_logs est désormais immuable (trigger BDD). Le nettoyage
+    // des traces de test DOIT contourner le trigger via le bypass maintenance
+    // (GUC app.audit_maintenance), encadré par une transaction (SET LOCAL ->
+    // reset automatique au COMMIT). Sans ça, ce DELETE serait rejeté.
     if (ids.length > 0) {
-      await auditLogRepository.delete({ userId: In(ids) });
+      const qr = dataSource.createQueryRunner();
+      await qr.connect();
+      await qr.startTransaction();
+      try {
+        await qr.query("SET LOCAL app.audit_maintenance = 'on'");
+        await qr.query('DELETE FROM audit_logs WHERE user_id = ANY($1)', [ids]);
+        await qr.commitTransaction();
+      } catch (erreur) {
+        await qr.rollbackTransaction();
+        throw erreur;
+      } finally {
+        await qr.release();
+      }
     }
     for (const email of ALL_EMAILS) {
       await userRepository.delete({ email });

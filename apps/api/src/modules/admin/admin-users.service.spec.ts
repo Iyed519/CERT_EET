@@ -9,8 +9,8 @@ import {
 import * as bcrypt from 'bcryptjs';
 import { AdminUsersService } from './admin-users.service';
 import { AuthService } from '../auth/auth.service';
+import { AuditService } from '../audit/audit.service';
 import { User } from '../../database/entities/user.entity';
-import { AuditLog } from '../../database/entities/audit-log.entity';
 import { Role } from '../../database/enums/role.enum';
 import { StatutCompte } from '../../database/enums/statut-compte.enum';
 
@@ -34,9 +34,9 @@ describe('AdminUsersService', () => {
     save: jest.fn(),
     count: jest.fn(),
   };
-  const mockAuditLogRepository = {
-    create: jest.fn((x) => x),
-    save: jest.fn(),
+  // US-AUTH-12 : le service délègue toute écriture d'audit à AuditService.record.
+  const mockAuditService = {
+    record: jest.fn().mockResolvedValue(undefined),
   };
   // Hook livré en ADR-08-R1 : on vérifie seulement qu'il est appelé.
   const mockAuthService = {
@@ -77,10 +77,7 @@ describe('AdminUsersService', () => {
       providers: [
         AdminUsersService,
         { provide: getRepositoryToken(User), useValue: mockUserRepository },
-        {
-          provide: getRepositoryToken(AuditLog),
-          useValue: mockAuditLogRepository,
-        },
+        { provide: AuditService, useValue: mockAuditService },
         { provide: AuthService, useValue: mockAuthService },
       ],
     }).compile();
@@ -126,11 +123,11 @@ describe('AdminUsersService', () => {
         'user-2',
       );
       // Audit ROLE_CHANGE en succès, avec ancien -> nouveau rôle.
-      expect(mockAuditLogRepository.save).toHaveBeenCalledTimes(1);
-      expect(mockAuditLogRepository.create).toHaveBeenCalledWith(
+      expect(mockAuditService.record).toHaveBeenCalledTimes(1);
+      expect(mockAuditService.record).toHaveBeenCalledWith(
         expect.objectContaining({
           action: 'ROLE_CHANGE',
-          userId: 'admin-1',
+          acteur: 'admin-1',
           cible: 'user-2',
           resultat: 'Succès',
           detailsAvantApres: expect.objectContaining({
@@ -156,7 +153,7 @@ describe('AdminUsersService', () => {
       // Aucune mutation ni invalidation ; l'échec est tracé.
       expect(mockUserRepository.save).not.toHaveBeenCalled();
       expect(mockAuthService.invalidateUserSessions).not.toHaveBeenCalled();
-      expect(mockAuditLogRepository.create).toHaveBeenCalledWith(
+      expect(mockAuditService.record).toHaveBeenCalledWith(
         expect.objectContaining({ action: 'ROLE_CHANGE', resultat: 'Échec' }),
       );
     });
@@ -270,10 +267,10 @@ describe('AdminUsersService', () => {
         'user-2',
       );
       // Audit COMPTE_DESACTIVE en succès, motif tracé dans detailsAvantApres.
-      expect(mockAuditLogRepository.create).toHaveBeenCalledWith(
+      expect(mockAuditService.record).toHaveBeenCalledWith(
         expect.objectContaining({
           action: 'COMPTE_DESACTIVE',
-          userId: 'admin-1',
+          acteur: 'admin-1',
           cible: 'user-2',
           resultat: 'Succès',
           detailsAvantApres: expect.objectContaining({
@@ -358,10 +355,10 @@ describe('AdminUsersService', () => {
       );
       // Réactivation : on ne coupe aucune session (le compte n'en avait pas).
       expect(mockAuthService.invalidateUserSessions).not.toHaveBeenCalled();
-      expect(mockAuditLogRepository.create).toHaveBeenCalledWith(
+      expect(mockAuditService.record).toHaveBeenCalledWith(
         expect.objectContaining({
           action: 'COMPTE_REACTIVE',
-          userId: 'admin-1',
+          acteur: 'admin-1',
           cible: 'user-2',
           resultat: 'Succès',
           detailsAvantApres: expect.objectContaining({

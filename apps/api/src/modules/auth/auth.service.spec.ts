@@ -9,9 +9,9 @@ import {
 } from '@nestjs/common';
 import * as bcrypt from 'bcryptjs';
 import { AuthService } from './auth.service';
+import { AuditService } from '../audit/audit.service';
 import { User } from '../../database/entities/user.entity';
 import { RefreshToken } from '../../database/entities/refresh-token.entity';
-import { AuditLog } from '../../database/entities/audit-log.entity';
 import { Role } from '../../database/enums/role.enum';
 import { StatutCompte } from '../../database/enums/statut-compte.enum';
 import { RedisService } from '../../redis/redis.service';
@@ -42,9 +42,9 @@ describe('AuthService', () => {
     findOne: jest.fn(),
     update: jest.fn(),
   };
-  const mockAuditLogRepository = {
-    create: jest.fn(),
-    save: jest.fn(),
+  // US-AUTH-12 : AuthService délègue toute écriture d'audit à AuditService.record.
+  const mockAuditService = {
+    record: jest.fn().mockResolvedValue(undefined),
   };
   const mockJwtService = {
     signAsync: jest.fn(),
@@ -117,10 +117,7 @@ describe('AuthService', () => {
           provide: getRepositoryToken(RefreshToken),
           useValue: mockRefreshTokenRepository,
         },
-        {
-          provide: getRepositoryToken(AuditLog),
-          useValue: mockAuditLogRepository,
-        },
+        { provide: AuditService, useValue: mockAuditService },
         { provide: JwtService, useValue: mockJwtService },
         { provide: ConfigService, useValue: mockConfigService },
         { provide: RedisService, useValue: mockRedisService },
@@ -168,6 +165,14 @@ describe('AuthService', () => {
       });
       expect(mockRefreshTokenRepository.save).toHaveBeenCalledTimes(1);
       expect(mockUserRepository.save).toHaveBeenCalledTimes(1);
+      // US-AUTH-12 : la connexion réussie est désormais tracée (action LOGIN).
+      expect(mockAuditService.record).toHaveBeenCalledWith(
+        expect.objectContaining({
+          action: 'LOGIN',
+          acteur: user.id,
+          resultat: 'Succès',
+        }),
+      );
     });
   });
   describe('login — branches d erreur (securite par opacite, DS-01)', () => {
@@ -329,15 +334,13 @@ describe('AuthService', () => {
       const stored = sessionActive();
       mockRefreshTokenRepository.findOne.mockResolvedValue(stored);
       mockRefreshTokenRepository.save.mockResolvedValue({});
-      mockAuditLogRepository.create.mockReturnValue({});
-      mockAuditLogRepository.save.mockResolvedValue({});
       await service.logout('access-token', 'refresh-token', contexte);
       expect(mockRedisService.set).toHaveBeenCalled();
       expect(stored.active).toBe(false);
-      expect(mockAuditLogRepository.create).toHaveBeenCalledWith(
+      expect(mockAuditService.record).toHaveBeenCalledWith(
         expect.objectContaining({ action: 'LOGOUT', resultat: 'Succès' }),
       );
-      expect(mockAuditLogRepository.save).toHaveBeenCalledTimes(1);
+      expect(mockAuditService.record).toHaveBeenCalledTimes(1);
     });
     it('idempotent : rejeu (access déjà blacklisté + refresh déjà inactif) ne journalise pas et ne lève pas', async () => {
       mockJwtService.verifyAsync.mockResolvedValue(accessClaims());
@@ -350,14 +353,14 @@ describe('AuthService', () => {
         service.logout('access-token', 'refresh-token', contexte),
       ).resolves.toBeUndefined();
       expect(mockRedisService.set).not.toHaveBeenCalled();
-      expect(mockAuditLogRepository.save).not.toHaveBeenCalled();
+      expect(mockAuditService.record).not.toHaveBeenCalled();
     });
     it('sans jetons : ne fait rien et ne lève pas', async () => {
       await expect(
         service.logout(null, null, contexte),
       ).resolves.toBeUndefined();
       expect(mockRefreshTokenRepository.findOne).not.toHaveBeenCalled();
-      expect(mockAuditLogRepository.save).not.toHaveBeenCalled();
+      expect(mockAuditService.record).not.toHaveBeenCalled();
     });
   });
   describe('register — US-CPT-05 (auto-inscription)', () => {
@@ -384,8 +387,6 @@ describe('AuthService', () => {
       });
       mockRedisService.set.mockResolvedValue(undefined);
       mockMailService.sendVerificationEmail.mockResolvedValue(undefined);
-      mockAuditLogRepository.create.mockReturnValue({});
-      mockAuditLogRepository.save.mockResolvedValue({});
       await service.register(dto, { adresseIp: '127.0.0.1' });
       const createArg = mockUserRepository.create.mock.calls[0][0];
       expect(createArg.role).toBe(Role.APPRENANT);
@@ -403,7 +404,7 @@ describe('AuthService', () => {
         dto.email,
         expect.any(String),
       );
-      expect(mockAuditLogRepository.create).toHaveBeenCalledWith(
+      expect(mockAuditService.record).toHaveBeenCalledWith(
         expect.objectContaining({ action: 'COMPTE_CREE', resultat: 'Succès' }),
       );
     });
@@ -425,12 +426,10 @@ describe('AuthService', () => {
       mockUserRepository.findOne.mockResolvedValue(user);
       mockUserRepository.save.mockResolvedValue(user);
       mockRedisService.del.mockResolvedValue(undefined);
-      mockAuditLogRepository.create.mockReturnValue({});
-      mockAuditLogRepository.save.mockResolvedValue({});
       await service.verifyEmail('jeton-valide');
       expect(user.statut).toBe(StatutCompte.ACTIF);
       expect(mockRedisService.del).toHaveBeenCalledTimes(1);
-      expect(mockAuditLogRepository.create).toHaveBeenCalledWith(
+      expect(mockAuditService.record).toHaveBeenCalledWith(
         expect.objectContaining({
           action: 'EMAIL_VERIFIE',
           resultat: 'Succès',
@@ -468,8 +467,6 @@ describe('AuthService', () => {
       mockRefreshTokenRepository.create.mockReturnValue({});
       mockRefreshTokenRepository.save.mockResolvedValue({});
       mockUserRepository.save.mockResolvedValue(utilisateurActif());
-      mockAuditLogRepository.create.mockReturnValue({});
-      mockAuditLogRepository.save.mockResolvedValue({});
 
       const res = await service.loginWithOauth(profil(), contexte);
 
@@ -479,7 +476,7 @@ describe('AuthService', () => {
       expect(mockUserRepository.create).not.toHaveBeenCalled();
       expect(mockCompteOauthRepository.create).not.toHaveBeenCalled();
       expect(mockCompteOauthRepository.save).not.toHaveBeenCalled();
-      expect(mockAuditLogRepository.create).toHaveBeenCalledWith(
+      expect(mockAuditService.record).toHaveBeenCalledWith(
         expect.objectContaining({ action: 'CONNEXION_OAUTH', resultat: 'Succès' }),
       );
     });
@@ -494,8 +491,6 @@ describe('AuthService', () => {
       mockRefreshTokenRepository.create.mockReturnValue({});
       mockRefreshTokenRepository.save.mockResolvedValue({});
       mockUserRepository.save.mockResolvedValue(existant);
-      mockAuditLogRepository.create.mockReturnValue({});
-      mockAuditLogRepository.save.mockResolvedValue({});
 
       const res = await service.loginWithOauth(profil(), contexte);
 
@@ -525,8 +520,6 @@ describe('AuthService', () => {
       mockCompteOauthRepository.save.mockResolvedValue({});
       mockRefreshTokenRepository.create.mockReturnValue({});
       mockRefreshTokenRepository.save.mockResolvedValue({});
-      mockAuditLogRepository.create.mockReturnValue({});
-      mockAuditLogRepository.save.mockResolvedValue({});
 
       const res = await service.loginWithOauth(profil(), contexte);
 
@@ -539,7 +532,7 @@ describe('AuthService', () => {
       // Un lien est créé vers le compte fraîchement créé.
       expect(mockCompteOauthRepository.create).toHaveBeenCalledTimes(1);
       // Deux journaux : COMPTE_CREE puis CONNEXION_OAUTH.
-      const actions = mockAuditLogRepository.create.mock.calls.map(
+      const actions = mockAuditService.record.mock.calls.map(
         (c) => c[0].action,
       );
       expect(actions).toEqual(
@@ -620,8 +613,6 @@ describe('AuthService', () => {
       mockUserRepository.findOne.mockResolvedValue(user);
       mockUserRepository.manager.findOne.mockResolvedValueOnce({ id: 'dom-1' }); // domaine trouvé
       mockUserRepository.save.mockResolvedValue(user);
-      mockAuditLogRepository.create.mockReturnValue({});
-      mockAuditLogRepository.save.mockResolvedValue({});
       const res = await service.completeProfile(
         'user-uuid-1',
         {
@@ -636,7 +627,7 @@ describe('AuthService', () => {
       expect(user.domaineEtudesId).toBe('dom-1');
       expect(user.etablissementId).toBeNull();
       expect(res.profilComplet).toBe(true);
-      expect(mockAuditLogRepository.create).toHaveBeenCalledWith(
+      expect(mockAuditService.record).toHaveBeenCalledWith(
         expect.objectContaining({ action: 'PROFIL_COMPLETE', resultat: 'Succès' }),
       );
     });
@@ -661,8 +652,6 @@ describe('AuthService', () => {
       const user = { ...apprenantIncomplet(), domaineEtudesId: 'x', etablissementId: 'y' } as User;
       mockUserRepository.findOne.mockResolvedValue(user);
       mockUserRepository.save.mockResolvedValue(user);
-      mockAuditLogRepository.create.mockReturnValue({});
-      mockAuditLogRepository.save.mockResolvedValue({});
       await service.completeProfile(
         'user-uuid-1',
         { dateNaissance: '1999-01-01', niveauEtudes: NiveauEtudes.MASTERE, enEtudes: false },
