@@ -9,10 +9,10 @@ import { InjectRepository } from '@nestjs/typeorm';
 import { Repository } from 'typeorm';
 import * as bcrypt from 'bcryptjs';
 import { User } from '../../database/entities/user.entity';
-import { AuditLog } from '../../database/entities/audit-log.entity';
 import { Role } from '../../database/enums/role.enum';
 import { StatutCompte } from '../../database/enums/statut-compte.enum';
 import { AuthService } from '../auth/auth.service';
+import { AuditService } from '../audit/audit.service';
 import { ChangeRoleDto } from './dto/change-role.dto';
 
 /** Vue admin d'un utilisateur — n'expose JAMAIS le hash du mot de passe. */
@@ -36,8 +36,9 @@ export class AdminUsersService {
   constructor(
     @InjectRepository(User)
     private readonly userRepository: Repository<User>,
-    @InjectRepository(AuditLog)
-    private readonly auditLogRepository: Repository<AuditLog>,
+    // US-AUTH-12 : writer d'audit UNIQUE (AuditModule @Global). Je n'injecte
+    // plus le repository AuditLog ici — toute trace passe par AuditService.
+    private readonly auditService: AuditService,
     // Je réutilise le hook livré en ADR-08-R1 : c'est LE point d'invalidation
     // des sessions après un changement de rôle ou une désactivation (ne pas le
     // réimplémenter ici).
@@ -132,10 +133,11 @@ export class AdminUsersService {
     await this.authService.invalidateUserSessions(cible.id);
 
     // 7. Audit ROLE_CHANGE : qui a changé quoi, ancien -> nouveau (US-ROL-01).
-    const audit = this.auditLogRepository.create({
-      userId: adminId, // auteur de l'action
+    // `acteur` = auteur de l'action ; `cible` = utilisateur impacté.
+    await this.auditService.record({
       action: 'ROLE_CHANGE',
-      cible: cible.id, // utilisateur impacté
+      acteur: adminId,
+      cible: cible.id,
       adresseIp: context.adresseIp,
       resultat: 'Succès',
       detailsAvantApres: {
@@ -144,7 +146,6 @@ export class AdminUsersService {
         nouveauRole: dto.nouveauRole,
       },
     });
-    await this.auditLogRepository.save(audit);
 
     return this.toVue(cible);
   }
@@ -204,9 +205,9 @@ export class AdminUsersService {
     await this.authService.invalidateUserSessions(cible.id);
 
     // 6. Audit COMPTE_DESACTIVE : le motif est la trace de la décision.
-    const audit = this.auditLogRepository.create({
-      userId: adminId,
+    await this.auditService.record({
       action: 'COMPTE_DESACTIVE',
+      acteur: adminId,
       cible: cible.id,
       adresseIp: context.adresseIp,
       resultat: 'Succès',
@@ -217,7 +218,6 @@ export class AdminUsersService {
         motif,
       },
     });
-    await this.auditLogRepository.save(audit);
 
     return this.toVue(cible);
   }
@@ -255,9 +255,9 @@ export class AdminUsersService {
     await this.userRepository.save(cible);
 
     // 4. Audit COMPTE_REACTIVE.
-    const audit = this.auditLogRepository.create({
-      userId: adminId,
+    await this.auditService.record({
       action: 'COMPTE_REACTIVE',
+      acteur: adminId,
       cible: cible.id,
       adresseIp: context.adresseIp,
       resultat: 'Succès',
@@ -267,7 +267,6 @@ export class AdminUsersService {
         nouveauStatut: StatutCompte.ACTIF,
       },
     });
-    await this.auditLogRepository.save(audit);
 
     return this.toVue(cible);
   }
@@ -301,14 +300,13 @@ export class AdminUsersService {
     cibleId: string,
     adresseIp: string | null,
   ): Promise<void> {
-    const audit = this.auditLogRepository.create({
-      userId: adminId,
+    await this.auditService.record({
       action: 'ROLE_CHANGE',
+      acteur: adminId,
       cible: cibleId,
       adresseIp,
       resultat: 'Échec',
       detailsAvantApres: { motif: 'Mot de passe administrateur invalide' },
     });
-    await this.auditLogRepository.save(audit);
   }
 }

@@ -190,3 +190,29 @@ select.input { appearance: auto; background: #fff; }
 /* Bouton primaire de confirmation destructrice (modale de désactivation). */
 .btn-danger-solid { background: linear-gradient(180deg, #d0493b 0%, var(--danger) 100%); box-shadow: 0 8px 18px -8px rgba(192,57,43,0.7); }
 .btn-danger-solid:hover:not(:disabled) { box-shadow: 0 12px 24px -8px rgba(192,57,43,0.75); }
+
+/* ============================================================
+   US-AUTH-12 — Journal d'audit (onglets admin, filtres, pagination)
+   ============================================================ */
+/* Petite barre d'onglets partagée par les pages /admin/*. */
+.admin-tabs { display: flex; gap: 6px; margin-bottom: 22px; border-bottom: 1px solid var(--border); }
+.admin-tab { padding: 9px 14px; font-size: 0.9rem; font-weight: 600; color: var(--muted); border-bottom: 2px solid transparent; }
+.admin-tab:hover { text-decoration: none; color: var(--text); }
+.admin-tab-active { color: var(--primary-dark); border-bottom-color: var(--primary); }
+.admin-tab-active:hover { color: var(--primary-dark); }
+
+/* Barre de filtres du journal (action, acteur, période). */
+.filters { display: flex; flex-wrap: wrap; gap: 12px; align-items: flex-end; margin-bottom: 18px; }
+.filters .field { flex: 1 1 160px; min-width: 140px; }
+.filters-actions { display: flex; gap: 8px; }
+
+/* Pied de tableau : compteur + navigation de page. */
+.pagination { display: flex; align-items: center; justify-content: space-between; gap: 12px; margin-top: 14px; flex-wrap: wrap; }
+
+/* Badge de résultat (Succès / Échec) — même gabarit que .statut-badge. */
+.res-badge { display: inline-block; padding: 3px 10px; border-radius: 999px; font-size: 0.76rem; font-weight: 650; }
+.res-ok { background: var(--success-soft); color: var(--primary-dark); }
+.res-ko { background: var(--danger-soft); color: #922b21; }
+
+/* Cellules techniques (UUID, IP, JSON de détails) en chasse fixe. */
+.mono { font-family: ui-monospace, 'SFMono-Regular', Menlo, monospace; font-size: 0.8rem; color: #475569; word-break: break-all; }

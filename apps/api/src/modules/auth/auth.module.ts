@@ -5,7 +5,6 @@ import { PassportModule } from '@nestjs/passport';
 import { TypeOrmModule } from '@nestjs/typeorm';
 import { User } from '../../database/entities/user.entity';
 import { RefreshToken } from '../../database/entities/refresh-token.entity';
-import { AuditLog } from '../../database/entities/audit-log.entity';
 import { CompteOauth } from '../../database/entities/compte-oauth.entity';
 import { AuthController } from './auth.controller';
 import { AuthService } from './auth.service';
@@ -19,11 +18,12 @@ import { GithubStrategy } from './strategies/github.strategy';
  * Les deux guards restent GLOBAUX (APP_GUARD). PassportModule + les stratégies
  * OAuth (Google, GitHub) ajoutent la connexion sociale : Passport n'intervient
  * QUE sur l'acquisition d'identité OAuth (routes /auth/oauth/*) ; la session JWT
- * reste maison.
+ * reste maison. L'écriture d'audit passe désormais par AuditService (AuditModule
+ * @Global, US-AUTH-12) — AuditLog n'est donc plus dans le forFeature local.
  */
 @Module({
   imports: [
-    TypeOrmModule.forFeature([User, RefreshToken, AuditLog, CompteOauth]),
+    TypeOrmModule.forFeature([User, RefreshToken, CompteOauth]),
     JwtModule.register({}),
     PassportModule,
   ],

@@ -3,6 +3,7 @@ import { ConfigModule } from './config/config.module';
 import { DatabaseModule } from './database/database.module';
 import { RedisModule } from './redis/redis.module';
 import { MailModule } from './mail/mail.module';
+import { AuditModule } from './modules/audit/audit.module';
 import { HealthModule } from './modules/health/health.module';
 import { AuthModule } from './modules/auth/auth.module';
 import { ReferentielModule } from './modules/referentiel/referentiel.module';
@@ -13,9 +14,11 @@ import { AdminModule } from './modules/admin/admin.module';
  * Assemble les modules au démarrage (Règle 1 / PKG-02). RedisModule et
  * MailModule forment, avec config + base de données, le socle d'infrastructure :
  * Redis porte la denylist des jetons (US-AUTH-03), Mail l'envoi des emails de
- * vérification (US-CPT-05). Les modules métier (users, formations, qcm,
- * ateliers, certificats, assistance-ia, notifications, audit) seront ajoutés
- * ici au fil des sprints.
+ * vérification (US-CPT-05). AuditModule (@Global, US-AUTH-12) porte la
+ * traçabilité (NF3) et expose AuditService à tous les modules — il est déclaré
+ * avant les modules métier pour être disponible partout. Les autres modules
+ * métier (users, formations, qcm, ateliers, certificats, assistance-ia,
+ * notifications) seront ajoutés ici au fil des sprints.
  */
 @Module({
   imports: [
@@ -23,6 +26,7 @@ import { AdminModule } from './modules/admin/admin.module';
     DatabaseModule,
     RedisModule,
     MailModule,
+    AuditModule,
     HealthModule,
     AuthModule,
     ReferentielModule,

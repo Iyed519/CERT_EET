@@ -1,12 +1,11 @@
 import { INestApplication, ValidationPipe } from '@nestjs/common';
 import { Test, TestingModule } from '@nestjs/testing';
 import { getRepositoryToken } from '@nestjs/typeorm';
-import { In, Repository } from 'typeorm';
+import { DataSource, Repository } from 'typeorm';
 import * as request from 'supertest';
 import * as cookieParser from 'cookie-parser';
 import { AppModule } from '../src/app.module';
 import { User } from '../src/database/entities/user.entity';
-import { AuditLog } from '../src/database/entities/audit-log.entity';
 import { Role } from '../src/database/enums/role.enum';
 import { StatutCompte } from '../src/database/enums/statut-compte.enum';
 import { MailService } from '../src/mail/mail.service';
@@ -22,7 +21,7 @@ describe('Inscription + verification email (e2e)', () => {
   let app: INestApplication;
   let moduleRef: TestingModule;
   let userRepository: Repository<User>;
-  let auditLogRepository: Repository<AuditLog>;
+  let dataSource: DataSource;
   const mailMock = {
     sendVerificationEmail: jest.fn().mockResolvedValue(undefined),
   };
@@ -34,8 +33,24 @@ describe('Inscription + verification email (e2e)', () => {
       where: [{ email: EMAIL_NOUVEAU }],
     });
     const ids = users.map((u) => u.id);
+    // US-AUTH-12 : audit_logs est immuable (trigger BDD). Le nettoyage des
+    // traces de test contourne le trigger via le bypass maintenance (GUC
+    // app.audit_maintenance), encadré par une transaction (SET LOCAL ->
+    // reset au COMMIT). Sans ça, ce DELETE serait rejeté.
     if (ids.length > 0) {
-      await auditLogRepository.delete({ userId: In(ids) });
+      const qr = dataSource.createQueryRunner();
+      await qr.connect();
+      await qr.startTransaction();
+      try {
+        await qr.query("SET LOCAL app.audit_maintenance = 'on'");
+        await qr.query('DELETE FROM audit_logs WHERE user_id = ANY($1)', [ids]);
+        await qr.commitTransaction();
+      } catch (erreur) {
+        await qr.rollbackTransaction();
+        throw erreur;
+      } finally {
+        await qr.release();
+      }
     }
     await userRepository.delete({ email: EMAIL_NOUVEAU });
   };
@@ -57,9 +72,7 @@ describe('Inscription + verification email (e2e)', () => {
     );
     await app.init();
     userRepository = moduleRef.get<Repository<User>>(getRepositoryToken(User));
-    auditLogRepository = moduleRef.get<Repository<AuditLog>>(
-      getRepositoryToken(AuditLog),
-    );
+    dataSource = moduleRef.get(DataSource, { strict: false });
     await supprimerUtilisateursTest();
   });
   afterAll(async () => {

@@ -13,7 +13,6 @@ import * as bcrypt from 'bcryptjs';
 import * as fs from 'fs';
 import { User } from '../../database/entities/user.entity';
 import { RefreshToken } from '../../database/entities/refresh-token.entity';
-import { AuditLog } from '../../database/entities/audit-log.entity';
 import { CompteOauth } from '../../database/entities/compte-oauth.entity';
 import { StatutCompte } from '../../database/enums/statut-compte.enum';
 import { Role } from '../../database/enums/role.enum';
@@ -27,6 +26,7 @@ import { OauthProfile } from './auth.types';
 import { JwtConfig } from '../../config/configuration';
 import { RedisService } from '../../redis/redis.service';
 import { MailService } from '../../mail/mail.service';
+import { AuditService } from '../audit/audit.service';
 import {
   accessDenylistKey,
   refreshDenylistKey,
@@ -68,14 +68,15 @@ export class AuthService {
     private readonly userRepository: Repository<User>,
     @InjectRepository(RefreshToken)
     private readonly refreshTokenRepository: Repository<RefreshToken>,
-    @InjectRepository(AuditLog)
-    private readonly auditLogRepository: Repository<AuditLog>,
     @InjectRepository(CompteOauth)
     private readonly compteOauthRepository: Repository<CompteOauth>,
     private readonly jwtService: JwtService,
     private readonly configService: ConfigService,
     private readonly redisService: RedisService,
     private readonly mailService: MailService,
+    // US-AUTH-12 : writer d'audit UNIQUE (AuditModule @Global). Remplace
+    // l'ancienne injection directe du repository AuditLog.
+    private readonly auditService: AuditService,
   ) {
     this.jwtConfig = this.configService.getOrThrow<JwtConfig>('jwt');
   }
@@ -124,14 +125,13 @@ export class AuthService {
     // Envoi bloquant (await) : si l'email ne part pas, on veut le savoir tout
     // de suite (fail-fast honnête). Le renvoi d'email est une story ultérieure.
     await this.mailService.sendVerificationEmail(saved.email, token);
-    // Audit COMPTE_CREE (même motif minimal que journaliserLogout).
-    const audit = this.auditLogRepository.create({
-      userId: saved.id,
+    // Audit COMPTE_CREE (via le writer unique — US-AUTH-12).
+    await this.auditService.record({
       action: 'COMPTE_CREE',
+      acteur: saved.id,
       adresseIp: context.adresseIp,
       resultat: 'Succès',
     });
-    await this.auditLogRepository.save(audit);
   }
   /**
    * US-CPT-05 — Vérification de l'adresse email (activation du compte).
@@ -158,13 +158,12 @@ export class AuthService {
     await this.userRepository.save(user);
     // Consommation du jeton : usage unique (supprimé après succès).
     await this.redisService.del(key);
-    // Audit léger de l'activation (même motif que COMPTE_CREE / LOGOUT).
-    const audit = this.auditLogRepository.create({
-      userId: user.id,
+    // Audit léger de l'activation (via le writer unique — US-AUTH-12).
+    await this.auditService.record({
       action: 'EMAIL_VERIFIE',
+      acteur: user.id,
       resultat: 'Succès',
     });
-    await this.auditLogRepository.save(audit);
   }
   /** US-AUTH-01 — Connexion par email + mot de passe (DS-01, étapes 1-2). */
   async login(
@@ -190,6 +189,15 @@ export class AuthService {
     await this.persistRefreshToken(user.id, refreshToken, familleId, context);
     user.derniereConnexion = new Date();
     await this.userRepository.save(user);
+    // US-AUTH-12 : LOGIN est une action sensible ; jusqu'ici elle n'était PAS
+    // journalisée. Je la trace explicitement (écriture fine), l'intercepteur
+    // @Audit ne couvrant que les routes annotées.
+    await this.auditService.record({
+      action: 'LOGIN',
+      acteur: user.id,
+      adresseIp: context.adresseIp,
+      resultat: 'Succès',
+    });
     return {
       accessToken,
       refreshToken,
@@ -239,13 +247,12 @@ export class AuthService {
           statut: StatutCompte.ACTIF,
         });
         user = await this.userRepository.save(user);
-        const auditCreation = this.auditLogRepository.create({
-          userId: user.id,
+        await this.auditService.record({
           action: 'COMPTE_CREE',
+          acteur: user.id,
           adresseIp: context.adresseIp,
           resultat: 'Succès',
         });
-        await this.auditLogRepository.save(auditCreation);
       }
       // Enregistrement du lien identité externe -> compte.
       const nouveauLien = this.compteOauthRepository.create({
@@ -273,13 +280,12 @@ export class AuthService {
     await this.persistRefreshToken(user.id, refreshToken, familleId, context);
     user.derniereConnexion = new Date();
     await this.userRepository.save(user);
-    const auditConnexion = this.auditLogRepository.create({
-      userId: user.id,
+    await this.auditService.record({
       action: 'CONNEXION_OAUTH',
+      acteur: user.id,
       adresseIp: context.adresseIp,
       resultat: 'Succès',
     });
-    await this.auditLogRepository.save(auditConnexion);
     return {
       accessToken,
       refreshToken,
@@ -472,13 +478,12 @@ export class AuthService {
     user.niveauEtudes = dto.niveauEtudes;
     user.profilComplet = true;
     await this.userRepository.save(user);
-    const audit = this.auditLogRepository.create({
-      userId: user.id,
+    await this.auditService.record({
       action: 'PROFIL_COMPLETE',
+      acteur: user.id,
       adresseIp: context.adresseIp,
       resultat: 'Succès',
     });
-    await this.auditLogRepository.save(audit);
     return this.mapProfil(user);
   }
   /** Projette un User vers la vue profil (âge dérivé, jamais stocké). */
@@ -577,18 +582,17 @@ export class AuthService {
       { active: false },
     );
   }
-  /** Écrit une entrée d'audit LOGOUT (minimal ; US-AUTH-12 formalisera). */
+  /** Écrit une entrée d'audit LOGOUT via le writer unique (US-AUTH-12). */
   private async journaliserLogout(
     userId: string,
     adresseIp: string | null,
   ): Promise<void> {
-    const entry = this.auditLogRepository.create({
-      userId,
+    await this.auditService.record({
       action: 'LOGOUT',
+      acteur: userId,
       adresseIp,
       resultat: 'Succès',
     });
-    await this.auditLogRepository.save(entry);
   }
   /** Décode + vérifie un access token ; null si invalide/expiré (tolérant). */
   private async decodeAccessToken(
