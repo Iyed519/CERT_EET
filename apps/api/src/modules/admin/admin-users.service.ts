@@ -84,7 +84,9 @@ export class AdminUsersService {
     dto: ChangeRoleDto,
     context: { adresseIp: string | null },
   ): Promise<UserAdminVue> {
-    // 1. Réauthentification de l'administrateur (action sensible).
+    // 1. Réauthentification de l'administrateur (action sensible, step-up auth).
+    // C'est la SEULE différence avec l'approbation d'une demande (US-ROL-02),
+    // où l'admin est déjà authentifié par sa session -> aucun mot de passe.
     const admin = await this.userRepository.findOne({ where: { id: adminId } });
     const hashAdmin = admin?.motDePasseHash ?? FAUX_HASH_BCRYPT;
     const motDePasseOk = await bcrypt.compare(dto.motDePasseAdmin, hashAdmin);
@@ -95,23 +97,54 @@ export class AdminUsersService {
       throw new UnauthorizedException('Mot de passe administrateur invalide.');
     }
 
-    // 2. Existence de la cible.
+    // 2. Mot de passe validé -> on applique le cœur du changement de rôle.
+    return this.appliquerChangementRole(
+      adminId,
+      cibleId,
+      dto.nouveauRole,
+      context,
+    );
+  }
+
+  /**
+   * Cœur du changement de rôle — brique PARTAGÉE (US-ROL-01 nomination directe
+   * et US-ROL-02 approbation d'une demande). SANS step-up mot de passe :
+   * l'appelant a déjà authentifié l'administrateur (session valide ; pour ROL-01
+   * en plus son mot de passe). C'est ICI, et nulle part ailleurs, qu'est émis
+   * l'audit `ROLE_CHANGE` -> l'approbation d'une demande ne doit PAS le
+   * ré-émettre (sinon double trace pour une seule décision).
+   *
+   * Ordre volontaire des vérifications :
+   *   1. existence de la cible -> 404 ;
+   *   2. rôle déjà appliqué -> 400 (on évite un kill de session + un audit inutiles) ;
+   *   3. anti-lockout : refus de rétrograder le DERNIER admin actif -> 403 ;
+   *   4. mise à jour du rôle ;
+   *   5. invalidation immédiate des sessions de la cible (ADR-08-R1) ;
+   *   6. journalisation ROLE_CHANGE (ancien/nouveau, auteur = admin).
+   */
+  async appliquerChangementRole(
+    adminId: string,
+    cibleId: string,
+    nouveauRole: Role,
+    context: { adresseIp: string | null },
+  ): Promise<UserAdminVue> {
+    // 1. Existence de la cible.
     const cible = await this.userRepository.findOne({ where: { id: cibleId } });
     if (!cible) {
       throw new NotFoundException('Utilisateur cible introuvable.');
     }
 
-    // 3. Rôle déjà appliqué : no-op explicite plutôt qu'une opération vide.
-    if (cible.role === dto.nouveauRole) {
+    // 2. Rôle déjà appliqué : no-op explicite plutôt qu'une opération vide.
+    if (cible.role === nouveauRole) {
       throw new BadRequestException('L\'utilisateur possède déjà ce rôle.');
     }
 
-    // 4. Anti-lockout : on ne rétrograde jamais le dernier administrateur ACTIF,
-    // sinon plus personne ne peut administrer la plateforme. Ne concerne que le
-    // retrait du rôle ADMINISTRATEUR à un admin actuellement actif.
+    // 3. Anti-lockout : on ne rétrograde jamais le dernier administrateur ACTIF.
+    // Ne concerne que le RETRAIT du rôle ADMINISTRATEUR à un admin actif ; une
+    // montée en rôle (cas nominal d'US-ROL-02) ne déclenche donc jamais ce
+    // garde-fou, mais la logique héritée reste intacte.
     const estRetraitAdmin =
-      cible.role === Role.ADMINISTRATEUR &&
-      dto.nouveauRole !== Role.ADMINISTRATEUR;
+      cible.role === Role.ADMINISTRATEUR && nouveauRole !== Role.ADMINISTRATEUR;
     if (
       estRetraitAdmin &&
       cible.statut === StatutCompte.ACTIF &&
@@ -122,18 +155,16 @@ export class AdminUsersService {
       );
     }
 
-    // 5. Mise à jour du rôle (on conserve l'ancien pour l'audit).
+    // 4. Mise à jour du rôle (on conserve l'ancien pour l'audit).
     const ancienRole = cible.role;
-    cible.role = dto.nouveauRole;
+    cible.role = nouveauRole;
     await this.userRepository.save(cible);
 
-    // 6. Invalidation immédiate des sessions de la cible : le nouveau rôle doit
-    // s'appliquer TOUT DE SUITE. Un access token portant l'ancien rôle sera
-    // refusé au prochain appel (ADR-08-R1).
+    // 5. Invalidation immédiate des sessions de la cible : le nouveau rôle doit
+    // s'appliquer TOUT DE SUITE (ADR-08-R1).
     await this.authService.invalidateUserSessions(cible.id);
 
-    // 7. Audit ROLE_CHANGE : qui a changé quoi, ancien -> nouveau (US-ROL-01).
-    // `acteur` = auteur de l'action ; `cible` = utilisateur impacté.
+    // 6. Audit ROLE_CHANGE : qui a changé quoi, ancien -> nouveau.
     await this.auditService.record({
       action: 'ROLE_CHANGE',
       acteur: adminId,
@@ -143,7 +174,7 @@ export class AdminUsersService {
       detailsAvantApres: {
         cibleEmail: cible.email,
         ancienRole,
-        nouveauRole: dto.nouveauRole,
+        nouveauRole,
       },
     });
 

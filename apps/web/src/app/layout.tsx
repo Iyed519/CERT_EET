@@ -3,6 +3,7 @@ import './globals.css';
 import { AuthProvider } from '../contexts/AuthContext';
 import { ProfilGate } from '../components/ProfilGate';
 import { AdminNav } from '../components/AdminNav';
+import { RoleRequestNav } from '../components/RoleRequestNav';
 export const metadata: Metadata = {
   title: 'Cert_EET — Certification numérique vérifiable',
   description:
@@ -25,6 +26,7 @@ export default function RootLayout({
             <span className="brand-badge">CE</span>
             <span className="brand-name">Cert_EET</span>
             <AdminNav />
+            <RoleRequestNav />
           </header>
           <main className="site-main">{children}</main>
           <ProfilGate />

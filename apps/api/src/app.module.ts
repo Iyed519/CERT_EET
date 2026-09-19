@@ -8,6 +8,7 @@ import { HealthModule } from './modules/health/health.module';
 import { AuthModule } from './modules/auth/auth.module';
 import { ReferentielModule } from './modules/referentiel/referentiel.module';
 import { AdminModule } from './modules/admin/admin.module';
+import { RoleRequestsModule } from './modules/role-requests/role-requests.module';
 /**
  * Module racine (AppModule).
  *
@@ -31,6 +32,7 @@ import { AdminModule } from './modules/admin/admin.module';
     AuthModule,
     ReferentielModule,
     AdminModule,
+    RoleRequestsModule,
   ],
 })
 export class AppModule {}

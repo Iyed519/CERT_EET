@@ -555,3 +555,157 @@ export async function downloadAuditLogsCsv(
   lien.remove();
   URL.revokeObjectURL(url);
 }
+
+/* ============================================================
+ * US-ROL-02 — Demandes de changement de rôle (self-service + traitement admin)
+ * ============================================================ */
+
+/** Rôle qu'un utilisateur peut DEMANDER (montée en privilège uniquement). */
+export type RoleDemande = 'FORMATEUR' | 'ADMINISTRATEUR';
+
+/** Cycle de vie d'une demande. */
+export type StatutDemande = 'EN_ATTENTE' | 'APPROUVEE' | 'REJETEE';
+
+/** Vue d'une demande côté AUTEUR (GET /api/role-requests/me). */
+export interface DemandeRoleVue {
+  id: string;
+  roleDemande: RoleDemande;
+  justification: string;
+  statut: StatutDemande;
+  motif: string | null;
+  traiteAt: string | null;
+  createdAt: string;
+}
+
+/** Vue ADMIN d'une demande (enrichie du demandeur + traçabilité). */
+export interface DemandeRoleAdminVue extends DemandeRoleVue {
+  traitePar: string | null;
+  demandeur: {
+    id: string;
+    email: string;
+    nom: string | null;
+    prenom: string | null;
+  };
+}
+
+/** Réponse paginée de GET /api/admin/role-requests. */
+export interface DemandeRolePage {
+  items: DemandeRoleAdminVue[];
+  total: number;
+  page: number;
+  limit: number;
+}
+
+/**
+ * POST /api/role-requests — soumettre une demande (tout utilisateur connecté).
+ *   - 400 -> rôle déjà détenu / justification invalide ;
+ *   - 409 -> une demande est déjà en attente.
+ * On remonte le message exact du backend dans AdminError.
+ */
+export async function createRoleRequest(
+  roleDemande: RoleDemande,
+  justification: string,
+): Promise<DemandeRoleVue> {
+  const response = await apiFetch('/api/role-requests', {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ roleDemande, justification }),
+  });
+  const data = await response.json();
+  if (!response.ok) {
+    const message = Array.isArray(data.message)
+      ? data.message.join(' ')
+      : data.message;
+    throw new AdminError(
+      message ?? 'Une erreur est survenue. Veuillez réessayer.',
+      response.status,
+    );
+  }
+  return data as DemandeRoleVue;
+}
+
+/** GET /api/role-requests/me — mes demandes, la plus récente d'abord. */
+export async function getMesDemandesRole(): Promise<DemandeRoleVue[]> {
+  const response = await apiFetch('/api/role-requests/me');
+  if (!response.ok) {
+    throw new AdminError('Impossible de charger vos demandes.', response.status);
+  }
+  return (await response.json()) as DemandeRoleVue[];
+}
+
+/**
+ * GET /api/admin/role-requests — file des demandes (ADMINISTRATEUR).
+ * Filtre `statut` optionnel + pagination. Un 403 = « pas admin ».
+ */
+export async function getAdminRoleRequests(query: {
+  statut?: StatutDemande;
+  page?: number;
+  limit?: number;
+} = {}): Promise<DemandeRolePage> {
+  const params = new URLSearchParams();
+  if (query.statut) params.set('statut', query.statut);
+  if (query.page) params.set('page', String(query.page));
+  if (query.limit) params.set('limit', String(query.limit));
+  const qs = params.toString();
+  const response = await apiFetch(
+    `/api/admin/role-requests${qs ? `?${qs}` : ''}`,
+  );
+  if (!response.ok) {
+    throw new AdminError(
+      response.status === 403
+        ? 'Accès réservé aux administrateurs.'
+        : 'Impossible de charger les demandes de rôle.',
+      response.status,
+    );
+  }
+  return (await response.json()) as DemandeRolePage;
+}
+
+/**
+ * PATCH /api/admin/role-requests/:id/approve — applique le changement de rôle.
+ *   - 404 -> demande introuvable ; 409 -> déjà traitée.
+ */
+export async function approveRoleRequest(
+  id: string,
+): Promise<DemandeRoleAdminVue> {
+  const response = await apiFetch(`/api/admin/role-requests/${id}/approve`, {
+    method: 'PATCH',
+  });
+  const data = await response.json();
+  if (!response.ok) {
+    const message = Array.isArray(data.message)
+      ? data.message.join(' ')
+      : data.message;
+    throw new AdminError(
+      message ?? 'Une erreur est survenue. Veuillez réessayer.',
+      response.status,
+    );
+  }
+  return data as DemandeRoleAdminVue;
+}
+
+/**
+ * PATCH /api/admin/role-requests/:id/reject — rejette avec motif (obligatoire).
+ *   - 400 -> motif manquant ; 404 -> introuvable ; 409 -> déjà traitée.
+ */
+export async function rejectRoleRequest(
+  id: string,
+  motif: string,
+): Promise<DemandeRoleAdminVue> {
+  const response = await apiFetch(`/api/admin/role-requests/${id}/reject`, {
+    method: 'PATCH',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ motif }),
+  });
+  const data = await response.json();
+  if (!response.ok) {
+    const message = Array.isArray(data.message)
+      ? data.message.join(' ')
+      : data.message;
+    throw new AdminError(
+      message ?? 'Une erreur est survenue. Veuillez réessayer.',
+      response.status,
+    );
+  }
+  return data as DemandeRoleAdminVue;
+}
