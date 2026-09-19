@@ -12,6 +12,7 @@ import { ReactNode } from 'react';
  */
 const ONGLETS: Array<[string, string]> = [
   ['/admin/utilisateurs', 'Utilisateurs'],
+  ['/admin/role-requests', 'Demandes de rôle'],
   ['/admin/audit', "Journal d'audit"],
 ];
 

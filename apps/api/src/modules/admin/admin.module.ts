@@ -18,5 +18,8 @@ import { AdminUsersService } from './admin-users.service';
   imports: [TypeOrmModule.forFeature([User]), AuthModule],
   controllers: [AdminUsersController],
   providers: [AdminUsersService],
+  // Exporté pour US-ROL-02 : le module role-requests réutilise le cœur du
+  // changement de rôle (appliquerChangementRole) sans le réimplémenter.
+  exports: [AdminUsersService],
 })
 export class AdminModule {}

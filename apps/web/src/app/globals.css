@@ -177,6 +177,10 @@ select.input { appearance: auto; background: #fff; }
 .statut-badge { display: inline-block; padding: 3px 10px; border-radius: 999px; font-size: 0.76rem; font-weight: 650; }
 .statut-ACTIF { background: var(--success-soft); color: var(--primary-dark); }
 .statut-DESACTIVE { background: var(--danger-soft); color: #922b21; }
+/* US-ROL-02 — statuts d'une demande de role (meme gabarit .statut-badge). */
+.statut-EN_ATTENTE { background: #fef3e2; color: var(--accent-dark); }
+.statut-APPROUVEE { background: var(--success-soft); color: var(--primary-dark); }
+.statut-REJETEE { background: var(--danger-soft); color: #922b21; }
 .statut-EN_ATTENTE_ACTIVATION { background: #fef3c7; color: var(--accent-dark); }
 .statut-ANONYMISE { background: #eef2f7; color: #475569; }
 
