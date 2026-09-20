@@ -8,7 +8,7 @@ import {
   Req,
   UnauthorizedException,
 } from '@nestjs/common';
-import { ApiOperation, ApiResponse, ApiTags } from '@nestjs/swagger';
+import { ApiBearerAuth, ApiOperation, ApiResponse, ApiTags } from '@nestjs/swagger';
 import { AuthenticatedRequest } from '../auth/auth.types';
 import {
   DemandeRoleVue,
@@ -23,6 +23,7 @@ import { CreateRoleRequestDto } from './dto/create-role-request.dto';
  * (le JwtAuthGuard global exige déjà une session valide -> 401 sans token).
  * C'est le pendant self-service d'US-ROL-01 (réservé, lui, aux admins).
  */
+@ApiBearerAuth('access-token')
 @ApiTags('role-requests')
 @Controller('role-requests')
 export class RoleRequestsController {

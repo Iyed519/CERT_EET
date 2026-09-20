@@ -11,7 +11,7 @@ import {
   Req,
   UnauthorizedException,
 } from '@nestjs/common';
-import { ApiOperation, ApiResponse, ApiTags } from '@nestjs/swagger';
+import { ApiBearerAuth, ApiOperation, ApiResponse, ApiTags } from '@nestjs/swagger';
 import { Roles } from '../auth/decorators/roles.decorator';
 import { Role } from '../../database/enums/role.enum';
 import { AuthenticatedRequest } from '../auth/auth.types';
@@ -32,6 +32,7 @@ import { RejectRoleRequestDto } from './dto/reject-role-request.dto';
  * deux vivent dans le même module mais n'ont ni le même préfixe de route ni la
  * même protection.
  */
+@ApiBearerAuth('access-token')
 @ApiTags('admin')
 @Roles(Role.ADMINISTRATEUR)
 @Controller('admin/role-requests')

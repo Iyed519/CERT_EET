@@ -10,7 +10,7 @@ import {
   Req,
   UnauthorizedException,
 } from '@nestjs/common';
-import { ApiOperation, ApiResponse, ApiTags } from '@nestjs/swagger';
+import { ApiBearerAuth, ApiOperation, ApiResponse, ApiTags } from '@nestjs/swagger';
 import { Roles } from '../auth/decorators/roles.decorator';
 import { Role } from '../../database/enums/role.enum';
 import { StatutCompte } from '../../database/enums/statut-compte.enum';
@@ -26,6 +26,7 @@ import { ChangeStatutDto } from './dto/change-statut.dto';
  * refuse tout autre rôle en 403 sur toutes les routes. Aucune route @Public ->
  * le JwtAuthGuard global exige déjà une session valide.
  */
+@ApiBearerAuth('access-token')
 @ApiTags('admin')
 @Roles(Role.ADMINISTRATEUR)
 @Controller('admin/users')

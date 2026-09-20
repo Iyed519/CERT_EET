@@ -1,5 +1,5 @@
 import { Controller, Get, Query, Res } from '@nestjs/common';
-import { ApiOperation, ApiResponse, ApiTags } from '@nestjs/swagger';
+import { ApiBearerAuth, ApiOperation, ApiResponse, ApiTags } from '@nestjs/swagger';
 import { Response } from 'express';
 import { Roles } from '../auth/decorators/roles.decorator';
 import { Role } from '../../database/enums/role.enum';
@@ -21,6 +21,7 @@ import { auditLogsToCsv } from './audit-csv.util';
  * = admin, résultat selon statut). Ce sont les seules routes annotées @Audit,
  * donc aucun risque de double-log avec les écritures fines des services.
  */
+@ApiBearerAuth('access-token')
 @ApiTags('admin')
 @Roles(Role.ADMINISTRATEUR)
 @Controller('admin/audit-logs')

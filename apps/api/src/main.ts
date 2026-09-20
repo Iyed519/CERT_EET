@@ -44,10 +44,32 @@ async function bootstrap(): Promise<void> {
     .setTitle('Cert_EET API')
     .setDescription('API de la plateforme de certification numérique vérifiable')
     .setVersion('0.1.0')
-    .addBearerAuth()
+    .addTag('auth', "Authentification, MFA (TOTP), OAuth, profil et session")
+    .addTag('admin', "Administration : comptes, rôles, demandes de rôle, journal d'audit (ADMINISTRATEUR)")
+    .addTag('role-requests', "Demandes de changement de rôle en self-service (utilisateur authentifié)")
+    .addTag('referentiel', "Référentiels : domaines et établissements")
+    .addTag('health', "Sonde de santé (Docker healthcheck, publique)")
+    .addBearerAuth(
+      {
+        type: 'http',
+        scheme: 'bearer',
+        bearerFormat: 'JWT',
+        name: 'Authorization',
+        in: 'header',
+        description:
+          "Colle ici un access token JWT (obtenu via POST /auth/login puis /auth/mfa/verify si MFA). Applique-le aux routes protégées (cadenas).",
+      },
+      'access-token',
+    )
     .build();
   const document = SwaggerModule.createDocument(app, swaggerConfig);
-  SwaggerModule.setup(`${app_.apiPrefix}/docs`, app, document);
+  SwaggerModule.setup(`${app_.apiPrefix}/docs`, app, document, {
+    // persistAuthorization : conserve le token collé via « Authorize » entre
+    // deux rafraîchissements de la page (confort de démo Sprint Review).
+    swaggerOptions: { persistAuthorization: true },
+    // Expose le contrat OpenAPI brut (smoke test : GET /api/docs-json -> 200).
+    jsonDocumentUrl: `${app_.apiPrefix}/docs-json`,
+  });
 
   await app.listen(app_.port);
   logger.log(`API démarrée sur le port ${app_.port} (env: ${app_.nodeEnv})`);
