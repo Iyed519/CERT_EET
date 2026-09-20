@@ -15,11 +15,13 @@ import { AuthGuard } from '@nestjs/passport';
 import { ApiOperation, ApiResponse, ApiTags } from '@nestjs/swagger';
 import { ConfigService } from '@nestjs/config';
 import { Request, Response } from 'express';
-import { AuthService, ProfilResult } from './auth.service';
+import { AuthService, MfaSetupResult, ProfilResult } from './auth.service';
 import { LoginDto } from './dto/login.dto';
 import { RegisterDto } from './dto/register.dto';
 import { VerifyEmailDto } from './dto/verify-email.dto';
 import { CompleteProfileDto } from './dto/complete-profile.dto';
+import { MfaCodeDto } from './dto/mfa-code.dto';
+import { MfaVerifyDto } from './dto/mfa-verify.dto';
 import { JwtConfig, MailConfig } from '../../config/configuration';
 import { Public } from './decorators/public.decorator';
 import { AuthenticatedRequest, OauthProfile } from './auth.types';
@@ -153,8 +155,37 @@ export class AuthController {
     @Body() dto: LoginDto,
     @Req() req: Request,
     @Res({ passthrough: true }) res: Response,
-  ): Promise<LoginResponseBody> {
+  ): Promise<LoginResponseBody | { mfaRequired: true; mfaToken: string }> {
     const result = await this.authService.login(dto, {
+      adresseIp: req.ip ?? null,
+      userAgent: req.headers['user-agent'] ?? null,
+    });
+    // US-AUTH-02 : MFA active -> aucun jeton, on renvoie le défi (mfaToken).
+    if ('mfaRequired' in result) {
+      return { mfaRequired: true, mfaToken: result.mfaToken };
+    }
+    this.setRefreshTokenCookie(res, result.refreshToken);
+    return { accessToken: result.accessToken, user: result.user };
+  }
+
+  /**
+   * US-AUTH-02 — Seconde étape : vérifie le code TOTP + le mfaToken temporaire
+   * et, si OK, ouvre la session (accessToken en JSON, refresh en cookie
+   * httpOnly), comme /auth/login classique. @Public : aucun jeton d'accès n'est
+   * encore émis à ce stade.
+   */
+  @Public()
+  @Post('mfa/verify')
+  @HttpCode(HttpStatus.OK)
+  @ApiOperation({ summary: 'Vérifier le code MFA et ouvrir la session (US-AUTH-02)' })
+  @ApiResponse({ status: 200, description: 'accessToken en JSON, refreshToken en cookie httpOnly.' })
+  @ApiResponse({ status: 401, description: 'Jeton MFA invalide/expiré ou code invalide.' })
+  async mfaVerify(
+    @Body() dto: MfaVerifyDto,
+    @Req() req: Request,
+    @Res({ passthrough: true }) res: Response,
+  ): Promise<LoginResponseBody> {
+    const result = await this.authService.mfaVerify(dto.mfaToken, dto.code, {
       adresseIp: req.ip ?? null,
       userAgent: req.headers['user-agent'] ?? null,
     });
@@ -247,6 +278,75 @@ export class AuthController {
       adresseIp: req.ip ?? null,
     });
   }
+  /**
+   * US-AUTH-09 — Demarre l'enrolement MFA (route PROTEGEE). Renvoie l'URI
+   * otpauth + un QR (data URL) a scanner dans l'app d'authentification. Le
+   * secret reste "en attente" tant que /auth/mfa/enable n'a pas confirme un code.
+   */
+  @Post('mfa/setup')
+  @HttpCode(HttpStatus.OK)
+  @ApiOperation({ summary: "Demarrer l'enrolement MFA (US-AUTH-09)" })
+  @ApiResponse({ status: 200, description: 'otpauthUrl + qrDataUrl (secret en attente).' })
+  @ApiResponse({ status: 401, description: 'Non authentifie.' })
+  @ApiResponse({ status: 409, description: 'MFA deja activee.' })
+  async mfaSetup(@Req() req: AuthenticatedRequest): Promise<MfaSetupResult> {
+    const user = req.user;
+    if (!user) {
+      throw new UnauthorizedException('Non authentifie.');
+    }
+    return this.authService.mfaSetup(user.sub);
+  }
+
+  /**
+   * US-AUTH-09 — Confirme l'activation MFA (route PROTEGEE) : un code TOTP valide
+   * contre le secret en attente active la MFA (mfa_active=true) et persiste le
+   * secret. 400 si le code est invalide ou l'activation expiree.
+   */
+  @Post('mfa/enable')
+  @HttpCode(HttpStatus.OK)
+  @ApiOperation({ summary: "Confirmer l'activation MFA (US-AUTH-09)" })
+  @ApiResponse({ status: 200, description: 'MFA activee.' })
+  @ApiResponse({ status: 400, description: 'Code invalide ou activation expiree.' })
+  @ApiResponse({ status: 401, description: 'Non authentifie.' })
+  @ApiResponse({ status: 409, description: 'MFA deja activee.' })
+  async mfaEnable(
+    @Body() dto: MfaCodeDto,
+    @Req() req: AuthenticatedRequest,
+  ): Promise<{ message: string }> {
+    const user = req.user;
+    if (!user) {
+      throw new UnauthorizedException('Non authentifie.');
+    }
+    await this.authService.mfaEnable(user.sub, dto.code, {
+      adresseIp: req.ip ?? null,
+    });
+    return { message: 'Double authentification activee.' };
+  }
+
+  /**
+   * US-AUTH-09 — Desactive la MFA (route PROTEGEE). Exige un code TOTP valide.
+   * Efface le secret et repasse mfa_active a false.
+   */
+  @Post('mfa/disable')
+  @HttpCode(HttpStatus.OK)
+  @ApiOperation({ summary: 'Desactiver la MFA (US-AUTH-09)' })
+  @ApiResponse({ status: 200, description: 'MFA desactivee.' })
+  @ApiResponse({ status: 400, description: 'MFA non activee ou code invalide.' })
+  @ApiResponse({ status: 401, description: 'Non authentifie.' })
+  async mfaDisable(
+    @Body() dto: MfaCodeDto,
+    @Req() req: AuthenticatedRequest,
+  ): Promise<{ message: string }> {
+    const user = req.user;
+    if (!user) {
+      throw new UnauthorizedException('Non authentifie.');
+    }
+    await this.authService.mfaDisable(user.sub, dto.code, {
+      adresseIp: req.ip ?? null,
+    });
+    return { message: 'Double authentification desactivee.' };
+  }
+
   /**
    * US-AUTH-14 — Logique commune aux callbacks OAuth (Google, GitHub). Passport
    * a déjà validé l'identité et posé le profil normalisé sur req.user. On ouvre

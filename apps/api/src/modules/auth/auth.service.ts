@@ -10,6 +10,8 @@ import { ConfigService } from '@nestjs/config';
 import { Repository } from 'typeorm';
 import * as crypto from 'crypto';
 import * as bcrypt from 'bcryptjs';
+import { authenticator } from 'otplib';
+import * as QRCode from 'qrcode';
 import * as fs from 'fs';
 import { User } from '../../database/entities/user.entity';
 import { RefreshToken } from '../../database/entities/refresh-token.entity';
@@ -29,6 +31,8 @@ import { MailService } from '../../mail/mail.service';
 import { AuditService } from '../audit/audit.service';
 import {
   accessDenylistKey,
+  mfaSessionKey,
+  mfaSetupKey,
   refreshDenylistKey,
   sessionsValidAfterKey,
   verifyEmailKey,
@@ -36,8 +40,26 @@ import {
 const GENERIC_LOGIN_ERROR = 'Identifiants invalides ou compte inactif.';
 const GENERIC_REFRESH_ERROR = 'Session invalide ou expirée.';
 const GENERIC_OAUTH_ERROR = 'Connexion sociale impossible.';
+// US-AUTH-02 : message générique (opacité) pour tout échec de la vérif MFA.
+const GENERIC_MFA_ERROR = 'Code de vérification invalide ou expiré.';
 // ADR-11 : le jeton de vérification d'email est valable 48 h.
 const VERIFY_EMAIL_TTL_SECONDS = 48 * 3600;
+// US-AUTH-09 : emetteur affiche dans l'app d'authentification (Google Auth...).
+const MFA_ISSUER = 'Cert_EET';
+// US-AUTH-09 : TTL du secret en attente d'enrolement (scan + saisie du code).
+const MFA_SETUP_TTL_SECONDS = 10 * 60;
+// US-AUTH-02 : durée de vie du défi MFA à la connexion (5 min).
+const MFA_SESSION_TTL_SECONDS = 5 * 60;
+/** Donnees d'enrolement MFA renvoyees par /auth/mfa/setup (US-AUTH-09). */
+export interface MfaSetupResult {
+  otpauthUrl: string;
+  qrDataUrl: string;
+}
+/** Defi MFA renvoye par /auth/login quand la MFA est active (US-AUTH-02). */
+export interface MfaChallengeResult {
+  mfaRequired: true;
+  mfaToken: string;
+}
 export interface LoginResult {
   accessToken: string;
   refreshToken: string;
@@ -53,6 +75,7 @@ export interface ProfilResult {
   email: string;
   role: User['role'];
   profilComplet: boolean;
+  mfaActive: boolean;
   dateNaissance: string | null;
   age: number | null;
   niveauEtudes: NiveauEtudes | null;
@@ -79,6 +102,9 @@ export class AuthService {
     private readonly auditService: AuditService,
   ) {
     this.jwtConfig = this.configService.getOrThrow<JwtConfig>('jwt');
+    // ADR-08 : tolerance d'un pas TOTP (+/-30 s) pour absorber la derive
+    // d'horloge entre le serveur et l'app d'authentification.
+    authenticator.options = { window: 1 };
   }
   /**
    * US-CPT-05 — Auto-inscription publique (ADR-11).
@@ -169,7 +195,7 @@ export class AuthService {
   async login(
     dto: LoginDto,
     context: { adresseIp: string | null; userAgent: string | null },
-  ): Promise<LoginResult> {
+  ): Promise<LoginResult | MfaChallengeResult> {
     const user = await this.userRepository.findOne({
       where: { email: dto.email },
     });
@@ -183,17 +209,71 @@ export class AuthService {
     if (user.statut !== StatutCompte.ACTIF) {
       throw new UnauthorizedException(GENERIC_LOGIN_ERROR);
     }
+    // US-AUTH-02 (DS-01 étape 3) : si la MFA est active, on N'ÉMET PAS les
+    // jetons. On ouvre une session MFA temporaire (Redis, 5 min) et on renvoie
+    // un défi ; les jetons ne seront émis qu'après /auth/mfa/verify.
+    if (user.mfaActive) {
+      const mfaToken = crypto.randomUUID();
+      await this.redisService.set(
+        mfaSessionKey(mfaToken),
+        user.id,
+        MFA_SESSION_TTL_SECONDS,
+      );
+      return { mfaRequired: true, mfaToken };
+    }
+    return this.issueSession(user, context, 'LOGIN');
+  }
+
+  /**
+   * US-AUTH-02 — Seconde étape de connexion : vérifie le code TOTP contre la
+   * session MFA temporaire. Usage UNIQUE : la session est supprimée AVANT
+   * l'émission des jetons (anti-rejeu). 401 générique si le jeton MFA est
+   * inconnu/expiré, le compte inéligible ou le code invalide.
+   */
+  async mfaVerify(
+    mfaToken: string,
+    code: string,
+    context: { adresseIp: string | null; userAgent: string | null },
+  ): Promise<LoginResult> {
+    const userId = await this.redisService.get(mfaSessionKey(mfaToken));
+    if (!userId) {
+      throw new UnauthorizedException(GENERIC_MFA_ERROR);
+    }
+    const user = await this.userRepository.findOne({ where: { id: userId } });
+    if (
+      !user ||
+      user.statut !== StatutCompte.ACTIF ||
+      !user.mfaActive ||
+      !user.mfaSecret
+    ) {
+      throw new UnauthorizedException(GENERIC_MFA_ERROR);
+    }
+    if (!this.verifierTotp(code, user.mfaSecret)) {
+      throw new UnauthorizedException(GENERIC_MFA_ERROR);
+    }
+    // Usage unique : suppression de la session MFA AVANT d'émettre.
+    await this.redisService.del(mfaSessionKey(mfaToken));
+    return this.issueSession(user, context, 'LOGIN');
+  }
+
+  /**
+   * Émet la paire de jetons + crée la session refresh + met à jour
+   * derniereConnexion + journalise. Chemin PARTAGÉ entre login (sans MFA) et
+   * mfaVerify (après MFA) — une seule source d'émission, pas de double-audit.
+   */
+  private async issueSession(
+    user: User,
+    context: { adresseIp: string | null; userAgent: string | null },
+    auditAction: string,
+  ): Promise<LoginResult> {
     const accessToken = await this.signAccessToken(user);
     const refreshToken = await this.signRefreshToken(user);
     const familleId = crypto.randomUUID();
     await this.persistRefreshToken(user.id, refreshToken, familleId, context);
     user.derniereConnexion = new Date();
     await this.userRepository.save(user);
-    // US-AUTH-12 : LOGIN est une action sensible ; jusqu'ici elle n'était PAS
-    // journalisée. Je la trace explicitement (écriture fine), l'intercepteur
-    // @Audit ne couvrant que les routes annotées.
     await this.auditService.record({
-      action: 'LOGIN',
+      action: auditAction,
       acteur: user.id,
       adresseIp: context.adresseIp,
       resultat: 'Succès',
@@ -486,6 +566,123 @@ export class AuthService {
     });
     return this.mapProfil(user);
   }
+  /**
+   * US-AUTH-09 — Demarre l'enrolement MFA (self-service, utilisateur connecte).
+   *
+   * Genere un secret TOTP EN ATTENTE (Redis, TTL court — jamais ecrit en base a
+   * ce stade) et renvoie l'URI otpauth + un QR (data URL) a scanner. Le secret
+   * n'est confirme et persiste qu'a l'appel de mfaEnable avec un code valide.
+   * 409 si la MFA est deja active (rien a re-enroler).
+   */
+  async mfaSetup(userId: string): Promise<MfaSetupResult> {
+    const user = await this.userRepository.findOne({ where: { id: userId } });
+    if (!user) {
+      throw new UnauthorizedException('Non authentifie.');
+    }
+    if (user.mfaActive) {
+      throw new ConflictException(
+        'La double authentification est deja activee.',
+      );
+    }
+    const secret = authenticator.generateSecret();
+    await this.redisService.set(
+      mfaSetupKey(userId),
+      secret,
+      MFA_SETUP_TTL_SECONDS,
+    );
+    const otpauthUrl = authenticator.keyuri(user.email, MFA_ISSUER, secret);
+    const qrDataUrl = await QRCode.toDataURL(otpauthUrl);
+    return { otpauthUrl, qrDataUrl };
+  }
+
+  /**
+   * US-AUTH-09 — Confirme l'activation MFA : verifie le code TOTP contre le
+   * secret EN ATTENTE (Redis). En cas de succes, persiste le secret en base,
+   * passe mfa_active a true, consomme la cle Redis et journalise MFA_ACTIVEE.
+   * 400 si aucune activation en cours (expiree/inexistante) ou code invalide.
+   */
+  async mfaEnable(
+    userId: string,
+    code: string,
+    context: { adresseIp: string | null },
+  ): Promise<void> {
+    const user = await this.userRepository.findOne({ where: { id: userId } });
+    if (!user) {
+      throw new UnauthorizedException('Non authentifie.');
+    }
+    if (user.mfaActive) {
+      throw new ConflictException(
+        'La double authentification est deja activee.',
+      );
+    }
+    const secret = await this.redisService.get(mfaSetupKey(userId));
+    if (!secret) {
+      throw new BadRequestException(
+        "Aucune activation en cours ou delai depasse. Relancez l'activation.",
+      );
+    }
+    if (!this.verifierTotp(code, secret)) {
+      throw new BadRequestException('Code invalide.');
+    }
+    user.mfaSecret = secret;
+    user.mfaActive = true;
+    await this.userRepository.save(user);
+    await this.redisService.del(mfaSetupKey(userId));
+    await this.auditService.record({
+      action: 'MFA_ACTIVEE',
+      acteur: user.id,
+      adresseIp: context.adresseIp,
+      resultat: 'Succès',
+    });
+  }
+
+  /**
+   * US-AUTH-09 — Desactive la MFA. Exige un code TOTP valide (anti-abus : une
+   * session volee ne peut pas retirer la protection sans l'app d'authentification).
+   * Efface le secret + mfa_active=false et journalise MFA_DESACTIVEE. 400 si la
+   * MFA n'est pas active ou si le code est invalide.
+   */
+  async mfaDisable(
+    userId: string,
+    code: string,
+    context: { adresseIp: string | null },
+  ): Promise<void> {
+    const user = await this.userRepository.findOne({ where: { id: userId } });
+    if (!user) {
+      throw new UnauthorizedException('Non authentifie.');
+    }
+    if (!user.mfaActive || !user.mfaSecret) {
+      throw new BadRequestException(
+        "La double authentification n'est pas activee.",
+      );
+    }
+    if (!this.verifierTotp(code, user.mfaSecret)) {
+      throw new BadRequestException('Code invalide.');
+    }
+    user.mfaActive = false;
+    user.mfaSecret = null;
+    await this.userRepository.save(user);
+    await this.auditService.record({
+      action: 'MFA_DESACTIVEE',
+      acteur: user.id,
+      adresseIp: context.adresseIp,
+      resultat: 'Succès',
+    });
+  }
+
+  /**
+   * Verifie un code TOTP contre un secret base32 (tolerance +/-1 pas, reglee
+   * dans le constructeur). Centralise ici : enable, disable et verify l'utilisent.
+   */
+  private verifierTotp(code: string, secret: string): boolean {
+    try {
+      return authenticator.verify({ token: code, secret });
+    } catch {
+      // otplib peut lever si le secret est malforme : on traite comme invalide.
+      return false;
+    }
+  }
+
   /** Projette un User vers la vue profil (âge dérivé, jamais stocké). */
   private mapProfil(user: User): ProfilResult {
     return {
@@ -493,6 +690,7 @@ export class AuthService {
       email: user.email,
       role: user.role,
       profilComplet: user.profilComplet,
+      mfaActive: user.mfaActive,
       dateNaissance: user.dateNaissance,
       age: user.dateNaissance ? this.calculerAge(user.dateNaissance) : null,
       niveauEtudes: user.niveauEtudes,

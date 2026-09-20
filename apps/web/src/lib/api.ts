@@ -16,6 +16,19 @@ export interface LoginResponse {
 
 export class LoginError extends Error {}
 
+/** US-AUTH-02 — Défi MFA renvoyé par /api/auth/login quand la MFA est active. */
+export interface MfaChallenge {
+  mfaRequired: true;
+  mfaToken: string;
+}
+
+/** Type-guard : distingue un défi MFA d'une session complète. */
+export function isMfaChallenge(
+  res: LoginResponse | MfaChallenge,
+): res is MfaChallenge {
+  return 'mfaRequired' in res;
+}
+
 /**
  * POST /api/auth/login. credentials:'include' pour que le navigateur accepte
  * le cookie httpOnly (refresh token). Échec -> LoginError avec le message
@@ -24,7 +37,7 @@ export class LoginError extends Error {}
 export async function loginRequest(
   email: string,
   password: string,
-): Promise<LoginResponse> {
+): Promise<LoginResponse | MfaChallenge> {
   const response = await fetch('/api/auth/login', {
     method: 'POST',
     headers: { 'Content-Type': 'application/json' },
@@ -36,6 +49,31 @@ export async function loginRequest(
     throw new LoginError(
       data.message ?? 'Une erreur est survenue. Veuillez réessayer.',
     );
+  }
+  return data as LoginResponse | MfaChallenge;
+}
+
+/**
+ * US-AUTH-02 — Seconde étape de connexion. POST /api/auth/mfa/verify avec le
+ * mfaToken temporaire + le code TOTP. credentials:'include' pour recevoir le
+ * cookie refresh httpOnly. Échec -> LoginError (message générique du backend).
+ */
+export async function mfaVerifyRequest(
+  mfaToken: string,
+  code: string,
+): Promise<LoginResponse> {
+  const response = await fetch('/api/auth/mfa/verify', {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    credentials: 'include',
+    body: JSON.stringify({ mfaToken, code }),
+  });
+  const data = await response.json();
+  if (!response.ok) {
+    const message = Array.isArray(data.message)
+      ? data.message.join(' ')
+      : data.message;
+    throw new LoginError(message ?? 'Code de vérification invalide ou expiré.');
   }
   return data as LoginResponse;
 }
@@ -262,6 +300,7 @@ export interface ProfilResponse {
   email: string;
   role: string;
   profilComplet: boolean;
+  mfaActive: boolean;
   dateNaissance: string | null;
   age: number | null;
   niveauEtudes: NiveauEtudes | null;
@@ -708,4 +747,54 @@ export async function rejectRoleRequest(
     );
   }
   return data as DemandeRoleAdminVue;
+}
+
+/* ============================================================
+ * US-AUTH-09 — Réglages MFA (activation / désactivation, self-service)
+ * ============================================================ */
+export class MfaError extends Error {}
+export interface MfaSetupResponse {
+  otpauthUrl: string;
+  qrDataUrl: string;
+}
+/** Petit utilitaire : message d'erreur backend (chaîne ou tableau de validation). */
+function messageErreur(data: { message?: string | string[] }): string | undefined {
+  return Array.isArray(data.message) ? data.message.join(' ') : data.message;
+}
+/** POST /api/auth/mfa/setup — secret en attente + QR (data URL). 409 si déjà active. */
+export async function mfaSetup(): Promise<MfaSetupResponse> {
+  const response = await apiFetch('/api/auth/mfa/setup', { method: 'POST' });
+  const data = await response.json();
+  if (!response.ok) {
+    throw new MfaError(
+      messageErreur(data) ?? "Impossible de démarrer l'activation MFA.",
+    );
+  }
+  return data as MfaSetupResponse;
+}
+/** POST /api/auth/mfa/enable — confirme l'activation avec un code TOTP. */
+export async function mfaEnable(code: string): Promise<{ message: string }> {
+  const response = await apiFetch('/api/auth/mfa/enable', {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ code }),
+  });
+  const data = await response.json();
+  if (!response.ok) {
+    throw new MfaError(messageErreur(data) ?? 'Code invalide.');
+  }
+  return data as { message: string };
+}
+/** POST /api/auth/mfa/disable — désactive la MFA avec un code TOTP. */
+export async function mfaDisable(code: string): Promise<{ message: string }> {
+  const response = await apiFetch('/api/auth/mfa/disable', {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ code }),
+  });
+  const data = await response.json();
+  if (!response.ok) {
+    throw new MfaError(messageErreur(data) ?? 'Code invalide.');
+  }
+  return data as { message: string };
 }
