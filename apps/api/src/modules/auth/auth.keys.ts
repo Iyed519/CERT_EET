@@ -21,3 +21,18 @@ export const sessionsValidAfterKey = (userId: string): string =>
  */
 export const verifyEmailKey = (token: string): string =>
   `verify-email:${token}`;
+
+/**
+ * US-AUTH-09 — Secret TOTP EN ATTENTE d'enrôlement : cle -> secret base32, TTL
+ * court. Cree par /auth/mfa/setup, consomme par /auth/mfa/enable. Le secret
+ * n'est ecrit en base (mfa_secret) qu'a l'activation confirmee ; s'il n'est
+ * jamais confirme, Redis l'expire seul (aucun secret orphelin en base).
+ */
+export const mfaSetupKey = (userId: string): string => `mfa:setup:${userId}`;
+/**
+ * US-AUTH-02 — Session MFA temporaire a la connexion : cle -> userId, TTL 5 min.
+ * Creee quand le mot de passe est valide mais que la MFA est active (aucun jeton
+ * emis) ; consommee (usage unique) par /auth/mfa/verify avant emission des
+ * jetons definitifs.
+ */
+export const mfaSessionKey = (mfaToken: string): string => `mfa:${mfaToken}`;

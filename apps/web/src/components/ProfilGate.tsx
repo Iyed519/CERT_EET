@@ -140,7 +140,7 @@ export function ProfilGate(): JSX.Element | null {
             />
           </div>
           <div className="field">
-            <label className="field-label" htmlFor="niveau">Niveau d'études</label>
+            <label className="field-label" htmlFor="niveau">Niveau d’études</label>
             <select
               id="niveau"
               className="input"
@@ -167,7 +167,7 @@ export function ProfilGate(): JSX.Element | null {
           {enEtudes && (
             <>
               <div className="field">
-                <label className="field-label" htmlFor="domaine">Domaine d'études</label>
+                <label className="field-label" htmlFor="domaine">Domaine d’études</label>
                 <select
                   id="domaine"
                   className="input"
@@ -206,7 +206,7 @@ export function ProfilGate(): JSX.Element | null {
               </div>
               {etabChoix === 'AUTRE' && (
                 <div className="field">
-                  <label className="field-label" htmlFor="etab-autre">Précisez l'établissement</label>
+                  <label className="field-label" htmlFor="etab-autre">Précisez l’établissement</label>
                   <input
                     id="etab-autre"
                     className="input"

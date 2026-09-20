@@ -8,6 +8,7 @@ import {
   UnauthorizedException,
 } from '@nestjs/common';
 import * as bcrypt from 'bcryptjs';
+import { authenticator } from 'otplib';
 import { AuthService } from './auth.service';
 import { AuditService } from '../audit/audit.service';
 import { User } from '../../database/entities/user.entity';
@@ -156,6 +157,9 @@ describe('AuthService', () => {
         { email: user.email, password: MOT_DE_PASSE_CORRECT },
         { adresseIp: '127.0.0.1', userAgent: 'jest-test' },
       );
+      if ('mfaRequired' in result) {
+        throw new Error('login sans MFA ne doit pas renvoyer de défi');
+      }
       expect(result.accessToken).toBe('fake-access-token');
       expect(result.refreshToken).toBe('fake-refresh-token');
       expect(result.user).toEqual({
@@ -686,6 +690,180 @@ describe('AuthService', () => {
       await expect(service.getMe('inconnu')).rejects.toThrow(
         UnauthorizedException,
       );
+    });
+  });
+
+  describe('MFA — enrôlement (US-AUTH-09)', () => {
+    const contexte = { adresseIp: '127.0.0.1' };
+
+    it('mfaSetup : génère un secret en attente (Redis) + QR, sans écrire en base', async () => {
+      const user = utilisateurActif();
+      mockUserRepository.findOne.mockResolvedValue(user);
+      const res = await service.mfaSetup(user.id);
+      expect(res.otpauthUrl).toContain('otpauth://totp/');
+      expect(res.qrDataUrl).toMatch(/^data:image\/png;base64,/);
+      expect(mockRedisService.set).toHaveBeenCalledWith(
+        expect.stringMatching(/^mfa:setup:/),
+        expect.any(String),
+        expect.any(Number),
+      );
+      // Pas de secret en base tant que l'activation n'est pas confirmée.
+      expect(mockUserRepository.save).not.toHaveBeenCalled();
+    });
+
+    it('mfaSetup : 409 si la MFA est déjà active', async () => {
+      mockUserRepository.findOne.mockResolvedValue({
+        ...utilisateurActif(),
+        mfaActive: true,
+      });
+      await expect(service.mfaSetup('user-uuid-1')).rejects.toThrow(
+        ConflictException,
+      );
+      expect(mockRedisService.set).not.toHaveBeenCalled();
+    });
+
+    it('mfaEnable : code valide -> mfa_active=true, secret persisté, clé consommée, audit MFA_ACTIVEE', async () => {
+      const secret = authenticator.generateSecret();
+      const user = utilisateurActif();
+      mockUserRepository.findOne.mockResolvedValue(user);
+      mockRedisService.get.mockResolvedValue(secret);
+      mockUserRepository.save.mockResolvedValue(user);
+      await service.mfaEnable(
+        user.id,
+        authenticator.generate(secret),
+        contexte,
+      );
+      expect(user.mfaActive).toBe(true);
+      expect(user.mfaSecret).toBe(secret);
+      expect(mockRedisService.del).toHaveBeenCalledWith(
+        expect.stringMatching(/^mfa:setup:/),
+      );
+      expect(mockAuditService.record).toHaveBeenCalledWith(
+        expect.objectContaining({ action: 'MFA_ACTIVEE', resultat: 'Succès' }),
+      );
+    });
+
+    it('mfaEnable : 400 si aucune activation en cours (Redis vide)', async () => {
+      mockUserRepository.findOne.mockResolvedValue(utilisateurActif());
+      mockRedisService.get.mockResolvedValue(null);
+      await expect(
+        service.mfaEnable('user-uuid-1', '123456', contexte),
+      ).rejects.toThrow(BadRequestException);
+      expect(mockUserRepository.save).not.toHaveBeenCalled();
+    });
+
+    it('mfaEnable : 400 si le code est invalide', async () => {
+      const secret = authenticator.generateSecret();
+      mockUserRepository.findOne.mockResolvedValue(utilisateurActif());
+      mockRedisService.get.mockResolvedValue(secret);
+      const codeInvalide = authenticator.generate(
+        authenticator.generateSecret(),
+      );
+      await expect(
+        service.mfaEnable('user-uuid-1', codeInvalide, contexte),
+      ).rejects.toThrow(BadRequestException);
+      expect(mockUserRepository.save).not.toHaveBeenCalled();
+    });
+
+    it('mfaDisable : code valide -> mfa_active=false, secret effacé, audit MFA_DESACTIVEE', async () => {
+      const secret = authenticator.generateSecret();
+      const user = { ...utilisateurActif(), mfaActive: true, mfaSecret: secret };
+      mockUserRepository.findOne.mockResolvedValue(user);
+      mockUserRepository.save.mockResolvedValue(user);
+      await service.mfaDisable(
+        user.id,
+        authenticator.generate(secret),
+        contexte,
+      );
+      expect(user.mfaActive).toBe(false);
+      expect(user.mfaSecret).toBeNull();
+      expect(mockAuditService.record).toHaveBeenCalledWith(
+        expect.objectContaining({
+          action: 'MFA_DESACTIVEE',
+          resultat: 'Succès',
+        }),
+      );
+    });
+
+    it('mfaDisable : 400 si la MFA n est pas active', async () => {
+      mockUserRepository.findOne.mockResolvedValue(utilisateurActif());
+      await expect(
+        service.mfaDisable('user-uuid-1', '123456', contexte),
+      ).rejects.toThrow(BadRequestException);
+    });
+  });
+
+  describe('MFA — connexion (US-AUTH-02)', () => {
+    const contexte = { adresseIp: '127.0.0.1', userAgent: 'jest' };
+
+    it('login : compte MFA actif -> mfaRequired + mfaToken, AUCUN jeton émis', async () => {
+      const user = { ...utilisateurActif(), mfaActive: true };
+      mockUserRepository.findOne.mockResolvedValue(user);
+      const res = await service.login(
+        { email: user.email, password: MOT_DE_PASSE_CORRECT },
+        contexte,
+      );
+      if (!('mfaRequired' in res)) {
+        throw new Error('un compte MFA actif doit renvoyer un défi');
+      }
+      expect(res.mfaRequired).toBe(true);
+      expect(typeof res.mfaToken).toBe('string');
+      // Session MFA temporaire créée ; aucun jeton signé ; aucun audit LOGIN.
+      expect(mockRedisService.set).toHaveBeenCalledWith(
+        expect.stringMatching(/^mfa:/),
+        user.id,
+        expect.any(Number),
+      );
+      expect(mockJwtService.signAsync).not.toHaveBeenCalled();
+      expect(mockAuditService.record).not.toHaveBeenCalledWith(
+        expect.objectContaining({ action: 'LOGIN' }),
+      );
+    });
+
+    it('mfaVerify : session + code valides -> jetons émis, session supprimée (usage unique), audit LOGIN', async () => {
+      const secret = authenticator.generateSecret();
+      const user = { ...utilisateurActif(), mfaActive: true, mfaSecret: secret };
+      mockRedisService.get.mockResolvedValue(user.id);
+      mockUserRepository.findOne.mockResolvedValue(user);
+      mockRefreshTokenRepository.create.mockReturnValue({});
+      mockRefreshTokenRepository.save.mockResolvedValue({});
+      mockUserRepository.save.mockResolvedValue(user);
+      const res = await service.mfaVerify(
+        'mfa-token-xyz',
+        authenticator.generate(secret),
+        contexte,
+      );
+      expect(res.accessToken).toBe('fake-access-token');
+      expect(res.refreshToken).toBe('fake-refresh-token');
+      expect(mockRedisService.del).toHaveBeenCalledWith(
+        expect.stringMatching(/^mfa:/),
+      );
+      expect(mockAuditService.record).toHaveBeenCalledWith(
+        expect.objectContaining({ action: 'LOGIN', resultat: 'Succès' }),
+      );
+    });
+
+    it('mfaVerify : 401 si le mfaToken est inconnu/expiré (Redis vide)', async () => {
+      mockRedisService.get.mockResolvedValue(null);
+      await expect(
+        service.mfaVerify('mfa-token-absent', '123456', contexte),
+      ).rejects.toThrow(UnauthorizedException);
+      expect(mockJwtService.signAsync).not.toHaveBeenCalled();
+    });
+
+    it('mfaVerify : 401 si le code est invalide (session NON supprimée)', async () => {
+      const secret = authenticator.generateSecret();
+      const user = { ...utilisateurActif(), mfaActive: true, mfaSecret: secret };
+      mockRedisService.get.mockResolvedValue(user.id);
+      mockUserRepository.findOne.mockResolvedValue(user);
+      const codeInvalide = authenticator.generate(
+        authenticator.generateSecret(),
+      );
+      await expect(
+        service.mfaVerify('mfa-token-xyz', codeInvalide, contexte),
+      ).rejects.toThrow(UnauthorizedException);
+      expect(mockRedisService.del).not.toHaveBeenCalled();
+      expect(mockJwtService.signAsync).not.toHaveBeenCalled();
     });
   });
 });
