@@ -1,5 +1,5 @@
 import { Controller, Get } from '@nestjs/common';
-import { ApiOperation, ApiResponse, ApiTags } from '@nestjs/swagger';
+import { ApiBearerAuth, ApiOperation, ApiResponse, ApiTags } from '@nestjs/swagger';
 import { DomaineEtudes } from '../../database/entities/domaine-etudes.entity';
 import {
   EtablissementVue,
@@ -9,6 +9,7 @@ import {
  * Référentiel (US-AUTH-15). Routes PROTÉGÉES (JwtAuthGuard global) : seul un
  * utilisateur connecté, en train de compléter son profil, en a besoin.
  */
+@ApiBearerAuth('access-token')
 @ApiTags('referentiel')
 @Controller('referentiel')
 export class ReferentielController {

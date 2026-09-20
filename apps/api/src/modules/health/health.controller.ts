@@ -1,6 +1,11 @@
 import { Controller, Get } from '@nestjs/common';
 import { ConfigService } from '@nestjs/config';
-import { ApiOperation, ApiTags } from '@nestjs/swagger';
+import {
+  ApiOkResponse,
+  ApiOperation,
+  ApiServiceUnavailableResponse,
+  ApiTags,
+} from '@nestjs/swagger';
 import {
   HealthCheck,
   HealthCheckResult,
@@ -45,6 +50,21 @@ export class HealthController {
   @Public()
   @HealthCheck()
   @ApiOperation({ summary: 'Vérifie la disponibilité de l’API (liveness)' })
+  @ApiOkResponse({
+    description:
+      "API disponible. Renvoie le statut Terminus (status 'ok' + détail des indicateurs, ex. memory_heap).",
+    schema: {
+      example: {
+        status: 'ok',
+        info: { memory_heap: { status: 'up' } },
+        error: {},
+        details: { memory_heap: { status: 'up' } },
+      },
+    },
+  })
+  @ApiServiceUnavailableResponse({
+    description: "Un indicateur est en échec (ex. heap au-dessus du seuil) : status 'error'.",
+  })
   check(): Promise<HealthCheckResult> {
     return this.health.check([
       (): Promise<HealthIndicatorResult> =>

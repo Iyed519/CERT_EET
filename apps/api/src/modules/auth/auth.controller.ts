@@ -12,7 +12,7 @@ import {
   UseGuards,
 } from '@nestjs/common';
 import { AuthGuard } from '@nestjs/passport';
-import { ApiOperation, ApiResponse, ApiTags } from '@nestjs/swagger';
+import { ApiBearerAuth, ApiOperation, ApiResponse, ApiTags } from '@nestjs/swagger';
 import { ConfigService } from '@nestjs/config';
 import { Request, Response } from 'express';
 import { AuthService, MfaSetupResult, ProfilResult } from './auth.service';
@@ -240,6 +240,7 @@ export class AuthController {
    * l'utilisateur courant. Sert aussi de route de démonstration pour tester le
    * guard d'authentification.
    */
+  @ApiBearerAuth('access-token')
   @Get('me')
   @ApiOperation({ summary: 'Utilisateur authentifié courant (US-AUTH-11/15)' })
   @ApiResponse({
@@ -261,6 +262,7 @@ export class AuthController {
    * US-AUTH-15 — Compléter le profil apprenant (route PROTÉGÉE). Appelée par la
    * carte bloquante à la première connexion. Renvoie le profil mis à jour.
    */
+  @ApiBearerAuth('access-token')
   @Patch('profile')
   @ApiOperation({ summary: 'Compléter le profil apprenant (US-AUTH-15)' })
   @ApiResponse({ status: 200, description: 'Profil complété.' })
@@ -283,6 +285,7 @@ export class AuthController {
    * otpauth + un QR (data URL) a scanner dans l'app d'authentification. Le
    * secret reste "en attente" tant que /auth/mfa/enable n'a pas confirme un code.
    */
+  @ApiBearerAuth('access-token')
   @Post('mfa/setup')
   @HttpCode(HttpStatus.OK)
   @ApiOperation({ summary: "Demarrer l'enrolement MFA (US-AUTH-09)" })
@@ -302,6 +305,7 @@ export class AuthController {
    * contre le secret en attente active la MFA (mfa_active=true) et persiste le
    * secret. 400 si le code est invalide ou l'activation expiree.
    */
+  @ApiBearerAuth('access-token')
   @Post('mfa/enable')
   @HttpCode(HttpStatus.OK)
   @ApiOperation({ summary: "Confirmer l'activation MFA (US-AUTH-09)" })
@@ -327,6 +331,7 @@ export class AuthController {
    * US-AUTH-09 — Desactive la MFA (route PROTEGEE). Exige un code TOTP valide.
    * Efface le secret et repasse mfa_active a false.
    */
+  @ApiBearerAuth('access-token')
   @Post('mfa/disable')
   @HttpCode(HttpStatus.OK)
   @ApiOperation({ summary: 'Desactiver la MFA (US-AUTH-09)' })
