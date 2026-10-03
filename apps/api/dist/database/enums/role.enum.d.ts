@@ -1,0 +1,5 @@
+export declare enum Role {
+    APPRENANT = "APPRENANT",
+    FORMATEUR = "FORMATEUR",
+    ADMINISTRATEUR = "ADMINISTRATEUR"
+}
