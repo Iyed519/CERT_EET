@@ -4,6 +4,9 @@
 
 services:
   api:
+    # Image publiée par le CD (INF06). `pull` la récupère depuis GHCR ;
+    # `build` reste disponible en secours (construction locale sur l'hôte).
+    image: ghcr.io/iyed519/cert_eet-api:latest
     build:
       target: production
     environment:
@@ -11,6 +14,8 @@ services:
     restart: unless-stopped
 
   web:
+    # Image publiée par le CD (INF06). Voir api ci-dessus.
+    image: ghcr.io/iyed519/cert_eet-web:latest
     build:
       target: production
     environment:
