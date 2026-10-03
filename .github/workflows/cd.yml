@@ -1,0 +1,77 @@
+# INF06 (CD pipeline) — Cert_EET
+# Construit les images Docker de PRODUCTION (api + web) et les publie sur GHCR,
+# UNIQUEMENT après que le workflow CI a réussi sur main.
+# Périmètre : build + push seulement. Le déploiement réel en recette est manuel
+# (voir docs/DEPLOIEMENT_RECETTE.md) tant qu'aucune VM de staging n'existe.
+name: CD
+
+on:
+  # Déclenché à la fin de la CI sur main : on ne publie que si la CI est verte.
+  workflow_run:
+    workflows: ["CI"]
+    types: [completed]
+    branches: [main]
+  # Permet aussi un lancement manuel depuis l'onglet Actions.
+  workflow_dispatch: {}
+
+permissions:
+  contents: read
+  packages: write
+
+jobs:
+  build-push:
+    name: Build & push images production (GHCR)
+    runs-on: ubuntu-latest
+    # Garde-fou : ne tourne que si la CI a réussi (ou lancement manuel).
+    if: ${{ github.event_name == 'workflow_dispatch' || github.event.workflow_run.conclusion == 'success' }}
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - app: api
+            context: ./apps/api
+          - app: web
+            context: ./apps/web
+    steps:
+      - name: Résoudre le commit validé par la CI
+        id: commit
+        run: |
+          SHA="${{ github.event.workflow_run.head_sha || github.sha }}"
+          echo "sha=$SHA" >> "$GITHUB_OUTPUT"
+          echo "short=${SHA:0:7}" >> "$GITHUB_OUTPUT"
+
+      - name: Checkout (exactement ce commit)
+        uses: actions/checkout@v4
+        with:
+          ref: ${{ steps.commit.outputs.sha }}
+
+      - name: Connexion à GHCR
+        uses: docker/login-action@v3
+        with:
+          registry: ghcr.io
+          username: ${{ github.actor }}
+          password: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: Métadonnées d'image (tags + labels)
+        id: meta
+        uses: docker/metadata-action@v5
+        with:
+          # Le nom d'image est automatiquement mis en minuscules (GHCR l'exige).
+          images: ghcr.io/${{ github.repository_owner }}/cert_eet-${{ matrix.app }}
+          tags: |
+            type=raw,value=latest
+            type=raw,value=${{ steps.commit.outputs.short }}
+
+      - name: Set up Buildx
+        uses: docker/setup-buildx-action@v3
+
+      - name: Build & push (cible production)
+        uses: docker/build-push-action@v6
+        with:
+          context: ${{ matrix.context }}
+          target: production
+          push: true
+          tags: ${{ steps.meta.outputs.tags }}
+          labels: ${{ steps.meta.outputs.labels }}
+          cache-from: type=gha
+          cache-to: type=gha,mode=max
