@@ -798,3 +798,191 @@ export async function mfaDisable(code: string): Promise<{ message: string }> {
   }
   return data as { message: string };
 }
+
+/* ============================================================
+ * US-FORM-01 — Formations (création, configuration, modules)
+ * ============================================================ */
+
+/** Cycle de vie d'une formation (l'enum backend reste la source de vérité). */
+export type StatutFormation = 'OUVERTE' | 'FERMEE' | 'ARCHIVEE';
+
+/** Vue d'une formation (liste, création, modification). Dates en AAAA-MM-JJ. */
+export interface FormationVue {
+  id: string;
+  titre: string;
+  description: string | null;
+  objectifs: string | null;
+  prerequis: string | null;
+  dateDebut: string | null;
+  dateFin: string | null;
+  dureeHeures: number | null;
+  capaciteMax: number;
+  statut: StatutFormation;
+  noteMinCertification: number;
+  modeleCertificat: string | null;
+  createdAt: string;
+  updatedAt: string;
+}
+
+/** Module d'une formation ; `ordre` est attribué par le serveur (1, 2, 3…). */
+export interface ModuleVue {
+  id: string;
+  titre: string;
+  ordre: number;
+  description: string | null;
+}
+
+/** Détail d'une formation : la formation + ses modules triés par ordre. */
+export interface FormationDetailVue extends FormationVue {
+  modules: ModuleVue[];
+}
+
+/** Réponse paginée de GET /api/formations. */
+export interface FormationPage {
+  items: FormationVue[];
+  total: number;
+  page: number;
+  limit: number;
+}
+
+/** Corps de création. Le statut n'y figure pas : le serveur impose OUVERTE. */
+export interface FormationInput {
+  titre: string;
+  description?: string;
+  objectifs?: string;
+  prerequis?: string;
+  dateDebut?: string;
+  dateFin?: string;
+  dureeHeures?: number;
+  capaciteMax: number;
+  noteMinCertification: number;
+  modeleCertificat?: string;
+}
+
+/** Corps de modification : champs facultatifs ; `null` vide un champ optionnel. */
+export type FormationPatch = {
+  [Champ in keyof FormationInput]?: FormationInput[Champ] | null;
+};
+
+/**
+ * Lit une réponse JSON de l'API formations. En cas d'échec, lève une
+ * AdminError portant le message EXACT du backend (chaîne, ou erreurs de
+ * validation concaténées) et le code HTTP.
+ */
+async function lireReponseFormation<T>(response: Response, parDefaut: string): Promise<T> {
+  const data = (await response.json().catch(() => ({}))) as {
+    message?: string | string[];
+  };
+  if (!response.ok) {
+    throw new AdminError(messageErreur(data) ?? parDefaut, response.status);
+  }
+  return data as T;
+}
+
+const JSON_HEADERS = { 'Content-Type': 'application/json' };
+
+/**
+ * GET /api/formations — liste paginée. Un administrateur voit tous les
+ * statuts (filtre libre) ; les autres rôles ne voient que le catalogue OUVERTE.
+ */
+export async function getFormations(
+  query: { statut?: StatutFormation; page?: number; limit?: number } = {},
+): Promise<FormationPage> {
+  const params = new URLSearchParams();
+  if (query.statut) params.set('statut', query.statut);
+  if (query.page) params.set('page', String(query.page));
+  if (query.limit) params.set('limit', String(query.limit));
+  const qs = params.toString();
+  const response = await apiFetch(`/api/formations${qs ? `?${qs}` : ''}`);
+  return lireReponseFormation<FormationPage>(response, 'Impossible de charger les formations.');
+}
+
+/** GET /api/formations/:id — une formation et ses modules. */
+export async function getFormation(id: string): Promise<FormationDetailVue> {
+  const response = await apiFetch(`/api/formations/${id}`);
+  return lireReponseFormation<FormationDetailVue>(response, 'Impossible de charger la formation.');
+}
+
+/**
+ * POST /api/admin/formations — crée une formation (ADMINISTRATEUR).
+ *   - 400 -> capacité ≤ 0, seuil hors [0,100], titre vide, dates incohérentes ;
+ *   - 403 -> pas administrateur.
+ */
+export async function createFormation(input: FormationInput): Promise<FormationVue> {
+  const response = await apiFetch('/api/admin/formations', {
+    method: 'POST',
+    headers: JSON_HEADERS,
+    body: JSON.stringify(input),
+  });
+  return lireReponseFormation<FormationVue>(response, 'Impossible de créer la formation.');
+}
+
+/**
+ * PATCH /api/admin/formations/:id — modifie la configuration.
+ *   - 400 -> aucune modification / valeur invalide ;
+ *   - 409 -> formation archivée, ou capacité sous le nombre d'inscrits.
+ */
+export async function updateFormation(id: string, patch: FormationPatch): Promise<FormationVue> {
+  const response = await apiFetch(`/api/admin/formations/${id}`, {
+    method: 'PATCH',
+    headers: JSON_HEADERS,
+    body: JSON.stringify(patch),
+  });
+  return lireReponseFormation<FormationVue>(response, 'Impossible de modifier la formation.');
+}
+
+/** POST /api/admin/formations/:id/modules — ajoute un module en fin de liste. */
+export async function addFormationModule(
+  formationId: string,
+  input: { titre: string; description?: string },
+): Promise<ModuleVue> {
+  const response = await apiFetch(`/api/admin/formations/${formationId}/modules`, {
+    method: 'POST',
+    headers: JSON_HEADERS,
+    body: JSON.stringify(input),
+  });
+  return lireReponseFormation<ModuleVue>(response, "Impossible d'ajouter le module.");
+}
+
+/** PATCH /api/admin/formations/:id/modules/:moduleId — titre / description. */
+export async function updateFormationModule(
+  formationId: string,
+  moduleId: string,
+  patch: { titre?: string; description?: string | null },
+): Promise<ModuleVue> {
+  const response = await apiFetch(`/api/admin/formations/${formationId}/modules/${moduleId}`, {
+    method: 'PATCH',
+    headers: JSON_HEADERS,
+    body: JSON.stringify(patch),
+  });
+  return lireReponseFormation<ModuleVue>(response, 'Impossible de modifier le module.');
+}
+
+/**
+ * PUT /api/admin/formations/:id/modules/ordre — réordonne TOUS les modules.
+ * `moduleIds` doit contenir chaque module de la formation, une fois.
+ */
+export async function reorderFormationModules(
+  formationId: string,
+  moduleIds: string[],
+): Promise<ModuleVue[]> {
+  const response = await apiFetch(`/api/admin/formations/${formationId}/modules/ordre`, {
+    method: 'PUT',
+    headers: JSON_HEADERS,
+    body: JSON.stringify({ moduleIds }),
+  });
+  return lireReponseFormation<ModuleVue[]>(response, 'Impossible de réordonner les modules.');
+}
+
+/**
+ * DELETE /api/admin/formations/:id/modules/:moduleId — 204 sans corps.
+ *   - 409 -> le module contient déjà une évaluation.
+ */
+export async function deleteFormationModule(formationId: string, moduleId: string): Promise<void> {
+  const response = await apiFetch(`/api/admin/formations/${formationId}/modules/${moduleId}`, {
+    method: 'DELETE',
+  });
+  if (!response.ok) {
+    await lireReponseFormation<never>(response, 'Impossible de supprimer le module.');
+  }
+}

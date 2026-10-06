@@ -4,15 +4,18 @@ import { usePathname } from 'next/navigation';
 import { ReactNode } from 'react';
 
 /**
- * Layout des pages d'administration (US-ROL-01, US-CPT-03, US-AUTH-12).
+ * Layout des pages d'administration (US-ROL-01, US-CPT-03, US-AUTH-12,
+ * US-FORM-01).
  *
  * Ajoute une barre d'onglets commune pour naviguer entre les écrans admin
- * (Utilisateurs, Journal d'audit) sans quitter la section. Purement UI : la
+ * (Utilisateurs, Demandes de rôle, Formations, Journal d'audit) sans quitter
+ * la section. Purement UI : la
  * vraie barrière reste le RolesGuard côté API (@Roles(ADMINISTRATEUR)).
  */
 const ONGLETS: Array<[string, string]> = [
   ['/admin/utilisateurs', 'Utilisateurs'],
   ['/admin/role-requests', 'Demandes de rôle'],
+  ['/admin/formations', 'Formations'],
   ['/admin/audit', "Journal d'audit"],
 ];
 
