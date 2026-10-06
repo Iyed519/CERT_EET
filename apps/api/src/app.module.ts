@@ -9,6 +9,7 @@ import { AuthModule } from './modules/auth/auth.module';
 import { ReferentielModule } from './modules/referentiel/referentiel.module';
 import { AdminModule } from './modules/admin/admin.module';
 import { RoleRequestsModule } from './modules/role-requests/role-requests.module';
+import { FormationsModule } from './modules/formations/formations.module';
 /**
  * Module racine (AppModule).
  *
@@ -18,8 +19,9 @@ import { RoleRequestsModule } from './modules/role-requests/role-requests.module
  * vérification (US-CPT-05). AuditModule (@Global, US-AUTH-12) porte la
  * traçabilité (NF3) et expose AuditService à tous les modules — il est déclaré
  * avant les modules métier pour être disponible partout. Les autres modules
- * métier (users, formations, qcm, ateliers, certificats, assistance-ia,
- * notifications) seront ajoutés ici au fil des sprints.
+ * métier (users, qcm, ateliers, certificats, assistance-ia, notifications) seront
+ * ajoutés ici au fil des sprints. FormationsModule (US-FORM-01) ouvre le
+ * cœur métier du Sprint 2.
  */
 @Module({
   imports: [
@@ -33,6 +35,7 @@ import { RoleRequestsModule } from './modules/role-requests/role-requests.module
     ReferentielModule,
     AdminModule,
     RoleRequestsModule,
+    FormationsModule,
   ],
 })
 export class AppModule {}
