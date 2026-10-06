@@ -1,0 +1,796 @@
+'use client';
+import { useCallback, useEffect, useState, FormEvent } from 'react';
+import {
+  getFormations,
+  getFormation,
+  createFormation,
+  updateFormation,
+  addFormationModule,
+  updateFormationModule,
+  reorderFormationModules,
+  deleteFormationModule,
+  FormationVue,
+  FormationInput,
+  FormationPatch,
+  ModuleVue,
+  StatutFormation,
+  AdminError,
+} from '../../../lib/api';
+
+/** Libellés FR des statuts (l'enum backend reste la source de vérité). */
+const STATUTS: Array<[StatutFormation, string]> = [
+  ['OUVERTE', 'Ouverte'],
+  ['FERMEE', 'Fermée'],
+  ['ARCHIVEE', 'Archivée'],
+];
+const libelleStatut = (s: StatutFormation): string =>
+  STATUTS.find(([v]) => v === s)?.[1] ?? s;
+
+const PAR_PAGE = 20;
+
+/** AAAA-MM-JJ -> JJ/MM/AAAA, sans passer par Date (pas de décalage horaire). */
+const dateFr = (iso: string | null): string => {
+  if (!iso) return '—';
+  const [annee, mois, jour] = iso.split('-');
+  return `${jour}/${mois}/${annee}`;
+};
+
+const messageDe = (error: unknown, parDefaut: string): string =>
+  error instanceof AdminError ? error.message : parDefaut;
+
+/**
+ * US-FORM-01 — Console admin des formations : liste filtrable, création,
+ * modification de la configuration et gestion des modules.
+ *
+ * La sécurité réelle est côté API (@Roles(ADMINISTRATEUR) sur les écritures) :
+ * cette page n'est qu'une interface. Les règles métier (capacité > 0, seuil
+ * dans [0,100], dates cohérentes, formation archivée figée…) sont appliquées
+ * par le serveur ; j'affiche ses messages tels quels.
+ */
+export default function AdminFormationsPage(): JSX.Element {
+  const [formations, setFormations] = useState<FormationVue[]>([]);
+  const [total, setTotal] = useState(0);
+  const [page, setPage] = useState(1);
+  const [filtre, setFiltre] = useState<StatutFormation | ''>('');
+  const [chargement, setChargement] = useState(true);
+  const [erreur, setErreur] = useState<string | null>(null);
+  const [succes, setSucces] = useState<string | null>(null);
+  // null = modale fermée ; 'nouvelle' = création ; sinon la formation éditée.
+  const [edition, setEdition] = useState<FormationVue | 'nouvelle' | null>(null);
+  // Formation dont on gère les modules (null = modale fermée).
+  const [cibleModules, setCibleModules] = useState<FormationVue | null>(null);
+
+  const charger = useCallback(async (): Promise<void> => {
+    setChargement(true);
+    setErreur(null);
+    try {
+      const resultat = await getFormations({
+        statut: filtre === '' ? undefined : filtre,
+        page,
+        limit: PAR_PAGE,
+      });
+      setFormations(resultat.items);
+      setTotal(resultat.total);
+    } catch (error) {
+      setErreur(messageDe(error, 'Impossible de charger les formations.'));
+    } finally {
+      setChargement(false);
+    }
+  }, [filtre, page]);
+
+  useEffect(() => {
+    void charger();
+  }, [charger]);
+
+  const dernierePage = Math.max(1, Math.ceil(total / PAR_PAGE));
+
+  return (
+    <>
+      <div className="page-head">
+        <div>
+          <h1 className="page-title">Formations</h1>
+          <p className="page-subtitle">
+            Créez et configurez l’offre certifiante (US-FORM-01).
+          </p>
+        </div>
+        <div className="row-actions">
+          <select
+            className="input input-auto"
+            aria-label="Filtrer par statut"
+            value={filtre}
+            onChange={(e) => {
+              setPage(1);
+              setFiltre(e.target.value as StatutFormation | '');
+            }}
+            disabled={chargement}
+          >
+            <option value="">Tous les statuts</option>
+            {STATUTS.map(([v, l]) => (
+              <option key={v} value={v}>
+                {l}
+              </option>
+            ))}
+          </select>
+          <button className="btn-sm" onClick={() => void charger()} disabled={chargement}>
+            Actualiser
+          </button>
+          <button
+            className="btn-sm"
+            onClick={() => {
+              setSucces(null);
+              setErreur(null);
+              setEdition('nouvelle');
+            }}
+          >
+            Nouvelle formation
+          </button>
+        </div>
+      </div>
+
+      {succes !== null && <p className="alert alert-success">{succes}</p>}
+      {erreur !== null && <p className="alert alert-error">{erreur}</p>}
+
+      {chargement ? (
+        <p className="page-subtitle">Chargement…</p>
+      ) : (
+        <>
+          <div className="table-wrap">
+            <table className="data-table">
+              <thead>
+                <tr>
+                  <th>Formation</th>
+                  <th>Période</th>
+                  <th>Capacité</th>
+                  <th>Seuil</th>
+                  <th>Statut</th>
+                  <th aria-label="Actions" />
+                </tr>
+              </thead>
+              <tbody>
+                {formations.map((f) => (
+                  <tr key={f.id}>
+                    <td>
+                      <div>{f.titre}</div>
+                      {f.dureeHeures !== null && (
+                        <div className="muted-cell">{f.dureeHeures} h</div>
+                      )}
+                    </td>
+                    <td>
+                      {f.dateDebut || f.dateFin ? (
+                        `${dateFr(f.dateDebut)} → ${dateFr(f.dateFin)}`
+                      ) : (
+                        <span className="muted-cell">—</span>
+                      )}
+                    </td>
+                    <td>{f.capaciteMax}</td>
+                    <td>{f.noteMinCertification} %</td>
+                    <td>
+                      <span className={`statut-badge statut-${f.statut}`}>
+                        {libelleStatut(f.statut)}
+                      </span>
+                    </td>
+                    <td>
+                      {f.statut === 'ARCHIVEE' ? (
+                        <span className="muted-cell">Figée</span>
+                      ) : (
+                        <div className="row-actions">
+                          <button
+                            className="btn-sm"
+                            onClick={() => {
+                              setSucces(null);
+                              setErreur(null);
+                              setEdition(f);
+                            }}
+                          >
+                            Modifier
+                          </button>
+                          <button
+                            className="btn-sm"
+                            onClick={() => {
+                              setSucces(null);
+                              setErreur(null);
+                              setCibleModules(f);
+                            }}
+                          >
+                            Modules
+                          </button>
+                        </div>
+                      )}
+                    </td>
+                  </tr>
+                ))}
+                {formations.length === 0 && (
+                  <tr>
+                    <td colSpan={6} className="muted-cell">
+                      Aucune formation{filtre === '' ? '' : ` ${libelleStatut(filtre).toLowerCase()}`}.
+                    </td>
+                  </tr>
+                )}
+              </tbody>
+            </table>
+          </div>
+          <div className="pagination">
+            <span className="muted-cell">
+              {total} formation{total > 1 ? 's' : ''} — page {page} / {dernierePage}
+            </span>
+            <div className="row-actions">
+              <button
+                className="btn-sm"
+                disabled={page <= 1}
+                onClick={() => setPage((p) => p - 1)}
+              >
+                Précédent
+              </button>
+              <button
+                className="btn-sm"
+                disabled={page >= dernierePage}
+                onClick={() => setPage((p) => p + 1)}
+              >
+                Suivant
+              </button>
+            </div>
+          </div>
+        </>
+      )}
+
+      {edition !== null && (
+        <FormationModal
+          formation={edition === 'nouvelle' ? null : edition}
+          onClose={() => setEdition(null)}
+          onDone={(message) => {
+            setEdition(null);
+            setSucces(message);
+            void charger();
+          }}
+        />
+      )}
+
+      {cibleModules !== null && (
+        <ModulesModal formation={cibleModules} onClose={() => setCibleModules(null)} />
+      )}
+    </>
+  );
+}
+
+/* ------------------------------------------------------------------ */
+
+/** État du formulaire : tout en texte, converti à l'envoi. */
+interface Saisie {
+  titre: string;
+  description: string;
+  objectifs: string;
+  prerequis: string;
+  dateDebut: string;
+  dateFin: string;
+  dureeHeures: string;
+  capaciteMax: string;
+  noteMinCertification: string;
+  modeleCertificat: string;
+}
+
+const saisieInitiale = (f: FormationVue | null): Saisie => ({
+  titre: f?.titre ?? '',
+  description: f?.description ?? '',
+  objectifs: f?.objectifs ?? '',
+  prerequis: f?.prerequis ?? '',
+  dateDebut: f?.dateDebut ?? '',
+  dateFin: f?.dateFin ?? '',
+  dureeHeures: f?.dureeHeures != null ? String(f.dureeHeures) : '',
+  capaciteMax: f ? String(f.capaciteMax) : '',
+  noteMinCertification: f ? String(f.noteMinCertification) : '',
+  modeleCertificat: f?.modeleCertificat ?? '',
+});
+
+/** Champ texte facultatif : vide -> absent (création) ou null (modification). */
+const texteOuVide = (valeur: string): string | undefined => {
+  const propre = valeur.trim();
+  return propre === '' ? undefined : propre;
+};
+
+/** Construit le corps de création : les facultatifs vides sont omis. */
+const versCreation = (s: Saisie): FormationInput => ({
+  titre: s.titre.trim(),
+  description: texteOuVide(s.description),
+  objectifs: texteOuVide(s.objectifs),
+  prerequis: texteOuVide(s.prerequis),
+  dateDebut: texteOuVide(s.dateDebut),
+  dateFin: texteOuVide(s.dateFin),
+  dureeHeures: s.dureeHeures.trim() === '' ? undefined : Number(s.dureeHeures),
+  capaciteMax: Number(s.capaciteMax),
+  noteMinCertification: Number(s.noteMinCertification),
+  modeleCertificat: texteOuVide(s.modeleCertificat),
+});
+
+/**
+ * Construit le PATCH : uniquement les champs réellement modifiés. Un champ
+ * facultatif vidé part à `null` (le serveur l'efface).
+ */
+const versModification = (s: Saisie, f: FormationVue): FormationPatch => {
+  const nouveau = versCreation(s);
+  const patch: Record<string, unknown> = {};
+  const comparer = (champ: keyof FormationInput): void => {
+    const apres = nouveau[champ] ?? null;
+    if (apres !== (f[champ] ?? null)) {
+      patch[champ] = apres;
+    }
+  };
+  (
+    [
+      'titre',
+      'description',
+      'objectifs',
+      'prerequis',
+      'dateDebut',
+      'dateFin',
+      'dureeHeures',
+      'capaciteMax',
+      'noteMinCertification',
+      'modeleCertificat',
+    ] as Array<keyof FormationInput>
+  ).forEach(comparer);
+  return patch as FormationPatch;
+};
+
+/** Modale de création / modification d'une formation. */
+function FormationModal({
+  formation,
+  onClose,
+  onDone,
+}: {
+  formation: FormationVue | null;
+  onClose: () => void;
+  onDone: (message: string) => void;
+}): JSX.Element {
+  const [saisie, setSaisie] = useState<Saisie>(() => saisieInitiale(formation));
+  const [erreur, setErreur] = useState<string | null>(null);
+  const [enCours, setEnCours] = useState(false);
+  const creation = formation === null;
+
+  const champ =
+    (cle: keyof Saisie) =>
+    (e: { target: { value: string } }): void =>
+      setSaisie((s) => ({ ...s, [cle]: e.target.value }));
+
+  async function handleSubmit(event: FormEvent<HTMLFormElement>): Promise<void> {
+    event.preventDefault();
+    setErreur(null);
+    setEnCours(true);
+    try {
+      if (formation === null) {
+        const creee = await createFormation(versCreation(saisie));
+        onDone(`Formation « ${creee.titre} » créée : elle est ouverte et visible au catalogue.`);
+      } else {
+        const patch = versModification(saisie, formation);
+        if (Object.keys(patch).length === 0) {
+          onClose();
+          return;
+        }
+        const maj = await updateFormation(formation.id, patch);
+        onDone(`Formation « ${maj.titre} » modifiée.`);
+      }
+    } catch (error) {
+      setErreur(messageDe(error, 'Une erreur est survenue. Veuillez réessayer.'));
+    } finally {
+      setEnCours(false);
+    }
+  }
+
+  return (
+    <div className="profil-overlay" role="dialog" aria-modal="true">
+      <section className="profil-card modal-wide">
+        <h1 className="auth-title">{creation ? 'Nouvelle formation' : 'Modifier la formation'}</h1>
+        <p className="auth-subtitle">
+          {creation
+            ? 'Elle sera créée au statut « Ouverte » et visible au catalogue.'
+            : 'Seuls les champs modifiés sont enregistrés et tracés.'}
+        </p>
+        <form className="form" onSubmit={handleSubmit}>
+          <div className="field">
+            <label className="field-label" htmlFor="f-titre">
+              Titre
+            </label>
+            <input
+              id="f-titre"
+              className="input"
+              required
+              maxLength={255}
+              value={saisie.titre}
+              onChange={champ('titre')}
+              disabled={enCours}
+            />
+          </div>
+
+          <div className="form-grid">
+            <div className="field">
+              <label className="field-label" htmlFor="f-capacite">
+                Capacité maximale
+              </label>
+              <input
+                id="f-capacite"
+                className="input"
+                type="number"
+                required
+                min={1}
+                step={1}
+                value={saisie.capaciteMax}
+                onChange={champ('capaciteMax')}
+                disabled={enCours}
+              />
+            </div>
+            <div className="field">
+              <label className="field-label" htmlFor="f-seuil">
+                Seuil de certification (%)
+              </label>
+              <input
+                id="f-seuil"
+                className="input"
+                type="number"
+                required
+                min={0}
+                max={100}
+                step={0.01}
+                value={saisie.noteMinCertification}
+                onChange={champ('noteMinCertification')}
+                disabled={enCours}
+              />
+            </div>
+            <div className="field">
+              <label className="field-label" htmlFor="f-duree">
+                Durée (heures)
+              </label>
+              <input
+                id="f-duree"
+                className="input"
+                type="number"
+                min={1}
+                step={1}
+                value={saisie.dureeHeures}
+                onChange={champ('dureeHeures')}
+                disabled={enCours}
+              />
+            </div>
+          </div>
+
+          <div className="form-grid">
+            <div className="field">
+              <label className="field-label" htmlFor="f-debut">
+                Date de début
+              </label>
+              <input
+                id="f-debut"
+                className="input"
+                type="date"
+                value={saisie.dateDebut}
+                onChange={champ('dateDebut')}
+                disabled={enCours}
+              />
+            </div>
+            <div className="field">
+              <label className="field-label" htmlFor="f-fin">
+                Date de fin
+              </label>
+              <input
+                id="f-fin"
+                className="input"
+                type="date"
+                min={saisie.dateDebut || undefined}
+                value={saisie.dateFin}
+                onChange={champ('dateFin')}
+                disabled={enCours}
+              />
+            </div>
+          </div>
+
+          <div className="field">
+            <label className="field-label" htmlFor="f-description">
+              Description
+            </label>
+            <textarea
+              id="f-description"
+              className="input"
+              rows={2}
+              maxLength={5000}
+              value={saisie.description}
+              onChange={champ('description')}
+              disabled={enCours}
+            />
+          </div>
+          <div className="field">
+            <label className="field-label" htmlFor="f-objectifs">
+              Objectifs pédagogiques
+            </label>
+            <textarea
+              id="f-objectifs"
+              className="input"
+              rows={2}
+              maxLength={5000}
+              value={saisie.objectifs}
+              onChange={champ('objectifs')}
+              disabled={enCours}
+            />
+          </div>
+          <div className="field">
+            <label className="field-label" htmlFor="f-prerequis">
+              Prérequis
+            </label>
+            <textarea
+              id="f-prerequis"
+              className="input"
+              rows={2}
+              maxLength={5000}
+              value={saisie.prerequis}
+              onChange={champ('prerequis')}
+              disabled={enCours}
+            />
+          </div>
+          <div className="field">
+            <label className="field-label" htmlFor="f-modele">
+              Modèle de certificat
+            </label>
+            <input
+              id="f-modele"
+              className="input"
+              maxLength={255}
+              value={saisie.modeleCertificat}
+              onChange={champ('modeleCertificat')}
+              disabled={enCours}
+              placeholder="Ex. : modele-esprit-standard"
+            />
+            <span className="field-hint">
+              Référence du gabarit utilisé à l’émission du certificat.
+            </span>
+          </div>
+
+          {erreur !== null && <p className="alert alert-error">{erreur}</p>}
+          <div className="modal-actions">
+            <button type="button" className="btn-sm btn-ghost" onClick={onClose} disabled={enCours}>
+              Annuler
+            </button>
+            <button type="submit" className="btn" disabled={enCours}>
+              {enCours ? 'Enregistrement…' : creation ? 'Créer la formation' : 'Enregistrer'}
+            </button>
+          </div>
+        </form>
+      </section>
+    </div>
+  );
+}
+
+/* ------------------------------------------------------------------ */
+
+/**
+ * Modale de gestion des modules d'une formation : ajout en fin de liste,
+ * renommage, montée / descente, suppression. L'ordre affiché est celui du
+ * serveur : après chaque action, je remplace la liste par sa réponse.
+ */
+function ModulesModal({
+  formation,
+  onClose,
+}: {
+  formation: FormationVue;
+  onClose: () => void;
+}): JSX.Element {
+  const [modules, setModules] = useState<ModuleVue[]>([]);
+  const [chargement, setChargement] = useState(true);
+  const [erreur, setErreur] = useState<string | null>(null);
+  const [enCours, setEnCours] = useState(false);
+  const [titre, setTitre] = useState('');
+  const [description, setDescription] = useState('');
+  // Module en cours de renommage + valeur saisie.
+  const [renommage, setRenommage] = useState<{ id: string; titre: string } | null>(null);
+  // Module dont la suppression attend une confirmation (second clic).
+  const [aConfirmer, setAConfirmer] = useState<string | null>(null);
+
+  const recharger = useCallback(async (): Promise<void> => {
+    const detail = await getFormation(formation.id);
+    setModules(detail.modules);
+  }, [formation.id]);
+
+  useEffect(() => {
+    void (async (): Promise<void> => {
+      try {
+        await recharger();
+      } catch (error) {
+        setErreur(messageDe(error, 'Impossible de charger les modules.'));
+      } finally {
+        setChargement(false);
+      }
+    })();
+  }, [recharger]);
+
+  /** Exécute une action serveur avec verrouillage + message d'erreur commun. */
+  const agir = async (action: () => Promise<void>, parDefaut: string): Promise<void> => {
+    setErreur(null);
+    setAConfirmer(null);
+    setEnCours(true);
+    try {
+      await action();
+    } catch (error) {
+      setErreur(messageDe(error, parDefaut));
+    } finally {
+      setEnCours(false);
+    }
+  };
+
+  async function handleAjout(event: FormEvent<HTMLFormElement>): Promise<void> {
+    event.preventDefault();
+    await agir(async () => {
+      await addFormationModule(formation.id, {
+        titre: titre.trim(),
+        description: texteOuVide(description),
+      });
+      setTitre('');
+      setDescription('');
+      await recharger();
+    }, "Impossible d'ajouter le module.");
+  }
+
+  const deplacer = (index: number, pas: -1 | 1): Promise<void> =>
+    agir(async () => {
+      const ids = modules.map((m) => m.id);
+      const cible = index + pas;
+      [ids[index], ids[cible]] = [ids[cible], ids[index]];
+      setModules(await reorderFormationModules(formation.id, ids));
+    }, 'Impossible de réordonner les modules.');
+
+  const renommer = (): Promise<void> =>
+    agir(async () => {
+      if (renommage === null) return;
+      await updateFormationModule(formation.id, renommage.id, {
+        titre: renommage.titre.trim(),
+      });
+      setRenommage(null);
+      await recharger();
+    }, 'Impossible de renommer le module.');
+
+  const supprimer = (moduleId: string): Promise<void> =>
+    agir(async () => {
+      await deleteFormationModule(formation.id, moduleId);
+      await recharger();
+    }, 'Impossible de supprimer le module.');
+
+  return (
+    <div className="profil-overlay" role="dialog" aria-modal="true">
+      <section className="profil-card modal-wide">
+        <h1 className="auth-title">Modules</h1>
+        <p className="auth-subtitle">
+          {formation.titre} — l’ordre ci-dessous est celui présenté aux apprenants.
+        </p>
+
+        {erreur !== null && <p className="alert alert-error">{erreur}</p>}
+
+        {chargement ? (
+          <p className="page-subtitle">Chargement…</p>
+        ) : modules.length === 0 ? (
+          <p className="page-subtitle">Aucun module pour l’instant. Ajoutez le premier ci-dessous.</p>
+        ) : (
+          <ol className="module-list">
+            {modules.map((m, index) => (
+              <li key={m.id} className="module-item">
+                <span className="module-ordre">{m.ordre}</span>
+                <div className="module-corps">
+                  {renommage?.id === m.id ? (
+                    <input
+                      className="input"
+                      aria-label="Nouveau titre du module"
+                      maxLength={255}
+                      value={renommage.titre}
+                      onChange={(e) => setRenommage({ id: m.id, titre: e.target.value })}
+                      disabled={enCours}
+                    />
+                  ) : (
+                    <>
+                      <div className="module-titre">{m.titre}</div>
+                      {m.description && <div className="field-hint">{m.description}</div>}
+                    </>
+                  )}
+                </div>
+                {renommage?.id === m.id ? (
+                  <div className="row-actions">
+                    <button
+                      className="btn-sm"
+                      disabled={enCours || renommage.titre.trim() === ''}
+                      onClick={() => void renommer()}
+                    >
+                      OK
+                    </button>
+                    <button
+                      className="btn-sm btn-ghost"
+                      disabled={enCours}
+                      onClick={() => setRenommage(null)}
+                    >
+                      Annuler
+                    </button>
+                  </div>
+                ) : (
+                  <div className="row-actions">
+                    <button
+                      className="btn-sm btn-icon"
+                      aria-label={`Monter le module ${m.titre}`}
+                      disabled={enCours || index === 0}
+                      onClick={() => void deplacer(index, -1)}
+                    >
+                      ↑
+                    </button>
+                    <button
+                      className="btn-sm btn-icon"
+                      aria-label={`Descendre le module ${m.titre}`}
+                      disabled={enCours || index === modules.length - 1}
+                      onClick={() => void deplacer(index, 1)}
+                    >
+                      ↓
+                    </button>
+                    <button
+                      className="btn-sm"
+                      disabled={enCours}
+                      onClick={() => {
+                        setAConfirmer(null);
+                        setRenommage({ id: m.id, titre: m.titre });
+                      }}
+                    >
+                      Renommer
+                    </button>
+                    <button
+                      className="btn-sm btn-danger"
+                      disabled={enCours}
+                      onClick={() =>
+                        aConfirmer === m.id ? void supprimer(m.id) : setAConfirmer(m.id)
+                      }
+                    >
+                      {aConfirmer === m.id ? 'Confirmer ?' : 'Supprimer'}
+                    </button>
+                  </div>
+                )}
+              </li>
+            ))}
+          </ol>
+        )}
+
+        <form className="form" onSubmit={handleAjout}>
+          <div className="field">
+            <label className="field-label" htmlFor="m-titre">
+              Nouveau module
+            </label>
+            <input
+              id="m-titre"
+              className="input"
+              required
+              maxLength={255}
+              value={titre}
+              onChange={(e) => setTitre(e.target.value)}
+              disabled={enCours || chargement}
+              placeholder="Titre du module"
+            />
+          </div>
+          <div className="field">
+            <label className="field-label" htmlFor="m-description">
+              Description (facultative)
+            </label>
+            <textarea
+              id="m-description"
+              className="input"
+              rows={2}
+              maxLength={5000}
+              value={description}
+              onChange={(e) => setDescription(e.target.value)}
+              disabled={enCours || chargement}
+            />
+            <span className="field-hint">Le module est ajouté en dernière position.</span>
+          </div>
+          <div className="modal-actions">
+            <button type="button" className="btn-sm btn-ghost" onClick={onClose} disabled={enCours}>
+              Fermer
+            </button>
+            <button
+              type="submit"
+              className="btn"
+              disabled={enCours || chargement || titre.trim() === ''}
+            >
+              {enCours ? 'Enregistrement…' : 'Ajouter le module'}
+            </button>
+          </div>
+        </form>
+      </section>
+    </div>
+  );
+}
