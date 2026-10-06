@@ -1,18 +1,22 @@
 import {
   BadRequestException,
+  ConflictException,
   ForbiddenException,
   Injectable,
   NotFoundException,
 } from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
-import { FindOptionsWhere, Repository } from 'typeorm';
+import { FindOptionsWhere, Not, Repository } from 'typeorm';
 import { Formation } from '../../database/entities/formation.entity';
+import { Inscription } from '../../database/entities/inscription.entity';
 import { ModuleFormation } from '../../database/entities/module-formation.entity';
 import { Role } from '../../database/enums/role.enum';
 import { StatutFormation } from '../../database/enums/statut-formation.enum';
+import { StatutInscription } from '../../database/enums/statut-inscription.enum';
 import { AuditService } from '../audit/audit.service';
 import { CreateFormationDto } from './dto/create-formation.dto';
 import { ListFormationsDto } from './dto/list-formations.dto';
+import { UpdateFormationDto } from './dto/update-formation.dto';
 
 /** Vue d'une formation renvoyée par l'API (liste et création). */
 export interface FormationVue {
@@ -58,11 +62,44 @@ export interface Lecteur {
   role: Role;
 }
 
+/** Champs d'une formation modifiables par PATCH (jamais `statut`). */
+const CHAMPS_MODIFIABLES = [
+  'titre',
+  'description',
+  'objectifs',
+  'prerequis',
+  'dateDebut',
+  'dateFin',
+  'dureeHeures',
+  'capaciteMax',
+  'noteMinCertification',
+  'modeleCertificat',
+] as const;
+
+/** Champs qui ne peuvent pas être vidés (NOT NULL en base). */
+const CHAMPS_OBLIGATOIRES: ReadonlySet<string> = new Set([
+  'titre',
+  'capaciteMax',
+  'noteMinCertification',
+]);
+
+/** Vue d'un module, partagée avec le service des modules. */
+export function versModuleVue(module: ModuleFormation): ModuleVue {
+  return {
+    id: module.id,
+    titre: module.titre,
+    ordre: module.ordre,
+    description: module.description,
+  };
+}
+
 @Injectable()
 export class FormationsService {
   constructor(
     @InjectRepository(Formation)
     private readonly formationRepository: Repository<Formation>,
+    @InjectRepository(Inscription)
+    private readonly inscriptionRepository: Repository<Inscription>,
     // Writer d'audit UNIQUE (@Global, US-AUTH-12).
     private readonly auditService: AuditService,
   ) {}
@@ -183,8 +220,110 @@ export class FormationsService {
 
     return {
       ...this.toVue(formation),
-      modules: (formation.modules ?? []).map((m) => this.toModuleVue(m)),
+      modules: (formation.modules ?? []).map((m) => versModuleVue(m)),
     };
+  }
+
+  /**
+   * US-FORM-01 (configurer) — Un administrateur modifie une formation.
+   *
+   *   1. formation chargée pour écriture -> 404 si inconnue, 409 si archivée ;
+   *   2. je ne retiens que les champs réellement fournis ET différents de
+   *      l'existant (un PATCH qui ne change rien ne produit ni écriture ni
+   *      audit) ; `null` vide un champ facultatif, mais est refusé (400) sur
+   *      un champ obligatoire ;
+   *   3. cohérence des dates sur les valeurs FINALES (existant + modification) ;
+   *   4. la capacité ne peut pas descendre sous le nombre d'inscrits actuels
+   *      -> 409 : je ne mets jamais une formation en sur-effectif ;
+   *   5. enregistrement, puis audit FORMATION_MODIFIEE avec l'avant / l'après.
+   */
+  async modifier(
+    adminId: string,
+    formationId: string,
+    dto: UpdateFormationDto,
+    context: { adresseIp: string | null },
+  ): Promise<FormationVue> {
+    const formation = await this.chargerPourEcriture(formationId);
+
+    const saisie = dto as Record<string, unknown>;
+    const existant = formation as unknown as Record<string, unknown>;
+    const avant: Record<string, unknown> = {};
+    const apres: Record<string, unknown> = {};
+    let champsFournis = 0;
+
+    for (const champ of CHAMPS_MODIFIABLES) {
+      const valeur = saisie[champ];
+      if (valeur === undefined) {
+        continue;
+      }
+      champsFournis += 1;
+      if (valeur === null && CHAMPS_OBLIGATOIRES.has(champ)) {
+        throw new BadRequestException(`Le champ ${champ} est obligatoire et ne peut pas être vidé.`);
+      }
+      if (valeur !== existant[champ]) {
+        avant[champ] = existant[champ];
+        apres[champ] = valeur;
+      }
+    }
+
+    if (champsFournis === 0) {
+      throw new BadRequestException('Aucune modification fournie.');
+    }
+    if (Object.keys(apres).length === 0) {
+      // Tout est déjà à la valeur demandée : rien à écrire, rien à tracer.
+      return this.toVue(formation);
+    }
+
+    const dateDebut = ('dateDebut' in apres ? apres.dateDebut : formation.dateDebut) as string | null;
+    const dateFin = ('dateFin' in apres ? apres.dateFin : formation.dateFin) as string | null;
+    if (dateDebut && dateFin && dateFin < dateDebut) {
+      throw new BadRequestException(
+        'La date de fin doit être postérieure ou égale à la date de début.',
+      );
+    }
+
+    if (typeof apres.capaciteMax === 'number' && apres.capaciteMax < formation.capaciteMax) {
+      const inscrits = await this.inscriptionRepository.count({
+        where: { formationId, statut: Not(StatutInscription.SUSPENDUE) },
+      });
+      if (inscrits > apres.capaciteMax) {
+        throw new ConflictException(
+          `La capacité ne peut pas être inférieure au nombre d'inscrits (${inscrits}).`,
+        );
+      }
+    }
+
+    Object.assign(formation, apres);
+    const enregistree = await this.formationRepository.save(formation);
+
+    await this.auditService.record({
+      action: 'FORMATION_MODIFIEE',
+      acteur: adminId,
+      cible: enregistree.id,
+      adresseIp: context.adresseIp,
+      resultat: 'Succès',
+      detailsAvantApres: { avant, apres },
+    });
+
+    return this.toVue(enregistree);
+  }
+
+  /**
+   * Charge une formation en vue d'une ÉCRITURE (elle-même ou ses modules).
+   * 404 si elle n'existe pas ; 409 si elle est archivée — l'archivage fige le
+   * parcours, plus rien ne doit y bouger. Partagé avec le service des modules.
+   */
+  async chargerPourEcriture(formationId: string): Promise<Formation> {
+    const formation = await this.formationRepository.findOne({
+      where: { id: formationId },
+    });
+    if (!formation) {
+      throw new NotFoundException('Formation introuvable.');
+    }
+    if (formation.statut === StatutFormation.ARCHIVEE) {
+      throw new ConflictException('Une formation archivée ne peut plus être modifiée.');
+    }
+    return formation;
   }
 
   // ===================================================================
@@ -212,15 +351,6 @@ export class FormationsService {
       modeleCertificat: formation.modeleCertificat,
       createdAt: formation.createdAt,
       updatedAt: formation.updatedAt,
-    };
-  }
-
-  private toModuleVue(module: ModuleFormation): ModuleVue {
-    return {
-      id: module.id,
-      titre: module.titre,
-      ordre: module.ordre,
-      description: module.description,
     };
   }
 }

@@ -3,6 +3,9 @@ import {
   Controller,
   HttpCode,
   HttpStatus,
+  Param,
+  ParseUUIDPipe,
+  Patch,
   Post,
   Req,
   UnauthorizedException,
@@ -12,6 +15,7 @@ import { Role } from '../../database/enums/role.enum';
 import { AuthenticatedRequest } from '../auth/auth.types';
 import { Roles } from '../auth/decorators/roles.decorator';
 import { CreateFormationDto } from './dto/create-formation.dto';
+import { UpdateFormationDto } from './dto/update-formation.dto';
 import { FormationVue, FormationsService } from './formations.service';
 
 /**
@@ -54,6 +58,39 @@ export class AdminFormationsController {
       throw new UnauthorizedException('Non authentifié.');
     }
     return this.formationsService.creer(admin.sub, dto, {
+      adresseIp: req.ip ?? null,
+    });
+  }
+
+  @Patch(':id')
+  @HttpCode(HttpStatus.OK)
+  @ApiOperation({ summary: 'Modifier la configuration d’une formation (US-FORM-01)' })
+  @ApiResponse({
+    status: 200,
+    description: 'Formation modifiée ; audit FORMATION_MODIFIEE (avant / après).',
+  })
+  @ApiResponse({
+    status: 400,
+    description:
+      'Aucune modification, valeur invalide, champ obligatoire vidé, dates incohérentes, champ inconnu (statut).',
+  })
+  @ApiResponse({ status: 401, description: 'Non authentifié.' })
+  @ApiResponse({ status: 403, description: 'Rôle insuffisant (non-admin).' })
+  @ApiResponse({ status: 404, description: 'Formation introuvable.' })
+  @ApiResponse({
+    status: 409,
+    description: 'Formation archivée, ou capacité inférieure au nombre d’inscrits.',
+  })
+  async modifier(
+    @Param('id', ParseUUIDPipe) id: string,
+    @Body() dto: UpdateFormationDto,
+    @Req() req: AuthenticatedRequest,
+  ): Promise<FormationVue> {
+    const admin = req.user;
+    if (!admin) {
+      throw new UnauthorizedException('Non authentifié.');
+    }
+    return this.formationsService.modifier(admin.sub, id, dto, {
       adresseIp: req.ip ?? null,
     });
   }

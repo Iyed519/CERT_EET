@@ -1,12 +1,19 @@
-import { BadRequestException, ForbiddenException, NotFoundException } from '@nestjs/common';
+import {
+  BadRequestException,
+  ConflictException,
+  ForbiddenException,
+  NotFoundException,
+} from '@nestjs/common';
 import { Test, TestingModule } from '@nestjs/testing';
 import { getRepositoryToken } from '@nestjs/typeorm';
 import { Formation } from '../../database/entities/formation.entity';
+import { Inscription } from '../../database/entities/inscription.entity';
 import { ModuleFormation } from '../../database/entities/module-formation.entity';
 import { Role } from '../../database/enums/role.enum';
 import { StatutFormation } from '../../database/enums/statut-formation.enum';
 import { AuditService } from '../audit/audit.service';
 import { CreateFormationDto } from './dto/create-formation.dto';
+import { UpdateFormationDto } from './dto/update-formation.dto';
 import { FormationsService } from './formations.service';
 
 /**
@@ -14,7 +21,7 @@ import { FormationsService } from './formations.service';
  *
  * Repository et AuditService remplacés par des faux : j'isole la logique
  * métier (statut forcé à OUVERTE, cohérence des dates, audit, règle de
- * visibilité admin / catalogue).
+ * visibilité admin / catalogue, modification avec avant / après et garde-fous).
  */
 describe('FormationsService', () => {
   let service: FormationsService;
@@ -24,6 +31,9 @@ describe('FormationsService', () => {
     save: jest.fn(),
     findOne: jest.fn(),
     findAndCount: jest.fn(),
+  };
+  const mockInscriptionRepo = {
+    count: jest.fn(),
   };
   const mockAuditService = {
     record: jest.fn().mockResolvedValue(undefined),
@@ -68,6 +78,7 @@ describe('FormationsService', () => {
       providers: [
         FormationsService,
         { provide: getRepositoryToken(Formation), useValue: mockFormationRepo },
+        { provide: getRepositoryToken(Inscription), useValue: mockInscriptionRepo },
         { provide: AuditService, useValue: mockAuditService },
       ],
     }).compile();
@@ -211,6 +222,113 @@ describe('FormationsService', () => {
 
       const detail = await service.consulter(admin, 'form-1');
       expect(detail.statut).toBe(StatutFormation.FERMEE);
+    });
+  });
+
+  describe('modifier', () => {
+    const patch = (valeurs: Record<string, unknown>): UpdateFormationDto =>
+      valeurs as UpdateFormationDto;
+
+    beforeEach(() => {
+      mockFormationRepo.findOne.mockResolvedValue(
+        formation({ dateDebut: '2026-11-02', dateFin: '2026-12-18' }),
+      );
+      mockFormationRepo.save.mockImplementation(async (f) => f);
+    });
+
+    it('applique les seuls champs modifiés et trace l’avant / l’après', async () => {
+      const vue = await service.modifier(
+        'admin-1',
+        'form-1',
+        patch({ capaciteMax: 40, titre: 'Full-Stack JS' }), // titre identique
+        contexte,
+      );
+
+      expect(vue.capaciteMax).toBe(40);
+      expect(mockAuditService.record).toHaveBeenCalledWith(
+        expect.objectContaining({
+          action: 'FORMATION_MODIFIEE',
+          acteur: 'admin-1',
+          cible: 'form-1',
+          detailsAvantApres: { avant: { capaciteMax: 25 }, apres: { capaciteMax: 40 } },
+        }),
+      );
+    });
+
+    it('n’écrit ni ne trace rien si aucune valeur ne change', async () => {
+      await service.modifier('admin-1', 'form-1', patch({ capaciteMax: 25 }), contexte);
+
+      expect(mockFormationRepo.save).not.toHaveBeenCalled();
+      expect(mockAuditService.record).not.toHaveBeenCalled();
+    });
+
+    it('vide un champ facultatif avec null', async () => {
+      mockFormationRepo.findOne.mockResolvedValue(formation({ description: 'Ancienne' }));
+
+      const vue = await service.modifier('admin-1', 'form-1', patch({ description: null }), contexte);
+
+      expect(vue.description).toBeNull();
+    });
+
+    it('rejette (400) un corps sans aucun champ', async () => {
+      await expect(
+        service.modifier('admin-1', 'form-1', patch({}), contexte),
+      ).rejects.toBeInstanceOf(BadRequestException);
+    });
+
+    it('rejette (400) un champ obligatoire vidé avec null', async () => {
+      await expect(
+        service.modifier('admin-1', 'form-1', patch({ titre: null }), contexte),
+      ).rejects.toBeInstanceOf(BadRequestException);
+      expect(mockFormationRepo.save).not.toHaveBeenCalled();
+    });
+
+    it('vérifie la cohérence des dates sur les valeurs finales', async () => {
+      // Seule la date de fin change, et elle passe AVANT le début existant.
+      await expect(
+        service.modifier('admin-1', 'form-1', patch({ dateFin: '2026-10-01' }), contexte),
+      ).rejects.toBeInstanceOf(BadRequestException);
+      expect(mockFormationRepo.save).not.toHaveBeenCalled();
+    });
+
+    it('refuse (409) une capacité inférieure au nombre d’inscrits', async () => {
+      mockInscriptionRepo.count.mockResolvedValue(12);
+
+      await expect(
+        service.modifier('admin-1', 'form-1', patch({ capaciteMax: 10 }), contexte),
+      ).rejects.toBeInstanceOf(ConflictException);
+      expect(mockFormationRepo.save).not.toHaveBeenCalled();
+    });
+
+    it('accepte une baisse de capacité qui reste au-dessus des inscrits', async () => {
+      mockInscriptionRepo.count.mockResolvedValue(12);
+
+      const vue = await service.modifier('admin-1', 'form-1', patch({ capaciteMax: 12 }), contexte);
+      expect(vue.capaciteMax).toBe(12);
+    });
+
+    it('ne compte pas les inscrits quand la capacité augmente', async () => {
+      await service.modifier('admin-1', 'form-1', patch({ capaciteMax: 60 }), contexte);
+
+      expect(mockInscriptionRepo.count).not.toHaveBeenCalled();
+    });
+
+    it('404 si la formation n’existe pas', async () => {
+      mockFormationRepo.findOne.mockResolvedValue(null);
+
+      await expect(
+        service.modifier('admin-1', 'inconnue', patch({ capaciteMax: 40 }), contexte),
+      ).rejects.toBeInstanceOf(NotFoundException);
+    });
+
+    it('409 si la formation est archivée', async () => {
+      mockFormationRepo.findOne.mockResolvedValue(
+        formation({ statut: StatutFormation.ARCHIVEE }),
+      );
+
+      await expect(
+        service.modifier('admin-1', 'form-1', patch({ capaciteMax: 40 }), contexte),
+      ).rejects.toBeInstanceOf(ConflictException);
     });
   });
 });
