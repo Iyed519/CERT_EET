@@ -99,4 +99,108 @@ export class MailService {
     });
     this.logger.log(`Email de vérification envoyé à ${to}`);
   }
+  /**
+   * Prévient un formateur qu'il vient d'être affecté à une formation
+   * (US-FORM-03, UC4 Administrateur). Même gabarit que l'email de
+   * vérification. Le bouton mène à la plateforme : l'espace formateur d'une
+   * formation n'existe pas encore, un lien direct ne mènerait nulle part.
+   *
+   * Le titre de la formation et le prénom sont des saisies libres : je les
+   * ÉCHAPPE avant de les placer dans le HTML. Cette méthode laisse remonter
+   * l'erreur d'envoi ; c'est l'appelant qui décide qu'elle n'est pas bloquante.
+   */
+  async sendAffectationFormateurEmail(
+    to: string,
+    donnees: { prenom: string | null; titreFormation: string },
+  ): Promise<void> {
+    const { from, appBaseUrl } =
+      this.configService.getOrThrow<MailConfig>('mail');
+    // Un objet d'email tient sur une ligne : je replie tout blanc éventuel.
+    const titre = donnees.titreFormation.replace(/\s+/g, ' ').trim();
+    const prenom = donnees.prenom?.trim() ?? '';
+    const salutation = prenom ? `Bonjour ${prenom},` : 'Bonjour,';
+    const titreHtml = echapperHtml(titre);
+    const salutationHtml = echapperHtml(salutation);
+    const text =
+      `${salutation}\n\n` +
+      `Un administrateur vous a affecté à la formation « ${titre} » sur ` +
+      `Cert_EET. Vous pouvez désormais y créer et gérer des évaluations.\n\n` +
+      `Accéder à la plateforme : ${appBaseUrl}\n\n` +
+      `Si cette affectation vous semble être une erreur, contactez un ` +
+      `administrateur.\n\n` +
+      `— L'équipe Cert_EET`;
+    const html = `<!doctype html>
+<html lang="fr">
+  <body style="margin:0;padding:0;background-color:#f2f4f3;">
+    <table role="presentation" width="100%" cellpadding="0" cellspacing="0" style="background-color:#f2f4f3;font-family:Arial,Helvetica,sans-serif;">
+      <tr>
+        <td align="center" style="padding:28px 12px;">
+          <table role="presentation" width="600" cellpadding="0" cellspacing="0" style="width:600px;max-width:600px;background-color:#ffffff;border-radius:16px;overflow:hidden;box-shadow:0 6px 24px rgba(16,24,40,0.08);">
+            <tr>
+              <td style="background-color:#1e8449;padding:22px 30px;">
+                <table role="presentation" cellpadding="0" cellspacing="0">
+                  <tr>
+                    <td width="36" height="36" align="center" valign="middle" style="background-color:rgba(255,255,255,0.20);border-radius:9px;color:#ffffff;font-size:14px;font-weight:bold;">CE</td>
+                    <td style="padding-left:12px;color:#ffffff;font-size:18px;font-weight:bold;letter-spacing:0.3px;">Cert_EET</td>
+                  </tr>
+                </table>
+              </td>
+            </tr>
+            <tr>
+              <td style="padding:34px 34px 6px 34px;">
+                <h1 style="margin:0 0 12px 0;font-size:22px;line-height:1.3;color:#1b2631;">Vous êtes affecté à une formation</h1>
+                <p style="margin:0 0 14px 0;font-size:15px;line-height:1.6;color:#4a5866;">${salutationHtml}</p>
+                <p style="margin:0 0 20px 0;font-size:15px;line-height:1.6;color:#4a5866;">
+                  Un administrateur vous a affecté à la formation
+                  <strong style="color:#1b2631;">«&nbsp;${titreHtml}&nbsp;»</strong>.
+                  Vous pouvez désormais y créer et gérer des évaluations.
+                </p>
+                <table role="presentation" cellpadding="0" cellspacing="0" style="margin:6px 0 18px 0;">
+                  <tr>
+                    <td align="center" bgcolor="#1e8449" style="border-radius:10px;">
+                      <a href="${appBaseUrl}" target="_blank" style="display:inline-block;padding:14px 30px;font-size:15px;font-weight:bold;color:#ffffff;text-decoration:none;border-radius:10px;">Accéder à la plateforme</a>
+                    </td>
+                  </tr>
+                </table>
+                <hr style="border:none;border-top:1px solid #ece7df;margin:8px 0 16px 0;" />
+                <p style="margin:0;font-size:13px;line-height:1.5;color:#8a97a3;">
+                  Cette affectation vous semble être une erreur&nbsp;? Contactez un administrateur de la plateforme.
+                </p>
+              </td>
+            </tr>
+            <tr>
+              <td style="padding:18px 34px 26px 34px;">
+                <p style="margin:0;font-size:12px;line-height:1.5;color:#aab4bd;">
+                  © Cert_EET — Certification numérique vérifiable.<br />
+                  Email envoyé automatiquement, merci de ne pas y répondre.
+                </p>
+              </td>
+            </tr>
+          </table>
+        </td>
+      </tr>
+    </table>
+  </body>
+</html>`;
+    await this.transporter.sendMail({
+      from,
+      to,
+      subject: `Cert_EET — Vous êtes affecté à la formation « ${titre} »`,
+      text,
+      html,
+    });
+    this.logger.log(`Email d'affectation envoyé à ${to}`);
+  }
+}
+/**
+ * Neutralise les caractères actifs du HTML dans une saisie libre, avant de
+ * l'insérer dans le corps d'un email.
+ */
+function echapperHtml(valeur: string): string {
+  return valeur
+    .replace(/&/g, '&amp;')
+    .replace(/</g, '&lt;')
+    .replace(/>/g, '&gt;')
+    .replace(/"/g, '&quot;')
+    .replace(/'/g, '&#39;');
 }
