@@ -9,10 +9,16 @@ import {
   updateFormationModule,
   reorderFormationModules,
   deleteFormationModule,
+  getFormationFormateurs,
+  assignFormationFormateur,
+  removeFormationFormateur,
+  getAdminUsers,
   FormationVue,
   FormationInput,
   FormationPatch,
   ModuleVue,
+  FormateurAffecte,
+  AdminUser,
   StatutFormation,
   AdminError,
 } from '../../../lib/api';
@@ -41,6 +47,7 @@ const messageDe = (error: unknown, parDefaut: string): string =>
 /**
  * US-FORM-01 — Console admin des formations : liste filtrable, création,
  * modification de la configuration et gestion des modules.
+ * US-FORM-03 — affectation des formateurs à une formation.
  *
  * La sécurité réelle est côté API (@Roles(ADMINISTRATEUR) sur les écritures) :
  * cette page n'est qu'une interface. Les règles métier (capacité > 0, seuil
@@ -59,6 +66,8 @@ export default function AdminFormationsPage(): JSX.Element {
   const [edition, setEdition] = useState<FormationVue | 'nouvelle' | null>(null);
   // Formation dont on gère les modules (null = modale fermée).
   const [cibleModules, setCibleModules] = useState<FormationVue | null>(null);
+  // Formation dont on gère les formateurs (null = modale fermée).
+  const [cibleFormateurs, setCibleFormateurs] = useState<FormationVue | null>(null);
 
   const charger = useCallback(async (): Promise<void> => {
     setChargement(true);
@@ -194,6 +203,16 @@ export default function AdminFormationsPage(): JSX.Element {
                           >
                             Modules
                           </button>
+                          <button
+                            className="btn-sm"
+                            onClick={() => {
+                              setSucces(null);
+                              setErreur(null);
+                              setCibleFormateurs(f);
+                            }}
+                          >
+                            Formateurs
+                          </button>
                         </div>
                       )}
                     </td>
@@ -247,6 +266,13 @@ export default function AdminFormationsPage(): JSX.Element {
 
       {cibleModules !== null && (
         <ModulesModal formation={cibleModules} onClose={() => setCibleModules(null)} />
+      )}
+
+      {cibleFormateurs !== null && (
+        <FormateursModal
+          formation={cibleFormateurs}
+          onClose={() => setCibleFormateurs(null)}
+        />
       )}
     </>
   );
@@ -331,6 +357,32 @@ const versModification = (s: Saisie, f: FormationVue): FormationPatch => {
   return patch as FormationPatch;
 };
 
+/**
+ * Croix rouge en haut à droite d'une modale : ferme la fenêtre sans rien
+ * enregistrer. Les trois modales de la page restent ouvertes après une action
+ * (on enchaîne souvent plusieurs ajouts) ; c'est elle, ou le bouton du bas,
+ * qui les referme.
+ */
+function CroixFermeture({
+  onClose,
+  disabled,
+}: {
+  onClose: () => void;
+  disabled: boolean;
+}): JSX.Element {
+  return (
+    <button
+      type="button"
+      className="modal-close"
+      aria-label="Fermer la fenêtre"
+      onClick={onClose}
+      disabled={disabled}
+    >
+      ×
+    </button>
+  );
+}
+
 /** Modale de création / modification d'une formation. */
 function FormationModal({
   formation,
@@ -377,7 +429,8 @@ function FormationModal({
 
   return (
     <div className="profil-overlay" role="dialog" aria-modal="true">
-      <section className="profil-card modal-wide">
+      <section className="profil-card modal-wide modal-closable">
+        <CroixFermeture onClose={onClose} disabled={enCours} />
         <h1 className="auth-title">{creation ? 'Nouvelle formation' : 'Modifier la formation'}</h1>
         <p className="auth-subtitle">
           {creation
@@ -543,7 +596,12 @@ function FormationModal({
 
           {erreur !== null && <p className="alert alert-error">{erreur}</p>}
           <div className="modal-actions">
-            <button type="button" className="btn-sm btn-ghost" onClick={onClose} disabled={enCours}>
+            <button
+              type="button"
+              className="btn btn-danger-solid"
+              onClick={onClose}
+              disabled={enCours}
+            >
               Annuler
             </button>
             <button type="submit" className="btn" disabled={enCours}>
@@ -651,7 +709,8 @@ function ModulesModal({
 
   return (
     <div className="profil-overlay" role="dialog" aria-modal="true">
-      <section className="profil-card modal-wide">
+      <section className="profil-card modal-wide modal-closable">
+        <CroixFermeture onClose={onClose} disabled={enCours} />
         <h1 className="auth-title">Modules</h1>
         <p className="auth-subtitle">
           {formation.titre} — l’ordre ci-dessous est celui présenté aux apprenants.
@@ -778,7 +837,12 @@ function ModulesModal({
             <span className="field-hint">Le module est ajouté en dernière position.</span>
           </div>
           <div className="modal-actions">
-            <button type="button" className="btn-sm btn-ghost" onClick={onClose} disabled={enCours}>
+            <button
+              type="button"
+              className="btn btn-danger-solid"
+              onClick={onClose}
+              disabled={enCours}
+            >
               Fermer
             </button>
             <button
@@ -787,6 +851,203 @@ function ModulesModal({
               disabled={enCours || chargement || titre.trim() === ''}
             >
               {enCours ? 'Enregistrement…' : 'Ajouter le module'}
+            </button>
+          </div>
+        </form>
+      </section>
+    </div>
+  );
+}
+
+/* ------------------------------------------------------------------ */
+
+/** « Prénom Nom », ou l'email quand le compte n'a ni l'un ni l'autre. */
+const nomComplet = (u: { prenom: string | null; nom: string | null; email: string }): string =>
+  [u.prenom, u.nom].filter(Boolean).join(' ') || u.email;
+
+/** Horodatage ISO -> JJ/MM/AAAA (date locale du navigateur). */
+const jourFr = (iso: string): string => new Date(iso).toLocaleDateString('fr-FR');
+
+/**
+ * US-FORM-03 — Modale des formateurs d'une formation : qui est affecté, en
+ * affecter un autre, en retirer un (confirmation au second clic).
+ *
+ * Les candidats viennent de la liste des comptes, filtrée ici sur le rôle
+ * Formateur et le statut actif ; le serveur revérifie de toute façon. Un
+ * formateur déjà affecté qui a depuis perdu son rôle ou son compte reste
+ * listé, avec un signalement : l'administrateur décide de le retirer ou non.
+ */
+function FormateursModal({
+  formation,
+  onClose,
+}: {
+  formation: FormationVue;
+  onClose: () => void;
+}): JSX.Element {
+  const [affectes, setAffectes] = useState<FormateurAffecte[]>([]);
+  const [candidats, setCandidats] = useState<AdminUser[]>([]);
+  const [chargement, setChargement] = useState(true);
+  const [erreur, setErreur] = useState<string | null>(null);
+  const [succes, setSucces] = useState<string | null>(null);
+  const [enCours, setEnCours] = useState(false);
+  const [choix, setChoix] = useState('');
+  // Formateur dont le retrait attend une confirmation (second clic).
+  const [aConfirmer, setAConfirmer] = useState<string | null>(null);
+
+  const recharger = useCallback(async (): Promise<void> => {
+    setAffectes(await getFormationFormateurs(formation.id));
+  }, [formation.id]);
+
+  useEffect(() => {
+    void (async (): Promise<void> => {
+      try {
+        const [, utilisateurs] = await Promise.all([recharger(), getAdminUsers()]);
+        setCandidats(
+          utilisateurs.filter((u) => u.role === 'FORMATEUR' && u.statut === 'ACTIF'),
+        );
+      } catch (error) {
+        setErreur(messageDe(error, 'Impossible de charger les formateurs.'));
+      } finally {
+        setChargement(false);
+      }
+    })();
+  }, [recharger]);
+
+  // Un formateur déjà affecté n'est plus proposé.
+  const dejaAffectes = new Set(affectes.map((a) => a.id));
+  const disponibles = candidats.filter((c) => !dejaAffectes.has(c.id));
+
+  /** Exécute une action serveur avec verrouillage + message d'erreur commun. */
+  const agir = async (action: () => Promise<void>, parDefaut: string): Promise<void> => {
+    setErreur(null);
+    setSucces(null);
+    setAConfirmer(null);
+    setEnCours(true);
+    try {
+      await action();
+    } catch (error) {
+      setErreur(messageDe(error, parDefaut));
+      // La liste a pu changer entre-temps (autre administrateur) : je resynchronise.
+      await recharger().catch(() => undefined);
+    } finally {
+      setEnCours(false);
+    }
+  };
+
+  async function handleAffectation(event: FormEvent<HTMLFormElement>): Promise<void> {
+    event.preventDefault();
+    await agir(async () => {
+      const affecte = await assignFormationFormateur(formation.id, choix);
+      setChoix('');
+      await recharger();
+      setSucces(`${nomComplet(affecte)} est affecté à la formation.`);
+    }, 'Impossible d’affecter le formateur.');
+  }
+
+  const retirer = (formateur: FormateurAffecte): Promise<void> =>
+    agir(async () => {
+      await removeFormationFormateur(formation.id, formateur.id);
+      await recharger();
+      setSucces(`${nomComplet(formateur)} n’est plus affecté à la formation.`);
+    }, 'Impossible de retirer le formateur.');
+
+  return (
+    <div className="profil-overlay" role="dialog" aria-modal="true">
+      <section className="profil-card modal-wide modal-closable">
+        <CroixFermeture onClose={onClose} disabled={enCours} />
+        <h1 className="auth-title">Formateurs</h1>
+        <p className="auth-subtitle">
+          {formation.titre} — seuls les formateurs affectés pourront y créer des évaluations.
+        </p>
+
+        {succes !== null && <p className="alert alert-success">{succes}</p>}
+        {erreur !== null && <p className="alert alert-error">{erreur}</p>}
+
+        {chargement ? (
+          <p className="page-subtitle">Chargement…</p>
+        ) : affectes.length === 0 ? (
+          <p className="page-subtitle">
+            Aucun formateur affecté pour l’instant. Choisissez-en un ci-dessous.
+          </p>
+        ) : (
+          <ul className="module-list">
+            {affectes.map((a) => (
+              <li key={a.id} className="module-item">
+                <div className="module-corps">
+                  <div className="module-titre">{nomComplet(a)}</div>
+                  <div className="field-hint">
+                    {nomComplet(a) === a.email ? '' : `${a.email} — `}affecté le{' '}
+                    {jourFr(a.affecteLe)}
+                  </div>
+                  {a.role !== 'FORMATEUR' && (
+                    <div className="field-hint">
+                      <span className="statut-badge statut-FERMEE">N’a plus le rôle Formateur</span>
+                    </div>
+                  )}
+                  {a.statut !== 'ACTIF' && (
+                    <div className="field-hint">
+                      <span className="statut-badge statut-DESACTIVE">Compte non actif</span>
+                    </div>
+                  )}
+                </div>
+                <div className="row-actions">
+                  <button
+                    className="btn-sm btn-danger"
+                    disabled={enCours}
+                    onClick={() =>
+                      aConfirmer === a.id ? void retirer(a) : setAConfirmer(a.id)
+                    }
+                  >
+                    {aConfirmer === a.id ? 'Confirmer ?' : 'Retirer'}
+                  </button>
+                </div>
+              </li>
+            ))}
+          </ul>
+        )}
+
+        <form className="form" onSubmit={handleAffectation}>
+          <div className="field">
+            <label className="field-label" htmlFor="f-formateur">
+              Affecter un formateur
+            </label>
+            <select
+              id="f-formateur"
+              className="input"
+              required
+              value={choix}
+              onChange={(e) => setChoix(e.target.value)}
+              disabled={enCours || chargement || disponibles.length === 0}
+            >
+              <option value="">Choisir un formateur…</option>
+              {disponibles.map((c) => (
+                <option key={c.id} value={c.id}>
+                  {nomComplet(c)}
+                  {nomComplet(c) === c.email ? '' : ` — ${c.email}`}
+                </option>
+              ))}
+            </select>
+            <span className="field-hint">
+              {chargement
+                ? 'Chargement des comptes…'
+                : candidats.length === 0
+                  ? 'Aucun compte actif n’a le rôle Formateur. Attribuez-le d’abord depuis la page Utilisateurs.'
+                  : disponibles.length === 0
+                    ? 'Tous les formateurs actifs sont déjà affectés à cette formation.'
+                    : 'Seuls les comptes actifs ayant le rôle Formateur sont proposés.'}
+            </span>
+          </div>
+          <div className="modal-actions">
+            <button
+              type="button"
+              className="btn btn-danger-solid"
+              onClick={onClose}
+              disabled={enCours}
+            >
+              Fermer
+            </button>
+            <button type="submit" className="btn" disabled={enCours || chargement || choix === ''}>
+              {enCours ? 'Enregistrement…' : 'Affecter'}
             </button>
           </div>
         </form>

@@ -986,3 +986,69 @@ export async function deleteFormationModule(formationId: string, moduleId: strin
     await lireReponseFormation<never>(response, 'Impossible de supprimer le module.');
   }
 }
+
+/* ============================================================
+ * US-FORM-03 — Formateurs affectés à une formation
+ * ============================================================ */
+
+/**
+ * Formateur affecté à une formation. `id` est celui du COMPTE (attendu par la
+ * route de retrait). `role` et `statut` sont ceux du compte AUJOURD'HUI : un
+ * formateur rétrogradé ou désactivé après son affectation reste dans la liste.
+ * `affecteLe` est un horodatage ISO.
+ */
+export interface FormateurAffecte {
+  id: string;
+  email: string;
+  nom: string | null;
+  prenom: string | null;
+  role: RoleUtilisateur;
+  statut: string;
+  affecteLe: string;
+}
+
+/** GET /api/admin/formations/:id/formateurs — du plus ancien au plus récent. */
+export async function getFormationFormateurs(formationId: string): Promise<FormateurAffecte[]> {
+  const response = await apiFetch(`/api/admin/formations/${formationId}/formateurs`);
+  return lireReponseFormation<FormateurAffecte[]>(
+    response,
+    'Impossible de charger les formateurs de la formation.',
+  );
+}
+
+/**
+ * POST /api/admin/formations/:id/formateurs — affecte un formateur.
+ *   - 400 -> le compte n'a pas le rôle Formateur, ou n'est pas actif ;
+ *   - 404 -> formation ou utilisateur introuvable ;
+ *   - 409 -> déjà affecté, ou formation archivée.
+ * Le serveur prévient le formateur par email.
+ */
+export async function assignFormationFormateur(
+  formationId: string,
+  formateurId: string,
+): Promise<FormateurAffecte> {
+  const response = await apiFetch(`/api/admin/formations/${formationId}/formateurs`, {
+    method: 'POST',
+    headers: JSON_HEADERS,
+    body: JSON.stringify({ formateurId }),
+  });
+  return lireReponseFormation<FormateurAffecte>(response, "Impossible d'affecter le formateur.");
+}
+
+/**
+ * DELETE /api/admin/formations/:id/formateurs/:formateurId — 204 sans corps.
+ *   - 404 -> ce formateur n'est pas affecté à la formation ;
+ *   - 409 -> formation archivée.
+ */
+export async function removeFormationFormateur(
+  formationId: string,
+  formateurId: string,
+): Promise<void> {
+  const response = await apiFetch(
+    `/api/admin/formations/${formationId}/formateurs/${formateurId}`,
+    { method: 'DELETE' },
+  );
+  if (!response.ok) {
+    await lireReponseFormation<never>(response, 'Impossible de retirer le formateur.');
+  }
+}

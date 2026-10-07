@@ -33,10 +33,18 @@ import { MailService } from './mail.service';
 
         // secure: false + pas d'auth : Mailhog écoute en SMTP simple sur 1025.
         // Un vrai relais prod ajouterait auth + TLS via de nouvelles variables.
+        // Délais bornés (US-FORM-03) : par défaut nodemailer attend jusqu'à
+        // 2 minutes un serveur injoignable, et l'envoi se fait pendant la
+        // requête HTTP. 5 s pour se connecter et recevoir l'accueil SMTP,
+        // 10 s d'inactivité au plus ensuite : au-delà, l'envoi échoue vite et
+        // l'appelant décide (bloquant à l'inscription, au mieux à l'affectation).
         const transporter = nodemailer.createTransport({
           host,
           port,
           secure: false,
+          connectionTimeout: 5_000,
+          greetingTimeout: 5_000,
+          socketTimeout: 10_000,
         });
 
         logger.log(`Transporteur SMTP configuré (${host}:${port})`);
