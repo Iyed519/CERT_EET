@@ -117,6 +117,19 @@ restantes, `notificationEnvoyee`).
   nettoie qu'APRÈS ses tests, les comptes laissés par le premier lancement
   bloquaient son insertion (`duplicate key`). Relancer suffit ; en cas de
   machine chargée, `npm run test:e2e -- --runInBand`.
+- **Story annulée puis rétablie sur `main` (#27 → #28 → nouvelle PR).** La PR
+  #27 a été fusionnée avec le seul commit de l'API (l'interface et le journal
+  n'étaient pas encore poussés). Le bouton « Revert » de GitHub, sur la page de
+  #27, a ensuite ouvert la PR #28 (branche
+  `revert-27-feature/US-INSC-01-inscription-formation`), fusionnée par erreur :
+  elle retirait l'API de `main` (+17 −1 438 lignes, 12 fichiers). Aucune perte :
+  la branche de la story portait toujours les trois commits. Correction : une
+  nouvelle PR depuis `feature/US-INSC-01-inscription-formation`. Comme `main`
+  était revenu au contenu d'avant la story, la fusion applique l'ensemble (API,
+  interface, journal) sans conflit. Les branches #27 et #28 sont conservées,
+  comme toutes les branches. Leçon : une fois une PR fusionnée, les commits
+  suivants vont dans une NOUVELLE PR ; ne jamais utiliser « Revert » pour en
+  créer une.
 
 ## Vérification
 - **Lint** : `eslint --max-warnings 0` propre. **Tests unitaires** : 20
