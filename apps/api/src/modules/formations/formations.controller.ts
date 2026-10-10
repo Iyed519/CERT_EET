@@ -11,7 +11,7 @@ import { ApiBearerAuth, ApiOperation, ApiResponse, ApiTags } from '@nestjs/swagg
 import { AuthenticatedRequest } from '../auth/auth.types';
 import { ListFormationsDto } from './dto/list-formations.dto';
 import {
-  FormationDetailVue,
+  FormationCatalogueDetailVue,
   FormationPage,
   FormationsService,
 } from './formations.service';
@@ -23,6 +23,8 @@ import {
  * (le JwtAuthGuard global exige une session valide -> 401 sans token). Ce que
  * chacun VOIT dépend de son rôle, et c'est le service qui l'applique :
  * l'administrateur voit tout, les autres voient le catalogue (OUVERTE).
+ * Chaque formation indique aussi ses places restantes et, pour un apprenant,
+ * son inscription éventuelle (US-INSC-01).
  */
 @ApiBearerAuth('access-token')
 @ApiTags('formations')
@@ -35,7 +37,8 @@ export class FormationsController {
   @ApiResponse({
     status: 200,
     description:
-      'Formations paginées { items, total, page, limit }, tri DESC. Non-admin : catalogue OUVERTE.',
+      'Formations paginées { items, total, page, limit }, tri DESC. Non-admin : catalogue OUVERTE. ' +
+      'Chaque formation porte placesRestantes et statutInscription (inscription de l’apprenant connecté, US-INSC-01).',
   })
   @ApiResponse({ status: 400, description: 'Filtre invalide (statut, page…).' })
   @ApiResponse({ status: 401, description: 'Non authentifié.' })
@@ -51,14 +54,15 @@ export class FormationsController {
     if (!user) {
       throw new UnauthorizedException('Non authentifié.');
     }
-    return this.formationsService.lister({ role: user.role }, query);
+    return this.formationsService.lister({ id: user.sub, role: user.role }, query);
   }
 
   @Get(':id')
   @ApiOperation({ summary: 'Consulter une formation et ses modules (US-FORM-01)' })
   @ApiResponse({
     status: 200,
-    description: 'Formation + modules triés par ordre.',
+    description:
+      'Formation + modules triés par ordre, avec placesRestantes et statutInscription (US-INSC-01).',
   })
   @ApiResponse({ status: 400, description: 'Identifiant mal formé (UUID attendu).' })
   @ApiResponse({ status: 401, description: 'Non authentifié.' })
@@ -69,11 +73,11 @@ export class FormationsController {
   async consulter(
     @Param('id', ParseUUIDPipe) id: string,
     @Req() req: AuthenticatedRequest,
-  ): Promise<FormationDetailVue> {
+  ): Promise<FormationCatalogueDetailVue> {
     const user = req.user;
     if (!user) {
       throw new UnauthorizedException('Non authentifié.');
     }
-    return this.formationsService.consulter({ role: user.role }, id);
+    return this.formationsService.consulter({ id: user.sub, role: user.role }, id);
   }
 }
