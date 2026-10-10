@@ -280,3 +280,25 @@ textarea.input { resize: vertical; font-family: inherit; line-height: 1.45; }
 .statut-COMPLETE { background: #fef3e2; color: var(--accent-dark); }
 .btn-primary-sm { background: var(--primary); border-color: var(--primary); color: #fff; }
 .btn-primary-sm:hover:not(:disabled) { background: var(--primary-dark); border-color: var(--primary-dark); }
+
+/* Mon espace dans une formation (US-INSC-04) — progression, modules et QCM avec mon avancement. */
+.progression { padding: 14px 16px; border: 1px solid var(--border); border-radius: var(--radius-sm); background: var(--surface); margin-bottom: 26px; }
+.progression-tete { display: flex; justify-content: space-between; align-items: baseline; margin-bottom: 8px; }
+.progression-libelle { font-size: 0.76rem; text-transform: uppercase; letter-spacing: 0.4px; color: var(--muted); font-weight: 650; }
+.progression-valeur { font-size: 1.1rem; font-weight: 750; color: var(--primary-dark); }
+.progression-barre { height: 10px; border-radius: 999px; background: #eef2f0; overflow: hidden; margin-bottom: 8px; }
+.progression-remplie { height: 100%; background: var(--primary); border-radius: 999px; transition: width 0.3s; }
+.espace-modules { list-style: none; margin: 0; padding: 0; display: flex; flex-direction: column; gap: 12px; }
+.espace-module { border: 1px solid var(--border); border-radius: var(--radius-sm); background: var(--surface); padding: 12px 14px; }
+.espace-module-tete { display: flex; align-items: center; gap: 10px; }
+.espace-qcms { list-style: none; margin: 10px 0 0 38px; padding: 0; display: flex; flex-direction: column; gap: 8px; }
+.espace-qcm { display: flex; align-items: center; gap: 10px; padding: 9px 12px; border-radius: var(--radius-sm); background: #faf9f6; border: 1px solid var(--border); flex-wrap: wrap; }
+.espace-qcm-titre { font-weight: 600; font-size: 0.92rem; overflow-wrap: anywhere; }
+.espace-vide { margin: 8px 0 0 38px; color: var(--muted); font-size: 0.88rem; }
+.avancement-A_FAIRE { background: #eef2f7; color: #475569; }
+.avancement-EN_COURS { background: #fef3e2; color: var(--accent-dark); }
+.avancement-REUSSI, .avancement-COMPLETE { background: var(--success-soft); color: var(--primary-dark); }
+.avancement-ECHOUE { background: var(--danger-soft); color: #922b21; }
+@media (max-width: 560px) { .espace-qcms, .espace-vide { margin-left: 0; } }
+/* Badge et bouton côte à côte dans l'en-tête d'une page : alignés au centre, sans étirer le badge. */
+.page-head .row-actions { align-items: center; }
