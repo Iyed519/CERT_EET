@@ -13,10 +13,12 @@ import { ApiBearerAuth, ApiOperation, ApiResponse, ApiTags } from '@nestjs/swagg
 import { Role } from '../../database/enums/role.enum';
 import { AccessTokenPayload, AuthenticatedRequest } from '../auth/auth.types';
 import { Roles } from '../auth/decorators/roles.decorator';
+import { EspaceFormationService, EspaceFormationVue } from './espace-formation.service';
 import { InscriptionsService, InscriptionVue } from './inscriptions.service';
 
 /**
- * Inscription aux formations — côté APPRENANT (US-INSC-01, DS-08).
+ * Inscription aux formations et accès à leur contenu — côté APPRENANT
+ * (US-INSC-01 DS-08, US-INSC-04 DS-09).
  *
  * @Roles au niveau CLASSE : seul un apprenant s'inscrit et consulte ses
  * inscriptions. L'apprenant est TOUJOURS celui du jeton : aucune route ne
@@ -24,14 +26,19 @@ import { InscriptionsService, InscriptionVue } from './inscriptions.service';
  *
  * Deux préfixes : l'inscription est une sous-ressource de la formation
  * (`/formations/:formationId/inscriptions`, comme les modules et les
- * formateurs), la liste personnelle vit sous `/mes-inscriptions`.
+ * formateurs), tout comme « mon espace » d'une formation
+ * (`/formations/:formationId/mon-espace`) ; la liste personnelle vit sous
+ * `/mes-inscriptions`.
  */
 @ApiBearerAuth('access-token')
 @ApiTags('inscriptions')
 @Roles(Role.APPRENANT)
 @Controller()
 export class InscriptionsController {
-  constructor(private readonly inscriptionsService: InscriptionsService) {}
+  constructor(
+    private readonly inscriptionsService: InscriptionsService,
+    private readonly espaceFormationService: EspaceFormationService,
+  ) {}
 
   @Post('formations/:formationId/inscriptions')
   @HttpCode(HttpStatus.CREATED)
@@ -67,6 +74,35 @@ export class InscriptionsController {
   mesInscriptions(@Req() req: AuthenticatedRequest): Promise<InscriptionVue[]> {
     const apprenant = this.exigerUtilisateur(req);
     return this.inscriptionsService.mesInscriptions(apprenant.sub);
+  }
+
+  @Get('formations/:formationId/mon-espace')
+  @ApiOperation({
+    summary:
+      'Mon espace dans une formation : modules et QCM publiés, avec mon avancement (US-INSC-04)',
+  })
+  @ApiResponse({
+    status: 200,
+    description:
+      'Formation, mon inscription, modules triés et QCM publiés avec mon avancement (sans questions).',
+  })
+  @ApiResponse({ status: 400, description: 'Identifiant mal formé (UUID attendu).' })
+  @ApiResponse({ status: 401, description: 'Non authentifié.' })
+  @ApiResponse({
+    status: 403,
+    description:
+      'Rôle autre qu’apprenant, pas inscrit à la formation, ou inscription suspendue (audit ACCES_RESSOURCE_REFUSE).',
+  })
+  monEspace(
+    @Param('formationId', ParseUUIDPipe) formationId: string,
+    @Req() req: AuthenticatedRequest,
+  ): Promise<EspaceFormationVue> {
+    const apprenant = this.exigerUtilisateur(req);
+    return this.espaceFormationService.monEspace(apprenant.sub, formationId, {
+      adresseIp: req.ip ?? null,
+      methode: req.method,
+      route: req.originalUrl,
+    });
   }
 
   private exigerUtilisateur(req: AuthenticatedRequest): AccessTokenPayload {

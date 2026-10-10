@@ -48,7 +48,7 @@ async function bootstrap(): Promise<void> {
     .addTag('admin', "Administration : comptes, rôles, demandes de rôle, formations, journal d'audit (ADMINISTRATEUR)")
     .addTag('formations', "Catalogue et détail des formations (utilisateur authentifié)")
     .addTag('formateur', "Espace formateur : mes formations affectées (FORMATEUR, autorisation par ressource)")
-    .addTag('inscriptions', "Inscription aux formations et mes inscriptions (APPRENANT)")
+    .addTag('inscriptions', "Inscription aux formations, mes inscriptions et mon espace de formation (APPRENANT)")
     .addTag('role-requests', "Demandes de changement de rôle en self-service (utilisateur authentifié)")
     .addTag('referentiel', "Référentiels : domaines et établissements")
     .addTag('health', "Sonde de santé (Docker healthcheck, publique)")
