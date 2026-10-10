@@ -3,6 +3,7 @@ import './globals.css';
 import { AuthProvider } from '../contexts/AuthContext';
 import { ProfilGate } from '../components/ProfilGate';
 import { AdminNav } from '../components/AdminNav';
+import { FormateurNav } from '../components/FormateurNav';
 import { RoleRequestNav } from '../components/RoleRequestNav';
 import { SecuriteNav } from '../components/SecuriteNav';
 export const metadata: Metadata = {
@@ -27,6 +28,7 @@ export default function RootLayout({
             <span className="brand-badge">CE</span>
             <span className="brand-name">Cert_EET</span>
             <AdminNav />
+            <FormateurNav />
             <RoleRequestNav />
             <SecuriteNav />
           </header>

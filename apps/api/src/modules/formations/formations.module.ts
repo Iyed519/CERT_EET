@@ -9,13 +9,17 @@ import { User } from '../../database/entities/user.entity';
 import { AdminFormationFormateursController } from './admin-formation-formateurs.controller';
 import { AdminFormationModulesController } from './admin-formation-modules.controller';
 import { AdminFormationsController } from './admin-formations.controller';
+import { AutorisationRessourceService } from './autorisation/autorisation-ressource.service';
+import { FormateurDeLaFormationGuard } from './autorisation/formateur-de-la-formation.guard';
+import { FormateurFormationsController } from './formateur-formations.controller';
+import { FormateurFormationsService } from './formateur-formations.service';
 import { FormationFormateursService } from './formation-formateurs.service';
 import { FormationModulesService } from './formation-modules.service';
 import { FormationsController } from './formations.controller';
 import { FormationsService } from './formations.service';
 
 /**
- * Module des formations (US-FORM-01, US-FORM-03).
+ * Module des formations (US-FORM-01, US-FORM-03, US-AUTH-16).
  *
  * - forFeature : Formation et ModuleFormation (le cœur) ; Inscription et Qcm
  *   en LECTURE seule, pour deux garde-fous — ne pas réduire la capacité sous
@@ -24,12 +28,14 @@ import { FormationsService } from './formations.service';
  *   compte à affecter) pour US-FORM-03.
  * - AuditService (US-AUTH-12) et MailService (US-CPT-05) sont @Global — pas
  *   d'import nécessaire.
- * - Quatre contrôleurs : administration des formations, de leurs modules et
- *   de leurs formateurs (écriture, ADMINISTRATEUR) et consultation (lecture,
- *   tout utilisateur authentifié), séparés par préfixe de route et par
- *   protection.
- * - FormationsService est exporté : les stories suivantes (inscription,
- *   autorisation par ressource) s'appuieront sur lui.
+ * - Cinq contrôleurs : administration des formations, de leurs modules et
+ *   de leurs formateurs (écriture, ADMINISTRATEUR), consultation du catalogue
+ *   (tout utilisateur authentifié) et espace formateur « Mes formations »,
+ *   séparés par préfixe de route et par protection.
+ * - Autorisation par ressource (US-AUTH-16) : AutorisationRessourceService et
+ *   le garde de @FormateurDeLaFormation sont EXPORTÉS. Un module qui pose ce
+ *   décorateur sur ses routes (QCM, US-QCM-01) importe FormationsModule.
+ * - FormationsService est exporté pour les stories suivantes (inscription).
  */
 @Module({
   imports: [
@@ -47,8 +53,16 @@ import { FormationsService } from './formations.service';
     AdminFormationModulesController,
     AdminFormationFormateursController,
     FormationsController,
+    FormateurFormationsController,
   ],
-  providers: [FormationsService, FormationModulesService, FormationFormateursService],
-  exports: [FormationsService],
+  providers: [
+    FormationsService,
+    FormationModulesService,
+    FormationFormateursService,
+    FormateurFormationsService,
+    AutorisationRessourceService,
+    FormateurDeLaFormationGuard,
+  ],
+  exports: [FormationsService, AutorisationRessourceService, FormateurDeLaFormationGuard],
 })
 export class FormationsModule {}
