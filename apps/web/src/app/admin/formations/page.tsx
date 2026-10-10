@@ -1,5 +1,6 @@
 'use client';
 import { useCallback, useEffect, useState, FormEvent } from 'react';
+import { CroixFermeture } from '../../../components/CroixFermeture';
 import {
   getFormations,
   getFormation,
@@ -356,32 +357,6 @@ const versModification = (s: Saisie, f: FormationVue): FormationPatch => {
   ).forEach(comparer);
   return patch as FormationPatch;
 };
-
-/**
- * Croix rouge en haut à droite d'une modale : ferme la fenêtre sans rien
- * enregistrer. Les trois modales de la page restent ouvertes après une action
- * (on enchaîne souvent plusieurs ajouts) ; c'est elle, ou le bouton du bas,
- * qui les referme.
- */
-function CroixFermeture({
-  onClose,
-  disabled,
-}: {
-  onClose: () => void;
-  disabled: boolean;
-}): JSX.Element {
-  return (
-    <button
-      type="button"
-      className="modal-close"
-      aria-label="Fermer la fenêtre"
-      onClick={onClose}
-      disabled={disabled}
-    >
-      ×
-    </button>
-  );
-}
 
 /** Modale de création / modification d'une formation. */
 function FormationModal({

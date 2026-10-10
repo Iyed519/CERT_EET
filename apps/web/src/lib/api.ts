@@ -837,9 +837,28 @@ export interface FormationDetailVue extends FormationVue {
   modules: ModuleVue[];
 }
 
+/** État d'une inscription (l'enum backend reste la source de vérité). */
+export type StatutInscription = 'EN_COURS' | 'TERMINEE' | 'SUSPENDUE';
+
+/**
+ * Ce que le catalogue ajoute à une formation (US-INSC-01) : les places
+ * restantes, et l'inscription de l'apprenant connecté (null s'il n'en a pas,
+ * toujours null pour un autre rôle).
+ */
+export interface PlacesEtInscription {
+  placesRestantes: number;
+  statutInscription: StatutInscription | null;
+}
+
+/** Formation telle que la renvoie le catalogue (liste). */
+export type FormationCatalogueVue = FormationVue & PlacesEtInscription;
+
+/** Formation et modules tels que les renvoie le catalogue (détail). */
+export type FormationCatalogueDetailVue = FormationDetailVue & PlacesEtInscription;
+
 /** Réponse paginée de GET /api/formations. */
 export interface FormationPage {
-  items: FormationVue[];
+  items: FormationCatalogueVue[];
   total: number;
   page: number;
   limit: number;
@@ -898,9 +917,12 @@ export async function getFormations(
 }
 
 /** GET /api/formations/:id — une formation et ses modules. */
-export async function getFormation(id: string): Promise<FormationDetailVue> {
+export async function getFormation(id: string): Promise<FormationCatalogueDetailVue> {
   const response = await apiFetch(`/api/formations/${id}`);
-  return lireReponseFormation<FormationDetailVue>(response, 'Impossible de charger la formation.');
+  return lireReponseFormation<FormationCatalogueDetailVue>(
+    response,
+    'Impossible de charger la formation.',
+  );
 }
 
 /**
@@ -1081,4 +1103,45 @@ export async function getMesFormations(): Promise<MaFormation[]> {
 export async function getMaFormation(id: string): Promise<FormationDetailVue> {
   const response = await apiFetch(`/api/formateur/formations/${id}`);
   return lireReponseFormation<FormationDetailVue>(response, 'Impossible de charger la formation.');
+}
+
+
+/* ============================================================
+ * US-INSC-01 — Inscription aux formations (apprenant)
+ * ============================================================ */
+
+/** Une inscription de l'apprenant connecté (`dateInscription` en ISO). */
+export interface InscriptionVue {
+  id: string;
+  statut: StatutInscription;
+  dateInscription: string;
+  dateEcheance: string | null;
+  tauxAvancement: number;
+  formation: {
+    id: string;
+    titre: string;
+    statut: StatutFormation;
+    dateDebut: string | null;
+    dateFin: string | null;
+  };
+}
+
+/**
+ * POST /api/formations/:id/inscriptions — inscrit l'apprenant connecté.
+ * L'inscription est immédiate (EN_COURS). Le message exact du backend remonte :
+ *   - 404 -> formation introuvable ou plus ouverte ;
+ *   - 409 -> déjà inscrit, inscription suspendue, ou formation complète ;
+ *   - 403 -> le compte n'est pas apprenant.
+ */
+export async function inscrireFormation(formationId: string): Promise<InscriptionVue> {
+  const response = await apiFetch(`/api/formations/${formationId}/inscriptions`, {
+    method: 'POST',
+  });
+  return lireReponseFormation<InscriptionVue>(response, 'Impossible de vous inscrire.');
+}
+
+/** GET /api/mes-inscriptions — mes inscriptions, tous statuts, la plus récente d'abord. */
+export async function getMesInscriptions(): Promise<InscriptionVue[]> {
+  const response = await apiFetch('/api/mes-inscriptions');
+  return lireReponseFormation<InscriptionVue[]>(response, 'Impossible de charger vos inscriptions.');
 }

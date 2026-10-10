@@ -6,7 +6,7 @@ import {
   NotFoundException,
 } from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
-import { FindOptionsWhere, Not, Repository } from 'typeorm';
+import { FindOptionsWhere, In, Not, Repository } from 'typeorm';
 import { Formation } from '../../database/entities/formation.entity';
 import { Inscription } from '../../database/entities/inscription.entity';
 import { ModuleFormation } from '../../database/entities/module-formation.entity';
@@ -49,16 +49,37 @@ export interface FormationDetailVue extends FormationVue {
   modules: ModuleVue[];
 }
 
+/**
+ * Ce que le catalogue ajoute à chaque formation (US-INSC-01, DS-08 étape 1) :
+ *  - `placesRestantes` : capacité moins les inscriptions non suspendues ;
+ *  - `statutInscription` : l'inscription de l'APPRENANT connecté à cette
+ *    formation (null s'il n'y en a pas, et toujours null pour un autre rôle).
+ */
+export interface PlacesEtInscription {
+  placesRestantes: number;
+  statutInscription: StatutInscription | null;
+}
+
+/** Formation telle que la renvoie le catalogue (liste). */
+export type FormationCatalogueVue = FormationVue & PlacesEtInscription;
+
+/** Détail d'une formation tel que le renvoie le catalogue. */
+export type FormationCatalogueDetailVue = FormationDetailVue & PlacesEtInscription;
+
 /** Réponse paginée de GET /formations (même forme que les autres listes). */
 export interface FormationPage {
-  items: FormationVue[];
+  items: FormationCatalogueVue[];
   total: number;
   page: number;
   limit: number;
 }
 
-/** Ce que le service a besoin de savoir sur l'appelant pour filtrer. */
+/**
+ * Ce que le service a besoin de savoir sur l'appelant : son rôle pour filtrer,
+ * son identifiant pour indiquer ses propres inscriptions (US-INSC-01).
+ */
 export interface Lecteur {
+  id: string;
   role: Role;
 }
 
@@ -214,7 +235,12 @@ export class FormationsService {
       take: limit,
     });
 
-    return { items: formations.map((f) => this.toVue(f)), total, page, limit };
+    const complements = await this.placesEtInscriptions(lecteur, formations);
+    const items = formations.map((f) => ({
+      ...this.toVue(f),
+      ...(complements.get(f.id) as PlacesEtInscription),
+    }));
+    return { items, total, page, limit };
   }
 
   /**
@@ -224,7 +250,7 @@ export class FormationsService {
    * le MÊME message qu'un identifiant inconnu : je ne révèle pas l'existence
    * d'une formation fermée ou archivée.
    */
-  async consulter(lecteur: Lecteur, formationId: string): Promise<FormationDetailVue> {
+  async consulter(lecteur: Lecteur, formationId: string): Promise<FormationCatalogueDetailVue> {
     const formation = await this.formationRepository.findOne({
       where: { id: formationId },
       relations: { modules: true },
@@ -238,8 +264,10 @@ export class FormationsService {
       throw new NotFoundException('Formation introuvable.');
     }
 
+    const complements = await this.placesEtInscriptions(lecteur, [formation]);
     return {
       ...this.toVue(formation),
+      ...(complements.get(formation.id) as PlacesEtInscription),
       modules: (formation.modules ?? []).map((m) => versModuleVue(m)),
     };
   }
@@ -349,6 +377,61 @@ export class FormationsService {
   // ===================================================================
   //  Helpers privés
   // ===================================================================
+
+  /**
+   * Places restantes et inscription de l'apprenant connecté, pour un lot de
+   * formations (US-INSC-01). Deux requêtes au plus, quel que soit le nombre
+   * de formations de la page :
+   *  1. le nombre d'inscriptions NON SUSPENDUES par formation (GROUP BY) —
+   *     même règle que le contrôle de capacité à l'inscription ;
+   *  2. pour un apprenant seulement, ses propres inscriptions à ces formations.
+   *
+   * Une formation déjà suivie reste visible au catalogue, avec son statut
+   * d'inscription (DS-08 la masquait : je préfère l'afficher marquée).
+   */
+  private async placesEtInscriptions(
+    lecteur: Lecteur,
+    formations: Formation[],
+  ): Promise<Map<string, PlacesEtInscription>> {
+    const complements = new Map<string, PlacesEtInscription>();
+    if (formations.length === 0) {
+      return complements;
+    }
+    const ids = formations.map((f) => f.id);
+
+    const comptes = await this.inscriptionRepository
+      .createQueryBuilder('inscription')
+      .select('inscription.formationId', 'formationId')
+      .addSelect('COUNT(*)', 'inscrits')
+      .where('inscription.formationId IN (:...ids)', { ids })
+      .andWhere('inscription.statut != :suspendue', {
+        suspendue: StatutInscription.SUSPENDUE,
+      })
+      .groupBy('inscription.formationId')
+      .getRawMany<{ formationId: string; inscrits: string }>();
+    // PostgreSQL renvoie COUNT(*) en bigint, donc en chaîne : je convertis.
+    const inscritsParFormation = new Map(comptes.map((c) => [c.formationId, Number(c.inscrits)]));
+
+    const statuts = new Map<string, StatutInscription>();
+    if (lecteur.role === Role.APPRENANT) {
+      const miennes = await this.inscriptionRepository.find({
+        where: { apprenantId: lecteur.id, formationId: In(ids) },
+        select: { id: true, formationId: true, statut: true },
+      });
+      for (const inscription of miennes) {
+        statuts.set(inscription.formationId, inscription.statut);
+      }
+    }
+
+    for (const formation of formations) {
+      const inscrits = inscritsParFormation.get(formation.id) ?? 0;
+      complements.set(formation.id, {
+        placesRestantes: Math.max(0, formation.capaciteMax - inscrits),
+        statutInscription: statuts.get(formation.id) ?? null,
+      });
+    }
+    return complements;
+  }
 
   /** Seul l'administrateur voit les formations de tous les statuts. */
   private voitTout(lecteur: Lecteur): boolean {

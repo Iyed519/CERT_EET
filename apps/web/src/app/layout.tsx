@@ -3,6 +3,7 @@ import './globals.css';
 import { AuthProvider } from '../contexts/AuthContext';
 import { ProfilGate } from '../components/ProfilGate';
 import { AdminNav } from '../components/AdminNav';
+import { ApprenantNav } from '../components/ApprenantNav';
 import { FormateurNav } from '../components/FormateurNav';
 import { RoleRequestNav } from '../components/RoleRequestNav';
 import { SecuriteNav } from '../components/SecuriteNav';
@@ -28,6 +29,7 @@ export default function RootLayout({
             <span className="brand-badge">CE</span>
             <span className="brand-name">Cert_EET</span>
             <AdminNav />
+            <ApprenantNav />
             <FormateurNav />
             <RoleRequestNav />
             <SecuriteNav />
