@@ -1052,3 +1052,33 @@ export async function removeFormationFormateur(
     await lireReponseFormation<never>(response, 'Impossible de retirer le formateur.');
   }
 }
+
+/* ============================================================
+ * US-AUTH-16 — Espace formateur : mes formations
+ * ============================================================ */
+
+/** Une formation vue par le formateur qui y est affecté (`affecteLe` en ISO). */
+export interface MaFormation extends FormationVue {
+  affecteLe: string;
+}
+
+/**
+ * GET /api/formateur/formations — formations affectées au formateur connecté,
+ * TOUS statuts (fermées et archivées comprises), la plus récente d'abord.
+ *   - 403 -> le compte n'est pas formateur.
+ */
+export async function getMesFormations(): Promise<MaFormation[]> {
+  const response = await apiFetch('/api/formateur/formations');
+  return lireReponseFormation<MaFormation[]>(response, 'Impossible de charger vos formations.');
+}
+
+/**
+ * GET /api/formateur/formations/:id — une formation et ses modules, quel que
+ * soit son statut. Protégé par l'autorisation par ressource :
+ *   - 403 -> formateur non affecté à cette formation (refus tracé) ;
+ *   - 404 -> formation introuvable.
+ */
+export async function getMaFormation(id: string): Promise<FormationDetailVue> {
+  const response = await apiFetch(`/api/formateur/formations/${id}`);
+  return lireReponseFormation<FormationDetailVue>(response, 'Impossible de charger la formation.');
+}
