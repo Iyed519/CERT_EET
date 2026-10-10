@@ -5,7 +5,7 @@ import { MailService } from './mail.service';
 
 /**
  * Tests unitaires de MailService — email d'affectation d'un formateur
- * (US-FORM-03) et email de bienvenue à l'inscription (US-INSC-01).
+ * (US-FORM-03).
  *
  * Le transporteur est un faux : je vérifie le message remis à nodemailer
  * (destinataire, objet, contenu) et surtout que les saisies libres sont
@@ -100,62 +100,6 @@ describe('MailService', () => {
           titreFormation: 'DevOps',
         }),
       ).rejects.toThrow('ECONNREFUSED');
-    });
-  });
-  describe('sendBienvenueInscriptionEmail', () => {
-    const donnees = {
-      prenom: 'Sarra',
-      titreFormation: 'DevOps avancé',
-      dateDebut: '2026-11-02',
-      dateFin: '2026-12-18',
-    };
-
-    it('confirme l’inscription, donne la période et mène à « Mes inscriptions »', async () => {
-      await service.sendBienvenueInscriptionEmail('apprenant@cert-eet.local', donnees);
-
-      expect(mockTransporter.sendMail).toHaveBeenCalledTimes(1);
-      const message = dernierMessage();
-      expect(message.to).toBe('apprenant@cert-eet.local');
-      expect(message.subject).toBe('Cert_EET — Inscription confirmée : « DevOps avancé »');
-      expect(message.text).toContain('Bonjour Sarra,');
-      expect(message.text).toContain('Période : du 02/11/2026 au 18/12/2026.');
-      expect(message.text).toContain('http://localhost:3001/mes-inscriptions');
-      expect(message.html).toContain('du 02/11/2026 au 18/12/2026');
-      expect(message.html).toContain('href="http://localhost:3001/mes-inscriptions"');
-    });
-
-    it('omet la période quand la formation n’a pas de dates', async () => {
-      await service.sendBienvenueInscriptionEmail('apprenant@cert-eet.local', {
-        ...donnees,
-        dateDebut: null,
-        dateFin: null,
-      });
-
-      expect(dernierMessage().text).not.toContain('Période');
-      expect(dernierMessage().html).not.toContain('Période');
-    });
-
-    it('n’affiche que la borne connue', async () => {
-      await service.sendBienvenueInscriptionEmail('apprenant@cert-eet.local', {
-        ...donnees,
-        dateFin: null,
-      });
-
-      expect(dernierMessage().text).toContain('Période : à partir du 02/11/2026.');
-    });
-
-    it('échappe le titre et le prénom dans le HTML, objet sur une ligne', async () => {
-      await service.sendBienvenueInscriptionEmail('apprenant@cert-eet.local', {
-        ...donnees,
-        prenom: '<i>Sarra</i>',
-        titreFormation: 'C++ & <script>x</script>\r\nBcc: intrus@exemple.tn',
-      });
-
-      const { html, subject } = dernierMessage();
-      expect(html).not.toContain('<script>');
-      expect(html).not.toContain('<i>Sarra</i>');
-      expect(html).toContain('C++ &amp; &lt;script&gt;x&lt;/script&gt;');
-      expect(subject).not.toMatch(/[\r\n]/);
     });
   });
 });

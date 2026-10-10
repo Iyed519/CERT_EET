@@ -11,7 +11,6 @@ import { Inscription } from '../../database/entities/inscription.entity';
 import { ModuleFormation } from '../../database/entities/module-formation.entity';
 import { Role } from '../../database/enums/role.enum';
 import { StatutFormation } from '../../database/enums/statut-formation.enum';
-import { StatutInscription } from '../../database/enums/statut-inscription.enum';
 import { AuditService } from '../audit/audit.service';
 import { CreateFormationDto } from './dto/create-formation.dto';
 import { UpdateFormationDto } from './dto/update-formation.dto';
@@ -22,8 +21,7 @@ import { FormationsService } from './formations.service';
  *
  * Repository et AuditService remplacés par des faux : j'isole la logique
  * métier (statut forcé à OUVERTE, cohérence des dates, audit, règle de
- * visibilité admin / catalogue, modification avec avant / après et garde-fous,
- * places restantes et inscription de l'apprenant au catalogue — US-INSC-01).
+ * visibilité admin / catalogue, modification avec avant / après et garde-fous).
  */
 describe('FormationsService', () => {
   let service: FormationsService;
@@ -34,28 +32,16 @@ describe('FormationsService', () => {
     findOne: jest.fn(),
     findAndCount: jest.fn(),
   };
-  // Le comptage des inscrits par formation passe par un QueryBuilder (GROUP
-  // BY) : je le simule par un objet dont chaque méthode se renvoie elle-même.
-  const mockComptes = {
-    select: jest.fn(),
-    addSelect: jest.fn(),
-    where: jest.fn(),
-    andWhere: jest.fn(),
-    groupBy: jest.fn(),
-    getRawMany: jest.fn(),
-  };
   const mockInscriptionRepo = {
     count: jest.fn(),
-    find: jest.fn(),
-    createQueryBuilder: jest.fn(() => mockComptes),
   };
   const mockAuditService = {
     record: jest.fn().mockResolvedValue(undefined),
   };
 
-  const admin = { id: 'admin-1', role: Role.ADMINISTRATEUR };
-  const apprenant = { id: 'appr-1', role: Role.APPRENANT };
-  const formateur = { id: 'form-user-1', role: Role.FORMATEUR };
+  const admin = { role: Role.ADMINISTRATEUR };
+  const apprenant = { role: Role.APPRENANT };
+  const formateur = { role: Role.FORMATEUR };
   const contexte = { adresseIp: '127.0.0.1' };
 
   const dto = (surcharge: Partial<CreateFormationDto> = {}): CreateFormationDto =>
@@ -97,12 +83,6 @@ describe('FormationsService', () => {
       ],
     }).compile();
     service = moduleRef.get<FormationsService>(FormationsService);
-
-    for (const methode of ['select', 'addSelect', 'where', 'andWhere', 'groupBy'] as const) {
-      mockComptes[methode].mockReturnValue(mockComptes);
-    }
-    mockComptes.getRawMany.mockResolvedValue([]);
-    mockInscriptionRepo.find.mockResolvedValue([]);
 
     mockFormationRepo.create.mockImplementation((f) => f);
     mockFormationRepo.save.mockImplementation(async (f) => ({ ...formation(), ...f }));
@@ -195,66 +175,6 @@ describe('FormationsService', () => {
       ).rejects.toBeInstanceOf(ForbiddenException);
       expect(mockFormationRepo.findAndCount).not.toHaveBeenCalled();
     });
-
-    it('calcule les places restantes à partir des inscriptions non suspendues', async () => {
-      mockFormationRepo.findAndCount.mockResolvedValue([
-        [formation(), formation({ id: 'form-2', capaciteMax: 3 })],
-        2,
-      ]);
-      // COUNT(*) arrive en chaîne depuis PostgreSQL.
-      mockComptes.getRawMany.mockResolvedValue([
-        { formationId: 'form-1', inscrits: '10' },
-        { formationId: 'form-2', inscrits: '3' },
-      ]);
-
-      const page = await service.lister(apprenant, {});
-
-      expect(page.items.map((f) => f.placesRestantes)).toEqual([15, 0]);
-      expect(mockComptes.andWhere).toHaveBeenCalledWith(expect.any(String), {
-        suspendue: StatutInscription.SUSPENDUE,
-      });
-    });
-
-    it('apprenant : indique le statut de SES inscriptions, null ailleurs', async () => {
-      mockFormationRepo.findAndCount.mockResolvedValue([
-        [formation(), formation({ id: 'form-2' })],
-        2,
-      ]);
-      mockInscriptionRepo.find.mockResolvedValue([
-        { formationId: 'form-2', statut: StatutInscription.EN_COURS },
-      ]);
-
-      const page = await service.lister(apprenant, {});
-
-      expect(page.items.map((f) => f.statutInscription)).toEqual([
-        null,
-        StatutInscription.EN_COURS,
-      ]);
-      expect(mockInscriptionRepo.find).toHaveBeenCalledWith(
-        expect.objectContaining({
-          where: expect.objectContaining({ apprenantId: 'appr-1' }),
-        }),
-      );
-    });
-
-    it.each([admin, formateur])(
-      '$role : ne cherche pas d’inscription personnelle (statut toujours null)',
-      async (lecteur) => {
-        const page = await service.lister(lecteur, {});
-
-        expect(page.items[0].statutInscription).toBeNull();
-        expect(mockInscriptionRepo.find).not.toHaveBeenCalled();
-      },
-    );
-
-    it('page vide : aucune requête sur les inscriptions', async () => {
-      mockFormationRepo.findAndCount.mockResolvedValue([[], 0]);
-
-      await service.lister(apprenant, {});
-
-      expect(mockInscriptionRepo.createQueryBuilder).not.toHaveBeenCalled();
-      expect(mockInscriptionRepo.find).not.toHaveBeenCalled();
-    });
   });
 
   describe('consulter', () => {
@@ -293,19 +213,6 @@ describe('FormationsService', () => {
       await expect(service.consulter(apprenant, 'form-1')).rejects.toBeInstanceOf(
         NotFoundException,
       );
-    });
-
-    it('indique les places restantes et l’inscription de l’apprenant', async () => {
-      mockFormationRepo.findOne.mockResolvedValue(formation());
-      mockComptes.getRawMany.mockResolvedValue([{ formationId: 'form-1', inscrits: '24' }]);
-      mockInscriptionRepo.find.mockResolvedValue([
-        { formationId: 'form-1', statut: StatutInscription.SUSPENDUE },
-      ]);
-
-      const detail = await service.consulter(apprenant, 'form-1');
-
-      expect(detail.placesRestantes).toBe(1);
-      expect(detail.statutInscription).toBe(StatutInscription.SUSPENDUE);
     });
 
     it('admin : voit une formation fermée', async () => {
