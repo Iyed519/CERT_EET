@@ -10,7 +10,6 @@ import { ReferentielModule } from './modules/referentiel/referentiel.module';
 import { AdminModule } from './modules/admin/admin.module';
 import { RoleRequestsModule } from './modules/role-requests/role-requests.module';
 import { FormationsModule } from './modules/formations/formations.module';
-import { InscriptionsModule } from './modules/inscriptions/inscriptions.module';
 /**
  * Module racine (AppModule).
  *
@@ -22,8 +21,7 @@ import { InscriptionsModule } from './modules/inscriptions/inscriptions.module';
  * avant les modules métier pour être disponible partout. Les autres modules
  * métier (users, qcm, ateliers, certificats, assistance-ia, notifications) seront
  * ajoutés ici au fil des sprints. FormationsModule (US-FORM-01) ouvre le
- * cœur métier du Sprint 2 ; InscriptionsModule (US-INSC-01) y ajoute
- * l'inscription des apprenants.
+ * cœur métier du Sprint 2.
  */
 @Module({
   imports: [
@@ -38,7 +36,6 @@ import { InscriptionsModule } from './modules/inscriptions/inscriptions.module';
     AdminModule,
     RoleRequestsModule,
     FormationsModule,
-    InscriptionsModule,
   ],
 })
 export class AppModule {}
