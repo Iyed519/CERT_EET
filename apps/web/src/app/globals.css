@@ -272,3 +272,11 @@ textarea.input { resize: vertical; font-family: inherit; line-height: 1.45; }
 .fiche dt { font-size: 0.76rem; text-transform: uppercase; letter-spacing: 0.4px; color: var(--muted); font-weight: 650; margin-bottom: 4px; }
 .fiche dd { margin: 0; white-space: pre-line; overflow-wrap: anywhere; }
 .section-title { margin: 0 0 12px; font-size: 1.1rem; font-weight: 700; }
+
+/* Inscription aux formations (US-INSC-01) — statuts d'inscription, formation complète, bouton d'action. */
+.statut-EN_COURS { background: var(--success-soft); color: var(--primary-dark); }
+.statut-TERMINEE { background: #eef2f7; color: #475569; }
+.statut-SUSPENDUE { background: var(--danger-soft); color: #922b21; }
+.statut-COMPLETE { background: #fef3e2; color: var(--accent-dark); }
+.btn-primary-sm { background: var(--primary); border-color: var(--primary); color: #fff; }
+.btn-primary-sm:hover:not(:disabled) { background: var(--primary-dark); border-color: var(--primary-dark); }
