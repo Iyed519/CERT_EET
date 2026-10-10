@@ -1,0 +1,61 @@
+import { Injectable } from '@nestjs/common';
+import { InjectRepository } from '@nestjs/typeorm';
+import { Repository } from 'typeorm';
+import { AffectationFormateur } from '../../../database/entities/affectation-formateur.entity';
+import { Formation } from '../../../database/entities/formation.entity';
+import { ModuleFormation } from '../../../database/entities/module-formation.entity';
+import { Qcm } from '../../../database/entities/qcm.entity';
+
+/** Type de ressource à partir de laquelle on remonte à la formation. */
+export type TypeRessource = 'formation' | 'module' | 'qcm';
+
+/**
+ * Lectures dont a besoin l'autorisation par ressource (US-AUTH-16) : retrouver
+ * la formation d'une ressource, puis savoir si un formateur y est affecté.
+ *
+ * Deux requêtes courtes par appel, toutes deux servies par un index :
+ * la clé primaire de la ressource, puis l'index unique
+ * (formation, formateur) de `formation_formateurs`.
+ */
+@Injectable()
+export class AutorisationRessourceService {
+  constructor(
+    @InjectRepository(Formation)
+    private readonly formationRepository: Repository<Formation>,
+    @InjectRepository(ModuleFormation)
+    private readonly moduleRepository: Repository<ModuleFormation>,
+    @InjectRepository(Qcm)
+    private readonly qcmRepository: Repository<Qcm>,
+    @InjectRepository(AffectationFormateur)
+    private readonly affectationRepository: Repository<AffectationFormateur>,
+  ) {}
+
+  /**
+   * Identifiant de la formation à laquelle appartient la ressource, ou null
+   * si la ressource n'existe pas. Un QCM remonte par son module : la formation
+   * n'est pas stockée sur le QCM (voir l'entité Qcm).
+   */
+  async formationDe(type: TypeRessource, id: string): Promise<string | null> {
+    if (type === 'formation') {
+      return (await this.formationRepository.countBy({ id })) > 0 ? id : null;
+    }
+    if (type === 'module') {
+      const module = await this.moduleRepository.findOne({
+        where: { id },
+        select: { id: true, formationId: true },
+      });
+      return module?.formationId ?? null;
+    }
+    const qcm = await this.qcmRepository.findOne({
+      where: { id },
+      relations: { module: true },
+      select: { id: true, module: { id: true, formationId: true } },
+    });
+    return qcm?.module?.formationId ?? null;
+  }
+
+  /** Le formateur a-t-il une ligne d'affectation sur cette formation ? */
+  async estAffecte(formationId: string, formateurId: string): Promise<boolean> {
+    return (await this.affectationRepository.countBy({ formationId, formateurId })) > 0;
+  }
+}

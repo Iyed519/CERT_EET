@@ -93,6 +93,26 @@ export function versModuleVue(module: ModuleFormation): ModuleVue {
   };
 }
 
+/** Vue d'une formation, partagée avec l'espace formateur (US-AUTH-16). */
+export function versFormationVue(formation: Formation): FormationVue {
+  return {
+    id: formation.id,
+    titre: formation.titre,
+    description: formation.description,
+    objectifs: formation.objectifs,
+    prerequis: formation.prerequis,
+    dateDebut: formation.dateDebut,
+    dateFin: formation.dateFin,
+    dureeHeures: formation.dureeHeures,
+    capaciteMax: formation.capaciteMax,
+    statut: formation.statut,
+    noteMinCertification: formation.noteMinCertification,
+    modeleCertificat: formation.modeleCertificat,
+    createdAt: formation.createdAt,
+    updatedAt: formation.updatedAt,
+  };
+}
+
 @Injectable()
 export class FormationsService {
   constructor(
@@ -336,21 +356,6 @@ export class FormationsService {
   }
 
   private toVue(formation: Formation): FormationVue {
-    return {
-      id: formation.id,
-      titre: formation.titre,
-      description: formation.description,
-      objectifs: formation.objectifs,
-      prerequis: formation.prerequis,
-      dateDebut: formation.dateDebut,
-      dateFin: formation.dateFin,
-      dureeHeures: formation.dureeHeures,
-      capaciteMax: formation.capaciteMax,
-      statut: formation.statut,
-      noteMinCertification: formation.noteMinCertification,
-      modeleCertificat: formation.modeleCertificat,
-      createdAt: formation.createdAt,
-      updatedAt: formation.updatedAt,
-    };
+    return versFormationVue(formation);
   }
 }
