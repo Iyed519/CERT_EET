@@ -18,6 +18,9 @@ export type AvancementQcm = 'A_FAIRE' | 'EN_COURS' | 'REUSSI' | 'ECHOUE';
 /** Où en est l'apprenant sur un module, d'après ses QCM publiés. */
 export type AvancementModule = 'SANS_EVALUATION' | 'A_FAIRE' | 'COMPLETE';
 
+/** Où en est la fenêtre d'ouverture d'un QCM publié (US-QCM-04). */
+export type EtatFenetre = 'A_VENIR' | 'OUVERTE' | 'FERMEE';
+
 /** Contexte de la requête, pour tracer un refus. */
 export interface ContexteAcces {
   adresseIp: string | null;
@@ -29,7 +32,9 @@ export interface ContexteAcces {
  * « Mon espace » d'une formation (US-INSC-04, DS-09 étapes 1 et 2).
  *
  * Ne contient JAMAIS les questions, options ni la configuration d'un QCM :
- * seulement de quoi choisir une évaluation (anti-fraude, NF3).
+ * seulement de quoi choisir une évaluation (anti-fraude, NF3). De la
+ * configuration, seules les dates de la fenêtre d'ouverture sortent
+ * (US-QCM-04) : l'apprenant doit savoir quand passer l'évaluation.
  */
 export interface EspaceFormationVue {
   formation: {
@@ -62,6 +67,9 @@ export interface EspaceFormationVue {
       titre: string;
       description: string | null;
       avancement: AvancementQcm;
+      dateOuverture: Date | null;
+      dateFermeture: Date | null;
+      fenetre: EtatFenetre | null;
     }>;
   }>;
 }
@@ -104,7 +112,8 @@ export class EspaceFormationService {
    *   2. formation et modules triés par ordre — quel que soit le statut de la
    *      formation : la fermeture arrête les inscriptions, pas le cours ;
    *   3. QCM PUBLIÉS de ces modules (jamais les brouillons), colonnes
-   *      d'affichage seulement ;
+   *      d'affichage seulement, plus les dates de leur fenêtre d'ouverture
+   *      et son état (à venir, ouverte, fermée — US-QCM-04) ;
    *   4. MES tentatives sur ces QCM -> avancement de chaque QCM, puis de
    *      chaque module.
    *
@@ -141,7 +150,14 @@ export class EspaceFormationService {
         ? []
         : await this.qcmRepository.find({
             where: { moduleId: In(modules.map((m) => m.id)), statut: StatutQcm.PUBLIE },
-            select: { id: true, moduleId: true, titre: true, description: true },
+            relations: { configuration: true },
+            select: {
+              id: true,
+              moduleId: true,
+              titre: true,
+              description: true,
+              configuration: { id: true, dateOuverture: true, dateFermeture: true },
+            },
             order: { createdAt: 'ASC' },
           });
 
@@ -173,7 +189,7 @@ export class EspaceFormationService {
         dateEcheance: inscription.dateEcheance,
         tauxAvancement: inscription.tauxAvancement,
       },
-      modules: modules.map((module) => this.versModule(module, qcms, tentatives)),
+      modules: modules.map((module) => this.versModule(module, qcms, tentatives, new Date())),
     };
   }
 
@@ -185,6 +201,7 @@ export class EspaceFormationService {
     module: ModuleFormation,
     qcms: Qcm[],
     tentatives: TentativeQcm[],
+    maintenant: Date,
   ): EspaceFormationVue['modules'][number] {
     const qcmsDuModule = qcms
       .filter((q) => q.moduleId === module.id)
@@ -193,6 +210,11 @@ export class EspaceFormationService {
         titre: q.titre,
         description: q.description,
         avancement: avancementQcm(tentatives.filter((t) => t.qcmId === q.id)),
+        dateOuverture: q.configuration?.dateOuverture ?? null,
+        dateFermeture: q.configuration?.dateFermeture ?? null,
+        fenetre: q.configuration
+          ? etatFenetre(q.configuration.dateOuverture, q.configuration.dateFermeture, maintenant)
+          : null,
       }));
     return {
       id: module.id,
@@ -263,4 +285,21 @@ export function avancementQcm(
 export function avancementModule(avancements: AvancementQcm[]): AvancementModule {
   if (avancements.length === 0) return 'SANS_EVALUATION';
   return avancements.every((a) => a === 'REUSSI') ? 'COMPLETE' : 'A_FAIRE';
+}
+
+/**
+ * État de la fenêtre d'ouverture à un instant donné (US-QCM-04) : avant
+ * l'ouverture -> A_VENIR ; de l'ouverture (incluse) à la fermeture (exclue)
+ * -> OUVERTE ; ensuite -> FERMEE. Purement informatif : le démarrage d'une
+ * tentative est revérifié par le serveur (US-QCM-05).
+ */
+export function etatFenetre(
+  ouverture: Date | string,
+  fermeture: Date | string,
+  maintenant: Date,
+): EtatFenetre {
+  const t = maintenant.getTime();
+  if (t < new Date(ouverture).getTime()) return 'A_VENIR';
+  if (t < new Date(fermeture).getTime()) return 'OUVERTE';
+  return 'FERMEE';
 }

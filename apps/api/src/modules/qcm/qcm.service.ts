@@ -21,6 +21,7 @@ import { CreateQcmDto } from './dto/create-qcm.dto';
 import { OptionDto, QuestionDto } from './dto/question.dto';
 import { UpdateQcmDto } from './dto/update-qcm.dto';
 import { ConfigurationVue, versConfigurationVue } from './qcm-configuration.service';
+import { verifierRetraitQuestion } from './qcm-publication.regles';
 
 /** Contexte de la requête transmis pour l'audit. */
 interface Contexte {
@@ -404,7 +405,12 @@ export class QcmService {
     return this.questionDuQcm(qcmId, questionId);
   }
 
-  /** Retire une question du QCM et renumérote les suivantes (409 si verrouillé). */
+  /**
+   * Retire une question du QCM et renumérote les suivantes (409 si
+   * verrouillé). QCM PUBLIÉ (US-QCM-04) : la ligne du QCM est verrouillée,
+   * puis il doit rester au moins une question, et au moins autant que le
+   * tirage configuré (409 sinon) — un QCM publié reste publiable.
+   */
   async supprimerQuestion(
     acteurId: string,
     qcmId: string,
@@ -416,6 +422,19 @@ export class QcmService {
     const question = await this.questionDuQcm(qcmId, questionId);
 
     await this.dataSource.transaction(async (manager) => {
+      const qcm = await manager.findOne(Qcm, {
+        where: { id: qcmId },
+        select: { id: true, statut: true },
+        lock: { mode: 'pessimistic_write' },
+      });
+      if (qcm?.statut === StatutQcm.PUBLIE) {
+        const nbQuestions = await manager.countBy(QcmQuestion, { qcmId });
+        const configuration = await manager.findOne(ConfigurationAntiFraude, {
+          where: { qcmId },
+          select: { id: true, nbQuestionsTirees: true },
+        });
+        verifierRetraitQuestion(nbQuestions - 1, configuration?.nbQuestionsTirees ?? null);
+      }
       await manager.delete(QcmQuestion, { qcmId, questionId });
       await this.supprimerQuestionsOrphelines(manager, [questionId]);
       const restants = await manager.find(QcmQuestion, {

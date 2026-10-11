@@ -10,11 +10,12 @@ import { TentativeQcm } from '../../database/entities/tentative-qcm.entity';
 import { FormationsModule } from '../formations/formations.module';
 import { QcmController } from './qcm.controller';
 import { QcmConfigurationService } from './qcm-configuration.service';
+import { QcmPublicationService } from './qcm-publication.service';
 import { QcmService } from './qcm.service';
 
 /**
- * Module des QCM (US-QCM-01 contenu, US-QCM-03 paramètres anti-fraude ;
- * publication et passage suivront : US-QCM-04 à 08).
+ * Module des QCM (US-QCM-01 contenu, US-QCM-03 paramètres anti-fraude,
+ * US-QCM-04 publication ; le passage suivra : US-QCM-05 à 08).
  *
  * - Importe FormationsModule : le garde @FormateurDeLaFormation et son
  *   service (US-AUTH-16), et FormationsService.chargerPourEcriture (404 / 409
@@ -39,6 +40,6 @@ import { QcmService } from './qcm.service';
     ]),
   ],
   controllers: [QcmController],
-  providers: [QcmService, QcmConfigurationService],
+  providers: [QcmService, QcmConfigurationService, QcmPublicationService],
 })
 export class QcmModule {}
