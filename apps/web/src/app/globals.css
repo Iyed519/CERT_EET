@@ -302,3 +302,28 @@ textarea.input { resize: vertical; font-family: inherit; line-height: 1.45; }
 @media (max-width: 560px) { .espace-qcms, .espace-vide { margin-left: 0; } }
 /* Badge et bouton côte à côte dans l'en-tête d'une page : alignés au centre, sans étirer le badge. */
 .page-head .row-actions { align-items: center; }
+
+/* Éditeur de QCM (US-QCM-01) — statuts, questions, options, saisie. */
+.statut-BROUILLON { background: #eef2f7; color: #475569; }
+.statut-NON_PUBLIE { background: #fef3e2; color: var(--accent-dark); }
+.statut-PUBLIE { background: var(--success-soft); color: var(--primary-dark); }
+.type-question { background: #eef4fb; color: #2c5282; }
+.section-tete { display: flex; align-items: center; justify-content: space-between; gap: 12px; margin-bottom: 12px; flex-wrap: wrap; }
+.section-tete .section-title { margin: 0; }
+.espace-bas { margin: 0 0 22px; }
+.qcm-questions { list-style: none; margin: 0; padding: 0; display: flex; flex-direction: column; gap: 12px; }
+.qcm-question { border: 1px solid var(--border); border-radius: var(--radius-sm); background: var(--surface); padding: 12px 14px; }
+.qcm-question-tete { display: flex; align-items: flex-start; gap: 10px; flex-wrap: wrap; }
+.qcm-question-tete .row-actions { flex-wrap: nowrap; margin-left: auto; }
+.qcm-question-meta { display: flex; align-items: center; gap: 8px; flex-wrap: wrap; margin-bottom: 4px; }
+.qcm-enonce { font-weight: 600; white-space: pre-line; overflow-wrap: anywhere; }
+.qcm-options { list-style: none; margin: 10px 0 0 38px; padding: 0; display: flex; flex-direction: column; gap: 4px; }
+.qcm-option { font-size: 0.9rem; color: #33414f; overflow-wrap: anywhere; }
+.qcm-option-correcte { color: var(--primary-dark); font-weight: 650; }
+.qcm-explication { margin: 8px 0 0 38px; font-size: 0.85rem; color: var(--muted); white-space: pre-line; }
+.options-saisie { border: 1px solid var(--border); border-radius: var(--radius-sm); padding: 10px 12px 12px; margin: 0; display: flex; flex-direction: column; gap: 8px; }
+.options-saisie legend { padding: 0 4px; }
+.option-ligne { display: flex; align-items: center; gap: 8px; }
+.option-ligne input[type='radio'], .option-ligne input[type='checkbox'] { width: 18px; height: 18px; flex: 0 0 auto; accent-color: var(--primary); }
+.sr-only { position: absolute; width: 1px; height: 1px; overflow: hidden; clip: rect(0 0 0 0); white-space: nowrap; }
+@media (max-width: 560px) { .qcm-options, .qcm-explication { margin-left: 0; } .qcm-question-tete .row-actions { margin-left: 0; flex-wrap: wrap; } }

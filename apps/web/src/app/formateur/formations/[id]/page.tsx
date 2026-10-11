@@ -1,13 +1,17 @@
 'use client';
 import Link from 'next/link';
-import { useParams } from 'next/navigation';
-import { useEffect, useState } from 'react';
+import { useParams, useRouter } from 'next/navigation';
+import { useCallback, useEffect, useState } from 'react';
+import { QcmInfosModal } from '../../../../components/QcmInfosModal';
 import {
   AdminError,
   FormationDetailVue,
   getMaFormation,
+  getQcmsDuModule,
+  QcmResume,
   StatutFormation,
 } from '../../../../lib/api';
+import { LIBELLES_STATUT_QCM } from '../../../../lib/format';
 
 const LIBELLES: Record<StatutFormation, string> = {
   OUVERTE: 'Ouverte',
@@ -30,11 +34,15 @@ const dateFr = (iso: string | null): string => {
 };
 
 /**
- * US-AUTH-16 — Une de mes formations : sa fiche et ses modules, en lecture.
+ * US-AUTH-16 — Une de mes formations : sa fiche et ses modules.
  *
  * C'est la première page servie derrière l'autorisation par ressource : un
  * formateur qui n'est pas affecté à cette formation reçoit un 403 (et le refus
  * est tracé côté serveur), même s'il connaît son identifiant.
+ *
+ * US-QCM-01 — Sous chaque module : ses QCM (statut, nombre de questions, lien
+ * vers l'éditeur) et un bouton « Nouveau QCM », sauf si la formation est
+ * archivée (le serveur refuserait toute écriture).
  */
 export default function MaFormationPage(): JSX.Element {
   const params = useParams<{ id: string }>();
@@ -42,6 +50,15 @@ export default function MaFormationPage(): JSX.Element {
   const [formation, setFormation] = useState<FormationDetailVue | null>(null);
   const [chargement, setChargement] = useState(true);
   const [erreur, setErreur] = useState<string | null>(null);
+  // QCM de chaque module, indexés par identifiant de module.
+  const [qcms, setQcms] = useState<Record<string, QcmResume[]>>({});
+  const [nouveauQcm, setNouveauQcm] = useState<{ id: string; titre: string } | null>(null);
+  const router = useRouter();
+
+  const chargerQcms = useCallback(async (f: FormationDetailVue): Promise<void> => {
+    const listes = await Promise.all(f.modules.map((m) => getQcmsDuModule(m.id)));
+    setQcms(Object.fromEntries(f.modules.map((m, i) => [m.id, listes[i]])));
+  }, []);
 
   useEffect(() => {
     if (!id) return;
@@ -49,7 +66,9 @@ export default function MaFormationPage(): JSX.Element {
       setChargement(true);
       setErreur(null);
       try {
-        setFormation(await getMaFormation(id));
+        const detail = await getMaFormation(id);
+        setFormation(detail);
+        await chargerQcms(detail);
       } catch (error) {
         setErreur(
           error instanceof AdminError ? error.message : 'Impossible de charger la formation.',
@@ -58,7 +77,9 @@ export default function MaFormationPage(): JSX.Element {
         setChargement(false);
       }
     })();
-  }, [id]);
+  }, [id, chargerQcms]);
+
+  const modifiable = formation !== null && formation.statut !== 'ARCHIVEE';
 
   return (
     <>
@@ -126,19 +147,62 @@ export default function MaFormationPage(): JSX.Element {
           {formation.modules.length === 0 ? (
             <p className="page-subtitle">Aucun module pour l’instant.</p>
           ) : (
-            <ol className="module-list">
+            <ol className="espace-modules">
               {formation.modules.map((m) => (
-                <li key={m.id} className="module-item">
-                  <span className="module-ordre">{m.ordre}</span>
-                  <div className="module-corps">
-                    <div className="module-titre">{m.titre}</div>
-                    {m.description && <div className="field-hint">{m.description}</div>}
+                <li key={m.id} className="espace-module">
+                  <div className="espace-module-tete">
+                    <span className="module-ordre">{m.ordre}</span>
+                    <div className="module-corps">
+                      <div className="module-titre">{m.titre}</div>
+                      {m.description && <div className="field-hint">{m.description}</div>}
+                    </div>
+                    {modifiable && (
+                      <button
+                        className="btn-sm btn-primary-sm"
+                        onClick={() => setNouveauQcm({ id: m.id, titre: m.titre })}
+                      >
+                        + Nouveau QCM
+                      </button>
+                    )}
                   </div>
+                  {(qcms[m.id] ?? []).length === 0 ? (
+                    <p className="espace-vide">Aucun QCM dans ce module.</p>
+                  ) : (
+                    <ul className="espace-qcms">
+                      {(qcms[m.id] ?? []).map((q) => (
+                        <li key={q.id} className="espace-qcm">
+                          <div className="module-corps">
+                            <Link className="table-link" href={`/formateur/qcm/${q.id}`}>
+                              QCM · {q.titre}
+                            </Link>
+                            <div className="field-hint">
+                              {q.nbQuestions} question{q.nbQuestions > 1 ? 's' : ''}
+                            </div>
+                          </div>
+                          <span className={`statut-badge statut-${q.statut}`}>
+                            {LIBELLES_STATUT_QCM[q.statut]}
+                          </span>
+                          <Link className="btn-sm btn-link" href={`/formateur/qcm/${q.id}`}>
+                            Ouvrir
+                          </Link>
+                        </li>
+                      ))}
+                    </ul>
+                  )}
                 </li>
               ))}
             </ol>
           )}
         </>
+      )}
+
+      {nouveauQcm && (
+        <QcmInfosModal
+          moduleId={nouveauQcm.id}
+          moduleTitre={nouveauQcm.titre}
+          onClose={() => setNouveauQcm(null)}
+          onEnregistre={(cree) => router.push(`/formateur/qcm/${cree.id}`)}
+        />
       )}
     </>
   );
