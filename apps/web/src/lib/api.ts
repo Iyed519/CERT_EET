@@ -1145,3 +1145,63 @@ export async function getMesInscriptions(): Promise<InscriptionVue[]> {
   const response = await apiFetch('/api/mes-inscriptions');
   return lireReponseFormation<InscriptionVue[]>(response, 'Impossible de charger vos inscriptions.');
 }
+
+
+/* ============================================================
+ * US-INSC-04 — Mon espace dans une formation (apprenant)
+ * ============================================================ */
+
+/** Où en est l'apprenant sur un QCM, d'après SES tentatives. */
+export type AvancementQcm = 'A_FAIRE' | 'EN_COURS' | 'REUSSI' | 'ECHOUE';
+
+/** Où en est l'apprenant sur un module, d'après ses QCM publiés. */
+export type AvancementModule = 'SANS_EVALUATION' | 'A_FAIRE' | 'COMPLETE';
+
+/** « Mon espace » : formation, mon inscription, modules et QCM publiés (sans questions). */
+export interface EspaceFormationVue {
+  formation: {
+    id: string;
+    titre: string;
+    description: string | null;
+    objectifs: string | null;
+    prerequis: string | null;
+    dateDebut: string | null;
+    dateFin: string | null;
+    dureeHeures: number | null;
+    statut: StatutFormation;
+    noteMinCertification: number;
+  };
+  inscription: {
+    id: string;
+    statut: StatutInscription;
+    dateInscription: string;
+    dateEcheance: string | null;
+    tauxAvancement: number;
+  };
+  modules: Array<{
+    id: string;
+    titre: string;
+    ordre: number;
+    description: string | null;
+    avancement: AvancementModule;
+    qcms: Array<{
+      id: string;
+      titre: string;
+      description: string | null;
+      avancement: AvancementQcm;
+    }>;
+  }>;
+}
+
+/**
+ * GET /api/formations/:id/mon-espace — mon espace dans une formation.
+ *   - 403 -> pas inscrit, inscription suspendue, ou compte non apprenant
+ *     (message exact du serveur).
+ */
+export async function getMonEspace(formationId: string): Promise<EspaceFormationVue> {
+  const response = await apiFetch(`/api/formations/${formationId}/mon-espace`);
+  return lireReponseFormation<EspaceFormationVue>(
+    response,
+    'Impossible de charger votre espace de formation.',
+  );
+}

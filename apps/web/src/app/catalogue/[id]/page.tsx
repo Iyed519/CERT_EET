@@ -82,6 +82,15 @@ export default function FormationCataloguePage(): JSX.Element {
                     {LIBELLES_INSCRIPTION[formation.statutInscription]}
                   </span>
                 )}
+                {(formation.statutInscription === 'EN_COURS' ||
+                  formation.statutInscription === 'TERMINEE') && (
+                  <Link
+                    className="btn-sm btn-link btn-primary-sm"
+                    href={`/mes-inscriptions/${formation.id}`}
+                  >
+                    Accéder à mon espace
+                  </Link>
+                )}
                 <ActionInscription
                   formation={formation}
                   onInscrire={() => {

@@ -8,9 +8,9 @@ import { dateFr, jourFr, LIBELLES_INSCRIPTION, periodeFr } from '../../lib/forma
  * US-INSC-01 — Mes inscriptions (apprenant).
  *
  * Toutes mes inscriptions, la plus récente d'abord, y compris suspendues :
- * l'apprenant doit voir pourquoi il n'a plus accès. Le titre mène à la fiche
- * du catalogue tant que la formation est ouverte (une formation fermée ou
- * archivée n'y figure plus). L'ouverture des modules arrive avec US-INSC-04.
+ * l'apprenant doit voir pourquoi il n'a plus accès. Le titre mène à « Mon
+ * espace » dans la formation (modules et évaluations, US-INSC-04), sauf si
+ * l'inscription est suspendue : l'accès est alors fermé.
  */
 export default function MesInscriptionsPage(): JSX.Element {
   const [inscriptions, setInscriptions] = useState<InscriptionVue[]>([]);
@@ -79,8 +79,8 @@ export default function MesInscriptionsPage(): JSX.Element {
               {inscriptions.map((i) => (
                 <tr key={i.id}>
                   <td>
-                    {i.formation.statut === 'OUVERTE' ? (
-                      <Link className="table-link" href={`/catalogue/${i.formation.id}`}>
+                    {i.statut !== 'SUSPENDUE' ? (
+                      <Link className="table-link" href={`/mes-inscriptions/${i.formation.id}`}>
                         {i.formation.titre}
                       </Link>
                     ) : (
