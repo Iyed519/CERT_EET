@@ -5,6 +5,7 @@ import { useEffect, useState } from 'react';
 import { AdminError, EspaceFormationVue, getMonEspace } from '../../../lib/api';
 import {
   dateFr,
+  fenetreQcmFr,
   LIBELLES_AVANCEMENT_MODULE,
   LIBELLES_AVANCEMENT_QCM,
   LIBELLES_INSCRIPTION,
@@ -23,6 +24,8 @@ const NOTES_FORMATION: Record<string, string | null> = {
  *
  * Progression, échéance, puis les modules dans l'ordre avec leurs QCM
  * publiés et MON avancement sur chacun. Aucune question n'est chargée ici.
+ * US-QCM-04 — Chaque QCM publié montre sa fenêtre d'ouverture (à venir avec
+ * ses dates, ouvert jusqu'à, fermé depuis), calculée par le serveur.
  * Le passage d'un QCM arrive avec US-QCM-05 : le bouton « Commencer » est
  * affiché mais inactif. Un apprenant non inscrit, ou dont l'inscription est
  * suspendue, reçoit le message exact du serveur (403).
@@ -137,6 +140,13 @@ export default function MonEspacePage(): JSX.Element {
                           <div className="module-corps">
                             <div className="espace-qcm-titre">QCM · {q.titre}</div>
                             {q.description && <div className="field-hint">{q.description}</div>}
+                            {q.fenetre !== null &&
+                              q.dateOuverture !== null &&
+                              q.dateFermeture !== null && (
+                                <div className={`fenetre-qcm fenetre-${q.fenetre}`}>
+                                  {fenetreQcmFr(q.fenetre, q.dateOuverture, q.dateFermeture)}
+                                </div>
+                              )}
                           </div>
                           <span className={`statut-badge avancement-${q.avancement}`}>
                             {LIBELLES_AVANCEMENT_QCM[q.avancement]}
@@ -145,7 +155,13 @@ export default function MonEspacePage(): JSX.Element {
                             type="button"
                             className="btn-sm"
                             disabled
-                            title="Le passage des QCM arrive bientôt."
+                            title={
+                              q.fenetre === 'A_VENIR'
+                                ? 'Disponible à l’ouverture de la fenêtre.'
+                                : q.fenetre === 'FERMEE'
+                                  ? 'La fenêtre de cette évaluation est fermée.'
+                                  : 'Le passage des QCM arrive bientôt.'
+                            }
                           >
                             Commencer
                           </button>

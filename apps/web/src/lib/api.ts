@@ -1157,6 +1157,9 @@ export type AvancementQcm = 'A_FAIRE' | 'EN_COURS' | 'REUSSI' | 'ECHOUE';
 /** Où en est l'apprenant sur un module, d'après ses QCM publiés. */
 export type AvancementModule = 'SANS_EVALUATION' | 'A_FAIRE' | 'COMPLETE';
 
+/** Fenêtre d'ouverture d'un QCM publié, au moment de la requête (US-QCM-04). */
+export type EtatFenetre = 'A_VENIR' | 'OUVERTE' | 'FERMEE';
+
 /** « Mon espace » : formation, mon inscription, modules et QCM publiés (sans questions). */
 export interface EspaceFormationVue {
   formation: {
@@ -1189,6 +1192,9 @@ export interface EspaceFormationVue {
       titre: string;
       description: string | null;
       avancement: AvancementQcm;
+      dateOuverture: string | null;
+      dateFermeture: string | null;
+      fenetre: EtatFenetre | null;
     }>;
   }>;
 }
@@ -1404,4 +1410,16 @@ export async function configureQcm(
     response,
     'Impossible d’enregistrer les paramètres anti-fraude.',
   );
+}
+
+/**
+ * PATCH /api/qcm/:id/publier — publie le QCM (US-QCM-04) : il devient
+ * visible des apprenants inscrits, avec sa fenêtre d'ouverture.
+ *   - 409 -> « QCM incomplet pour publication » (sans question, sans
+ *     configuration, tirage trop grand), fenêtre close, ou déjà publié
+ *     (message exact du serveur).
+ */
+export async function publishQcm(qcmId: string): Promise<QcmDetail> {
+  const response = await apiFetch(`/api/qcm/${qcmId}/publier`, { method: 'PATCH' });
+  return lireReponseFormation<QcmDetail>(response, 'Impossible de publier le QCM.');
 }
