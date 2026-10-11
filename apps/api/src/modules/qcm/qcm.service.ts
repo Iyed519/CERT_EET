@@ -6,6 +6,7 @@ import {
 } from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
 import { DataSource, EntityManager, In, Repository } from 'typeorm';
+import { ConfigurationAntiFraude } from '../../database/entities/configuration-anti-fraude.entity';
 import { ModuleFormation } from '../../database/entities/module-formation.entity';
 import { Option } from '../../database/entities/option.entity';
 import { QcmQuestion } from '../../database/entities/qcm-question.entity';
@@ -19,6 +20,7 @@ import { FormationsService } from '../formations/formations.service';
 import { CreateQcmDto } from './dto/create-qcm.dto';
 import { OptionDto, QuestionDto } from './dto/question.dto';
 import { UpdateQcmDto } from './dto/update-qcm.dto';
+import { ConfigurationVue, versConfigurationVue } from './qcm-configuration.service';
 
 /** Contexte de la requête transmis pour l'audit. */
 interface Contexte {
@@ -60,10 +62,13 @@ export interface QuestionVue {
 /**
  * Détail d'un QCM pour son éditeur. `verrouille` : au moins une tentative
  * existe, le contenu est figé (seules les explications restent modifiables).
+ * `configuration` : paramètres anti-fraude (US-QCM-03), null tant qu'ils ne
+ * sont pas enregistrés.
  */
 export interface QcmDetailVue extends QcmResumeVue {
   formationId: string;
   verrouille: boolean;
+  configuration: ConfigurationVue | null;
   questions: QuestionVue[];
 }
 
@@ -106,6 +111,8 @@ export class QcmService {
     private readonly tentativeRepository: Repository<TentativeQcm>,
     @InjectRepository(ModuleFormation)
     private readonly moduleRepository: Repository<ModuleFormation>,
+    @InjectRepository(ConfigurationAntiFraude)
+    private readonly configurationRepository: Repository<ConfigurationAntiFraude>,
     private readonly formationsService: FormationsService,
     // Writer d'audit UNIQUE (@Global, US-AUTH-12).
     private readonly auditService: AuditService,
@@ -188,10 +195,12 @@ export class QcmService {
       throw new NotFoundException('QCM introuvable.');
     }
     const questions = await this.chargerQuestions(this.dataSource.manager, qcmId);
+    const configuration = await this.configurationRepository.findOne({ where: { qcmId } });
     return {
       ...this.versResume(qcm, questions.length),
       formationId: qcm.module.formationId,
       verrouille: await this.estVerrouille(qcmId),
+      configuration: configuration ? versConfigurationVue(configuration) : null,
       questions,
     };
   }

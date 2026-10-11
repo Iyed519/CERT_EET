@@ -2,6 +2,7 @@ import { BadRequestException, ConflictException, NotFoundException } from '@nest
 import { Test, TestingModule } from '@nestjs/testing';
 import { getRepositoryToken } from '@nestjs/typeorm';
 import { DataSource } from 'typeorm';
+import { ConfigurationAntiFraude } from '../../database/entities/configuration-anti-fraude.entity';
 import { ModuleFormation } from '../../database/entities/module-formation.entity';
 import { QcmQuestion } from '../../database/entities/qcm-question.entity';
 import { Qcm } from '../../database/entities/qcm.entity';
@@ -64,6 +65,7 @@ describe('QcmService', () => {
         { provide: getRepositoryToken(QcmQuestion), useValue: mockLienRepo },
         { provide: getRepositoryToken(TentativeQcm), useValue: mockTentativeRepo },
         { provide: getRepositoryToken(ModuleFormation), useValue: mockModuleRepo },
+        { provide: getRepositoryToken(ConfigurationAntiFraude), useValue: { findOne: jest.fn() } },
         { provide: FormationsService, useValue: mockFormationsService },
         { provide: AuditService, useValue: mockAuditService },
       ],
