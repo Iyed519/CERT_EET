@@ -18,18 +18,20 @@ import { Role } from '../../database/enums/role.enum';
 import { AccessTokenPayload, AuthenticatedRequest } from '../auth/auth.types';
 import { Roles } from '../auth/decorators/roles.decorator';
 import { FormateurDeLaFormation } from '../formations/autorisation/formateur-de-la-formation.decorator';
+import { ConfigurationDto } from './dto/configuration.dto';
 import { CreateQcmDto } from './dto/create-qcm.dto';
 import { QuestionDto } from './dto/question.dto';
 import { ReorderQuestionsDto } from './dto/reorder-questions.dto';
 import { UpdateQcmDto } from './dto/update-qcm.dto';
+import { ConfigurationVue, QcmConfigurationService } from './qcm-configuration.service';
 import { QcmDetailVue, QcmResumeVue, QcmService, QuestionVue } from './qcm.service';
 
 const REFUS_403 =
   'Rôle insuffisant, ou formateur non affecté à la formation (audit ACCES_RESSOURCE_REFUSE).';
 
 /**
- * Contenu des QCM — côté FORMATEUR affecté et ADMINISTRATEUR (US-QCM-01,
- * DS-12). Première série de routes qui posent @FormateurDeLaFormation sur un
+ * Contenu des QCM et paramètres anti-fraude — côté FORMATEUR affecté et
+ * ADMINISTRATEUR (US-QCM-01, US-QCM-03, DS-12). Première série de routes qui posent @FormateurDeLaFormation sur un
  * module ou un QCM (US-AUTH-16) : le garde remonte à la formation et vérifie
  * l'affectation avant que la requête n'atteigne le service.
  *
@@ -42,7 +44,10 @@ const REFUS_403 =
 @Roles(Role.FORMATEUR, Role.ADMINISTRATEUR)
 @Controller()
 export class QcmController {
-  constructor(private readonly qcmService: QcmService) {}
+  constructor(
+    private readonly qcmService: QcmService,
+    private readonly configurationService: QcmConfigurationService,
+  ) {}
 
   @Post('modules/:moduleId/qcm')
   @HttpCode(HttpStatus.CREATED)
@@ -110,6 +115,44 @@ export class QcmController {
     @Req() req: AuthenticatedRequest,
   ): Promise<void> {
     await this.qcmService.supprimer(this.acteur(req).sub, qcmId, this.contexte(req));
+  }
+
+  @Put('qcm/:qcmId/configuration')
+  @FormateurDeLaFormation({ qcmId: 'qcmId' })
+  @ApiOperation({
+    summary: 'Enregistrer les paramètres anti-fraude d’un QCM (US-QCM-03)',
+    description:
+      'Crée ou remplace la configuration : randomisation (questions, options, tirage de K parmi N), ' +
+      'durée et fenêtre d’ouverture, tentatives et délai, blocage multi-session, affichage du résultat, ' +
+      'seuil de réussite, poids dans la formation, proctoring et copier-coller (enregistrés, pas encore ' +
+      'appliqués). Le QCM passe de BROUILLON à NON_PUBLIE ; un QCM publié le reste. Dès la première ' +
+      'tentative, seule la date de fermeture peut être repoussée.',
+  })
+  @ApiResponse({ status: 200, description: 'Configuration enregistrée ; audit QCM_CONFIGURE.' })
+  @ApiResponse({
+    status: 400,
+    description:
+      'Champ invalide, ouverture ≥ fermeture, fermeture passée, fenêtre plus courte que la durée, ' +
+      'ou tirage supérieur au nombre de questions.',
+  })
+  @ApiResponse({ status: 403, description: REFUS_403 })
+  @ApiResponse({ status: 404, description: 'QCM introuvable.' })
+  @ApiResponse({
+    status: 409,
+    description:
+      'QCM sans question, QCM déjà tenté (seule la fermeture peut être repoussée), ou formation archivée.',
+  })
+  configurer(
+    @Param('qcmId', ParseUUIDPipe) qcmId: string,
+    @Body() dto: ConfigurationDto,
+    @Req() req: AuthenticatedRequest,
+  ): Promise<ConfigurationVue> {
+    return this.configurationService.configurer(
+      this.acteur(req).sub,
+      qcmId,
+      dto,
+      this.contexte(req),
+    );
   }
 
   @Post('qcm/:qcmId/questions')
