@@ -2,6 +2,7 @@
 import Link from 'next/link';
 import { useParams, useRouter } from 'next/navigation';
 import { useCallback, useEffect, useState } from 'react';
+import { ConfigurationModal } from '../../../../components/ConfigurationModal';
 import { ConfirmationModal } from '../../../../components/ConfirmationModal';
 import { QcmInfosModal } from '../../../../components/QcmInfosModal';
 import { QuestionModal } from '../../../../components/QuestionModal';
@@ -15,6 +16,8 @@ import {
   reorderQuestions,
 } from '../../../../lib/api';
 import {
+  dateHeureFr,
+  LIBELLES_AFFICHAGE,
   LIBELLES_NIVEAU,
   LIBELLES_STATUT_QCM,
   LIBELLES_TYPE_QUESTION,
@@ -23,6 +26,7 @@ import {
 /** Ce qui est ouvert par-dessus la page (une modale à la fois). */
 type Fenetre =
   | { type: 'infos' }
+  | { type: 'configuration' }
   | { type: 'question'; question: QuestionQcm | null }
   | { type: 'retirer'; question: QuestionQcm }
   | { type: 'supprimer' }
@@ -35,7 +39,9 @@ type Fenetre =
  * ajout / modification / retrait / déplacement. Dès qu'un apprenant a fait une
  * tentative, le contenu est figé : seule l'explication d'une question (et le
  * titre du QCM) peut encore changer — le serveur l'impose, la page le montre.
- * La configuration anti-fraude et la publication arrivent avec US-QCM-03/04.
+ * US-QCM-03 — Section « Paramètres anti-fraude » : résumé de la
+ * configuration et modale pour la saisir (BROUILLON -> NON_PUBLIE). La
+ * publication arrive avec US-QCM-04.
  */
 export default function EditeurQcmPage(): JSX.Element {
   const params = useParams<{ id: string }>();
@@ -128,16 +134,78 @@ export default function EditeurQcmPage(): JSX.Element {
             </div>
           </div>
 
-          {fige ? (
+          {fige && (
             <p className="alert alert-info">
               Des apprenants ont déjà passé ce QCM : son contenu est figé. Vous pouvez encore
-              compléter les explications des questions.
+              compléter les explications des questions et repousser la date de fermeture.
+            </p>
+          )}
+
+          <div className="section-tete">
+            <h2 className="section-title">Paramètres anti-fraude</h2>
+            <button
+              className={qcm.configuration ? 'btn-sm' : 'btn-sm btn-primary-sm'}
+              onClick={() => setFenetre({ type: 'configuration' })}
+              disabled={qcm.nbQuestions === 0}
+              title={qcm.nbQuestions === 0 ? 'Ajoutez d’abord au moins une question.' : undefined}
+            >
+              {qcm.configuration ? 'Modifier les paramètres' : 'Configurer'}
+            </button>
+          </div>
+          {qcm.configuration === null ? (
+            <p className="page-subtitle espace-bas">
+              {qcm.nbQuestions === 0
+                ? 'Ajoutez au moins une question, puis configurez la durée, la fenêtre d’ouverture, les tentatives et le seuil de réussite.'
+                : 'Pas encore configuré : durée, fenêtre d’ouverture, tentatives, seuil de réussite… Le QCM passera alors « Non publié », prêt à être publié.'}
             </p>
           ) : (
-            <p className="field-hint espace-bas">
-              Prochaine étape, une fois les questions prêtes : les paramètres anti-fraude et la
-              publication (bientôt disponibles).
-            </p>
+            <dl className="fiche">
+              <div>
+                <dt>Durée</dt>
+                <dd>{qcm.configuration.dureeMaxMinutes} min</dd>
+              </div>
+              <div>
+                <dt>Fenêtre</dt>
+                <dd>
+                  du {dateHeureFr(qcm.configuration.dateOuverture)}
+                  <br />
+                  au {dateHeureFr(qcm.configuration.dateFermeture)}
+                </dd>
+              </div>
+              <div>
+                <dt>Tentatives</dt>
+                <dd>
+                  {qcm.configuration.nbTentativesMax} max
+                  {qcm.configuration.delaiEntreTentatives > 0
+                    ? ` · ${qcm.configuration.delaiEntreTentatives} h entre deux`
+                    : ''}
+                </dd>
+              </div>
+              <div>
+                <dt>Réussite</dt>
+                <dd>
+                  {qcm.configuration.scoreMinValidation} % · poids{' '}
+                  {qcm.configuration.ponderationFormation} %
+                </dd>
+              </div>
+              <div>
+                <dt>Randomisation</dt>
+                <dd>
+                  {[
+                    qcm.configuration.randomiserQuestions && 'questions',
+                    qcm.configuration.randomiserOptions && 'options',
+                    qcm.configuration.nbQuestionsTirees !== null &&
+                      `${qcm.configuration.nbQuestionsTirees} tirées sur ${qcm.nbQuestions}`,
+                  ]
+                    .filter(Boolean)
+                    .join(' · ') || 'aucune'}
+                </dd>
+              </div>
+              <div>
+                <dt>Résultat</dt>
+                <dd>{LIBELLES_AFFICHAGE[qcm.configuration.affichageResultats].split(' (')[0]}</dd>
+              </div>
+            </dl>
           )}
 
           <div className="section-tete">
@@ -225,6 +293,13 @@ export default function EditeurQcmPage(): JSX.Element {
         </>
       )}
 
+      {qcm && fenetre?.type === 'configuration' && (
+        <ConfigurationModal
+          qcm={qcm}
+          onClose={() => setFenetre(null)}
+          onEnregistree={fermerEtRecharger}
+        />
+      )}
       {qcm && fenetre?.type === 'infos' && (
         <QcmInfosModal qcm={qcm} onClose={() => setFenetre(null)} onEnregistre={fermerEtRecharger} />
       )}

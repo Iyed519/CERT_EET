@@ -1,4 +1,5 @@
 import type {
+  AffichageResultats,
   AvancementModule,
   AvancementQcm,
   NiveauDifficulte,
@@ -63,3 +64,23 @@ export const LIBELLES_NIVEAU: Record<NiveauDifficulte, string> = {
   INTERMEDIAIRE: 'Intermédiaire',
   AVANCE: 'Avancé',
 };
+
+/** Libellés FR de l'affichage du résultat (US-QCM-03). */
+export const LIBELLES_AFFICHAGE: Record<AffichageResultats, string> = {
+  IMMEDIAT: 'Immédiat (score, corrigé et explications à la soumission)',
+  DIFFERE: 'Différé (score seul ; corrigé après la fermeture)',
+};
+
+/** Horodatage ISO -> « JJ/MM/AAAA HH:MM » (heure locale du navigateur). */
+export const dateHeureFr = (iso: string): string =>
+  new Date(iso).toLocaleString('fr-FR', { dateStyle: 'short', timeStyle: 'short' });
+
+/** Horodatage ISO -> valeur d'un <input type="datetime-local"> (heure locale). */
+export const versSaisieLocale = (iso: string): string => {
+  const d = new Date(iso);
+  const deux = (n: number): string => String(n).padStart(2, '0');
+  return `${d.getFullYear()}-${deux(d.getMonth() + 1)}-${deux(d.getDate())}T${deux(d.getHours())}:${deux(d.getMinutes())}`;
+};
+
+/** Valeur d'un <input type="datetime-local"> (heure locale) -> ISO 8601 en UTC. */
+export const depuisSaisieLocale = (valeur: string): string => new Date(valeur).toISOString();

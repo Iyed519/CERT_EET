@@ -1252,10 +1252,36 @@ export interface QuestionQcm {
   options: OptionQcm[];
 }
 
-/** Détail d'un QCM pour son éditeur ; `verrouille` = des tentatives existent. */
+/** Affichage du résultat à l'apprenant (US-QCM-03). */
+export type AffichageResultats = 'IMMEDIAT' | 'DIFFERE';
+
+/** Paramètres anti-fraude d'un QCM (dates en ISO 8601). */
+export interface ConfigurationQcm {
+  randomiserQuestions: boolean;
+  randomiserOptions: boolean;
+  nbQuestionsTirees: number | null;
+  dureeMaxMinutes: number;
+  dateOuverture: string;
+  dateFermeture: string;
+  nbTentativesMax: number;
+  delaiEntreTentatives: number;
+  blocageSessionsMultiples: boolean;
+  affichageResultats: AffichageResultats;
+  scoreMinValidation: number;
+  ponderationFormation: number;
+  proctoringWebcam: boolean;
+  desactiverCopierColler: boolean;
+}
+
+/**
+ * Détail d'un QCM pour son éditeur ; `verrouille` = des tentatives existent ;
+ * `configuration` = paramètres anti-fraude, null tant qu'ils ne sont pas
+ * enregistrés (US-QCM-03).
+ */
 export interface QcmDetail extends QcmResume {
   formationId: string;
   verrouille: boolean;
+  configuration: (ConfigurationQcm & { updatedAt: string }) | null;
   questions: QuestionQcm[];
 }
 
@@ -1359,3 +1385,23 @@ export async function deleteQuestion(qcmId: string, questionId: string): Promise
   }
 }
 
+/**
+ * PUT /api/qcm/:id/configuration — crée ou remplace les paramètres
+ * anti-fraude (US-QCM-03). Le QCM passe de BROUILLON à NON_PUBLIE.
+ *   - 400 -> champ invalide ou règle croisée (fenêtre, durée, tirage) ;
+ *   - 409 -> QCM sans question, ou déjà tenté (seule la fermeture peut être repoussée).
+ */
+export async function configureQcm(
+  qcmId: string,
+  configuration: ConfigurationQcm,
+): Promise<ConfigurationQcm> {
+  const response = await apiFetch(`/api/qcm/${qcmId}/configuration`, {
+    method: 'PUT',
+    headers: JSON_HEADERS,
+    body: JSON.stringify(configuration),
+  });
+  return lireReponseFormation<ConfigurationQcm>(
+    response,
+    'Impossible d’enregistrer les paramètres anti-fraude.',
+  );
+}
