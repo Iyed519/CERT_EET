@@ -11,6 +11,7 @@ import {
   deleteQcm,
   deleteQuestion,
   getQcm,
+  publishQcm,
   QcmDetail,
   QuestionQcm,
   reorderQuestions,
@@ -30,7 +31,44 @@ type Fenetre =
   | { type: 'question'; question: QuestionQcm | null }
   | { type: 'retirer'; question: QuestionQcm }
   | { type: 'supprimer' }
+  | { type: 'publier' }
   | null;
+
+/** Une condition de publication, vérifiée ici pour guider ; le serveur tranche. */
+interface Condition {
+  ok: boolean;
+  libelle: string;
+}
+
+/**
+ * Conditions de publication (US-QCM-04), dans l'ordre du serveur : au moins
+ * une question, une configuration, puis — une fois configuré — un tirage
+ * possible et une fermeture encore à venir.
+ */
+function conditionsDePublication(qcm: QcmDetail, maintenant: number): Condition[] {
+  const configuration = qcm.configuration;
+  const tirage = configuration?.nbQuestionsTirees ?? null;
+  return [
+    { ok: qcm.nbQuestions > 0, libelle: 'Au moins une question' },
+    { ok: configuration !== null, libelle: 'Paramètres anti-fraude enregistrés' },
+    ...(tirage !== null
+      ? [
+          {
+            ok: tirage <= qcm.nbQuestions,
+            libelle: `Tirage de ${tirage} question${tirage > 1 ? 's' : ''} possible (${qcm.nbQuestions} au QCM)`,
+          },
+        ]
+      : []),
+    ...(configuration !== null
+      ? [
+          {
+            ok: new Date(configuration.dateFermeture).getTime() > maintenant,
+            libelle: 'Date de fermeture encore à venir',
+          },
+        ]
+      : []),
+  ];
+}
 
 /**
  * US-QCM-01 — Éditeur d'un QCM (formateur affecté, DS-12 parties 1 et 2).
@@ -40,8 +78,11 @@ type Fenetre =
  * tentative, le contenu est figé : seule l'explication d'une question (et le
  * titre du QCM) peut encore changer — le serveur l'impose, la page le montre.
  * US-QCM-03 — Section « Paramètres anti-fraude » : résumé de la
- * configuration et modale pour la saisir (BROUILLON -> NON_PUBLIE). La
- * publication arrive avec US-QCM-04.
+ * configuration et modale pour la saisir (BROUILLON -> NON_PUBLIE).
+ * US-QCM-04 — Section « Publication » : liste des conditions (cochées ou
+ * non), bouton « Publier » avec confirmation ; une fois publié, rappel de la
+ * fenêtre. Un QCM publié garde au moins une question et au moins son tirage :
+ * le bouton « Retirer » est désactivé quand ce ne serait plus le cas.
  */
 export default function EditeurQcmPage(): JSX.Element {
   const params = useParams<{ id: string }>();
@@ -91,6 +132,12 @@ export default function EditeurQcmPage(): JSX.Element {
 
   const fige = qcm?.verrouille ?? false;
   const suppressible = qcm !== null && !qcm.verrouille && qcm.statut !== 'PUBLIE';
+  const publie = qcm?.statut === 'PUBLIE';
+  const conditions = qcm ? conditionsDePublication(qcm, Date.now()) : [];
+  const publiable = conditions.every((c) => c.ok);
+  // QCM publié : un retrait ne doit laisser ni zéro question, ni moins que le tirage.
+  const minimumPublie = Math.max(1, qcm?.configuration?.nbQuestionsTirees ?? 1);
+  const retraitBloque = publie && (qcm?.nbQuestions ?? 0) <= minimumPublie;
 
   return (
     <>
@@ -209,6 +256,36 @@ export default function EditeurQcmPage(): JSX.Element {
           )}
 
           <div className="section-tete">
+            <h2 className="section-title">Publication</h2>
+            {!publie && (
+              <button
+                className="btn-sm btn-primary-sm"
+                onClick={() => setFenetre({ type: 'publier' })}
+                disabled={!publiable}
+                title={publiable ? undefined : 'Toutes les conditions ci-dessous doivent être remplies.'}
+              >
+                Publier
+              </button>
+            )}
+          </div>
+          {publie && qcm.configuration ? (
+            <p className="alert alert-success espace-bas">
+              Publié : visible des apprenants inscrits. Ouverture le{' '}
+              {dateHeureFr(qcm.configuration.dateOuverture)}, fermeture le{' '}
+              {dateHeureFr(qcm.configuration.dateFermeture)}.
+            </p>
+          ) : (
+            <ul className="conditions-publication">
+              {conditions.map((c) => (
+                <li key={c.libelle} className={c.ok ? 'condition-ok' : 'condition-ko'}>
+                  <span aria-hidden="true">{c.ok ? '✓' : '✗'}</span> {c.libelle}
+                  <span className="sr-only">{c.ok ? ' (rempli)' : ' (manquant)'}</span>
+                </li>
+              ))}
+            </ul>
+          )}
+
+          <div className="section-tete">
             <h2 className="section-title">Questions</h2>
             <button
               className="btn-sm btn-primary-sm"
@@ -268,7 +345,12 @@ export default function EditeurQcmPage(): JSX.Element {
                       <button
                         className="btn-sm btn-danger"
                         onClick={() => setFenetre({ type: 'retirer', question: q })}
-                        disabled={fige}
+                        disabled={fige || retraitBloque}
+                        title={
+                          retraitBloque
+                            ? `QCM publié : il doit garder au moins ${minimumPublie} question${minimumPublie > 1 ? 's' : ''}.`
+                            : undefined
+                        }
                       >
                         Retirer
                       </button>
@@ -321,6 +403,18 @@ export default function EditeurQcmPage(): JSX.Element {
           onConfirmer={async () => {
             await deleteQuestion(qcm.id, fenetre.question.id);
             fermerEtRecharger();
+          }}
+        />
+      )}
+      {qcm && fenetre?.type === 'publier' && qcm.configuration && (
+        <ConfirmationModal
+          titre="Publier le QCM"
+          message={`« ${qcm.titre} » sera visible des apprenants inscrits à la formation. L’évaluation ouvrira le ${dateHeureFr(qcm.configuration.dateOuverture)} et fermera le ${dateHeureFr(qcm.configuration.dateFermeture)}.`}
+          libelleAction="Publier"
+          onClose={() => setFenetre(null)}
+          onConfirmer={async () => {
+            setQcm(await publishQcm(qcm.id));
+            setFenetre(null);
           }}
         />
       )}

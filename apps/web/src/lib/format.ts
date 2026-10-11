@@ -2,6 +2,7 @@ import type {
   AffichageResultats,
   AvancementModule,
   AvancementQcm,
+  EtatFenetre,
   NiveauDifficulte,
   StatutInscription,
   StatutQcm,
@@ -84,3 +85,28 @@ export const versSaisieLocale = (iso: string): string => {
 
 /** Valeur d'un <input type="datetime-local"> (heure locale) -> ISO 8601 en UTC. */
 export const depuisSaisieLocale = (valeur: string): string => new Date(valeur).toISOString();
+
+/**
+ * Fenêtre d'un QCM publié, en une phrase pour l'apprenant (US-QCM-04).
+ * L'état vient du serveur ; les dates s'affichent en heure locale.
+ */
+export const fenetreQcmFr = (
+  fenetre: EtatFenetre,
+  dateOuverture: string,
+  dateFermeture: string,
+): string => {
+  switch (fenetre) {
+    case 'A_VENIR':
+      return `Ouvre le ${dateHeureFr(dateOuverture)} · jusqu’au ${dateHeureFr(dateFermeture)}`;
+    case 'OUVERTE':
+      return `Ouvert jusqu’au ${dateHeureFr(dateFermeture)}`;
+    case 'FERMEE':
+      return `Fermé depuis le ${dateHeureFr(dateFermeture)}`;
+  }
+};
+
+export const LIBELLES_FENETRE: Record<EtatFenetre, string> = {
+  A_VENIR: 'À venir',
+  OUVERTE: 'Ouvert',
+  FERMEE: 'Fermé',
+};

@@ -14,6 +14,7 @@ import {
   avancementModule,
   avancementQcm,
   EspaceFormationService,
+  etatFenetre,
 } from './espace-formation.service';
 
 /**
@@ -122,12 +123,42 @@ describe('EspaceFormationService', () => {
       );
     });
 
-    it('n’expose aucune donnée sensible d’un QCM (seulement id, titre, description, avancement)', async () => {
+    it('n’expose aucune donnée sensible d’un QCM (identité, avancement et fenêtre seulement)', async () => {
       const espace = await service.monEspace('appr-1', 'form-1', contexte);
 
       expect(Object.keys(espace.modules[0].qcms[0]).sort()).toEqual(
-        ['avancement', 'description', 'id', 'titre'].sort(),
+        [
+          'avancement',
+          'dateFermeture',
+          'dateOuverture',
+          'description',
+          'fenetre',
+          'id',
+          'titre',
+        ].sort(),
       );
+    });
+
+    it('donne les dates et l’état de la fenêtre d’un QCM configuré', async () => {
+      const ouverture = new Date(Date.now() + 86_400_000);
+      const fermeture = new Date(Date.now() + 2 * 86_400_000);
+      mockQcmRepo.find.mockResolvedValue([
+        {
+          id: 'qcm-1',
+          moduleId: 'mod-1',
+          titre: 'Quiz intro',
+          description: null,
+          configuration: { dateOuverture: ouverture, dateFermeture: fermeture },
+        },
+      ]);
+
+      const espace = await service.monEspace('appr-1', 'form-1', contexte);
+
+      expect(espace.modules[0].qcms[0]).toMatchObject({
+        dateOuverture: ouverture,
+        dateFermeture: fermeture,
+        fenetre: 'A_VENIR',
+      });
     });
 
     it('une inscription TERMINEE garde l’accès', async () => {
@@ -218,6 +249,19 @@ describe('EspaceFormationService', () => {
       ],
     ])('%s -> %s', (_cas, tentatives, attendu) => {
       expect(avancementQcm(tentatives)).toBe(attendu);
+    });
+  });
+
+  describe('etatFenetre', () => {
+    const ouverture = new Date('2026-11-02T08:00:00Z');
+    const fermeture = new Date('2026-11-02T18:00:00Z');
+    it.each([
+      ['avant l’ouverture', '2026-11-02T07:59:59Z', 'A_VENIR'],
+      ['à l’ouverture exacte', '2026-11-02T08:00:00Z', 'OUVERTE'],
+      ['pendant', '2026-11-02T12:00:00Z', 'OUVERTE'],
+      ['à la fermeture exacte', '2026-11-02T18:00:00Z', 'FERMEE'],
+    ])('%s -> %s', (_cas, instant, attendu) => {
+      expect(etatFenetre(ouverture, fermeture, new Date(instant))).toBe(attendu);
     });
   });
 

@@ -7,6 +7,7 @@ import * as bcrypt from 'bcryptjs';
 import * as cookieParser from 'cookie-parser';
 import { AppModule } from '../src/app.module';
 import { AuditLog } from '../src/database/entities/audit-log.entity';
+import { ConfigurationAntiFraude } from '../src/database/entities/configuration-anti-fraude.entity';
 import { Formation } from '../src/database/entities/formation.entity';
 import { Inscription } from '../src/database/entities/inscription.entity';
 import { ModuleFormation } from '../src/database/entities/module-formation.entity';
@@ -14,6 +15,7 @@ import { Qcm } from '../src/database/entities/qcm.entity';
 import { TentativeQcm } from '../src/database/entities/tentative-qcm.entity';
 import { User } from '../src/database/entities/user.entity';
 import { Role } from '../src/database/enums/role.enum';
+import { AffichageResultats } from '../src/database/enums/affichage-resultats.enum';
 import { StatutCompte } from '../src/database/enums/statut-compte.enum';
 import { StatutFormation } from '../src/database/enums/statut-formation.enum';
 import { StatutInscription } from '../src/database/enums/statut-inscription.enum';
@@ -65,6 +67,8 @@ describe('Mon espace dans une formation (e2e) — US-INSC-04', () => {
   let formationId: string;
   let autreFormationId: string;
   let qcmPublieId: string;
+  let ouvertureIntro: Date;
+  let fermetureIntro: Date;
 
   const login = async (email: string): Promise<string> => {
     const res = await request(app.getHttpServer())
@@ -215,6 +219,23 @@ describe('Mon espace dans une formation (e2e) — US-INSC-04', () => {
     ]);
     qcmPublieId = publie.id;
 
+    // Le quiz d'intro a une fenêtre en cours (US-QCM-04) : ouverte hier,
+    // fermée dans 10 jours. Le quiz Docker n'a pas de configuration.
+    const configRepo = dataSource.getRepository(ConfigurationAntiFraude);
+    ouvertureIntro = new Date(Date.now() - 86_400_000);
+    fermetureIntro = new Date(Date.now() + 10 * 86_400_000);
+    await configRepo.save(
+      configRepo.create({
+        qcmId: publie.id,
+        dureeMaxMinutes: 30,
+        dateOuverture: ouvertureIntro,
+        dateFermeture: fermetureIntro,
+        affichageResultats: AffichageResultats.DIFFERE,
+        scoreMinValidation: 60,
+        ponderationFormation: 30,
+      }),
+    );
+
     const inscriptionRepo = dataSource.getRepository(Inscription);
     await inscriptionRepo.save([
       inscriptionRepo.create({ apprenantId, formationId, dateEcheance: '2026-12-18' }),
@@ -263,12 +284,22 @@ describe('Mon espace dans une formation (e2e) — US-INSC-04', () => {
       ['Bilan', 'SANS_EVALUATION'],
     ]);
     expect(res.body.modules[0].qcms).toEqual([
-      { id: qcmPublieId, titre: `${MARQUEUR} Quiz intro`, description: null, avancement: 'REUSSI' },
+      {
+        id: qcmPublieId,
+        titre: `${MARQUEUR} Quiz intro`,
+        description: null,
+        avancement: 'REUSSI',
+        dateOuverture: ouvertureIntro.toISOString(),
+        dateFermeture: fermetureIntro.toISOString(),
+        fenetre: 'OUVERTE',
+      },
     ]);
     expect(res.body.modules[1].qcms.map((q: { titre: string }) => q.titre)).toEqual([
       `${MARQUEUR} Quiz Docker`,
     ]);
-    // Aucune trace de questions, d'options ou de configuration anti-fraude.
+    expect(res.body.modules[1].qcms[0]).toMatchObject({ fenetre: null, dateOuverture: null });
+    // Aucune trace de questions, d'options ou de configuration anti-fraude
+    // (seules les dates de la fenêtre sortent).
     expect(JSON.stringify(res.body)).not.toMatch(/question|option|configuration/i);
   });
 

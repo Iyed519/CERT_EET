@@ -24,15 +24,17 @@ import { QuestionDto } from './dto/question.dto';
 import { ReorderQuestionsDto } from './dto/reorder-questions.dto';
 import { UpdateQcmDto } from './dto/update-qcm.dto';
 import { ConfigurationVue, QcmConfigurationService } from './qcm-configuration.service';
+import { QcmPublicationService } from './qcm-publication.service';
 import { QcmDetailVue, QcmResumeVue, QcmService, QuestionVue } from './qcm.service';
 
 const REFUS_403 =
   'Rôle insuffisant, ou formateur non affecté à la formation (audit ACCES_RESSOURCE_REFUSE).';
 
 /**
- * Contenu des QCM et paramètres anti-fraude — côté FORMATEUR affecté et
- * ADMINISTRATEUR (US-QCM-01, US-QCM-03, DS-12). Première série de routes qui posent @FormateurDeLaFormation sur un
- * module ou un QCM (US-AUTH-16) : le garde remonte à la formation et vérifie
+ * Contenu des QCM, paramètres anti-fraude et publication — côté FORMATEUR
+ * affecté et ADMINISTRATEUR (US-QCM-01, US-QCM-03, US-QCM-04, DS-12).
+ * Première série de routes qui posent @FormateurDeLaFormation sur un module
+ * ou un QCM (US-AUTH-16) : le garde remonte à la formation et vérifie
  * l'affectation avant que la requête n'atteigne le service.
  *
  * `PUT /qcm/:qcmId/questions/ordre` est déclaré AVANT
@@ -47,6 +49,7 @@ export class QcmController {
   constructor(
     private readonly qcmService: QcmService,
     private readonly configurationService: QcmConfigurationService,
+    private readonly publicationService: QcmPublicationService,
   ) {}
 
   @Post('modules/:moduleId/qcm')
@@ -155,6 +158,31 @@ export class QcmController {
     );
   }
 
+  @Patch('qcm/:qcmId/publier')
+  @FormateurDeLaFormation({ qcmId: 'qcmId' })
+  @ApiOperation({
+    summary: 'Publier un QCM (US-QCM-04)',
+    description:
+      'Rend le QCM visible aux apprenants inscrits, avec sa fenêtre d’ouverture. Exige au moins une ' +
+      'question, une configuration anti-fraude, un tirage ne dépassant pas le nombre de questions et ' +
+      'une date de fermeture encore à venir. Le démarrage d’une tentative reste contrôlé par le serveur.',
+  })
+  @ApiResponse({ status: 200, description: 'QCM publié (détail renvoyé) ; audit QCM_PUBLIE.' })
+  @ApiResponse({ status: 403, description: REFUS_403 })
+  @ApiResponse({ status: 404, description: 'QCM introuvable.' })
+  @ApiResponse({
+    status: 409,
+    description:
+      '« QCM incomplet pour publication » (sans question, sans configuration, tirage trop grand), ' +
+      'fenêtre close, QCM déjà publié, ou formation archivée.',
+  })
+  publier(
+    @Param('qcmId', ParseUUIDPipe) qcmId: string,
+    @Req() req: AuthenticatedRequest,
+  ): Promise<QcmDetailVue> {
+    return this.publicationService.publier(this.acteur(req).sub, qcmId, this.contexte(req));
+  }
+
   @Post('qcm/:qcmId/questions')
   @HttpCode(HttpStatus.CREATED)
   @FormateurDeLaFormation({ qcmId: 'qcmId' })
@@ -232,7 +260,12 @@ export class QcmController {
   @ApiResponse({ status: 204, description: 'Question retirée ; audit QUESTION_SUPPRIMEE.' })
   @ApiResponse({ status: 403, description: REFUS_403 })
   @ApiResponse({ status: 404, description: 'QCM introuvable, ou question absente de ce QCM.' })
-  @ApiResponse({ status: 409, description: 'QCM verrouillé ou formation archivée.' })
+  @ApiResponse({
+    status: 409,
+    description:
+      'QCM verrouillé, formation archivée, ou QCM publié qui garderait moins d’une question ' +
+      '(ou moins que son tirage).',
+  })
   async supprimerQuestion(
     @Param('qcmId', ParseUUIDPipe) qcmId: string,
     @Param('questionId', ParseUUIDPipe) questionId: string,
