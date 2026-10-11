@@ -1,4 +1,11 @@
-import type { AvancementModule, AvancementQcm, StatutInscription } from './api';
+import type {
+  AvancementModule,
+  AvancementQcm,
+  NiveauDifficulte,
+  StatutInscription,
+  StatutQcm,
+  TypeQuestion,
+} from './api';
 
 /** AAAA-MM-JJ -> JJ/MM/AAAA, sans passer par Date (pas de décalage horaire). */
 export const dateFr = (iso: string | null): string => {
@@ -34,4 +41,25 @@ export const LIBELLES_AVANCEMENT_MODULE: Record<AvancementModule, string> = {
   SANS_EVALUATION: 'Sans évaluation',
   A_FAIRE: 'À faire',
   COMPLETE: 'Complété',
+};
+
+/** Libellés FR des statuts d'un QCM (US-QCM-01). */
+export const LIBELLES_STATUT_QCM: Record<StatutQcm, string> = {
+  BROUILLON: 'Brouillon',
+  NON_PUBLIE: 'Non publié',
+  PUBLIE: 'Publié',
+};
+
+/** Libellés FR des types de questions (US-QCM-01). */
+export const LIBELLES_TYPE_QUESTION: Record<TypeQuestion, string> = {
+  QCU: 'Choix unique',
+  QCM: 'Choix multiple',
+  VRAI_FAUX: 'Vrai / Faux',
+};
+
+/** Libellés FR des niveaux de difficulté (US-QCM-01). */
+export const LIBELLES_NIVEAU: Record<NiveauDifficulte, string> = {
+  DEBUTANT: 'Débutant',
+  INTERMEDIAIRE: 'Intermédiaire',
+  AVANCE: 'Avancé',
 };

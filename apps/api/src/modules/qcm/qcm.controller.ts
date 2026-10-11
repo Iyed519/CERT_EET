@@ -1,0 +1,216 @@
+import {
+  Body,
+  Controller,
+  Delete,
+  Get,
+  HttpCode,
+  HttpStatus,
+  Param,
+  ParseUUIDPipe,
+  Patch,
+  Post,
+  Put,
+  Req,
+  UnauthorizedException,
+} from '@nestjs/common';
+import { ApiBearerAuth, ApiOperation, ApiResponse, ApiTags } from '@nestjs/swagger';
+import { Role } from '../../database/enums/role.enum';
+import { AccessTokenPayload, AuthenticatedRequest } from '../auth/auth.types';
+import { Roles } from '../auth/decorators/roles.decorator';
+import { FormateurDeLaFormation } from '../formations/autorisation/formateur-de-la-formation.decorator';
+import { CreateQcmDto } from './dto/create-qcm.dto';
+import { QuestionDto } from './dto/question.dto';
+import { ReorderQuestionsDto } from './dto/reorder-questions.dto';
+import { UpdateQcmDto } from './dto/update-qcm.dto';
+import { QcmDetailVue, QcmResumeVue, QcmService, QuestionVue } from './qcm.service';
+
+const REFUS_403 =
+  'Rôle insuffisant, ou formateur non affecté à la formation (audit ACCES_RESSOURCE_REFUSE).';
+
+/**
+ * Contenu des QCM — côté FORMATEUR affecté et ADMINISTRATEUR (US-QCM-01,
+ * DS-12). Première série de routes qui posent @FormateurDeLaFormation sur un
+ * module ou un QCM (US-AUTH-16) : le garde remonte à la formation et vérifie
+ * l'affectation avant que la requête n'atteigne le service.
+ *
+ * `PUT /qcm/:qcmId/questions/ordre` est déclaré AVANT
+ * `PUT /qcm/:qcmId/questions/:questionId` : sinon « ordre » serait pris pour
+ * un identifiant de question.
+ */
+@ApiBearerAuth('access-token')
+@ApiTags('qcm')
+@Roles(Role.FORMATEUR, Role.ADMINISTRATEUR)
+@Controller()
+export class QcmController {
+  constructor(private readonly qcmService: QcmService) {}
+
+  @Post('modules/:moduleId/qcm')
+  @HttpCode(HttpStatus.CREATED)
+  @FormateurDeLaFormation({ moduleId: 'moduleId' })
+  @ApiOperation({ summary: 'Créer un QCM (brouillon) dans un module (US-QCM-01)' })
+  @ApiResponse({ status: 201, description: 'QCM créé au statut BROUILLON ; audit QCM_CREE.' })
+  @ApiResponse({ status: 400, description: 'Identifiant mal formé ou titre invalide.' })
+  @ApiResponse({ status: 403, description: REFUS_403 })
+  @ApiResponse({ status: 404, description: 'Module introuvable.' })
+  @ApiResponse({ status: 409, description: 'Formation archivée.' })
+  creer(
+    @Param('moduleId', ParseUUIDPipe) moduleId: string,
+    @Body() dto: CreateQcmDto,
+    @Req() req: AuthenticatedRequest,
+  ): Promise<QcmResumeVue> {
+    return this.qcmService.creer(this.acteur(req).sub, moduleId, dto, this.contexte(req));
+  }
+
+  @Get('modules/:moduleId/qcm')
+  @FormateurDeLaFormation({ moduleId: 'moduleId' })
+  @ApiOperation({ summary: 'Lister les QCM d’un module, tous statuts (US-QCM-01)' })
+  @ApiResponse({ status: 200, description: 'QCM du module avec leur nombre de questions.' })
+  @ApiResponse({ status: 403, description: REFUS_403 })
+  @ApiResponse({ status: 404, description: 'Module introuvable.' })
+  lister(@Param('moduleId', ParseUUIDPipe) moduleId: string): Promise<QcmResumeVue[]> {
+    return this.qcmService.listerDuModule(moduleId);
+  }
+
+  @Get('qcm/:qcmId')
+  @FormateurDeLaFormation({ qcmId: 'qcmId' })
+  @ApiOperation({ summary: 'Consulter un QCM, ses questions et les bonnes réponses (US-QCM-01)' })
+  @ApiResponse({ status: 200, description: 'QCM, questions triées, options avec estCorrecte.' })
+  @ApiResponse({ status: 403, description: REFUS_403 })
+  @ApiResponse({ status: 404, description: 'QCM introuvable.' })
+  detail(@Param('qcmId', ParseUUIDPipe) qcmId: string): Promise<QcmDetailVue> {
+    return this.qcmService.detail(qcmId);
+  }
+
+  @Patch('qcm/:qcmId')
+  @FormateurDeLaFormation({ qcmId: 'qcmId' })
+  @ApiOperation({ summary: 'Modifier le titre ou la description d’un QCM (US-QCM-01)' })
+  @ApiResponse({ status: 200, description: 'QCM modifié ; audit QCM_MODIFIE.' })
+  @ApiResponse({ status: 400, description: 'Corps vide ou titre vide.' })
+  @ApiResponse({ status: 403, description: REFUS_403 })
+  @ApiResponse({ status: 404, description: 'QCM introuvable.' })
+  @ApiResponse({ status: 409, description: 'Formation archivée.' })
+  modifier(
+    @Param('qcmId', ParseUUIDPipe) qcmId: string,
+    @Body() dto: UpdateQcmDto,
+    @Req() req: AuthenticatedRequest,
+  ): Promise<QcmDetailVue> {
+    return this.qcmService.modifier(this.acteur(req).sub, qcmId, dto, this.contexte(req));
+  }
+
+  @Delete('qcm/:qcmId')
+  @HttpCode(HttpStatus.NO_CONTENT)
+  @FormateurDeLaFormation({ qcmId: 'qcmId' })
+  @ApiOperation({ summary: 'Supprimer un QCM non publié et sans tentative (US-QCM-01)' })
+  @ApiResponse({ status: 204, description: 'QCM supprimé ; audit QCM_SUPPRIME.' })
+  @ApiResponse({ status: 403, description: REFUS_403 })
+  @ApiResponse({ status: 404, description: 'QCM introuvable.' })
+  @ApiResponse({ status: 409, description: 'QCM publié, avec tentatives, ou formation archivée.' })
+  async supprimer(
+    @Param('qcmId', ParseUUIDPipe) qcmId: string,
+    @Req() req: AuthenticatedRequest,
+  ): Promise<void> {
+    await this.qcmService.supprimer(this.acteur(req).sub, qcmId, this.contexte(req));
+  }
+
+  @Post('qcm/:qcmId/questions')
+  @HttpCode(HttpStatus.CREATED)
+  @FormateurDeLaFormation({ qcmId: 'qcmId' })
+  @ApiOperation({ summary: 'Ajouter une question et ses options (US-QCM-01)' })
+  @ApiResponse({
+    status: 201,
+    description: 'Question ajoutée en fin de QCM ; audit QUESTION_AJOUTEE.',
+  })
+  @ApiResponse({
+    status: 400,
+    description:
+      'Règle non respectée (≥ 2 options, ≥ 1 bonne réponse, QCU → 1, Vrai/Faux → 2 options et 1 bonne réponse, type non pris en charge…).',
+  })
+  @ApiResponse({ status: 403, description: REFUS_403 })
+  @ApiResponse({ status: 404, description: 'QCM introuvable.' })
+  @ApiResponse({ status: 409, description: 'QCM verrouillé (tentatives) ou formation archivée.' })
+  ajouterQuestion(
+    @Param('qcmId', ParseUUIDPipe) qcmId: string,
+    @Body() dto: QuestionDto,
+    @Req() req: AuthenticatedRequest,
+  ): Promise<QuestionVue> {
+    return this.qcmService.ajouterQuestion(this.acteur(req).sub, qcmId, dto, this.contexte(req));
+  }
+
+  @Put('qcm/:qcmId/questions/ordre')
+  @FormateurDeLaFormation({ qcmId: 'qcmId' })
+  @ApiOperation({ summary: 'Réordonner toutes les questions du QCM (US-QCM-01)' })
+  @ApiResponse({ status: 200, description: 'QCM avec ses questions dans le nouvel ordre.' })
+  @ApiResponse({ status: 400, description: 'Liste incomplète, avec doublon ou intrus.' })
+  @ApiResponse({ status: 403, description: REFUS_403 })
+  @ApiResponse({ status: 409, description: 'QCM verrouillé ou formation archivée.' })
+  reordonner(
+    @Param('qcmId', ParseUUIDPipe) qcmId: string,
+    @Body() dto: ReorderQuestionsDto,
+    @Req() req: AuthenticatedRequest,
+  ): Promise<QcmDetailVue> {
+    return this.qcmService.reordonnerQuestions(
+      this.acteur(req).sub,
+      qcmId,
+      dto.questionIds,
+      this.contexte(req),
+    );
+  }
+
+  @Put('qcm/:qcmId/questions/:questionId')
+  @FormateurDeLaFormation({ qcmId: 'qcmId' })
+  @ApiOperation({ summary: 'Remplacer une question (US-QCM-01)' })
+  @ApiResponse({ status: 200, description: 'Question remplacée ; audit QUESTION_MODIFIEE.' })
+  @ApiResponse({ status: 400, description: 'Règle de validation non respectée.' })
+  @ApiResponse({ status: 403, description: REFUS_403 })
+  @ApiResponse({ status: 404, description: 'QCM introuvable, ou question absente de ce QCM.' })
+  @ApiResponse({
+    status: 409,
+    description: 'QCM verrouillé (seule l’explication peut changer) ou formation archivée.',
+  })
+  remplacerQuestion(
+    @Param('qcmId', ParseUUIDPipe) qcmId: string,
+    @Param('questionId', ParseUUIDPipe) questionId: string,
+    @Body() dto: QuestionDto,
+    @Req() req: AuthenticatedRequest,
+  ): Promise<QuestionVue> {
+    return this.qcmService.remplacerQuestion(
+      this.acteur(req).sub,
+      qcmId,
+      questionId,
+      dto,
+      this.contexte(req),
+    );
+  }
+
+  @Delete('qcm/:qcmId/questions/:questionId')
+  @HttpCode(HttpStatus.NO_CONTENT)
+  @FormateurDeLaFormation({ qcmId: 'qcmId' })
+  @ApiOperation({ summary: 'Retirer une question du QCM (US-QCM-01)' })
+  @ApiResponse({ status: 204, description: 'Question retirée ; audit QUESTION_SUPPRIMEE.' })
+  @ApiResponse({ status: 403, description: REFUS_403 })
+  @ApiResponse({ status: 404, description: 'QCM introuvable, ou question absente de ce QCM.' })
+  @ApiResponse({ status: 409, description: 'QCM verrouillé ou formation archivée.' })
+  async supprimerQuestion(
+    @Param('qcmId', ParseUUIDPipe) qcmId: string,
+    @Param('questionId', ParseUUIDPipe) questionId: string,
+    @Req() req: AuthenticatedRequest,
+  ): Promise<void> {
+    await this.qcmService.supprimerQuestion(
+      this.acteur(req).sub,
+      qcmId,
+      questionId,
+      this.contexte(req),
+    );
+  }
+
+  private acteur(req: AuthenticatedRequest): AccessTokenPayload {
+    if (!req.user) {
+      throw new UnauthorizedException('Non authentifié.');
+    }
+    return req.user;
+  }
+
+  private contexte(req: AuthenticatedRequest): { adresseIp: string | null } {
+    return { adresseIp: req.ip ?? null };
+  }
+}

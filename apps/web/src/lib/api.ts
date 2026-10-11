@@ -1205,3 +1205,157 @@ export async function getMonEspace(formationId: string): Promise<EspaceFormation
     'Impossible de charger votre espace de formation.',
   );
 }
+
+
+/* ============================================================
+ * US-QCM-01 — Contenu des QCM (formateur affecté, administrateur)
+ * ============================================================ */
+
+/** Statut d'un QCM (l'enum backend reste la source de vérité). */
+export type StatutQcm = 'BROUILLON' | 'NON_PUBLIE' | 'PUBLIE';
+
+/** Types de questions pris en charge par le serveur. */
+export type TypeQuestion = 'QCU' | 'QCM' | 'VRAI_FAUX';
+
+/** Niveaux de difficulté proposés. */
+export type NiveauDifficulte = 'DEBUTANT' | 'INTERMEDIAIRE' | 'AVANCE';
+
+/** Un QCM dans une liste (sans ses questions). */
+export interface QcmResume {
+  id: string;
+  moduleId: string;
+  titre: string;
+  description: string | null;
+  statut: StatutQcm;
+  nbQuestions: number;
+  createdAt: string;
+  updatedAt: string;
+}
+
+/** Une option vue par le formateur (bonne réponse comprise). */
+export interface OptionQcm {
+  id: string;
+  texte: string;
+  estCorrecte: boolean;
+  ordre: number;
+}
+
+/** Une question vue par le formateur. */
+export interface QuestionQcm {
+  id: string;
+  enonce: string;
+  type: TypeQuestion;
+  ponderation: number;
+  explication: string | null;
+  niveauDifficulte: NiveauDifficulte | null;
+  ordre: number;
+  options: OptionQcm[];
+}
+
+/** Détail d'un QCM pour son éditeur ; `verrouille` = des tentatives existent. */
+export interface QcmDetail extends QcmResume {
+  formationId: string;
+  verrouille: boolean;
+  questions: QuestionQcm[];
+}
+
+/** Corps d'ajout ou de remplacement d'une question. */
+export interface QuestionInput {
+  enonce: string;
+  type: TypeQuestion;
+  ponderation?: number;
+  explication?: string;
+  niveauDifficulte?: NiveauDifficulte;
+  options: Array<{ texte: string; estCorrecte: boolean }>;
+}
+
+/** GET /api/modules/:id/qcm — les QCM d'un module (formateur affecté / admin). */
+export async function getQcmsDuModule(moduleId: string): Promise<QcmResume[]> {
+  const response = await apiFetch(`/api/modules/${moduleId}/qcm`);
+  return lireReponseFormation<QcmResume[]>(response, 'Impossible de charger les QCM du module.');
+}
+
+/** POST /api/modules/:id/qcm — crée un QCM au statut BROUILLON. */
+export async function createQcm(
+  moduleId: string,
+  input: { titre: string; description?: string },
+): Promise<QcmResume> {
+  const response = await apiFetch(`/api/modules/${moduleId}/qcm`, {
+    method: 'POST',
+    headers: JSON_HEADERS,
+    body: JSON.stringify(input),
+  });
+  return lireReponseFormation<QcmResume>(response, 'Impossible de créer le QCM.');
+}
+
+/** GET /api/qcm/:id — le QCM, ses questions et les bonnes réponses. */
+export async function getQcm(qcmId: string): Promise<QcmDetail> {
+  const response = await apiFetch(`/api/qcm/${qcmId}`);
+  return lireReponseFormation<QcmDetail>(response, 'Impossible de charger le QCM.');
+}
+
+/** PATCH /api/qcm/:id — titre et/ou description (`null` vide la description). */
+export async function updateQcm(
+  qcmId: string,
+  patch: { titre?: string; description?: string | null },
+): Promise<QcmDetail> {
+  const response = await apiFetch(`/api/qcm/${qcmId}`, {
+    method: 'PATCH',
+    headers: JSON_HEADERS,
+    body: JSON.stringify(patch),
+  });
+  return lireReponseFormation<QcmDetail>(response, 'Impossible de modifier le QCM.');
+}
+
+/** DELETE /api/qcm/:id — 409 si publié ou déjà tenté. */
+export async function deleteQcm(qcmId: string): Promise<void> {
+  const response = await apiFetch(`/api/qcm/${qcmId}`, { method: 'DELETE' });
+  if (!response.ok) {
+    await lireReponseFormation<never>(response, 'Impossible de supprimer le QCM.');
+  }
+}
+
+/** POST /api/qcm/:id/questions — ajoute une question en fin de QCM. */
+export async function addQuestion(qcmId: string, input: QuestionInput): Promise<QuestionQcm> {
+  const response = await apiFetch(`/api/qcm/${qcmId}/questions`, {
+    method: 'POST',
+    headers: JSON_HEADERS,
+    body: JSON.stringify(input),
+  });
+  return lireReponseFormation<QuestionQcm>(response, "Impossible d'ajouter la question.");
+}
+
+/** PUT /api/qcm/:id/questions/:questionId — remplace une question. */
+export async function replaceQuestion(
+  qcmId: string,
+  questionId: string,
+  input: QuestionInput,
+): Promise<QuestionQcm> {
+  const response = await apiFetch(`/api/qcm/${qcmId}/questions/${questionId}`, {
+    method: 'PUT',
+    headers: JSON_HEADERS,
+    body: JSON.stringify(input),
+  });
+  return lireReponseFormation<QuestionQcm>(response, 'Impossible de modifier la question.');
+}
+
+/** PUT /api/qcm/:id/questions/ordre — toutes les questions, dans le nouvel ordre. */
+export async function reorderQuestions(qcmId: string, questionIds: string[]): Promise<QcmDetail> {
+  const response = await apiFetch(`/api/qcm/${qcmId}/questions/ordre`, {
+    method: 'PUT',
+    headers: JSON_HEADERS,
+    body: JSON.stringify({ questionIds }),
+  });
+  return lireReponseFormation<QcmDetail>(response, 'Impossible de réordonner les questions.');
+}
+
+/** DELETE /api/qcm/:id/questions/:questionId — retire une question. */
+export async function deleteQuestion(qcmId: string, questionId: string): Promise<void> {
+  const response = await apiFetch(`/api/qcm/${qcmId}/questions/${questionId}`, {
+    method: 'DELETE',
+  });
+  if (!response.ok) {
+    await lireReponseFormation<never>(response, 'Impossible de retirer la question.');
+  }
+}
+
