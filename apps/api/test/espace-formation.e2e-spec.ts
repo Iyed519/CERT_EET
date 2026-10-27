@@ -292,14 +292,24 @@ describe('Mon espace dans une formation (e2e) — US-INSC-04', () => {
         dateOuverture: ouvertureIntro.toISOString(),
         dateFermeture: fermetureIntro.toISOString(),
         fenetre: 'OUVERTE',
+        // US-QCM-05 : ce qu'il faut savoir avant de démarrer.
+        dureeMaxMinutes: 30,
+        nbTentativesMax: 1,
+        nbTentativesPassees: 1,
+        tentativeEnCoursId: null,
       },
     ]);
     expect(res.body.modules[1].qcms.map((q: { titre: string }) => q.titre)).toEqual([
       `${MARQUEUR} Quiz Docker`,
     ]);
-    expect(res.body.modules[1].qcms[0]).toMatchObject({ fenetre: null, dateOuverture: null });
+    expect(res.body.modules[1].qcms[0]).toMatchObject({
+      fenetre: null,
+      dateOuverture: null,
+      dureeMaxMinutes: null,
+      nbTentativesMax: null,
+    });
     // Aucune trace de questions, d'options ou de configuration anti-fraude
-    // (seules les dates de la fenêtre sortent).
+    // (seuls la fenêtre, la durée et le nombre de tentatives sortent).
     expect(JSON.stringify(res.body)).not.toMatch(/question|option|configuration/i);
   });
 

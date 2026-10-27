@@ -6,6 +6,7 @@ import type {
   NiveauDifficulte,
   StatutInscription,
   StatutQcm,
+  StatutTentative,
   TypeQuestion,
 } from './api';
 
@@ -109,4 +110,30 @@ export const LIBELLES_FENETRE: Record<EtatFenetre, string> = {
   A_VENIR: 'À venir',
   OUVERTE: 'Ouvert',
   FERMEE: 'Fermé',
+};
+
+/** Durée en minutes -> « 45 min », « 1 h », « 1 h 30 » (US-QCM-05). */
+export const dureeFr = (minutes: number): string => {
+  const h = Math.floor(minutes / 60);
+  const m = minutes % 60;
+  if (h === 0) return `${m} min`;
+  return m === 0 ? `${h} h` : `${h} h ${String(m).padStart(2, '0')}`;
+};
+
+/** Millisecondes restantes -> « 29:59 » ou « 1:05:09 » ; jamais négatif. */
+export const compteAReboursFr = (ms: number): string => {
+  const total = Math.max(0, Math.ceil(ms / 1000));
+  const h = Math.floor(total / 3600);
+  const m = Math.floor((total % 3600) / 60);
+  const s = total % 60;
+  const deux = (n: number): string => String(n).padStart(2, '0');
+  return h > 0 ? `${h}:${deux(m)}:${deux(s)}` : `${deux(m)}:${deux(s)}`;
+};
+
+/** Libellés FR des statuts d'une tentative (US-QCM-05). */
+export const LIBELLES_TENTATIVE: Record<StatutTentative, string> = {
+  EN_COURS: 'En cours',
+  SOUMISE: 'Soumise',
+  ABANDONNEE_TIMER: 'Temps écoulé',
+  NOTEE: 'Notée',
 };
