@@ -74,8 +74,9 @@ export interface EspaceFormationVue {
   }>;
 }
 
-const MESSAGE_NON_INSCRIT = 'Vous n’êtes pas inscrit à cette formation.';
-const MESSAGE_SUSPENDUE =
+// Exportés : le démarrage d'une tentative (US-QCM-05) refuse avec les mêmes mots.
+export const MESSAGE_NON_INSCRIT = 'Vous n’êtes pas inscrit à cette formation.';
+export const MESSAGE_SUSPENDUE =
   'Votre inscription à cette formation est suspendue : contactez un administrateur.';
 
 /**
