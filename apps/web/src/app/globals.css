@@ -344,3 +344,29 @@ textarea.input { resize: vertical; font-family: inherit; line-height: 1.45; }
 .fenetre-A_VENIR { color: var(--accent-dark); }
 .fenetre-OUVERTE { color: var(--primary-dark); font-weight: 600; }
 .fenetre-FERMEE { color: var(--muted); }
+
+/* US-QCM-05 — Démarrer une tentative : bouton actif, confirmation, page de tentative et chronomètre. */
+.btn-qcm-actif { background: var(--primary); border-color: var(--primary); color: #fff; }
+.btn-qcm-actif:hover:not(:disabled) { background: var(--primary-dark); border-color: var(--primary-dark); color: #fff; }
+.espace-qcm-raison { flex-basis: 100%; font-size: 0.78rem; color: var(--muted); text-align: right; }
+.demarrage-recap { display: grid; grid-template-columns: repeat(auto-fit, minmax(110px, 1fr)); gap: 10px; margin: 0 0 16px; }
+.demarrage-recap div { padding: 10px 12px; border: 1px solid var(--border); border-radius: var(--radius-sm); background: #faf9f6; }
+.demarrage-recap dt { font-size: 0.72rem; text-transform: uppercase; letter-spacing: 0.4px; color: var(--muted); font-weight: 650; }
+.demarrage-recap dd { margin: 2px 0 0; font-weight: 700; color: var(--text); }
+.demarrage-avertissement { margin-bottom: 16px; }
+.tentative-EN_COURS { background: #fef3e2; color: var(--accent-dark); }
+.tentative-FINIE { background: #eef2f7; color: #475569; }
+.chrono { display: flex; flex-direction: column; align-items: center; gap: 4px; padding: 22px 16px; margin-bottom: 18px; border: 1px solid var(--border); border-radius: var(--radius); background: var(--surface); box-shadow: var(--shadow-sm); text-align: center; }
+.chrono-libelle { font-size: 0.76rem; text-transform: uppercase; letter-spacing: 0.4px; color: var(--muted); font-weight: 650; }
+.chrono-valeur { font-size: 2.6rem; font-weight: 750; letter-spacing: 1px; color: var(--primary-dark); font-variant-numeric: tabular-nums; }
+.chrono-alerte .chrono-valeur { color: var(--danger); }
+.chrono-fini .chrono-valeur { color: var(--muted); }
+/* Mobile : le titre du QCM prend toute la ligne, badge et bouton passent dessous ; l'en-tête
+   passe à la ligne au lieu de déborder (la page de tentative affiche 4 liens). */
+@media (max-width: 560px) {
+  .espace-qcm .module-corps { flex-basis: 100%; }
+  .espace-qcm .btn-sm { margin-left: auto; }
+  .espace-qcm-raison { text-align: left; }
+  .chrono-valeur { font-size: 2.1rem; }
+  .site-header { flex-wrap: wrap; row-gap: 8px; }
+}

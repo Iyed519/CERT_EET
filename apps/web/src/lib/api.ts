@@ -1195,6 +1195,11 @@ export interface EspaceFormationVue {
       dateOuverture: string | null;
       dateFermeture: string | null;
       fenetre: EtatFenetre | null;
+      // US-QCM-05 — à savoir avant de démarrer (le serveur revérifie tout).
+      dureeMaxMinutes: number | null;
+      nbTentativesMax: number | null;
+      nbTentativesPassees: number;
+      tentativeEnCoursId: string | null;
     }>;
   }>;
 }
@@ -1422,4 +1427,93 @@ export async function configureQcm(
 export async function publishQcm(qcmId: string): Promise<QcmDetail> {
   const response = await apiFetch(`/api/qcm/${qcmId}/publier`, { method: 'PATCH' });
   return lireReponseFormation<QcmDetail>(response, 'Impossible de publier le QCM.');
+}
+
+/* ============================================================
+ * US-QCM-05 — Démarrer une tentative (apprenant)
+ * ============================================================ */
+
+/** Statut d'une tentative (énumération StatutTentative du backend). */
+export type StatutTentative = 'EN_COURS' | 'SOUMISE' | 'ABANDONNEE_TIMER' | 'NOTEE';
+
+/** Motif machine d'un démarrage refusé (409, DS-02). */
+export type RaisonRefusTentative = 'hors_fenetre' | 'tentatives_epuisees' | 'delai_non_respecte';
+
+/** Réponse de POST /api/qcm/:id/tentatives (201 créée, 200 reprise). */
+export interface TentativeDemarree {
+  id: string;
+  qcmId: string;
+  statut: StatutTentative;
+  dateDebut: string;
+  dateLimite: string;
+  dureeMaxMinutes: number;
+  numero: number;
+  nbTentativesMax: number;
+  tentativesRestantes: number;
+  reprise: boolean;
+}
+
+/** Réponse de GET /api/tentatives/:id — `maintenant` = heure du serveur. */
+export interface TentativeConsultee {
+  id: string;
+  qcmId: string;
+  qcmTitre: string;
+  formationId: string;
+  statut: StatutTentative;
+  dateDebut: string;
+  dateLimite: string;
+  dateFin: string | null;
+  dureeMaxMinutes: number;
+  numero: number;
+  nbTentativesMax: number;
+  tentativesRestantes: number;
+  maintenant: string;
+}
+
+/**
+ * Démarrage refusé : en plus du message exact du serveur, le motif et la date
+ * à partir de laquelle un nouveau démarrage pourra réussir (quand elle existe).
+ */
+export class TentativeRefusee extends AdminError {
+  constructor(
+    message: string,
+    statut: number,
+    public readonly raison: RaisonRefusTentative | null,
+    public readonly dateReouverture: string | null,
+  ) {
+    super(message, statut);
+  }
+}
+
+/**
+ * POST /api/qcm/:id/tentatives — démarre (ou reprend) ma tentative.
+ *   - 403 -> pas inscrit, inscription suspendue ou terminée ;
+ *   - 404 -> QCM introuvable ou non publié ;
+ *   - 409 -> TentativeRefusee : hors fenêtre, tentatives épuisées, délai.
+ */
+export async function demarrerTentative(qcmId: string): Promise<TentativeDemarree> {
+  const response = await apiFetch(`/api/qcm/${qcmId}/tentatives`, { method: 'POST' });
+  const data = (await response.json().catch(() => ({}))) as {
+    message?: string | string[];
+    raison?: RaisonRefusTentative;
+    dateReouverture?: string | null;
+  };
+  if (!response.ok) {
+    throw new TentativeRefusee(
+      messageErreur(data) ?? 'Impossible de démarrer l’évaluation.',
+      response.status,
+      data.raison ?? null,
+      data.dateReouverture ?? null,
+    );
+  }
+  return data as TentativeDemarree;
+}
+
+/** GET /api/tentatives/:id — une de mes tentatives (404 pour celle d'un autre). */
+export async function getTentative(tentativeId: string): Promise<TentativeConsultee> {
+  const response = await apiFetch(`/api/tentatives/${tentativeId}`);
+  return lireReponseFormation<TentativeConsultee>(
+    response,
+    'Impossible de charger cette tentative.',
+  );
 }

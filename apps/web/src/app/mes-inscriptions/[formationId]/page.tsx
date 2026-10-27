@@ -1,7 +1,8 @@
 'use client';
 import Link from 'next/link';
-import { useParams } from 'next/navigation';
-import { useEffect, useState } from 'react';
+import { useParams, useRouter } from 'next/navigation';
+import { useCallback, useEffect, useState } from 'react';
+import { DemarrageTentative, QcmADemarrer } from '../../../components/DemarrageTentative';
 import { AdminError, EspaceFormationVue, getMonEspace } from '../../../lib/api';
 import {
   dateFr,
@@ -19,6 +20,66 @@ const NOTES_FORMATION: Record<string, string | null> = {
   ARCHIVEE: 'Formation archivée : son contenu est figé, consultation seulement.',
 };
 
+type QcmEspace = EspaceFormationVue['modules'][number]['qcms'][number];
+
+/** Bouton d'un QCM : libellé, et raison de l'inactivité le cas échéant. */
+interface ActionQcm {
+  libelle: string;
+  // null = bouton actif.
+  raisonInactif: string | null;
+  // Raison écrite sous le bouton (le survol n'existe pas sur mobile) ; inutile
+  // quand la ligne de fenêtre (« Ouvre le … », « Fermé depuis … ») la dit déjà.
+  raisonVisible: boolean;
+}
+
+/**
+ * Ce que propose le bouton d'un QCM. Purement informatif : le serveur
+ * revérifie tout au démarrage (US-QCM-05) et c'est son refus qui fait foi —
+ * le délai entre deux tentatives, par exemple, n'est connu que de lui.
+ */
+function actionQcm(q: QcmEspace, inscriptionActive: boolean): ActionQcm {
+  if (q.tentativeEnCoursId !== null) {
+    return { libelle: 'Reprendre', raisonInactif: null, raisonVisible: false };
+  }
+  const libelle = q.nbTentativesPassees > 0 ? 'Nouvelle tentative' : 'Commencer';
+  if (!inscriptionActive) {
+    return {
+      libelle,
+      raisonInactif: 'Votre formation est terminée : évaluations en lecture seule.',
+      raisonVisible: true,
+    };
+  }
+  if (q.fenetre === null) {
+    return {
+      libelle,
+      raisonInactif: 'Cette évaluation n’est pas encore disponible.',
+      raisonVisible: true,
+    };
+  }
+  if (q.fenetre === 'A_VENIR') {
+    return {
+      libelle,
+      raisonInactif: 'Disponible à l’ouverture de la fenêtre.',
+      raisonVisible: false,
+    };
+  }
+  if (q.fenetre === 'FERMEE') {
+    return {
+      libelle,
+      raisonInactif: 'La fenêtre de cette évaluation est fermée.',
+      raisonVisible: false,
+    };
+  }
+  if (q.nbTentativesMax !== null && q.nbTentativesPassees >= q.nbTentativesMax) {
+    return {
+      libelle,
+      raisonInactif: 'Vous avez utilisé toutes vos tentatives.',
+      raisonVisible: true,
+    };
+  }
+  return { libelle, raisonInactif: null, raisonVisible: false };
+}
+
 /**
  * US-INSC-04 — Mon espace dans une formation (DS-09, étapes 1 et 2).
  *
@@ -26,21 +87,27 @@ const NOTES_FORMATION: Record<string, string | null> = {
  * publiés et MON avancement sur chacun. Aucune question n'est chargée ici.
  * US-QCM-04 — Chaque QCM publié montre sa fenêtre d'ouverture (à venir avec
  * ses dates, ouvert jusqu'à, fermé depuis), calculée par le serveur.
- * Le passage d'un QCM arrive avec US-QCM-05 : le bouton « Commencer » est
- * affiché mais inactif. Un apprenant non inscrit, ou dont l'inscription est
- * suspendue, reçoit le message exact du serveur (403).
+ * US-QCM-05 — « Commencer » ouvre une confirmation (durée, rang de la
+ * tentative), puis démarre la tentative et mène à sa page ; « Reprendre » y
+ * mène directement quand une tentative est en cours. Un refus du serveur
+ * (hors fenêtre, tentatives épuisées, délai) s'affiche dans la modale, et
+ * l'espace est rechargé pour refléter l'état réel. Un apprenant non inscrit,
+ * ou dont l'inscription est suspendue, reçoit le message exact du serveur (403).
  */
 export default function MonEspacePage(): JSX.Element {
   const params = useParams<{ formationId: string }>();
   const formationId = params?.formationId ?? '';
+  const router = useRouter();
   const [espace, setEspace] = useState<EspaceFormationVue | null>(null);
   const [chargement, setChargement] = useState(true);
   const [erreur, setErreur] = useState<string | null>(null);
+  const [aDemarrer, setADemarrer] = useState<QcmADemarrer | null>(null);
 
-  useEffect(() => {
-    if (!formationId) return;
-    void (async (): Promise<void> => {
-      setChargement(true);
+  // `silencieux` : rechargement après un refus, sans masquer la page.
+  const charger = useCallback(
+    async (silencieux = false): Promise<void> => {
+      if (!formationId) return;
+      if (!silencieux) setChargement(true);
       setErreur(null);
       try {
         setEspace(await getMonEspace(formationId));
@@ -53,8 +120,30 @@ export default function MonEspacePage(): JSX.Element {
       } finally {
         setChargement(false);
       }
-    })();
-  }, [formationId]);
+    },
+    [formationId],
+  );
+
+  useEffect(() => {
+    void charger();
+  }, [charger]);
+
+  const inscriptionActive = espace?.inscription.statut === 'EN_COURS';
+
+  const cliquerQcm = (q: QcmEspace): void => {
+    if (q.tentativeEnCoursId !== null) {
+      router.push(`/tentatives/${q.tentativeEnCoursId}`);
+      return;
+    }
+    setADemarrer({
+      id: q.id,
+      titre: q.titre,
+      dureeMaxMinutes: q.dureeMaxMinutes,
+      nbTentativesMax: q.nbTentativesMax,
+      nbTentativesPassees: q.nbTentativesPassees,
+      dateFermeture: q.dateFermeture,
+    });
+  };
 
   const avancement = espace ? Math.round(espace.inscription.tauxAvancement) : 0;
   const note = espace ? NOTES_FORMATION[espace.formation.statut] : null;
@@ -135,38 +224,39 @@ export default function MonEspacePage(): JSX.Element {
                     <p className="espace-vide">Aucune évaluation publiée dans ce module.</p>
                   ) : (
                     <ul className="espace-qcms">
-                      {m.qcms.map((q) => (
-                        <li key={q.id} className="espace-qcm">
-                          <div className="module-corps">
-                            <div className="espace-qcm-titre">QCM · {q.titre}</div>
-                            {q.description && <div className="field-hint">{q.description}</div>}
-                            {q.fenetre !== null &&
-                              q.dateOuverture !== null &&
-                              q.dateFermeture !== null && (
-                                <div className={`fenetre-qcm fenetre-${q.fenetre}`}>
-                                  {fenetreQcmFr(q.fenetre, q.dateOuverture, q.dateFermeture)}
-                                </div>
-                              )}
-                          </div>
-                          <span className={`statut-badge avancement-${q.avancement}`}>
-                            {LIBELLES_AVANCEMENT_QCM[q.avancement]}
-                          </span>
-                          <button
-                            type="button"
-                            className="btn-sm"
-                            disabled
-                            title={
-                              q.fenetre === 'A_VENIR'
-                                ? 'Disponible à l’ouverture de la fenêtre.'
-                                : q.fenetre === 'FERMEE'
-                                  ? 'La fenêtre de cette évaluation est fermée.'
-                                  : 'Le passage des QCM arrive bientôt.'
-                            }
-                          >
-                            Commencer
-                          </button>
-                        </li>
-                      ))}
+                      {m.qcms.map((q) => {
+                        const action = actionQcm(q, inscriptionActive);
+                        return (
+                          <li key={q.id} className="espace-qcm">
+                            <div className="module-corps">
+                              <div className="espace-qcm-titre">QCM · {q.titre}</div>
+                              {q.description && <div className="field-hint">{q.description}</div>}
+                              {q.fenetre !== null &&
+                                q.dateOuverture !== null &&
+                                q.dateFermeture !== null && (
+                                  <div className={`fenetre-qcm fenetre-${q.fenetre}`}>
+                                    {fenetreQcmFr(q.fenetre, q.dateOuverture, q.dateFermeture)}
+                                  </div>
+                                )}
+                            </div>
+                            <span className={`statut-badge avancement-${q.avancement}`}>
+                              {LIBELLES_AVANCEMENT_QCM[q.avancement]}
+                            </span>
+                            <button
+                              type="button"
+                              className={`btn-sm${action.raisonInactif === null ? ' btn-qcm-actif' : ''}`}
+                              disabled={action.raisonInactif !== null}
+                              title={action.raisonInactif ?? undefined}
+                              onClick={() => cliquerQcm(q)}
+                            >
+                              {action.libelle}
+                            </button>
+                            {action.raisonVisible && (
+                              <span className="espace-qcm-raison">{action.raisonInactif}</span>
+                            )}
+                          </li>
+                        );
+                      })}
                     </ul>
                   )}
                 </li>
@@ -174,6 +264,15 @@ export default function MonEspacePage(): JSX.Element {
             </ol>
           )}
         </>
+      )}
+
+      {aDemarrer !== null && (
+        <DemarrageTentative
+          qcm={aDemarrer}
+          onClose={() => setADemarrer(null)}
+          onDemarree={(tentative) => router.push(`/tentatives/${tentative.id}`)}
+          onRefus={() => void charger(true)}
+        />
       )}
     </>
   );
