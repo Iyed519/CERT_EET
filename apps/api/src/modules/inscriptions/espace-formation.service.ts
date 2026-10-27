@@ -33,8 +33,10 @@ export interface ContexteAcces {
  *
  * Ne contient JAMAIS les questions, options ni la configuration d'un QCM :
  * seulement de quoi choisir une évaluation (anti-fraude, NF3). De la
- * configuration, seules les dates de la fenêtre d'ouverture sortent
- * (US-QCM-04) : l'apprenant doit savoir quand passer l'évaluation.
+ * configuration ne sortent que ce que l'apprenant doit savoir AVANT de
+ * démarrer : les dates de la fenêtre (US-QCM-04), la durée et le nombre de
+ * tentatives autorisées (US-QCM-05, décision D13). Le serveur revérifie tout
+ * au démarrage ; ces valeurs ne servent qu'à l'affichage.
  */
 export interface EspaceFormationVue {
   formation: {
@@ -70,6 +72,12 @@ export interface EspaceFormationVue {
       dateOuverture: Date | null;
       dateFermeture: Date | null;
       fenetre: EtatFenetre | null;
+      dureeMaxMinutes: number | null;
+      nbTentativesMax: number | null;
+      // Toutes mes tentatives sur ce QCM, quel que soit leur statut (D6).
+      nbTentativesPassees: number;
+      // Ma tentative EN_COURS encore dans son échéance, à reprendre ; sinon null.
+      tentativeEnCoursId: string | null;
     }>;
   }>;
 }
@@ -157,7 +165,13 @@ export class EspaceFormationService {
               moduleId: true,
               titre: true,
               description: true,
-              configuration: { id: true, dateOuverture: true, dateFermeture: true },
+              configuration: {
+                id: true,
+                dateOuverture: true,
+                dateFermeture: true,
+                dureeMaxMinutes: true,
+                nbTentativesMax: true,
+              },
             },
             order: { createdAt: 'ASC' },
           });
@@ -167,7 +181,7 @@ export class EspaceFormationService {
         ? []
         : await this.tentativeRepository.find({
             where: { apprenantId, qcmId: In(qcms.map((q) => q.id)) },
-            select: { id: true, qcmId: true, statut: true, estReussie: true },
+            select: { id: true, qcmId: true, statut: true, estReussie: true, dateLimite: true },
           });
 
     return {
@@ -206,17 +220,24 @@ export class EspaceFormationService {
   ): EspaceFormationVue['modules'][number] {
     const qcmsDuModule = qcms
       .filter((q) => q.moduleId === module.id)
-      .map((q) => ({
-        id: q.id,
-        titre: q.titre,
-        description: q.description,
-        avancement: avancementQcm(tentatives.filter((t) => t.qcmId === q.id)),
-        dateOuverture: q.configuration?.dateOuverture ?? null,
-        dateFermeture: q.configuration?.dateFermeture ?? null,
-        fenetre: q.configuration
-          ? etatFenetre(q.configuration.dateOuverture, q.configuration.dateFermeture, maintenant)
-          : null,
-      }));
+      .map((q) => {
+        const mesTentatives = tentatives.filter((t) => t.qcmId === q.id);
+        return {
+          id: q.id,
+          titre: q.titre,
+          description: q.description,
+          avancement: avancementQcm(mesTentatives),
+          dateOuverture: q.configuration?.dateOuverture ?? null,
+          dateFermeture: q.configuration?.dateFermeture ?? null,
+          fenetre: q.configuration
+            ? etatFenetre(q.configuration.dateOuverture, q.configuration.dateFermeture, maintenant)
+            : null,
+          dureeMaxMinutes: q.configuration?.dureeMaxMinutes ?? null,
+          nbTentativesMax: q.configuration?.nbTentativesMax ?? null,
+          nbTentativesPassees: mesTentatives.length,
+          tentativeEnCoursId: tentativeAReprendre(mesTentatives, maintenant),
+        };
+      });
     return {
       id: module.id,
       titre: module.titre,
@@ -276,6 +297,23 @@ export function avancementQcm(
     return 'EN_COURS';
   }
   return 'ECHOUE';
+}
+
+/**
+ * Tentative EN_COURS encore dans son échéance : « Reprendre » y mène
+ * directement. Une tentative EN_COURS dont l'échéance est passée n'est pas
+ * proposée : le prochain démarrage la clôture (US-QCM-05, D11).
+ */
+export function tentativeAReprendre(
+  tentatives: Array<Pick<TentativeQcm, 'id' | 'statut' | 'dateLimite'>>,
+  maintenant: Date,
+): string | null {
+  const enCours = tentatives.find(
+    (t) =>
+      t.statut === StatutTentative.EN_COURS &&
+      new Date(t.dateLimite).getTime() > maintenant.getTime(),
+  );
+  return enCours?.id ?? null;
 }
 
 /**

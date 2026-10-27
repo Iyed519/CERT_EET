@@ -15,6 +15,7 @@ import {
   avancementQcm,
   EspaceFormationService,
   etatFenetre,
+  tentativeAReprendre,
 } from './espace-formation.service';
 
 /**
@@ -123,7 +124,7 @@ describe('EspaceFormationService', () => {
       );
     });
 
-    it('n’expose aucune donnée sensible d’un QCM (identité, avancement et fenêtre seulement)', async () => {
+    it('n’expose aucune donnée sensible d’un QCM (identité, avancement, fenêtre, durée et tentatives)', async () => {
       const espace = await service.monEspace('appr-1', 'form-1', contexte);
 
       expect(Object.keys(espace.modules[0].qcms[0]).sort()).toEqual(
@@ -132,11 +133,57 @@ describe('EspaceFormationService', () => {
           'dateFermeture',
           'dateOuverture',
           'description',
+          'dureeMaxMinutes',
           'fenetre',
           'id',
+          'nbTentativesMax',
+          'nbTentativesPassees',
+          'tentativeEnCoursId',
           'titre',
         ].sort(),
       );
+    });
+
+    it('donne la durée, le nombre de tentatives et la tentative à reprendre (US-QCM-05)', async () => {
+      mockQcmRepo.find.mockResolvedValue([
+        {
+          id: 'qcm-1',
+          moduleId: 'mod-1',
+          titre: 'Quiz intro',
+          description: null,
+          configuration: {
+            dateOuverture: new Date(Date.now() - 86_400_000),
+            dateFermeture: new Date(Date.now() + 86_400_000),
+            dureeMaxMinutes: 45,
+            nbTentativesMax: 3,
+          },
+        },
+      ]);
+      mockTentativeRepo.find.mockResolvedValue([
+        {
+          id: 't-notee',
+          qcmId: 'qcm-1',
+          statut: StatutTentative.NOTEE,
+          estReussie: false,
+          dateLimite: new Date(Date.now() - 3_600_000),
+        },
+        {
+          id: 't-en-cours',
+          qcmId: 'qcm-1',
+          statut: StatutTentative.EN_COURS,
+          estReussie: null,
+          dateLimite: new Date(Date.now() + 600_000),
+        },
+      ]);
+
+      const espace = await service.monEspace('appr-1', 'form-1', contexte);
+
+      expect(espace.modules[0].qcms[0]).toMatchObject({
+        dureeMaxMinutes: 45,
+        nbTentativesMax: 3,
+        nbTentativesPassees: 2,
+        tentativeEnCoursId: 't-en-cours',
+      });
     });
 
     it('donne les dates et l’état de la fenêtre d’un QCM configuré', async () => {
@@ -219,6 +266,40 @@ describe('EspaceFormationService', () => {
       await expect(service.monEspace('appr-1', 'form-1', contexte)).rejects.toBeInstanceOf(
         ForbiddenException,
       );
+    });
+  });
+
+  describe('tentativeAReprendre', () => {
+    const maintenant = new Date('2026-11-02T10:00:00Z');
+
+    it('renvoie la tentative EN_COURS encore dans son échéance', () => {
+      expect(
+        tentativeAReprendre(
+          [
+            {
+              id: 'a',
+              statut: StatutTentative.NOTEE,
+              dateLimite: new Date('2026-11-02T11:00:00Z'),
+            },
+            {
+              id: 'b',
+              statut: StatutTentative.EN_COURS,
+              dateLimite: new Date('2026-11-02T10:00:01Z'),
+            },
+          ],
+          maintenant,
+        ),
+      ).toBe('b');
+    });
+
+    it('null pour une tentative EN_COURS échue (échéance = maintenant incluse) ou sans tentative', () => {
+      expect(
+        tentativeAReprendre(
+          [{ id: 'b', statut: StatutTentative.EN_COURS, dateLimite: maintenant }],
+          maintenant,
+        ),
+      ).toBeNull();
+      expect(tentativeAReprendre([], maintenant)).toBeNull();
     });
   });
 

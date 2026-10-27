@@ -31,6 +31,8 @@ import { StatutTentative } from '../src/database/enums/statut-tentative.enum';
  *  - 201 : tentative EN_COURS, échéance = début + durée (horloge de la base),
  *    plafonnée à la fermeture ; audit TENTATIVE_DEMARREE ;
  *  - 200 : reprise de la tentative EN_COURS (rechargement), sans doublon ;
+ *  - « Mon espace » : durée, tentatives et tentative à reprendre ;
+ *    GET /tentatives/:id réservé à son apprenant (404 sinon) ;
  *  - 409 avec motif : pas encore ouvert, fermé, tentatives épuisées, délai
  *    non respecté (avec date de réouverture) ; refus tracés ;
  *  - tentative EN_COURS expirée : clôturée ABANDONNEE_TIMER, puis nouvelle ;
@@ -392,15 +394,56 @@ describe('Démarrer une tentative (e2e) — US-QCM-05', () => {
       expect(await audits('TENTATIVE_DEMARREE', apprenantId)).toHaveLength(1);
     });
 
-    it('« Mon espace » affiche ce QCM « en cours »', async () => {
+    it('« Mon espace » affiche ce QCM « en cours », avec la tentative à reprendre', async () => {
       const res = await request(app.getHttpServer())
         .get(`/api/formations/${formationId}/mon-espace`)
         .set('Authorization', `Bearer ${tokens[EMAIL_APPRENANT]}`)
         .expect(200);
-      const quiz = (res.body.modules[0].qcms as Array<{ id: string; avancement: string }>).find(
+      const quiz = (res.body.modules[0].qcms as Array<Record<string, unknown>>).find(
         (q) => q.id === qcm.ouvert,
       );
-      expect(quiz?.avancement).toBe('EN_COURS');
+      expect(quiz).toMatchObject({
+        avancement: 'EN_COURS',
+        dureeMaxMinutes: 30,
+        nbTentativesMax: 2,
+        nbTentativesPassees: 1,
+        tentativeEnCoursId: tentativeId,
+      });
+    });
+
+    it('GET /tentatives/:id : ma tentative, son rang et l’heure du serveur', async () => {
+      const res = await request(app.getHttpServer())
+        .get(`/api/tentatives/${tentativeId}`)
+        .set('Authorization', `Bearer ${tokens[EMAIL_APPRENANT]}`)
+        .expect(200);
+
+      expect(res.body).toMatchObject({
+        id: tentativeId,
+        qcmId: qcm.ouvert,
+        qcmTitre: `${MARQUEUR} ouvert`,
+        formationId,
+        statut: StatutTentative.EN_COURS,
+        dureeMaxMinutes: 30,
+        numero: 1,
+        nbTentativesMax: 2,
+        tentativesRestantes: 1,
+        dateFin: null,
+      });
+      expect(Math.abs(new Date(res.body.maintenant).getTime() - Date.now())).toBeLessThan(MINUTE);
+      expect(JSON.stringify(res.body)).not.toMatch(/estCorrecte|question|option/i);
+    });
+
+    it('GET /tentatives/:id : 404 pour la tentative d’un autre ou inconnue ; 403 formateur ; 400', async () => {
+      const get = (id: string, token: string): request.Test =>
+        request(app.getHttpServer())
+          .get(`/api/tentatives/${id}`)
+          .set('Authorization', `Bearer ${token}`);
+
+      const autre = await get(tentativeId, tokens[EMAIL_RAFALE]).expect(404);
+      expect(autre.body.message).toBe('Tentative introuvable.');
+      await get(UUID_INCONNU, tokens[EMAIL_APPRENANT]).expect(404);
+      await get(tentativeId, tokens[EMAIL_FORMATEUR]).expect(403);
+      await get('pas-un-uuid', tokens[EMAIL_APPRENANT]).expect(400);
     });
 
     it('échéance plafonnée à la fermeture quand la fenêtre se termine avant la durée', async () => {

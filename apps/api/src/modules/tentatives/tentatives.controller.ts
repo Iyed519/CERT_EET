@@ -1,5 +1,6 @@
 import {
   Controller,
+  Get,
   HttpStatus,
   Param,
   ParseUUIDPipe,
@@ -13,10 +14,15 @@ import { Response } from 'express';
 import { Role } from '../../database/enums/role.enum';
 import { AccessTokenPayload, AuthenticatedRequest } from '../auth/auth.types';
 import { Roles } from '../auth/decorators/roles.decorator';
+import {
+  TentativeConsultationService,
+  TentativeConsulteeVue,
+} from './tentative-consultation.service';
 import { TentativeDemarrageService, TentativeDemarreeVue } from './tentative-demarrage.service';
 
 /**
- * Passage des QCM — côté APPRENANT (US-QCM-05 ; US-QCM-06 à 08 suivront).
+ * Passage des QCM — côté APPRENANT (US-QCM-05 : démarrer, consulter ;
+ * US-QCM-06 à 08 suivront).
  *
  * Contrôleur à part de QcmController, dont le @Roles de classe est réservé
  * aux formateurs et administrateurs. Ici, seul un apprenant passe un QCM, et
@@ -31,7 +37,10 @@ import { TentativeDemarrageService, TentativeDemarreeVue } from './tentative-dem
 @Roles(Role.APPRENANT)
 @Controller()
 export class TentativesController {
-  constructor(private readonly demarrageService: TentativeDemarrageService) {}
+  constructor(
+    private readonly demarrageService: TentativeDemarrageService,
+    private readonly consultationService: TentativeConsultationService,
+  ) {}
 
   @Post('qcm/:qcmId/tentatives')
   @ApiOperation({
@@ -79,6 +88,28 @@ export class TentativesController {
     });
     res.status(vue.reprise ? HttpStatus.OK : HttpStatus.CREATED);
     return vue;
+  }
+
+  @Get('tentatives/:tentativeId')
+  @ApiOperation({
+    summary: 'Consulter une de mes tentatives (US-QCM-05)',
+    description:
+      'Lecture seule : statut, échéance, rang et heure du serveur (`maintenant`), pour un compte à ' +
+      'rebours qui ne dépend pas de l’horloge du navigateur. Les questions arrivent avec US-QCM-06.',
+  })
+  @ApiResponse({ status: 200, description: 'Ma tentative.' })
+  @ApiResponse({ status: 400, description: 'Identifiant mal formé (UUID attendu).' })
+  @ApiResponse({ status: 401, description: 'Non authentifié.' })
+  @ApiResponse({ status: 403, description: 'Rôle autre qu’apprenant.' })
+  @ApiResponse({
+    status: 404,
+    description: 'Tentative inconnue, ou tentative d’un autre apprenant (non révélée).',
+  })
+  consulter(
+    @Param('tentativeId', ParseUUIDPipe) tentativeId: string,
+    @Req() req: AuthenticatedRequest,
+  ): Promise<TentativeConsulteeVue> {
+    return this.consultationService.consulter(this.exigerUtilisateur(req).sub, tentativeId);
   }
 
   private exigerUtilisateur(req: AuthenticatedRequest): AccessTokenPayload {
