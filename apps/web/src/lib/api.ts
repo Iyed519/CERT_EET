@@ -1453,6 +1453,17 @@ export interface TentativeDemarree {
   reprise: boolean;
 }
 
+/**
+ * Une question telle que l'apprenant la reçoit (US-QCM-06) : jamais la bonne
+ * réponse, l'explication ni la pondération — le serveur ne les envoie pas.
+ */
+export interface QuestionTentative {
+  id: string;
+  enonce: string;
+  type: TypeQuestion;
+  options: Array<{ id: string; texte: string }>;
+}
+
 /** Réponse de GET /api/tentatives/:id — `maintenant` = heure du serveur. */
 export interface TentativeConsultee {
   id: string;
@@ -1468,6 +1479,9 @@ export interface TentativeConsultee {
   nbTentativesMax: number;
   tentativesRestantes: number;
   maintenant: string;
+  // US-QCM-06 — questions dans l'ordre du tirage figé ; vide hors du temps de passage.
+  nbQuestions: number;
+  questions: QuestionTentative[];
 }
 
 /**

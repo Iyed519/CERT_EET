@@ -370,3 +370,16 @@ textarea.input { resize: vertical; font-family: inherit; line-height: 1.45; }
   .chrono-valeur { font-size: 2.1rem; }
   .site-header { flex-wrap: wrap; row-gap: 8px; }
 }
+
+/* US-QCM-06 — Questions d'une tentative (ordre du tirage ; saisie activée avec US-QCM-07). */
+.passage-questions { list-style: none; margin: 18px 0 0; padding: 0; display: flex; flex-direction: column; gap: 14px; }
+.passage-question { border: 1px solid var(--border); border-radius: var(--radius-sm); background: var(--surface); padding: 16px 18px; box-shadow: var(--shadow-sm); }
+.passage-fieldset { border: 0; margin: 0; padding: 0; min-width: 0; }
+.passage-legende { display: flex; flex-wrap: wrap; align-items: baseline; justify-content: space-between; gap: 6px 12px; width: 100%; padding: 0; margin-bottom: 8px; }
+.passage-numero { font-size: 0.76rem; text-transform: uppercase; letter-spacing: 0.4px; color: var(--primary-dark); font-weight: 700; }
+.passage-consigne { font-size: 0.8rem; color: var(--muted); }
+.passage-enonce { margin: 0 0 12px; font-weight: 600; line-height: 1.45; overflow-wrap: anywhere; white-space: pre-line; }
+.passage-options { list-style: none; margin: 0; padding: 0; display: flex; flex-direction: column; gap: 8px; }
+.passage-option { display: flex; align-items: flex-start; gap: 10px; padding: 10px 12px; border: 1px solid var(--border); border-radius: var(--radius-sm); background: #faf9f6; font-size: 0.92rem; overflow-wrap: anywhere; }
+.passage-option input { margin-top: 3px; accent-color: var(--primary); }
+.passage-fieldset:disabled .passage-option { color: #475569; cursor: not-allowed; }
