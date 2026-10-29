@@ -16,6 +16,7 @@ import {
   verifierQuota,
 } from './tentative-demarrage.regles';
 import { TentativeDemarrageService } from './tentative-demarrage.service';
+import { TentativeTirageService } from './tentative-tirage.service';
 
 /**
  * Tests unitaires du démarrage d'une tentative (US-QCM-05).
@@ -136,6 +137,8 @@ describe('Démarrage d’une tentative', () => {
     let inscriptionRepository: { findOne: jest.Mock };
     let tentativeRepository: { findOneOrFail: jest.Mock; countBy: jest.Mock };
     let auditService: { record: jest.Mock };
+    let tirageService: { tirer: jest.Mock };
+    const PLAN = [{ questionId: 'q1', optionIds: ['o2', 'o1'] }];
     let dataSource: { transaction: jest.Mock };
     let manager: {
       findOne: jest.Mock;
@@ -213,6 +216,7 @@ describe('Démarrage d’une tentative', () => {
       };
       tentativeRepository = { findOneOrFail: jest.fn(), countBy: jest.fn() };
       auditService = { record: jest.fn().mockResolvedValue(undefined) };
+      tirageService = { tirer: jest.fn().mockResolvedValue(PLAN) };
       dataSource = {
         transaction: jest.fn((travail: (m: typeof manager) => Promise<unknown>) =>
           travail(manager),
@@ -227,6 +231,7 @@ describe('Démarrage d’une tentative', () => {
           { provide: getRepositoryToken(Inscription), useValue: inscriptionRepository },
           { provide: getRepositoryToken(TentativeQcm), useValue: tentativeRepository },
           { provide: AuditService, useValue: auditService },
+          { provide: TentativeTirageService, useValue: tirageService },
         ],
       }).compile();
       service = moduleRef.get(TentativeDemarrageService);
@@ -295,7 +300,14 @@ describe('Démarrage d’une tentative', () => {
             statut: StatutTentative.EN_COURS,
             dateDebut: MAINTENANT,
             dateLimite: new Date('2026-11-02T10:30:00Z'),
+            planTirage: PLAN,
           }),
+        );
+        // Tirage dans la transaction de création, avec la configuration du QCM (US-QCM-06).
+        expect(tirageService.tirer).toHaveBeenCalledWith(
+          manager,
+          QCM_ID,
+          expect.objectContaining({ nbTentativesMax: 2 }),
         );
         expect(vue).toEqual({
           id: 'nouvelle',
@@ -343,6 +355,7 @@ describe('Démarrage d’une tentative', () => {
         const vue = await demarrer();
         expect(vue).toMatchObject({ id: enCours.id, reprise: true, numero: 1 });
         expect(manager.save).not.toHaveBeenCalled();
+        expect(tirageService.tirer).not.toHaveBeenCalled();
         expect(manager.update).not.toHaveBeenCalled();
         expect(auditService.record).not.toHaveBeenCalled();
       });
@@ -414,6 +427,7 @@ describe('Démarrage d’une tentative', () => {
           dateReouverture: OUVERTURE,
         });
         expect(manager.save).not.toHaveBeenCalled();
+        expect(tirageService.tirer).not.toHaveBeenCalled();
       });
 
       it('tentatives épuisées', async () => {

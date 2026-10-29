@@ -3,7 +3,13 @@ import Link from 'next/link';
 import { useParams } from 'next/navigation';
 import { useEffect, useState } from 'react';
 import { AdminError, getTentative, TentativeConsultee } from '../../../lib/api';
-import { compteAReboursFr, dateHeureFr, dureeFr, LIBELLES_TENTATIVE } from '../../../lib/format';
+import {
+  compteAReboursFr,
+  CONSIGNES_TYPE_QUESTION,
+  dateHeureFr,
+  dureeFr,
+  LIBELLES_TENTATIVE,
+} from '../../../lib/format';
 
 /**
  * US-QCM-05 — Page d'une tentative en cours (DS-02, après l'étape 1).
@@ -18,7 +24,12 @@ import { compteAReboursFr, dateHeureFr, dureeFr, LIBELLES_TENTATIVE } from '../.
  * compteur n'est qu'un affichage : c'est le serveur qui refusera une réponse
  * hors délai (US-QCM-07).
  *
- * Les questions arrivent avec US-QCM-06 ; d'ici là, la page l'annonce.
+ * US-QCM-06 — Les questions s'affichent dans l'ordre du tirage figé par le
+ * serveur (« Question i / K »), avec leurs options dans l'ordre tiré. Le
+ * navigateur ne reçoit jamais la bonne réponse. Les champs sont désactivés :
+ * l'enregistrement des réponses arrive avec US-QCM-07 (D10) — des cases
+ * actives qui n'enregistrent rien tromperaient l'apprenant. Quand le temps
+ * est écoulé, les questions disparaissent (le serveur ne les envoie plus).
  */
 export default function TentativePage(): JSX.Element {
   const params = useParams<{ id: string }>();
@@ -109,10 +120,47 @@ export default function TentativePage(): JSX.Element {
       </section>
 
       {enCours ? (
-        <p className="alert alert-info">
-          Les questions de l’évaluation s’afficheront ici. Le temps continue de courir même si vous
-          quittez cette page : vous pourrez la reprendre depuis votre espace.
-        </p>
+        <>
+          <p className="alert alert-info">
+            Le temps continue de courir même si vous quittez cette page : vous pourrez la reprendre
+            depuis votre espace. La saisie des réponses sera activée prochainement.
+          </p>
+          {tentative.questions.length === 0 ? (
+            <p className="page-subtitle">Aucune question à afficher pour cette tentative.</p>
+          ) : (
+            <ol className="passage-questions">
+              {tentative.questions.map((question, index) => (
+                <li key={question.id} className="passage-question">
+                  <fieldset disabled className="passage-fieldset">
+                    <legend className="passage-legende">
+                      <span className="passage-numero">
+                        Question {index + 1} / {tentative.questions.length}
+                      </span>
+                      <span className="passage-consigne">
+                        {CONSIGNES_TYPE_QUESTION[question.type]}
+                      </span>
+                    </legend>
+                    <p className="passage-enonce">{question.enonce}</p>
+                    <ul className="passage-options">
+                      {question.options.map((option) => (
+                        <li key={option.id}>
+                          <label className="passage-option">
+                            <input
+                              type={question.type === 'QCM' ? 'checkbox' : 'radio'}
+                              name={`question-${question.id}`}
+                              value={option.id}
+                            />
+                            <span>{option.texte}</span>
+                          </label>
+                        </li>
+                      ))}
+                    </ul>
+                  </fieldset>
+                </li>
+              ))}
+            </ol>
+          )}
+        </>
       ) : (
         <p className="alert alert-info">
           Cette tentative est terminée. Revenez à votre espace pour voir où vous en êtes.

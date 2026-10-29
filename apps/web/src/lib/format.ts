@@ -60,6 +60,13 @@ export const LIBELLES_TYPE_QUESTION: Record<TypeQuestion, string> = {
   VRAI_FAUX: 'Vrai / Faux',
 };
 
+/** Consigne affichée à l'apprenant sous chaque question (US-QCM-06). */
+export const CONSIGNES_TYPE_QUESTION: Record<TypeQuestion, string> = {
+  QCU: 'Une seule bonne réponse',
+  QCM: 'Plusieurs réponses possibles',
+  VRAI_FAUX: 'Vrai ou faux',
+};
+
 /** Libellés FR des niveaux de difficulté (US-QCM-01). */
 export const LIBELLES_NIVEAU: Record<NiveauDifficulte, string> = {
   DEBUTANT: 'Débutant',
