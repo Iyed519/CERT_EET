@@ -23,6 +23,7 @@ import {
   verifierFenetre,
   verifierQuota,
 } from './tentative-demarrage.regles';
+import { TentativeTirageService } from './tentative-tirage.service';
 
 /** Contexte de la requête, pour l'audit (succès comme refus). */
 export interface ContexteDemarrage {
@@ -90,6 +91,8 @@ export class TentativeDemarrageService {
     private readonly tentativeRepository: Repository<TentativeQcm>,
     // Writer d'audit UNIQUE (@Global, US-AUTH-12).
     private readonly auditService: AuditService,
+    // Tirage des questions de la tentative (US-QCM-06).
+    private readonly tirageService: TentativeTirageService,
   ) {}
 
   /**
@@ -108,7 +111,9 @@ export class TentativeDemarrageService {
    *        b. fenêtre [ouverture, fermeture) (D9) ;
    *        c. quota, toutes tentatives confondues (D6) ;
    *        d. délai depuis la tentative précédente (D6) ;
-   *        e. création EN_COURS, échéance = min(début + durée, fermeture) (D5) ;
+   *        e. création EN_COURS, échéance = min(début + durée, fermeture) (D5),
+   *           questions et ordre des options tirés et FIGÉS dans `planTirage`
+   *           (US-QCM-06, D1) — un démarrage refusé ne tire rien ;
    *   4. après la transaction : audit (TENTATIVE_DEMARREE succès ou échec,
    *      D8/D10 ; TENTATIVE_EXPIREE pour une clôture), puis la réponse ou le
    *      409 avec son motif précis (D2).
@@ -321,6 +326,8 @@ export class TentativeDemarrageService {
       return { issue: { type: 'refus', refus, nbTentativesPassees }, expiree };
     }
 
+    // Tirage figé dans la même transaction que la création (US-QCM-06, D1).
+    const planTirage = await this.tirageService.tirer(manager, qcmId, configuration);
     const tentative = await manager.save(
       TentativeQcm,
       manager.create(TentativeQcm, {
@@ -333,6 +340,7 @@ export class TentativeDemarrageService {
           configuration.dateFermeture,
         ),
         statut: StatutTentative.EN_COURS,
+        planTirage,
       }),
     );
     return {

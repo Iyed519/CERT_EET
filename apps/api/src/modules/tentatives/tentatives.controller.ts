@@ -22,7 +22,7 @@ import { TentativeDemarrageService, TentativeDemarreeVue } from './tentative-dem
 
 /**
  * Passage des QCM — côté APPRENANT (US-QCM-05 : démarrer, consulter ;
- * US-QCM-06 à 08 suivront).
+ * US-QCM-06 : questions tirées ; US-QCM-07 et 08 suivront).
  *
  * Contrôleur à part de QcmController, dont le @Roles de classe est réservé
  * aux formateurs et administrateurs. Ici, seul un apprenant passe un QCM, et
@@ -92,12 +92,18 @@ export class TentativesController {
 
   @Get('tentatives/:tentativeId')
   @ApiOperation({
-    summary: 'Consulter une de mes tentatives (US-QCM-05)',
+    summary: 'Consulter une de mes tentatives et ses questions (US-QCM-05, US-QCM-06)',
     description:
-      'Lecture seule : statut, échéance, rang et heure du serveur (`maintenant`), pour un compte à ' +
-      'rebours qui ne dépend pas de l’horloge du navigateur. Les questions arrivent avec US-QCM-06.',
+      'Statut, échéance, rang et heure du serveur (`maintenant`), pour un compte à rebours qui ne ' +
+      'dépend pas de l’horloge du navigateur. Pendant le temps de passage, les questions dans l’ordre ' +
+      'du tirage figé à la création, chacune avec ses options dans l’ordre tiré : `id`, `enonce`, ' +
+      '`type`, options `{ id, texte }` — jamais la bonne réponse, l’explication ni la pondération. ' +
+      'Une tentative créée avant le tirage reçoit le sien une seule fois, à la première lecture.',
   })
-  @ApiResponse({ status: 200, description: 'Ma tentative.' })
+  @ApiResponse({
+    status: 200,
+    description: 'Ma tentative ; `questions` vide hors du temps de passage.',
+  })
   @ApiResponse({ status: 400, description: 'Identifiant mal formé (UUID attendu).' })
   @ApiResponse({ status: 401, description: 'Non authentifié.' })
   @ApiResponse({ status: 403, description: 'Rôle autre qu’apprenant.' })

@@ -430,7 +430,10 @@ describe('Démarrer une tentative (e2e) — US-QCM-05', () => {
         dateFin: null,
       });
       expect(Math.abs(new Date(res.body.maintenant).getTime() - Date.now())).toBeLessThan(MINUTE);
-      expect(JSON.stringify(res.body)).not.toMatch(/estCorrecte|question|option/i);
+      // QCM sans question dans cette suite : tirage vide ; jamais de bonne
+      // réponse (non-fuite complète : tentative-tirage.e2e-spec.ts, US-QCM-06).
+      expect(res.body).toMatchObject({ nbQuestions: 0, questions: [] });
+      expect(JSON.stringify(res.body)).not.toMatch(/estCorrecte|est_correcte|explication/i);
     });
 
     it('GET /tentatives/:id : 404 pour la tentative d’un autre ou inconnue ; 403 formateur ; 400', async () => {
