@@ -1482,6 +1482,9 @@ export interface TentativeConsultee {
   // US-QCM-06 — questions dans l'ordre du tirage figé ; vide hors du temps de passage.
   nbQuestions: number;
   questions: QuestionTentative[];
+  // US-QCM-07 — mes réponses déjà enregistrées (questionId -> options cochées) ;
+  // vide hors du temps de passage.
+  reponses: Record<string, string[]>;
 }
 
 /**
@@ -1530,4 +1533,95 @@ export async function getTentative(tentativeId: string): Promise<TentativeConsul
     response,
     'Impossible de charger cette tentative.',
   );
+}
+
+/* ============================================================
+ * US-QCM-07 — Enregistrer ses réponses et soumettre (apprenant)
+ * ============================================================ */
+
+/** Réponse de PUT /api/tentatives/:id/reponses/:questionId. */
+export interface ReponseEnregistree {
+  questionId: string;
+  // Options retenues, dans l'ordre du tirage.
+  optionIds: string[];
+  // null : réponse effacée (liste vide).
+  enregistreeLe: string | null;
+  // Heure du serveur et échéance : de quoi recaler le compte à rebours.
+  maintenant: string;
+  dateLimite: string;
+}
+
+/** Réponse de POST /api/tentatives/:id/soumettre (sans score : US-QCM-08). */
+export interface TentativeSoumise {
+  id: string;
+  qcmId: string;
+  statut: StatutTentative;
+  dateDebut: string;
+  dateLimite: string;
+  dateFin: string;
+  // Secondes.
+  dureeEffective: number;
+  nbQuestions: number;
+  nbReponses: number;
+}
+
+/** Motif machine d'un refus pendant le passage (400 ou 409). */
+export type RaisonRefusPassage =
+  | 'temps_ecoule'
+  | 'tentative_terminee'
+  | 'question_hors_tirage'
+  | 'option_hors_question'
+  | 'une_seule_option'
+  | 'type_non_pris_en_charge';
+
+/**
+ * Refus pendant le passage : message exact du serveur et motif. Un 409
+ * `temps_ecoule` ou `tentative_terminee` signifie que la tentative est finie.
+ */
+export class PassageRefuse extends AdminError {
+  constructor(
+    message: string,
+    statut: number,
+    public readonly raison: RaisonRefusPassage | null,
+  ) {
+    super(message, statut);
+  }
+
+  get tentativeFinie(): boolean {
+    return this.raison === 'temps_ecoule' || this.raison === 'tentative_terminee';
+  }
+}
+
+async function lireReponsePassage<T>(response: Response, parDefaut: string): Promise<T> {
+  const data = (await response.json().catch(() => ({}))) as {
+    message?: string | string[];
+    raison?: RaisonRefusPassage;
+  };
+  if (!response.ok) {
+    throw new PassageRefuse(messageErreur(data) ?? parDefaut, response.status, data.raison ?? null);
+  }
+  return data as T;
+}
+
+/**
+ * PUT /api/tentatives/:id/reponses/:questionId — remplace ma réponse à une
+ * question ; `[]` l'efface. Le serveur vérifie l'échéance à chaque appel.
+ */
+export async function enregistrerReponse(
+  tentativeId: string,
+  questionId: string,
+  optionIds: string[],
+): Promise<ReponseEnregistree> {
+  const response = await apiFetch(`/api/tentatives/${tentativeId}/reponses/${questionId}`, {
+    method: 'PUT',
+    headers: JSON_HEADERS,
+    body: JSON.stringify({ optionIds }),
+  });
+  return lireReponsePassage<ReponseEnregistree>(response, 'Réponse non enregistrée.');
+}
+
+/** POST /api/tentatives/:id/soumettre — soumet ma tentative (après confirmation). */
+export async function soumettreTentative(tentativeId: string): Promise<TentativeSoumise> {
+  const response = await apiFetch(`/api/tentatives/${tentativeId}/soumettre`, { method: 'POST' });
+  return lireReponsePassage<TentativeSoumise>(response, 'Impossible de soumettre la tentative.');
 }
