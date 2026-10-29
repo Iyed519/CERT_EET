@@ -2,6 +2,7 @@ import { Injectable, NotFoundException } from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
 import { DataSource, LessThanOrEqual, Repository } from 'typeorm';
 import { ConfigurationAntiFraude } from '../../database/entities/configuration-anti-fraude.entity';
+import { Reponse } from '../../database/entities/reponse.entity';
 import { QuestionTiree, TentativeQcm } from '../../database/entities/tentative-qcm.entity';
 import { StatutTentative } from '../../database/enums/statut-tentative.enum';
 import { QuestionPresentee, TentativeTirageService } from './tentative-tirage.service';
@@ -33,6 +34,10 @@ export interface TentativeConsulteeVue {
   // Vide hors du temps de passage : la tentative n'est plus EN_COURS, ou son
   // échéance est atteinte.
   questions: QuestionPresentee[];
+  // Mes réponses déjà enregistrées, par question : options cochées dans
+  // l'ordre du tirage (US-QCM-07, D8). Une page rechargée retrouve ainsi sa
+  // sélection. Vide hors du temps de passage, comme `questions` (D15).
+  reponses: Record<string, string[]>;
 }
 
 const MESSAGE_INTROUVABLE = 'Tentative introuvable.';
@@ -45,8 +50,8 @@ const MESSAGE_INTROUVABLE = 'Tentative introuvable.';
  * EN_COURS créée AVANT US-QCM-06 n'a pas de tirage ; il est fait une seule
  * fois, à la première lecture, sous le verrou de la ligne — deux lectures
  * simultanées ne tirent pas deux plans. Une tentative échue n'est pas
- * clôturée ici (le démarrage suivant s'en charge, D11, puis la minuterie,
- * US-QCM-07).
+ * clôturée ici : la lecture reste sans effet (US-QCM-07, D15) ; la sauvegarde,
+ * la soumission, le démarrage suivant ou le balayage s'en chargent.
  */
 @Injectable()
 export class TentativeConsultationService {
@@ -94,6 +99,7 @@ export class TentativeConsultationService {
       enPassage && plan !== null
         ? await this.tirageService.presenter(this.dataSource.manager, plan)
         : [];
+    const reponses = enPassage && plan !== null ? await this.lireReponses(tentative.id, plan) : {};
 
     return {
       id: tentative.id,
@@ -111,7 +117,38 @@ export class TentativeConsultationService {
       maintenant,
       nbQuestions: plan?.length ?? 0,
       questions,
+      reponses,
     };
+  }
+
+  /**
+   * Options cochées par question, dans l'ordre du tirage. Seules les
+   * questions du plan sont renvoyées.
+   */
+  private async lireReponses(
+    tentativeId: string,
+    plan: QuestionTiree[],
+  ): Promise<Record<string, string[]>> {
+    const lignes = await this.dataSource.manager.find(Reponse, {
+      where: { tentativeId },
+      relations: { optionsSelectionnees: true },
+      select: {
+        id: true,
+        questionId: true,
+        optionsSelectionnees: { reponseId: true, optionId: true },
+      },
+    });
+    const parQuestion = new Map(
+      lignes.map((l) => [l.questionId, new Set(l.optionsSelectionnees.map((o) => o.optionId))]),
+    );
+    const reponses: Record<string, string[]> = {};
+    for (const tiree of plan) {
+      const cochees = parQuestion.get(tiree.questionId);
+      if (cochees && cochees.size > 0) {
+        reponses[tiree.questionId] = tiree.optionIds.filter((id) => cochees.has(id));
+      }
+    }
+    return reponses;
   }
 
   /**

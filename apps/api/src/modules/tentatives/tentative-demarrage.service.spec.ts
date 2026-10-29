@@ -16,6 +16,7 @@ import {
   verifierQuota,
 } from './tentative-demarrage.regles';
 import { TentativeDemarrageService } from './tentative-demarrage.service';
+import { TentativeMinuterieService } from './tentative-minuterie.service';
 import { TentativeTirageService } from './tentative-tirage.service';
 
 /**
@@ -138,6 +139,7 @@ describe('Démarrage d’une tentative', () => {
     let tentativeRepository: { findOneOrFail: jest.Mock; countBy: jest.Mock };
     let auditService: { record: jest.Mock };
     let tirageService: { tirer: jest.Mock };
+    let minuterie: { armer: jest.Mock; effacer: jest.Mock };
     const PLAN = [{ questionId: 'q1', optionIds: ['o2', 'o1'] }];
     let dataSource: { transaction: jest.Mock };
     let manager: {
@@ -217,6 +219,10 @@ describe('Démarrage d’une tentative', () => {
       tentativeRepository = { findOneOrFail: jest.fn(), countBy: jest.fn() };
       auditService = { record: jest.fn().mockResolvedValue(undefined) };
       tirageService = { tirer: jest.fn().mockResolvedValue(PLAN) };
+      minuterie = {
+        armer: jest.fn().mockResolvedValue(undefined),
+        effacer: jest.fn().mockResolvedValue(undefined),
+      };
       dataSource = {
         transaction: jest.fn((travail: (m: typeof manager) => Promise<unknown>) =>
           travail(manager),
@@ -232,6 +238,7 @@ describe('Démarrage d’une tentative', () => {
           { provide: getRepositoryToken(TentativeQcm), useValue: tentativeRepository },
           { provide: AuditService, useValue: auditService },
           { provide: TentativeTirageService, useValue: tirageService },
+          { provide: TentativeMinuterieService, useValue: minuterie },
         ],
       }).compile();
       service = moduleRef.get(TentativeDemarrageService);
@@ -330,6 +337,9 @@ describe('Démarrage d’une tentative', () => {
             detailsAvantApres: expect.objectContaining({ qcmId: QCM_ID, numero: 1 }),
           }),
         );
+        // Minuterie Redis posée à l'échéance de la tentative (US-QCM-07, D1).
+        expect(minuterie.armer).toHaveBeenCalledWith('nouvelle', new Date('2026-11-02T10:30:00Z'));
+        expect(minuterie.effacer).not.toHaveBeenCalled();
       });
 
       it('la seconde tentative, délai écoulé, porte le numéro 2', async () => {
@@ -358,6 +368,8 @@ describe('Démarrage d’une tentative', () => {
         expect(tirageService.tirer).not.toHaveBeenCalled();
         expect(manager.update).not.toHaveBeenCalled();
         expect(auditService.record).not.toHaveBeenCalled();
+        // Clé reposée à la même échéance (recréée si Redis l'a perdue), jamais rallongée.
+        expect(minuterie.armer).toHaveBeenCalledWith(enCours.id, enCours.dateLimite);
       });
 
       it('reprend même hors quota : la reprise passe avant les autres règles', async () => {
@@ -387,6 +399,9 @@ describe('Démarrage d’une tentative', () => {
           'TENTATIVE_EXPIREE',
           'TENTATIVE_DEMARREE',
         ]);
+        // Clé de l'ancienne tentative supprimée, clé de la nouvelle posée.
+        expect(minuterie.effacer).toHaveBeenCalledWith(enCours.id);
+        expect(minuterie.armer).toHaveBeenCalledWith('nouvelle', expect.any(Date));
       });
 
       it('la clôture est conservée même si le démarrage est ensuite refusé', async () => {
@@ -395,6 +410,9 @@ describe('Démarrage d’une tentative', () => {
 
         await expect(demarrer()).rejects.toThrow(ConflictException);
         expect(manager.update).toHaveBeenCalled();
+        expect(minuterie.effacer).toHaveBeenCalledWith(enCours.id);
+        // Refusé : aucune minuterie à poser.
+        expect(minuterie.armer).not.toHaveBeenCalled();
         // Le refus est RENVOYÉ par la transaction, pas levé dedans : elle est validée.
         await expect(dataSource.transaction.mock.results[0].value).resolves.toMatchObject({
           issue: { type: 'refus' },

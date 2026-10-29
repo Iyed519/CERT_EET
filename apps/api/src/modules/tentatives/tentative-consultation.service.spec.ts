@@ -12,7 +12,8 @@ import { TentativeTirageService } from './tentative-tirage.service';
  * Tests unitaires de la consultation d'une tentative (US-QCM-05 D14,
  * US-QCM-06) : seul son apprenant la voit (404 sinon), rang et heure du
  * serveur, questions du plan pendant le temps de passage seulement, tirage
- * tardif unique pour une tentative créée avant le tirage (D8).
+ * tardif unique pour une tentative créée avant le tirage (D8), réponses
+ * enregistrées pour restaurer la page (US-QCM-07, D8/D15).
  */
 describe('TentativeConsultationService', () => {
   const MAINTENANT = new Date('2026-11-02T10:05:00Z');
@@ -32,7 +33,7 @@ describe('TentativeConsultationService', () => {
 
   let service: TentativeConsultationService;
   let tentativeRepository: { findOne: jest.Mock; countBy: jest.Mock; save: jest.Mock };
-  let dataSource: { query: jest.Mock; transaction: jest.Mock; manager: object };
+  let dataSource: { query: jest.Mock; transaction: jest.Mock; manager: { find: jest.Mock } };
   let tirageService: { tirer: jest.Mock; presenter: jest.Mock };
   let manager: { findOneOrFail: jest.Mock; update: jest.Mock };
 
@@ -72,7 +73,21 @@ describe('TentativeConsultationService', () => {
     dataSource = {
       query: jest.fn().mockResolvedValue([{ maintenant: MAINTENANT }]),
       transaction: jest.fn((travail: (m: typeof manager) => Promise<unknown>) => travail(manager)),
-      manager: {},
+      // Réponses enregistrées : q1 cochée sur « a » ; une question hors plan est ignorée.
+      manager: {
+        find: jest.fn().mockResolvedValue([
+          {
+            id: 'r1',
+            questionId: 'q1',
+            optionsSelectionnees: [{ reponseId: 'r1', optionId: 'a' }],
+          },
+          {
+            id: 'r9',
+            questionId: 'q9',
+            optionsSelectionnees: [{ reponseId: 'r9', optionId: 'z' }],
+          },
+        ]),
+      },
     };
     tirageService = {
       tirer: jest.fn().mockResolvedValue(PLAN),
@@ -106,6 +121,7 @@ describe('TentativeConsultationService', () => {
       maintenant: MAINTENANT,
       nbQuestions: 1,
       questions: QUESTIONS,
+      reponses: { q1: ['a'] },
     });
     expect(tentativeRepository.findOne).toHaveBeenCalledWith(
       expect.objectContaining({ where: { id: 't-1', apprenantId: 'appr-1' } }),
@@ -133,6 +149,24 @@ describe('TentativeConsultationService', () => {
     expect(vue.questions).toEqual([]);
     expect(vue.nbQuestions).toBe(1);
     expect(tirageService.presenter).not.toHaveBeenCalled();
+    // Réponses restaurées seulement pendant le passage (D15) ; la lecture n'écrit rien.
+    expect(vue.reponses).toEqual({});
+    expect(dataSource.manager.find).not.toHaveBeenCalled();
+  });
+
+  it('range les options cochées dans l’ordre du tirage, pas dans celui de l’enregistrement', async () => {
+    dataSource.manager.find.mockResolvedValue([
+      {
+        id: 'r1',
+        questionId: 'q1',
+        optionsSelectionnees: [
+          { reponseId: 'r1', optionId: 'a' },
+          { reponseId: 'r1', optionId: 'b' },
+        ],
+      },
+    ]);
+    const vue = await service.consulter('appr-1', 't-1');
+    expect(vue.reponses).toEqual({ q1: ['b', 'a'] });
   });
 
   describe('tentative créée avant le tirage (D8)', () => {

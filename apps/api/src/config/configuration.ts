@@ -73,6 +73,17 @@ export interface OauthGithubConfig {
   clientSecret: string;
   callbackUrl: string;
 }
+/**
+ * Minuterie des tentatives de QCM (US-QCM-07).
+ * Le balayage clôture toutes les `intervalleSecondes` les tentatives EN_COURS
+ * échues depuis plus de `delaiGraceSecondes` (D2, D11). Désactivable par
+ * MINUTERIE_BALAYAGE_ACTIF=false ; toujours désactivé en test (NODE_ENV=test).
+ */
+export interface MinuterieConfig {
+  balayageActif: boolean;
+  intervalleSecondes: number;
+  delaiGraceSecondes: number;
+}
 export default (): {
   app: AppConfig;
   jwt: JwtConfig;
@@ -80,6 +91,7 @@ export default (): {
   mail: MailConfig;
   oauthGoogle: OauthGoogleConfig;
   oauthGithub: OauthGithubConfig;
+  minuterie: MinuterieConfig;
 } => ({
   app: {
     nodeEnv: (process.env.NODE_ENV as AppConfig['nodeEnv']) ?? 'development',
@@ -118,5 +130,10 @@ export default (): {
     callbackUrl:
       process.env.GITHUB_CALLBACK_URL ??
       'https://localhost/api/auth/oauth/github/callback',
+  },
+  minuterie: {
+    balayageActif: process.env.MINUTERIE_BALAYAGE_ACTIF !== 'false',
+    intervalleSecondes: 60,
+    delaiGraceSecondes: 30,
   },
 });
