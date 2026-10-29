@@ -144,3 +144,7 @@ export const LIBELLES_TENTATIVE: Record<StatutTentative, string> = {
   ABANDONNEE_TIMER: 'Temps écoulé',
   NOTEE: 'Notée',
 };
+
+/** « 1 question sans réponse », « 3 questions sans réponse » (US-QCM-07). */
+export const sansReponseFr = (n: number): string =>
+  `${n} question${n > 1 ? 's' : ''} sans réponse`;

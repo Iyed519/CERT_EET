@@ -23,6 +23,7 @@ import {
   verifierFenetre,
   verifierQuota,
 } from './tentative-demarrage.regles';
+import { TentativeMinuterieService } from './tentative-minuterie.service';
 import { TentativeTirageService } from './tentative-tirage.service';
 
 /** Contexte de la requête, pour l'audit (succès comme refus). */
@@ -93,6 +94,8 @@ export class TentativeDemarrageService {
     private readonly auditService: AuditService,
     // Tirage des questions de la tentative (US-QCM-06).
     private readonly tirageService: TentativeTirageService,
+    // Miroir Redis de l'échéance (US-QCM-07, D1).
+    private readonly minuterie: TentativeMinuterieService,
   ) {}
 
   /**
@@ -115,8 +118,10 @@ export class TentativeDemarrageService {
    *           questions et ordre des options tirés et FIGÉS dans `planTirage`
    *           (US-QCM-06, D1) — un démarrage refusé ne tire rien ;
    *   4. après la transaction : audit (TENTATIVE_DEMARREE succès ou échec,
-   *      D8/D10 ; TENTATIVE_EXPIREE pour une clôture), puis la réponse ou le
-   *      409 avec son motif précis (D2).
+   *      D8/D10 ; TENTATIVE_EXPIREE pour une clôture), minuterie Redis
+   *      (US-QCM-07 : clé posée à l'échéance pour une tentative créée ou
+   *      reprise, supprimée pour une tentative clôturée), puis la réponse ou
+   *      le 409 avec son motif précis (D2).
    *
    * L'index unique partiel « une seule EN_COURS par (apprenant, QCM) » reste
    * le dernier rempart : sa violation (23505) est traitée comme une reprise.
@@ -165,6 +170,7 @@ export class TentativeDemarrageService {
           cause: 'echeance_depassee_au_demarrage_suivant',
         },
       });
+      await this.minuterie.effacer(bilan.expiree.id);
     }
 
     const { issue } = bilan;
@@ -211,6 +217,10 @@ export class TentativeDemarrageService {
         },
       });
     }
+
+    // Clé posée à la création, reposée à la reprise si elle a disparu : même
+    // échéance absolue, le temps n'est jamais rallongé (US-QCM-07, D1).
+    await this.minuterie.armer(issue.tentative.id, issue.tentative.dateLimite);
 
     return this.versVue(issue.tentative, issue.numero, configuration, issue.type === 'reprise');
   }
@@ -287,8 +297,9 @@ export class TentativeDemarrageService {
         const numero = await manager.countBy(TentativeQcm, { apprenantId, qcmId });
         return { issue: { type: 'reprise', tentative: enCours, numero }, expiree: null };
       }
-      // Échéance dépassée et pas de timer Redis avant US-QCM-07 : je clôture la
-      // tentative à son échéance, réponses partielles conservées (ET-02).
+      // Échéance dépassée et pas encore clôturée (le balayage passe après un
+      // délai de grâce, US-QCM-07) : je clôture la tentative à son échéance,
+      // réponses partielles conservées (ET-02).
       enCours.statut = StatutTentative.ABANDONNEE_TIMER;
       enCours.dateFin = enCours.dateLimite;
       enCours.dureeEffective = Math.round(

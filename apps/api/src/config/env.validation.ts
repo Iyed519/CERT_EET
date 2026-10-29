@@ -56,6 +56,10 @@ export const envValidationSchema = Joi.object({
   GITHUB_CALLBACK_URL: Joi.string()
     .uri()
     .default('https://localhost/api/auth/oauth/github/callback'),
+// --- Minuterie des tentatives de QCM (US-QCM-07) ---
+  // Balayage des tentatives échues (toutes les 60 s). Actif par défaut ;
+  // toujours désactivé quand NODE_ENV=test.
+  MINUTERIE_BALAYAGE_ACTIF: Joi.boolean().default(true),
 })
   // Refuse les clés inconnues seulement en avertissement : on n'échoue pas
   // sur des variables système, mais on valide strictement celles qu'on connaît.
