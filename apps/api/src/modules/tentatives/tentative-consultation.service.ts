@@ -20,6 +20,10 @@ export interface TentativeConsulteeVue {
   dateDebut: Date;
   dateLimite: Date;
   dateFin: Date | null;
+  // US-QCM-08 — note figée, renseignée une fois la tentative NOTEE (null
+  // avant) ; le détail par question viendra avec US-QCM-09.
+  score: number | null;
+  estReussie: boolean | null;
   dureeMaxMinutes: number;
   numero: number;
   nbTentativesMax: number;
@@ -110,6 +114,8 @@ export class TentativeConsultationService {
       dateDebut: tentative.dateDebut,
       dateLimite: tentative.dateLimite,
       dateFin: tentative.dateFin,
+      score: tentative.statut === StatutTentative.NOTEE ? tentative.score : null,
+      estReussie: tentative.statut === StatutTentative.NOTEE ? tentative.estReussie : null,
       dureeMaxMinutes: configuration.dureeMaxMinutes,
       numero,
       nbTentativesMax: configuration.nbTentativesMax,

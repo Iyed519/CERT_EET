@@ -13,6 +13,7 @@ import { TentativeQcm } from '../../database/entities/tentative-qcm.entity';
 import { StatutTentative } from '../../database/enums/statut-tentative.enum';
 import { AuditService } from '../audit/audit.service';
 import { TentativeMinuterieService } from './tentative-minuterie.service';
+import { TentativeNotationService } from './tentative-notation.service';
 import {
   MESSAGE_QUESTION_HORS_TIRAGE,
   MESSAGE_TEMPS_ECOULE,
@@ -43,11 +44,17 @@ export interface ReponseEnregistreeVue {
   dateLimite: Date;
 }
 
-/** Tentative soumise (D7) — sans score : la notation arrive avec US-QCM-08. */
+/**
+ * Tentative soumise (US-QCM-07, D7), notée dans la foulée (US-QCM-08) :
+ * `statut` NOTEE avec `score` et `estReussie` ; si la notation a échoué,
+ * SOUMISE avec `score` et `estReussie` nuls (le rattrapage la notera).
+ */
 export interface TentativeSoumiseVue {
   id: string;
   qcmId: string;
   statut: StatutTentative;
+  score: number | null;
+  estReussie: boolean | null;
   dateDebut: Date;
   dateLimite: Date;
   dateFin: Date;
@@ -98,6 +105,8 @@ export class TentativePassageService {
     // Writer d'audit UNIQUE (@Global, US-AUTH-12).
     private readonly auditService: AuditService,
     private readonly minuterie: TentativeMinuterieService,
+    // Notation juste après chaque clôture (US-QCM-08, D2).
+    private readonly notation: TentativeNotationService,
   ) {}
 
   /**
@@ -147,7 +156,8 @@ export class TentativePassageService {
   /**
    * Soumission manuelle (D7, DS-02 étape 4) : mêmes contrôles 1 à 3, puis
    * SOUMISE, `dateFin` = maintenant, `dureeEffective`. Audit QCM_SOUMIS (nom
-   * DS-02), clé Redis supprimée. Le score viendra avec US-QCM-08.
+   * DS-02), clé Redis supprimée, puis notation (US-QCM-08) : la réponse porte
+   * le score si elle a réussi.
    */
   async soumettre(
     apprenantId: string,
@@ -198,11 +208,14 @@ export class TentativePassageService {
       },
     });
     await this.minuterie.effacer(tentative.id);
+    const note = await this.notation.noterSansEchec(tentative.id, apprenantId);
 
     return {
       id: tentative.id,
       qcmId: tentative.qcmId,
-      statut: tentative.statut,
+      statut: note ? StatutTentative.NOTEE : tentative.statut,
+      score: note?.score ?? null,
+      estReussie: note?.estReussie ?? null,
       dateDebut: tentative.dateDebut,
       dateLimite: tentative.dateLimite,
       dateFin: tentative.dateFin as Date,
@@ -310,7 +323,9 @@ export class TentativePassageService {
 
   /**
    * 404, 409 « terminée » ou 409 `temps_ecoule`. Pour une clôture à
-   * l'échéance : audit TENTATIVE_EXPIREE et clé Redis supprimée d'abord.
+   * l'échéance : audit TENTATIVE_EXPIREE, clé Redis supprimée et notation des
+   * réponses partielles (US-QCM-08) d'abord. `statut` du 409 dit comment la
+   * tentative s'est terminée (ABANDONNEE_TIMER), même une fois notée.
    */
   private async refuserTentativeInactive(
     issue: Exclude<Etat, { type: 'active' }>,
@@ -346,6 +361,7 @@ export class TentativePassageService {
       },
     });
     await this.minuterie.effacer(tentative.id);
+    await this.notation.noterSansEchec(tentative.id, apprenantId);
     throw new ConflictException({
       statusCode: 409,
       error: 'Conflict',

@@ -32,7 +32,7 @@ import { EnregistrerReponseDto } from './dto/enregistrer-reponse.dto';
 /**
  * Passage des QCM — côté APPRENANT (US-QCM-05 : démarrer, consulter ;
  * US-QCM-06 : questions tirées ; US-QCM-07 : enregistrer une réponse,
- * soumettre ; US-QCM-08 suivra).
+ * soumettre ; US-QCM-08 : notation à chaque clôture, score et réussite).
  *
  * Contrôleur à part de QcmController, dont le @Roles de classe est réservé
  * aux formateurs et administrateurs. Ici, seul un apprenant passe un QCM, et
@@ -119,7 +119,9 @@ export class TentativesController {
   })
   @ApiResponse({
     status: 200,
-    description: 'Ma tentative ; `questions` et `reponses` vides hors du temps de passage.',
+    description:
+      'Ma tentative ; `questions` et `reponses` vides hors du temps de passage ; `score` et ' +
+      '`estReussie` renseignés une fois NOTEE (US-QCM-08).',
   })
   @ApiResponse({ status: 400, description: 'Identifiant mal formé (UUID attendu).' })
   @ApiResponse({ status: 401, description: 'Non authentifié.' })
@@ -192,13 +194,16 @@ export class TentativesController {
     description:
       'Soumission confirmée par l’apprenant (DS-02 étape 4) : mêmes contrôles que ' +
       'l’enregistrement, puis statut SOUMISE, `dateFin` et `dureeEffective` à l’heure de la base, ' +
-      'audit QCM_SOUMIS, minuterie Redis supprimée. Sans score : la notation arrive avec ' +
-      'US-QCM-08.',
+      'audit QCM_SOUMIS, minuterie Redis supprimée ; puis notation serveur (US-QCM-08) : ' +
+      'tentative NOTEE et figée, `score` pondéré sur les questions du tirage, `estReussie` ' +
+      'selon le seuil du QCM, audit TENTATIVE_NOTEE.',
   })
   @ApiResponse({
     status: 200,
     description:
-      'Tentative soumise : `statut`, `dateFin`, `dureeEffective` (s), `nbQuestions`, `nbReponses`.',
+      'Tentative soumise et notée : `statut` NOTEE, `score`, `estReussie`, `dateFin`, ' +
+      '`dureeEffective` (s), `nbQuestions`, `nbReponses`. Si la notation a échoué : SOUMISE, ' +
+      '`score` et `estReussie` nuls (le balayage la notera).',
   })
   @ApiResponse({ status: 400, description: 'Identifiant mal formé (UUID attendu).' })
   @ApiResponse({ status: 401, description: 'Non authentifié.' })

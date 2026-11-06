@@ -114,6 +114,8 @@ describe('TentativeConsultationService', () => {
       dateDebut: DEBUT,
       dateLimite: new Date('2026-11-02T10:30:00Z'),
       dateFin: null,
+      score: null,
+      estReussie: null,
       dureeMaxMinutes: 30,
       numero: 2,
       nbTentativesMax: 3,
@@ -152,6 +154,24 @@ describe('TentativeConsultationService', () => {
     // Réponses restaurées seulement pendant le passage (D15) ; la lecture n'écrit rien.
     expect(vue.reponses).toEqual({});
     expect(dataSource.manager.find).not.toHaveBeenCalled();
+  });
+
+  it('score et réussite seulement une fois NOTEE (US-QCM-08)', async () => {
+    tentativeRepository.findOne.mockResolvedValue(
+      tentative({ statut: StatutTentative.NOTEE, score: 75, estReussie: true }),
+    );
+    await expect(service.consulter('appr-1', 't-1')).resolves.toMatchObject({
+      statut: StatutTentative.NOTEE,
+      score: 75,
+      estReussie: true,
+    });
+    tentativeRepository.findOne.mockResolvedValue(
+      tentative({ statut: StatutTentative.SOUMISE, score: 75, estReussie: true }),
+    );
+    await expect(service.consulter('appr-1', 't-1')).resolves.toMatchObject({
+      score: null,
+      estReussie: null,
+    });
   });
 
   it('range les options cochées dans l’ordre du tirage, pas dans celui de l’enregistrement', async () => {

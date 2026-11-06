@@ -591,13 +591,15 @@ describe('Minuterie serveur et sauvegarde des réponses (e2e) — US-QCM-07', ()
       expect(res.body).toMatchObject({
         id,
         qcmId,
-        statut: StatutTentative.SOUMISE,
+        // Notée dans la foulée de la soumission (US-QCM-08) ; le score est
+        // vérifié par la suite E2E-NOTATION.
+        statut: StatutTentative.NOTEE,
         nbQuestions: 3,
         nbReponses: 1,
       });
-      expect(res.body.score).toBeUndefined();
+      expect(typeof res.body.score).toBe('number');
       const ligne = await tentativeRepository.findOneByOrFail({ id });
-      expect(ligne.statut).toBe(StatutTentative.SOUMISE);
+      expect(ligne.statut).toBe(StatutTentative.NOTEE);
       expect(ligne.dateFin).not.toBeNull();
       expect(ligne.dureeEffective).toBe(
         Math.round(((ligne.dateFin as Date).getTime() - ligne.dateDebut.getTime()) / 1000),
@@ -613,7 +615,7 @@ describe('Minuterie serveur et sauvegarde des réponses (e2e) — US-QCM-07', ()
       expect(refus.body).toMatchObject({
         message: 'Cette tentative est terminée.',
         raison: 'tentative_terminee',
-        statut: StatutTentative.SOUMISE,
+        statut: StatutTentative.NOTEE,
       });
       await soumettre(id, comptes.b.token).expect(409);
       expect(await optionsEnregistrees(id, questions.QCU.id)).toHaveLength(1);
@@ -622,7 +624,7 @@ describe('Minuterie serveur et sauvegarde des réponses (e2e) — US-QCM-07', ()
       // Plus de questions ni de réponses servies après la fin.
       const vue = await consulter(id, comptes.b.token).expect(200);
       expect(vue.body).toMatchObject({
-        statut: StatutTentative.SOUMISE,
+        statut: StatutTentative.NOTEE,
         questions: [],
         reponses: {},
       });
@@ -649,7 +651,8 @@ describe('Minuterie serveur et sauvegarde des réponses (e2e) — US-QCM-07', ()
       });
 
       const ligne = await tentativeRepository.findOneByOrFail({ id });
-      expect(ligne.statut).toBe(StatutTentative.ABANDONNEE_TIMER);
+      // Clôturée ABANDONNEE_TIMER (statut du 409), puis notée (US-QCM-08).
+      expect(ligne.statut).toBe(StatutTentative.NOTEE);
       expect(ligne.dateFin?.getTime()).toBe(ligne.dateLimite.getTime());
       expect(ligne.dureeEffective).toBe(1800);
       // La réponse d'avant l'échéance est conservée ; celle d'après n'est pas écrite.
@@ -670,8 +673,9 @@ describe('Minuterie serveur et sauvegarde des réponses (e2e) — US-QCM-07', ()
       await reculerEcheance(id, '1 second');
       const res = await soumettre(id, comptes.c.token).expect(409);
       expect(res.body.raison).toBe('temps_ecoule');
+      // Clôturée ABANDONNEE_TIMER puis notée (US-QCM-08) — jamais SOUMISE.
       expect((await tentativeRepository.findOneByOrFail({ id })).statut).toBe(
-        StatutTentative.ABANDONNEE_TIMER,
+        StatutTentative.NOTEE,
       );
       expect(await audits('QCM_SOUMIS', id)).toHaveLength(0);
       expect(await audits('TENTATIVE_EXPIREE', id)).toHaveLength(1);
@@ -701,13 +705,14 @@ describe('Minuterie serveur et sauvegarde des réponses (e2e) — US-QCM-07', ()
       const etat = async (id: string): Promise<TentativeQcm> =>
         tentativeRepository.findOneByOrFail({ id });
       const close = await etat(ancienne.id);
-      expect(close.statut).toBe(StatutTentative.ABANDONNEE_TIMER);
+      // Clôturée puis notée par le rattrapage du balayage (US-QCM-08).
+      expect(close.statut).toBe(StatutTentative.NOTEE);
       expect(close.dateFin?.getTime()).toBe(close.dateLimite.getTime());
       expect(close.dureeEffective).toBe(1800);
       expect(await optionsEnregistrees(ancienne.id, questions.QCU.id)).toEqual([option]);
       expect((await etat(recente.id)).statut).toBe(StatutTentative.EN_COURS);
       expect((await etat(valide.id)).statut).toBe(StatutTentative.EN_COURS);
-      expect((await etat(soumise.id)).statut).toBe(StatutTentative.SOUMISE);
+      expect((await etat(soumise.id)).statut).toBe(StatutTentative.NOTEE);
       expect(await redis.exists(`timer:${ancienne.id}`)).toBe(0);
       expect(await redis.exists(`timer:${valide.id}`)).toBe(1);
 
@@ -726,11 +731,11 @@ describe('Minuterie serveur et sauvegarde des réponses (e2e) — US-QCM-07', ()
 
       // La consultation reflète la clôture.
       const vue = await consulter(ancienne.id, comptes.d.token).expect(200);
-      expect(vue.body).toMatchObject({ statut: StatutTentative.ABANDONNEE_TIMER, questions: [] });
+      expect(vue.body).toMatchObject({ statut: StatutTentative.NOTEE, questions: [] });
 
       // Grâce 0 : la récente est clôturée à son tour.
       await balayage.balayer(0);
-      expect((await etat(recente.id)).statut).toBe(StatutTentative.ABANDONNEE_TIMER);
+      expect((await etat(recente.id)).statut).toBe(StatutTentative.NOTEE);
       await soumettre(valide.id, comptes.a.token).expect(200);
     });
   });
@@ -765,8 +770,9 @@ describe('Minuterie serveur et sauvegarde des réponses (e2e) — US-QCM-07', ()
       expect(reponses[0].status).toBe(200);
       expect(reponses[1].status).toBe(409);
       expect(reponses[1].body.raison).toBe('tentative_terminee');
+      // Soumise puis notée (US-QCM-08), sans la réponse arrivée trop tard.
       expect((await tentativeRepository.findOneByOrFail({ id })).statut).toBe(
-        StatutTentative.SOUMISE,
+        StatutTentative.NOTEE,
       );
       expect(await dataSource.getRepository(Reponse).countBy({ tentativeId: id })).toBe(0);
     });

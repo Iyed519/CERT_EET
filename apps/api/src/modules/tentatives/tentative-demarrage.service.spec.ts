@@ -17,6 +17,7 @@ import {
 } from './tentative-demarrage.regles';
 import { TentativeDemarrageService } from './tentative-demarrage.service';
 import { TentativeMinuterieService } from './tentative-minuterie.service';
+import { TentativeNotationService } from './tentative-notation.service';
 import { TentativeTirageService } from './tentative-tirage.service';
 
 /**
@@ -140,6 +141,7 @@ describe('Démarrage d’une tentative', () => {
     let auditService: { record: jest.Mock };
     let tirageService: { tirer: jest.Mock };
     let minuterie: { armer: jest.Mock; effacer: jest.Mock };
+    let notation: { noterSansEchec: jest.Mock };
     const PLAN = [{ questionId: 'q1', optionIds: ['o2', 'o1'] }];
     let dataSource: { transaction: jest.Mock };
     let manager: {
@@ -219,6 +221,7 @@ describe('Démarrage d’une tentative', () => {
       tentativeRepository = { findOneOrFail: jest.fn(), countBy: jest.fn() };
       auditService = { record: jest.fn().mockResolvedValue(undefined) };
       tirageService = { tirer: jest.fn().mockResolvedValue(PLAN) };
+      notation = { noterSansEchec: jest.fn().mockResolvedValue(null) };
       minuterie = {
         armer: jest.fn().mockResolvedValue(undefined),
         effacer: jest.fn().mockResolvedValue(undefined),
@@ -239,6 +242,7 @@ describe('Démarrage d’une tentative', () => {
           { provide: AuditService, useValue: auditService },
           { provide: TentativeTirageService, useValue: tirageService },
           { provide: TentativeMinuterieService, useValue: minuterie },
+          { provide: TentativeNotationService, useValue: notation },
         ],
       }).compile();
       service = moduleRef.get(TentativeDemarrageService);
@@ -402,6 +406,8 @@ describe('Démarrage d’une tentative', () => {
         // Clé de l'ancienne tentative supprimée, clé de la nouvelle posée.
         expect(minuterie.effacer).toHaveBeenCalledWith(enCours.id);
         expect(minuterie.armer).toHaveBeenCalledWith('nouvelle', expect.any(Date));
+        // Réponses partielles de l'ancienne notées (US-QCM-08), une seule fois.
+        expect(notation.noterSansEchec.mock.calls).toEqual([[enCours.id, APPRENANT]]);
       });
 
       it('la clôture est conservée même si le démarrage est ensuite refusé', async () => {
@@ -411,6 +417,7 @@ describe('Démarrage d’une tentative', () => {
         await expect(demarrer()).rejects.toThrow(ConflictException);
         expect(manager.update).toHaveBeenCalled();
         expect(minuterie.effacer).toHaveBeenCalledWith(enCours.id);
+        expect(notation.noterSansEchec).toHaveBeenCalledWith(enCours.id, APPRENANT);
         // Refusé : aucune minuterie à poser.
         expect(minuterie.armer).not.toHaveBeenCalled();
         // Le refus est RENVOYÉ par la transaction, pas levé dedans : elle est validée.

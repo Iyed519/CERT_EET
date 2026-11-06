@@ -5,6 +5,7 @@ import { AppConfig, MinuterieConfig } from '../../config/configuration';
 import { StatutTentative } from '../../database/enums/statut-tentative.enum';
 import { AuditService } from '../audit/audit.service';
 import { TentativeMinuterieService } from './tentative-minuterie.service';
+import { TentativeNotationService } from './tentative-notation.service';
 
 /** Ligne clôturée par le balayage (colonnes renvoyées par RETURNING). */
 interface LigneCloturee {
@@ -33,6 +34,10 @@ interface LigneCloturee {
  * - Sans dépendance (pas de @nestjs/schedule) : un setInterval, arrêté à
  *   l'arrêt du module, désactivé en test (les tests appellent `balayer()`).
  * - Les clés Redis (`timer:{id}`) des tentatives clôturées sont supprimées.
+ * - Puis RATTRAPAGE de la notation (US-QCM-08, D2) : toute tentative SOUMISE
+ *   ou ABANDONNEE_TIMER encore sans note — celles qu'il vient de clore, une
+ *   notation précédente en échec, une tentative d'avant US-QCM-08 — est notée
+ *   par le système (audit sans acteur).
  */
 @Injectable()
 export class TentativeBalayageService implements OnModuleInit, OnModuleDestroy {
@@ -45,6 +50,7 @@ export class TentativeBalayageService implements OnModuleInit, OnModuleDestroy {
     private readonly configService: ConfigService,
     private readonly auditService: AuditService,
     private readonly minuterie: TentativeMinuterieService,
+    private readonly notation: TentativeNotationService,
   ) {}
 
   onModuleInit(): void {
@@ -95,6 +101,7 @@ export class TentativeBalayageService implements OnModuleInit, OnModuleDestroy {
       await this.journaliser(ligne);
       await this.minuterie.effacer(ligne.id);
     }
+    await this.notation.noterEnAttente();
     return lignes.map((l) => l.id);
   }
 

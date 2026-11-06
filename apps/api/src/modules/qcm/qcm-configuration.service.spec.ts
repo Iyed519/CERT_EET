@@ -65,6 +65,31 @@ describe('QcmConfigurationService', () => {
       updatedAt: new Date(),
     }) as unknown as ConfigurationAntiFraude;
 
+  // Horloge figée à MAINTENANT : `configurer` valide avec l'heure réelle, et
+  // les dates de ce fichier sont fixes (sinon la suite échoue une fois ces
+  // dates passées — c'est arrivé le 06/11/2026). Seul Date est simulé.
+  beforeAll(() => {
+    jest.useFakeTimers({
+      now: MAINTENANT,
+      doNotFake: [
+        'nextTick',
+        'setImmediate',
+        'clearImmediate',
+        'setTimeout',
+        'clearTimeout',
+        'setInterval',
+        'clearInterval',
+        'queueMicrotask',
+        'hrtime',
+        'performance',
+      ],
+    });
+  });
+
+  afterAll(() => {
+    jest.useRealTimers();
+  });
+
   beforeEach(async () => {
     jest.clearAllMocks();
     const moduleRef: TestingModule = await Test.createTestingModule({

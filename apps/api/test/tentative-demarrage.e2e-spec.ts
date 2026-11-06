@@ -528,8 +528,9 @@ describe('Démarrer une tentative (e2e) — US-QCM-05', () => {
       where: { apprenantId, qcmId: qcm.expire },
       order: { dateDebut: 'ASC' },
     });
+    // Clôturée ABANDONNEE_TIMER à son échéance, puis notée (US-QCM-08).
     expect(tentatives.map((t) => t.statut)).toEqual([
-      StatutTentative.ABANDONNEE_TIMER,
+      StatutTentative.NOTEE,
       StatutTentative.EN_COURS,
     ]);
     expect(tentatives[0].dateFin?.toISOString()).toBe(tentatives[0].dateLimite.toISOString());
