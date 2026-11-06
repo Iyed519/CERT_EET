@@ -1485,6 +1485,10 @@ export interface TentativeConsultee {
   // US-QCM-07 — mes réponses déjà enregistrées (questionId -> options cochées) ;
   // vide hors du temps de passage.
   reponses: Record<string, string[]>;
+  // US-QCM-08 — note figée (pourcentage) et réussite ; null tant que la
+  // tentative n'est pas NOTEE.
+  score: number | null;
+  estReussie: boolean | null;
 }
 
 /**
@@ -1551,11 +1555,17 @@ export interface ReponseEnregistree {
   dateLimite: string;
 }
 
-/** Réponse de POST /api/tentatives/:id/soumettre (sans score : US-QCM-08). */
+/**
+ * Réponse de POST /api/tentatives/:id/soumettre : notée dans la foulée
+ * (US-QCM-08) -> NOTEE avec `score` et `estReussie` ; SOUMISE et null si la
+ * notation n'a pas encore abouti.
+ */
 export interface TentativeSoumise {
   id: string;
   qcmId: string;
   statut: StatutTentative;
+  score: number | null;
+  estReussie: boolean | null;
   dateDebut: string;
   dateLimite: string;
   dateFin: string;

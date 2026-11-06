@@ -5,6 +5,7 @@ import { StatutTentative } from '../../database/enums/statut-tentative.enum';
 import { AuditService } from '../audit/audit.service';
 import { TentativeBalayageService } from './tentative-balayage.service';
 import { TentativeMinuterieService } from './tentative-minuterie.service';
+import { TentativeNotationService } from './tentative-notation.service';
 
 /**
  * Tests unitaires du balayage des tentatives échues (US-QCM-07, D2, D11,
@@ -24,6 +25,7 @@ describe('TentativeBalayageService', () => {
   let dataSource: { query: jest.Mock };
   let auditService: { record: jest.Mock };
   let minuterie: { effacer: jest.Mock };
+  let notation: { noterEnAttente: jest.Mock };
   let config: { app: { nodeEnv: string }; minuterie: Record<string, unknown> };
 
   const creer = async (): Promise<void> => {
@@ -33,6 +35,7 @@ describe('TentativeBalayageService', () => {
         { provide: DataSource, useValue: dataSource },
         { provide: AuditService, useValue: auditService },
         { provide: TentativeMinuterieService, useValue: minuterie },
+        { provide: TentativeNotationService, useValue: notation },
         {
           provide: ConfigService,
           useValue: { getOrThrow: (cle: keyof typeof config): unknown => config[cle] },
@@ -47,6 +50,7 @@ describe('TentativeBalayageService', () => {
     dataSource = { query: jest.fn().mockResolvedValue([LIGNES, 2]) };
     auditService = { record: jest.fn().mockResolvedValue(undefined) };
     minuterie = { effacer: jest.fn().mockResolvedValue(undefined) };
+    notation = { noterEnAttente: jest.fn().mockResolvedValue([]) };
     config = {
       app: { nodeEnv: 'development' },
       minuterie: { balayageActif: true, intervalleSecondes: 60, delaiGraceSecondes: 30 },
@@ -98,13 +102,19 @@ describe('TentativeBalayageService', () => {
       },
     });
     expect(minuterie.effacer.mock.calls).toEqual([['t-1'], ['t-2']]);
+    // Puis rattrapage de la notation (US-QCM-08), après les clôtures.
+    expect(notation.noterEnAttente).toHaveBeenCalledTimes(1);
+    expect(notation.noterEnAttente.mock.invocationCallOrder[0]).toBeGreaterThan(
+      minuterie.effacer.mock.invocationCallOrder[1],
+    );
   });
 
-  it('rien à clôturer : ni audit ni Redis', async () => {
+  it('rien à clôturer : ni audit ni Redis, mais le rattrapage de la notation passe', async () => {
     dataSource.query.mockResolvedValue([[], 0]);
     await expect(service.balayer()).resolves.toEqual([]);
     expect(auditService.record).not.toHaveBeenCalled();
     expect(minuterie.effacer).not.toHaveBeenCalled();
+    expect(notation.noterEnAttente).toHaveBeenCalledTimes(1);
   });
 
   it('un audit en panne n’empêche pas les suivants', async () => {

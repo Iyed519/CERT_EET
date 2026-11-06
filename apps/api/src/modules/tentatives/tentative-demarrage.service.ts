@@ -24,6 +24,7 @@ import {
   verifierQuota,
 } from './tentative-demarrage.regles';
 import { TentativeMinuterieService } from './tentative-minuterie.service';
+import { TentativeNotationService } from './tentative-notation.service';
 import { TentativeTirageService } from './tentative-tirage.service';
 
 /** Contexte de la requête, pour l'audit (succès comme refus). */
@@ -96,6 +97,8 @@ export class TentativeDemarrageService {
     private readonly tirageService: TentativeTirageService,
     // Miroir Redis de l'échéance (US-QCM-07, D1).
     private readonly minuterie: TentativeMinuterieService,
+    // Notation des tentatives clôturées ici (US-QCM-08, D2).
+    private readonly notation: TentativeNotationService,
   ) {}
 
   /**
@@ -171,6 +174,8 @@ export class TentativeDemarrageService {
         },
       });
       await this.minuterie.effacer(bilan.expiree.id);
+      // Réponses partielles notées (ET-02) ; un échec n'empêche pas le démarrage.
+      await this.notation.noterSansEchec(bilan.expiree.id, apprenantId);
     }
 
     const { issue } = bilan;

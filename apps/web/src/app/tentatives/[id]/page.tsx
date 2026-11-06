@@ -20,6 +20,7 @@ import {
   dureeFr,
   LIBELLES_TENTATIVE,
   sansReponseFr,
+  scoreFr,
 } from '../../../lib/format';
 
 /** Délai entre le dernier changement sur une question et son enregistrement (D5). */
@@ -54,6 +55,10 @@ type Fin = 'soumise' | 'temps_ecoule' | 'terminee';
  * et renvoie ceux qui ont échoué, puis soumet — jamais avec une réponse non
  * enregistrée. À 00:00, ou sur un refus `temps_ecoule` du serveur, la page
  * passe en « Temps écoulé » : les réponses enregistrées sont conservées.
+ *
+ * US-QCM-08 — Une fois la tentative notée par le serveur, la page affiche le
+ * score et « Réussi » / « Échoué » (le corrigé détaillé viendra avec
+ * US-QCM-09).
  */
 export default function TentativePage(): JSX.Element {
   const params = useParams<{ id: string }>();
@@ -89,6 +94,38 @@ export default function TentativePage(): JSX.Element {
     minuteurs.current.forEach((id) => window.clearTimeout(id));
     minuteurs.current.clear();
   }, []);
+
+  /**
+   * US-QCM-08 — Après un temps écoulé ou une fin constatée par le serveur, je
+   * relis la tentative pour afficher sa note (le serveur note dès la
+   * clôture). Fin vue seulement par le compte à rebours : le serveur clôt au
+   * plus tard au balayage suivant (~1 min 30) — je relis donc encore deux
+   * fois, à 45 s d'intervalle. Lecture seule, sans effet sur la tentative.
+   */
+  useEffect(() => {
+    if (fin !== 'temps_ecoule' && fin !== 'terminee') return;
+    let essais = 0;
+    let minuteur: number | undefined;
+    let actif = true;
+    const relire = async (): Promise<void> => {
+      essais += 1;
+      try {
+        const vue = await getTentative(tentativeId);
+        if (!actif) return;
+        setTentative(vue);
+        if (vue.score === null && essais < 3) {
+          minuteur = window.setTimeout(() => void relire(), 45_000);
+        }
+      } catch {
+        // Affichage seulement : en cas d'échec, l'espace donnera le résultat.
+      }
+    };
+    void relire();
+    return () => {
+      actif = false;
+      if (minuteur !== undefined) window.clearTimeout(minuteur);
+    };
+  }, [fin, tentativeId]);
 
   useEffect(() => {
     if (!tentativeId) return;
@@ -266,15 +303,41 @@ export default function TentativePage(): JSX.Element {
   const nbSansReponse = tentative.questions.filter(
     (q) => (selections[q.id] ?? []).length === 0,
   ).length;
-  const estSoumise =
-    fin === 'soumise' || tentative.statut === 'SOUMISE' || tentative.statut === 'NOTEE';
+  // US-QCM-08 — note de la soumission, sinon celle relue sur le serveur.
+  const score = soumise?.score ?? tentative.score;
+  const estReussie = soumise?.estReussie ?? tentative.estReussie;
+  const notee = soumise?.statut === 'NOTEE' || tentative.statut === 'NOTEE';
   const statutAffiche = enCours
     ? 'EN_COURS'
-    : estSoumise
-      ? fin === 'soumise'
+    : notee
+      ? 'NOTEE'
+      : fin === 'soumise' || tentative.statut === 'SOUMISE'
         ? 'SOUMISE'
-        : tentative.statut
-      : 'ABANDONNEE_TIMER';
+        : 'ABANDONNEE_TIMER';
+  // Comment elle s'est terminée : ce que la page a vu, sinon le statut relu.
+  const titreFin =
+    fin === 'soumise'
+      ? 'Tentative soumise'
+      : fin === 'temps_ecoule'
+        ? 'Temps écoulé'
+        : fin === 'terminee'
+          ? 'Tentative terminée'
+          : tentative.statut === 'SOUMISE'
+            ? 'Tentative soumise'
+            : tentative.statut === 'NOTEE'
+              ? 'Tentative notée'
+              : 'Temps écoulé';
+  const detailFin = soumise
+    ? `Soumise le ${dateHeureFr(soumise.dateFin)} · ${soumise.nbReponses} sur ${
+        soumise.nbQuestions
+      } question${soumise.nbQuestions > 1 ? 's' : ''} répondue${soumise.nbReponses > 1 ? 's' : ''}.`
+    : fin === 'terminee'
+      ? 'Cette tentative est terminée.'
+      : titreFin === 'Temps écoulé'
+        ? 'Vos réponses enregistrées sont conservées.'
+        : tentative.dateFin
+          ? `Terminée le ${dateHeureFr(tentative.dateFin)}.`
+          : 'Vos réponses ont été transmises.';
   const lienEspace = `/mes-inscriptions/${tentative.formationId}`;
 
   return (
@@ -404,38 +467,20 @@ export default function TentativePage(): JSX.Element {
         </>
       )}
 
-      {!enCours && estSoumise && (
+      {!enCours && (
         <section className="passage-fin">
-          <h2 className="passage-fin-titre">Tentative soumise</h2>
-          <p className="auth-subtitle">
-            {soumise
-              ? `Soumise le ${dateHeureFr(soumise.dateFin)} · ${soumise.nbReponses} sur ${
-                  soumise.nbQuestions
-                } question${soumise.nbQuestions > 1 ? 's' : ''} répondue${
-                  soumise.nbReponses > 1 ? 's' : ''
-                }.`
-              : tentative.dateFin
-                ? `Soumise le ${dateHeureFr(tentative.dateFin)}.`
-                : 'Vos réponses ont été transmises.'}{' '}
-            Votre résultat sera disponible dans votre espace.
-          </p>
-          <Link className="btn passage-fin-lien" href={lienEspace}>
-            Retour à mon espace
-          </Link>
-        </section>
-      )}
-
-      {!enCours && !estSoumise && (
-        <section className="passage-fin">
-          <h2 className="passage-fin-titre">
-            {fin === 'terminee' ? 'Tentative terminée' : 'Temps écoulé'}
-          </h2>
-          <p className="auth-subtitle">
-            {fin === 'terminee'
-              ? 'Cette tentative est terminée.'
-              : 'Vos réponses enregistrées sont conservées.'}{' '}
-            Votre résultat sera disponible dans votre espace.
-          </p>
+          <h2 className="passage-fin-titre">{titreFin}</h2>
+          <p className="auth-subtitle">{detailFin}</p>
+          {score !== null && estReussie !== null ? (
+            <div className="passage-note" aria-label="Résultat">
+              <span className="passage-note-score">{scoreFr(score)}</span>
+              <span className={`statut-badge avancement-${estReussie ? 'REUSSI' : 'ECHOUE'}`}>
+                {estReussie ? 'Réussi' : 'Échoué'}
+              </span>
+            </div>
+          ) : (
+            <p className="field-hint">Votre résultat sera disponible dans votre espace.</p>
+          )}
           <Link className="btn passage-fin-lien" href={lienEspace}>
             Retour à mon espace
           </Link>

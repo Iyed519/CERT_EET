@@ -9,6 +9,7 @@ import { StatutTentative } from '../../database/enums/statut-tentative.enum';
 import { TypeQuestion } from '../../database/enums/type-question.enum';
 import { AuditService } from '../audit/audit.service';
 import { TentativeMinuterieService } from './tentative-minuterie.service';
+import { TentativeNotationService } from './tentative-notation.service';
 import {
   MESSAGE_TEMPS_ECOULE,
   MESSAGE_TENTATIVE_INTROUVABLE,
@@ -50,6 +51,7 @@ describe('TentativePassageService', () => {
   let dataSource: { transaction: jest.Mock };
   let auditService: { record: jest.Mock };
   let minuterie: { armer: jest.Mock; effacer: jest.Mock };
+  let notation: { noterSansEchec: jest.Mock };
 
   const enCours = (surcharge: Partial<TentativeQcm> = {}): TentativeQcm =>
     ({
@@ -97,6 +99,16 @@ describe('TentativePassageService', () => {
       armer: jest.fn().mockResolvedValue(undefined),
       effacer: jest.fn().mockResolvedValue(undefined),
     };
+    // Notation (US-QCM-08) : 1 point sur 2 questions -> 50 %, réussie.
+    notation = {
+      noterSansEchec: jest.fn().mockResolvedValue({
+        tentativeId: TENTATIVE,
+        score: 50,
+        estReussie: true,
+        nbQuestions: 2,
+        nbCorrectes: 1,
+      }),
+    };
 
     const moduleRef = await Test.createTestingModule({
       providers: [
@@ -104,6 +116,7 @@ describe('TentativePassageService', () => {
         { provide: DataSource, useValue: dataSource },
         { provide: AuditService, useValue: auditService },
         { provide: TentativeMinuterieService, useValue: minuterie },
+        { provide: TentativeNotationService, useValue: notation },
       ],
     }).compile();
     service = moduleRef.get(TentativePassageService);
@@ -210,6 +223,8 @@ describe('TentativePassageService', () => {
           }),
         );
         expect(minuterie.effacer).toHaveBeenCalledWith(TENTATIVE);
+        // Réponses partielles notées avant le 409 (US-QCM-08, ET-02).
+        expect(notation.noterSansEchec).toHaveBeenCalledWith(TENTATIVE, APPRENANT);
         // Aucune réponse écrite après l'échéance.
         expect(manager.insert).not.toHaveBeenCalled();
       },
@@ -293,7 +308,7 @@ describe('TentativePassageService', () => {
   });
 
   describe('soumettre', () => {
-    it('SOUMISE à l’heure de la base, durée effective, audit QCM_SOUMIS, clé supprimée', async () => {
+    it('SOUMISE à l’heure de la base, audit QCM_SOUMIS, clé supprimée, puis notée (US-QCM-08)', async () => {
       manager.countBy.mockResolvedValue(1);
       const vue = await service.soumettre(APPRENANT, TENTATIVE, CONTEXTE);
 
@@ -306,7 +321,9 @@ describe('TentativePassageService', () => {
       expect(vue).toEqual({
         id: TENTATIVE,
         qcmId: 'qcm-1',
-        statut: StatutTentative.SOUMISE,
+        statut: StatutTentative.NOTEE,
+        score: 50,
+        estReussie: true,
         dateDebut: DEBUT,
         dateLimite: LIMITE,
         dateFin: MAINTENANT,
@@ -330,6 +347,17 @@ describe('TentativePassageService', () => {
         },
       });
       expect(minuterie.effacer).toHaveBeenCalledWith(TENTATIVE);
+      // Notée APRÈS la soumission validée et tracée, par l'apprenant.
+      expect(notation.noterSansEchec).toHaveBeenCalledWith(TENTATIVE, APPRENANT);
+      expect(notation.noterSansEchec.mock.invocationCallOrder[0]).toBeGreaterThan(
+        auditService.record.mock.invocationCallOrder[0],
+      );
+    });
+
+    it('notation en échec : la soumission tient, SOUMISE sans score (le rattrapage la notera)', async () => {
+      notation.noterSansEchec.mockResolvedValue(null);
+      const vue = await service.soumettre(APPRENANT, TENTATIVE, CONTEXTE);
+      expect(vue).toMatchObject({ statut: StatutTentative.SOUMISE, score: null, estReussie: null });
     });
 
     it('un audit QCM_SOUMIS en panne remonte : une soumission non tracée ne passe pas inaperçue', async () => {

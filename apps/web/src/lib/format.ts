@@ -148,3 +148,7 @@ export const LIBELLES_TENTATIVE: Record<StatutTentative, string> = {
 /** « 1 question sans réponse », « 3 questions sans réponse » (US-QCM-07). */
 export const sansReponseFr = (n: number): string =>
   `${n} question${n > 1 ? 's' : ''} sans réponse`;
+
+/** Score d'une tentative : « 40 % », « 33,33 % » (US-QCM-08). */
+export const scoreFr = (score: number): string =>
+  `${new Intl.NumberFormat('fr-FR', { maximumFractionDigits: 2 }).format(score)} %`;
