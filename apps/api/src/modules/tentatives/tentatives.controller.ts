@@ -21,6 +21,7 @@ import {
   TentativeConsultationService,
   TentativeConsulteeVue,
 } from './tentative-consultation.service';
+import { CorrectionVue, TentativeCorrectionService } from './tentative-correction.service';
 import { TentativeDemarrageService, TentativeDemarreeVue } from './tentative-demarrage.service';
 import {
   ReponseEnregistreeVue,
@@ -32,7 +33,8 @@ import { EnregistrerReponseDto } from './dto/enregistrer-reponse.dto';
 /**
  * Passage des QCM — côté APPRENANT (US-QCM-05 : démarrer, consulter ;
  * US-QCM-06 : questions tirées ; US-QCM-07 : enregistrer une réponse,
- * soumettre ; US-QCM-08 : notation à chaque clôture, score et réussite).
+ * soumettre ; US-QCM-08 : notation à chaque clôture, score et réussite ;
+ * US-QCM-09 : corrigé selon le mode d'affichage).
  *
  * Contrôleur à part de QcmController, dont le @Roles de classe est réservé
  * aux formateurs et administrateurs. Ici, seul un apprenant passe un QCM, et
@@ -44,7 +46,10 @@ import { EnregistrerReponseDto } from './dto/enregistrer-reponse.dto';
  * `PUT /tentatives/:tentativeId/reponses/:questionId` et
  * `POST /tentatives/:tentativeId/soumettre` plutôt que les routes
  * `/qcm/tentative/…` de DS-02 : une seule famille de routes pour la
- * tentative (US-QCM-07, D3).
+ * tentative (US-QCM-07, D3). Le corrigé a sa propre route,
+ * `GET /tentatives/:tentativeId/correction`, plutôt que le `detailParQuestion`
+ * de la réponse de soumission (DS-02 étape 5) : ni la consultation ni la
+ * soumission ne portent de bonne réponse (US-QCM-09, D1).
  */
 @ApiBearerAuth('access-token')
 @ApiTags('tentatives')
@@ -55,6 +60,7 @@ export class TentativesController {
     private readonly demarrageService: TentativeDemarrageService,
     private readonly consultationService: TentativeConsultationService,
     private readonly passageService: TentativePassageService,
+    private readonly correctionService: TentativeCorrectionService,
   ) {}
 
   @Post('qcm/:qcmId/tentatives')
@@ -115,13 +121,14 @@ export class TentativesController {
       '`type`, options `{ id, texte }` — jamais la bonne réponse, l’explication ni la pondération. ' +
       'Une tentative créée avant le tirage reçoit le sien une seule fois, à la première lecture. ' +
       '`reponses` : mes réponses déjà enregistrées, par question (US-QCM-07), pour restaurer la ' +
-      'page. Aucune clôture ici : la lecture reste sans effet.',
+      'page. Aucune clôture ici : la lecture reste sans effet. `correction` (US-QCM-09) : ' +
+      '`{ mode, disponible, raison, disponibleLe }`, sans aucune réponse.',
   })
   @ApiResponse({
     status: 200,
     description:
       'Ma tentative ; `questions` et `reponses` vides hors du temps de passage ; `score` et ' +
-      '`estReussie` renseignés une fois NOTEE (US-QCM-08).',
+      '`estReussie` renseignés une fois NOTEE (US-QCM-08) ; état du corrigé (US-QCM-09).',
   })
   @ApiResponse({ status: 400, description: 'Identifiant mal formé (UUID attendu).' })
   @ApiResponse({ status: 401, description: 'Non authentifié.' })
@@ -135,6 +142,38 @@ export class TentativesController {
     @Req() req: AuthenticatedRequest,
   ): Promise<TentativeConsulteeVue> {
     return this.consultationService.consulter(this.exigerUtilisateur(req).sub, tentativeId);
+  }
+
+  @Get('tentatives/:tentativeId/correction')
+  @ApiOperation({
+    summary: 'Consulter le corrigé d’une de mes tentatives notées (US-QCM-09)',
+    description:
+      'Score, seuil, puis chaque question dans l’ordre du tirage : énoncé, pondération, ma ' +
+      'réponse (`cochee`), juste / faux et points tels que la notation les a écrits, bonnes ' +
+      'options (`estCorrecte`) et explication. Disponible seulement si la tentative est NOTEE et : ' +
+      'fenêtre du QCM fermée (heure de la base) ; ou, en affichage IMMÉDIAT, plus aucune ' +
+      'tentative possible (quota atteint, aucune EN_COURS). En affichage DIFFÉRÉ, jamais avant ' +
+      'la fermeture. Lecture seule, sans audit.',
+  })
+  @ApiResponse({ status: 200, description: 'Corrigé de la tentative.' })
+  @ApiResponse({ status: 400, description: 'Identifiant mal formé (UUID attendu).' })
+  @ApiResponse({ status: 401, description: 'Non authentifié.' })
+  @ApiResponse({ status: 403, description: 'Rôle autre qu’apprenant.' })
+  @ApiResponse({
+    status: 404,
+    description: 'Tentative inconnue, ou tentative d’un autre apprenant (non révélée).',
+  })
+  @ApiResponse({
+    status: 409,
+    description:
+      'Corrigé indisponible, avec `message`, `raison` (non_notee | correction_differee | ' +
+      'tentatives_restantes) et `disponibleLe` (fermeture du QCM, null pour non_notee).',
+  })
+  corriger(
+    @Param('tentativeId', ParseUUIDPipe) tentativeId: string,
+    @Req() req: AuthenticatedRequest,
+  ): Promise<CorrectionVue> {
+    return this.correctionService.corriger(this.exigerUtilisateur(req).sub, tentativeId);
   }
 
   @Put('tentatives/:tentativeId/reponses/:questionId')
