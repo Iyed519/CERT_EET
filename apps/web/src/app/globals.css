@@ -415,3 +415,39 @@ textarea.input { resize: vertical; font-family: inherit; line-height: 1.45; }
 .passage-note-score { font-size: 2.1rem; font-weight: 750; letter-spacing: -0.02em; color: var(--text); font-variant-numeric: tabular-nums; }
 .passage-note .statut-badge { font-size: 0.85rem; }
 .passage-fin .field-hint { margin: 0 0 16px; }
+
+/* US-QCM-09 — Corrigé d'une tentative : bouton ou date sous le résultat, puis
+   détail par question (marques doublées d'un texte, jamais la couleur seule). */
+.corrige-action { margin: 0 0 12px; }
+.btn-secondaire { width: auto; background: var(--surface); color: var(--primary-dark); border: 1px solid var(--primary); box-shadow: none; }
+.btn-secondaire:hover:not(:disabled) { background: var(--primary-soft); box-shadow: none; }
+.corrige-attente { margin: 0 auto 16px; max-width: 520px; font-size: 0.9rem; color: var(--muted); }
+.corrige-erreur { text-align: left; }
+.corrige { margin-top: 22px; }
+.corrige-entete { display: flex; flex-wrap: wrap; align-items: baseline; justify-content: space-between; gap: 4px 16px; }
+.corrige-entete .section-title { margin: 0; }
+.corrige-entete .field-hint { margin: 0; }
+.corrige-resultat { display: inline-flex; align-items: center; gap: 8px; }
+.corrige-points { font-size: 0.82rem; font-weight: 650; color: var(--text); font-variant-numeric: tabular-nums; }
+.corrige-verdict-JUSTE { background: var(--success-soft); color: var(--primary-dark); }
+.corrige-verdict-FAUX { background: var(--danger-soft); color: #922b21; }
+.corrige-verdict-VIDE { background: #eef1f4; color: #3d4a5c; }
+.passage-question.corrige-question-JUSTE { border-left: 4px solid var(--primary); }
+.passage-question.corrige-question-FAUX { border-left: 4px solid var(--danger); }
+.passage-question.corrige-question-VIDE { border-left: 4px solid #8a96a8; }
+.corrige-consigne { margin: -6px 0 10px; }
+.corrige-option { display: flex; flex-wrap: wrap; align-items: flex-start; gap: 6px 10px; padding: 10px 12px; border: 1px solid var(--border); border-radius: var(--radius-sm); background: #faf9f6; font-size: 0.92rem; overflow-wrap: anywhere; }
+.corrige-marque { width: 16px; flex-shrink: 0; font-weight: 800; text-align: center; }
+.corrige-texte { flex: 1 1 160px; min-width: 0; }
+.corrige-etiquettes { display: inline-flex; flex-wrap: wrap; gap: 6px; margin-left: auto; }
+.corrige-etiquette { padding: 2px 8px; border-radius: 999px; font-size: 0.74rem; font-weight: 650; background: #eef1f4; color: #3d4a5c; }
+.corrige-option-correcte { border-color: var(--primary); background: var(--primary-soft); }
+.corrige-option-correcte .corrige-marque { color: var(--primary-dark); }
+.corrige-etiquette-bonne { background: #fff; color: var(--primary-dark); border: 1px solid var(--primary); }
+.corrige-option-fausse { border-color: #e3a49c; background: var(--danger-soft); }
+.corrige-option-fausse .corrige-marque { color: #922b21; }
+.corrige-explication { margin: 12px 0 0; padding: 10px 12px; border-left: 3px solid var(--accent); border-radius: 0 var(--radius-sm) var(--radius-sm) 0; background: #fef8ec; font-size: 0.9rem; line-height: 1.5; white-space: pre-line; overflow-wrap: anywhere; }
+@media (max-width: 560px) {
+  .corrige-etiquettes { margin-left: 26px; flex-basis: 100%; }
+  .btn-secondaire { width: 100%; }
+}

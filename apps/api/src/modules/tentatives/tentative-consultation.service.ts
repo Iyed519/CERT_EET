@@ -5,6 +5,8 @@ import { ConfigurationAntiFraude } from '../../database/entities/configuration-a
 import { Reponse } from '../../database/entities/reponse.entity';
 import { QuestionTiree, TentativeQcm } from '../../database/entities/tentative-qcm.entity';
 import { StatutTentative } from '../../database/enums/statut-tentative.enum';
+import { EtatCorrection } from './tentative-correction.regles';
+import { TentativeCorrectionService } from './tentative-correction.service';
 import { QuestionPresentee, TentativeTirageService } from './tentative-tirage.service';
 
 /**
@@ -21,7 +23,7 @@ export interface TentativeConsulteeVue {
   dateLimite: Date;
   dateFin: Date | null;
   // US-QCM-08 — note figée, renseignée une fois la tentative NOTEE (null
-  // avant) ; le détail par question viendra avec US-QCM-09.
+  // avant) ; le détail par question est servi par GET …/correction (US-QCM-09).
   score: number | null;
   estReussie: boolean | null;
   dureeMaxMinutes: number;
@@ -42,6 +44,9 @@ export interface TentativeConsulteeVue {
   // l'ordre du tirage (US-QCM-07, D8). Une page rechargée retrouve ainsi sa
   // sélection. Vide hors du temps de passage, comme `questions` (D15).
   reponses: Record<string, string[]>;
+  // US-QCM-09 (D12) — le corrigé est-il disponible, sinon pourquoi et à partir
+  // de quand : la page affiche le bouton ou la date. AUCUNE réponse ici.
+  correction: EtatCorrection;
 }
 
 const MESSAGE_INTROUVABLE = 'Tentative introuvable.';
@@ -64,6 +69,7 @@ export class TentativeConsultationService {
     @InjectRepository(TentativeQcm)
     private readonly tentativeRepository: Repository<TentativeQcm>,
     private readonly tirageService: TentativeTirageService,
+    private readonly correctionService: TentativeCorrectionService,
   ) {}
 
   /**
@@ -104,6 +110,7 @@ export class TentativeConsultationService {
         ? await this.tirageService.presenter(this.dataSource.manager, plan)
         : [];
     const reponses = enPassage && plan !== null ? await this.lireReponses(tentative.id, plan) : {};
+    const correction = await this.correctionService.etat(tentative, configuration, maintenant);
 
     return {
       id: tentative.id,
@@ -124,6 +131,7 @@ export class TentativeConsultationService {
       nbQuestions: plan?.length ?? 0,
       questions,
       reponses,
+      correction,
     };
   }
 

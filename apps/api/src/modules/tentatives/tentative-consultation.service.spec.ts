@@ -4,8 +4,10 @@ import { getRepositoryToken } from '@nestjs/typeorm';
 import { DataSource } from 'typeorm';
 import { TentativeQcm } from '../../database/entities/tentative-qcm.entity';
 import { StatutTentative } from '../../database/enums/statut-tentative.enum';
+import { AffichageResultats } from '../../database/enums/affichage-resultats.enum';
 import { TypeQuestion } from '../../database/enums/type-question.enum';
 import { TentativeConsultationService } from './tentative-consultation.service';
+import { TentativeCorrectionService } from './tentative-correction.service';
 import { TentativeTirageService } from './tentative-tirage.service';
 
 /**
@@ -13,7 +15,8 @@ import { TentativeTirageService } from './tentative-tirage.service';
  * US-QCM-06) : seul son apprenant la voit (404 sinon), rang et heure du
  * serveur, questions du plan pendant le temps de passage seulement, tirage
  * tardif unique pour une tentative créée avant le tirage (D8), réponses
- * enregistrées pour restaurer la page (US-QCM-07, D8/D15).
+ * enregistrées pour restaurer la page (US-QCM-07, D8/D15), état du corrigé
+ * transmis tel quel, sans aucune réponse (US-QCM-09, D12).
  */
 describe('TentativeConsultationService', () => {
   const MAINTENANT = new Date('2026-11-02T10:05:00Z');
@@ -36,6 +39,13 @@ describe('TentativeConsultationService', () => {
   let dataSource: { query: jest.Mock; transaction: jest.Mock; manager: { find: jest.Mock } };
   let tirageService: { tirer: jest.Mock; presenter: jest.Mock };
   let manager: { findOneOrFail: jest.Mock; update: jest.Mock };
+  let correctionService: { etat: jest.Mock };
+  const ETAT_CORRECTION = {
+    mode: AffichageResultats.IMMEDIAT,
+    disponible: false,
+    raison: 'non_notee',
+    disponibleLe: null,
+  };
 
   const tentative = (surcharge: Record<string, unknown> = {}): Record<string, unknown> => ({
     id: 't-1',
@@ -89,6 +99,7 @@ describe('TentativeConsultationService', () => {
         ]),
       },
     };
+    correctionService = { etat: jest.fn().mockResolvedValue(ETAT_CORRECTION) };
     tirageService = {
       tirer: jest.fn().mockResolvedValue(PLAN),
       presenter: jest.fn().mockResolvedValue(QUESTIONS),
@@ -99,6 +110,7 @@ describe('TentativeConsultationService', () => {
         { provide: DataSource, useValue: dataSource },
         { provide: getRepositoryToken(TentativeQcm), useValue: tentativeRepository },
         { provide: TentativeTirageService, useValue: tirageService },
+        { provide: TentativeCorrectionService, useValue: correctionService },
       ],
     }).compile();
     service = moduleRef.get(TentativeConsultationService);
@@ -124,7 +136,14 @@ describe('TentativeConsultationService', () => {
       nbQuestions: 1,
       questions: QUESTIONS,
       reponses: { q1: ['a'] },
+      correction: ETAT_CORRECTION,
     });
+    // L'état du corrigé est calculé à l'heure de la base, pour CETTE tentative.
+    expect(correctionService.etat).toHaveBeenCalledWith(
+      expect.objectContaining({ id: 't-1', apprenantId: 'appr-1', qcmId: 'qcm-1' }),
+      expect.objectContaining({ nbTentativesMax: 3 }),
+      MAINTENANT,
+    );
     expect(tentativeRepository.findOne).toHaveBeenCalledWith(
       expect.objectContaining({ where: { id: 't-1', apprenantId: 'appr-1' } }),
     );

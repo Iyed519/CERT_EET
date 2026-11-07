@@ -3,9 +3,12 @@ import Link from 'next/link';
 import { useParams } from 'next/navigation';
 import { useCallback, useEffect, useRef, useState } from 'react';
 import { ConfirmationModal } from '../../../components/ConfirmationModal';
+import { CorrigeTentative } from '../../../components/CorrigeTentative';
 import {
   AdminError,
+  CorrectionTentative,
   enregistrerReponse,
+  getCorrection,
   getTentative,
   PassageRefuse,
   QuestionTentative,
@@ -14,6 +17,7 @@ import {
   TentativeSoumise,
 } from '../../../lib/api';
 import {
+  attenteCorrigeFr,
   compteAReboursFr,
   CONSIGNES_TYPE_QUESTION,
   dateHeureFr,
@@ -57,8 +61,14 @@ type Fin = 'soumise' | 'temps_ecoule' | 'terminee';
  * passe en « Temps écoulé » : les réponses enregistrées sont conservées.
  *
  * US-QCM-08 — Une fois la tentative notée par le serveur, la page affiche le
- * score et « Réussi » / « Échoué » (le corrigé détaillé viendra avec
- * US-QCM-09).
+ * score et « Réussi » / « Échoué ».
+ *
+ * US-QCM-09 — Sous le résultat, l'état du corrigé décidé par le SERVEUR
+ * (`correction` de GET /api/tentatives/:id) : bouton « Voir le corrigé »
+ * quand il est disponible, sinon la date à partir de laquelle il le sera
+ * (affichage différé, ou tentatives restantes en affichage immédiat). Le
+ * corrigé lui-même vient de GET /api/tentatives/:id/correction, chargé
+ * seulement sur demande ; la page ne décide jamais seule de le montrer.
  */
 export default function TentativePage(): JSX.Element {
   const params = useParams<{ id: string }>();
@@ -75,6 +85,10 @@ export default function TentativePage(): JSX.Element {
   const [fin, setFin] = useState<Fin | null>(null);
   const [soumise, setSoumise] = useState<TentativeSoumise | null>(null);
   const [confirmation, setConfirmation] = useState(false);
+  // US-QCM-09 — corrigé chargé à la demande, et son éventuel refus.
+  const [corrige, setCorrige] = useState<CorrectionTentative | null>(null);
+  const [chargementCorrige, setChargementCorrige] = useState(false);
+  const [erreurCorrige, setErreurCorrige] = useState<string | null>(null);
 
   // Valeurs lues par les minuteurs et les promesses (sans attendre un rendu).
   const selectionsRef = useRef<Record<string, string[]>>({});
@@ -101,9 +115,11 @@ export default function TentativePage(): JSX.Element {
    * clôture). Fin vue seulement par le compte à rebours : le serveur clôt au
    * plus tard au balayage suivant (~1 min 30) — je relis donc encore deux
    * fois, à 45 s d'intervalle. Lecture seule, sans effet sur la tentative.
+   * US-QCM-09 — Après une soumission aussi : la relecture apporte l'état du
+   * corrigé (la réponse de la soumission n'en porte pas).
    */
   useEffect(() => {
-    if (fin !== 'temps_ecoule' && fin !== 'terminee') return;
+    if (fin === null) return;
     let essais = 0;
     let minuteur: number | undefined;
     let actif = true;
@@ -262,6 +278,21 @@ export default function TentativePage(): JSX.Element {
     }
   };
 
+  /** US-QCM-09 — Charge le corrigé ; un refus du serveur s'affiche tel quel. */
+  const voirCorrige = async (): Promise<void> => {
+    setChargementCorrige(true);
+    setErreurCorrige(null);
+    try {
+      setCorrige(await getCorrection(tentativeId));
+    } catch (error) {
+      setErreurCorrige(
+        error instanceof AdminError ? error.message : 'Impossible de charger le corrigé.',
+      );
+    } finally {
+      setChargementCorrige(false);
+    }
+  };
+
   // Quitter la page avec un enregistrement en attente : le navigateur prévient.
   useEffect(() => {
     const avertir = (event: BeforeUnloadEvent): void => {
@@ -339,6 +370,11 @@ export default function TentativePage(): JSX.Element {
           ? `Terminée le ${dateHeureFr(tentative.dateFin)}.`
           : 'Vos réponses ont été transmises.';
   const lienEspace = `/mes-inscriptions/${tentative.formationId}`;
+  // US-QCM-09 — état du corrigé, tel que le serveur l'a calculé à la dernière lecture.
+  const etatCorrige = tentative.correction;
+  const attenteCorrige = notee
+    ? attenteCorrigeFr(etatCorrige.raison, etatCorrige.disponibleLe)
+    : null;
 
   return (
     <>
@@ -481,11 +517,31 @@ export default function TentativePage(): JSX.Element {
           ) : (
             <p className="field-hint">Votre résultat sera disponible dans votre espace.</p>
           )}
+          {notee && etatCorrige.disponible && corrige === null && (
+            <p className="corrige-action">
+              <button
+                type="button"
+                className="btn btn-secondaire"
+                onClick={() => void voirCorrige()}
+                disabled={chargementCorrige}
+              >
+                {chargementCorrige ? 'Chargement du corrigé…' : 'Voir le corrigé'}
+              </button>
+            </p>
+          )}
+          {attenteCorrige !== null && <p className="corrige-attente">{attenteCorrige}</p>}
+          {erreurCorrige !== null && (
+            <p className="alert alert-error corrige-erreur" role="alert">
+              {erreurCorrige}
+            </p>
+          )}
           <Link className="btn passage-fin-lien" href={lienEspace}>
             Retour à mon espace
           </Link>
         </section>
       )}
+
+      {!enCours && corrige !== null && <CorrigeTentative corrige={corrige} />}
 
       {confirmation && enCours && (
         <ConfirmationModal

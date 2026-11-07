@@ -5,6 +5,7 @@ import { Qcm } from '../../database/entities/qcm.entity';
 import { TentativeQcm } from '../../database/entities/tentative-qcm.entity';
 import { TentativeBalayageService } from './tentative-balayage.service';
 import { TentativeConsultationService } from './tentative-consultation.service';
+import { TentativeCorrectionService } from './tentative-correction.service';
 import { TentativeDemarrageService } from './tentative-demarrage.service';
 import { TentativeMinuterieService } from './tentative-minuterie.service';
 import { TentativeNotationService } from './tentative-notation.service';
@@ -16,7 +17,8 @@ import { TentativesController } from './tentatives.controller';
  * Module du passage des QCM par l'apprenant (US-QCM-05 démarrage et
  * consultation ; US-QCM-06 tirage des questions ; US-QCM-07 réponses,
  * soumission, minuterie Redis et balayage des tentatives échues ; US-QCM-08
- * notation serveur et tentative figée NOTEE).
+ * notation serveur et tentative figée NOTEE ; US-QCM-09 corrigé selon le mode
+ * d'affichage).
  *
  * Séparé de QcmModule (côté formateur) : aucune dépendance vers lui ni vers
  * FormationsModule, donc aucun risque d'import circulaire.
@@ -38,6 +40,7 @@ import { TentativesController } from './tentatives.controller';
     TentativePassageService,
     TentativeBalayageService,
     TentativeNotationService,
+    TentativeCorrectionService,
   ],
 })
 export class TentativesModule {}
