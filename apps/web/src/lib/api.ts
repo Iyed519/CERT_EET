@@ -1489,6 +1489,9 @@ export interface TentativeConsultee {
   // tentative n'est pas NOTEE.
   score: number | null;
   estReussie: boolean | null;
+  // US-QCM-09 — le corrigé est-il disponible, sinon pourquoi et à partir de
+  // quand. Aucune réponse ici : le corrigé a sa propre route.
+  correction: EtatCorrection;
 }
 
 /**
@@ -1634,4 +1637,83 @@ export async function enregistrerReponse(
 export async function soumettreTentative(tentativeId: string): Promise<TentativeSoumise> {
   const response = await apiFetch(`/api/tentatives/${tentativeId}/soumettre`, { method: 'POST' });
   return lireReponsePassage<TentativeSoumise>(response, 'Impossible de soumettre la tentative.');
+}
+
+/* ============================================================
+ * US-QCM-09 — Voir son résultat : corrigé selon le mode d'affichage
+ * ============================================================ */
+
+/** Motif machine d'un corrigé indisponible (409). */
+export type RaisonCorrection = 'non_notee' | 'correction_differee' | 'tentatives_restantes';
+
+/** État du corrigé, porté par GET /api/tentatives/:id. */
+export interface EtatCorrection {
+  mode: AffichageResultats;
+  disponible: boolean;
+  raison: RaisonCorrection | null;
+  // Fermeture du QCM : date à laquelle le corrigé sera au plus tard disponible.
+  disponibleLe: string | null;
+}
+
+/** Une question du corrigé, dans l'ordre du tirage. */
+export interface QuestionCorrigee {
+  id: string;
+  enonce: string;
+  type: TypeQuestion;
+  ponderation: number;
+  repondue: boolean;
+  // Juste / faux et points : ce que la notation du serveur a écrit.
+  estCorrecte: boolean;
+  pointsObtenus: number;
+  explication: string | null;
+  options: Array<{ id: string; texte: string; cochee: boolean; estCorrecte: boolean }>;
+}
+
+/** Réponse de GET /api/tentatives/:id/correction. */
+export interface CorrectionTentative {
+  tentativeId: string;
+  qcmId: string;
+  qcmTitre: string;
+  mode: AffichageResultats;
+  score: number;
+  estReussie: boolean;
+  scoreMinValidation: number;
+  nbQuestions: number;
+  nbCorrectes: number;
+  questions: QuestionCorrigee[];
+}
+
+/** Corrigé refusé : message exact du serveur, motif et date de disponibilité. */
+export class CorrectionIndisponible extends AdminError {
+  constructor(
+    message: string,
+    statut: number,
+    public readonly raison: RaisonCorrection | null,
+    public readonly disponibleLe: string | null,
+  ) {
+    super(message, statut);
+  }
+}
+
+/**
+ * GET /api/tentatives/:id/correction — corrigé d'une de mes tentatives notées.
+ *   - 404 -> tentative inconnue ou d'un autre apprenant ;
+ *   - 409 -> CorrectionIndisponible : non notée, différé, tentatives restantes.
+ */
+export async function getCorrection(tentativeId: string): Promise<CorrectionTentative> {
+  const response = await apiFetch(`/api/tentatives/${tentativeId}/correction`);
+  const data = (await response.json().catch(() => ({}))) as {
+    message?: string | string[];
+    raison?: RaisonCorrection;
+    disponibleLe?: string | null;
+  };
+  if (!response.ok) {
+    throw new CorrectionIndisponible(
+      messageErreur(data) ?? 'Impossible de charger le corrigé.',
+      response.status,
+      data.raison ?? null,
+      data.disponibleLe ?? null,
+    );
+  }
+  return data as CorrectionTentative;
 }

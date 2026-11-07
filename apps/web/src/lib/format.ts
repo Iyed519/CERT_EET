@@ -4,6 +4,7 @@ import type {
   AvancementQcm,
   EtatFenetre,
   NiveauDifficulte,
+  RaisonCorrection,
   StatutInscription,
   StatutQcm,
   StatutTentative,
@@ -76,7 +77,9 @@ export const LIBELLES_NIVEAU: Record<NiveauDifficulte, string> = {
 
 /** Libellés FR de l'affichage du résultat (US-QCM-03). */
 export const LIBELLES_AFFICHAGE: Record<AffichageResultats, string> = {
-  IMMEDIAT: 'Immédiat (score, corrigé et explications à la soumission)',
+  // US-QCM-09 (D4) : avec plusieurs tentatives permises, le corrigé attend la dernière.
+  IMMEDIAT:
+    'Immédiat (score à la soumission ; corrigé et explications après la dernière tentative)',
   DIFFERE: 'Différé (score seul ; corrigé après la fermeture)',
 };
 
@@ -152,3 +155,32 @@ export const sansReponseFr = (n: number): string =>
 /** Score d'une tentative : « 40 % », « 33,33 % » (US-QCM-08). */
 export const scoreFr = (score: number): string =>
   `${new Intl.NumberFormat('fr-FR', { maximumFractionDigits: 2 }).format(score)} %`;
+
+/** Points d'une question : « 1 / 2 pts », « 0 / 1 pt », « 1,5 / 3 pts » (US-QCM-09). */
+export const pointsFr = (obtenus: number, ponderation: number): string => {
+  const nombre = new Intl.NumberFormat('fr-FR', { maximumFractionDigits: 2 });
+  const unite = ponderation > 1 ? 'pts' : 'pt';
+  return `${nombre.format(obtenus)} / ${nombre.format(ponderation)} ${unite}`;
+};
+
+/**
+ * Pourquoi le corrigé n'est pas encore visible, en une phrase (US-QCM-09).
+ * Null quand il n'y a rien à dire (tentative pas encore notée).
+ */
+export const attenteCorrigeFr = (
+  raison: RaisonCorrection | null,
+  disponibleLe: string | null,
+): string | null => {
+  const date = disponibleLe ? dateHeureFr(disponibleLe) : null;
+  if (raison === 'correction_differee') {
+    return date
+      ? `Le corrigé sera disponible le ${date}, après la fermeture du QCM.`
+      : 'Le corrigé sera disponible après la fermeture du QCM.';
+  }
+  if (raison === 'tentatives_restantes') {
+    return date
+      ? `Le corrigé sera disponible après votre dernière tentative, ou au plus tard le ${date}.`
+      : 'Le corrigé sera disponible après votre dernière tentative.';
+  }
+  return null;
+};
