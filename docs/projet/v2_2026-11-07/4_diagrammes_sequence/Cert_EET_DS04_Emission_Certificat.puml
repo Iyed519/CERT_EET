@@ -1,0 +1,193 @@
+@startuml Cert_EET_DS04_Emission_Certificat
+' =====================================================================
+'  Projet    : Cert_EET
+'  Diagramme : DS-04 — Émission d'un certificat (pipeline asynchrone)
+'  Acteur    : Système (déclenché post-validation formation)
+'  Ref CdC   : F3 (Certification numérique) — ADR-04 (Bull/Redis) — ADR-10
+'  Auteur    : Iyed Omri — PFE ESPRIT 2026
+' =====================================================================
+!pragma teoz true
+skinparam backgroundColor #FFFFFF
+skinparam shadowing false
+skinparam DefaultFontName "Segoe UI"
+skinparam DefaultFontSize 10
+skinparam sequenceMessageAlign center
+skinparam responseMessageBelowArrow true
+skinparam ParticipantPadding 18
+skinparam ArrowThickness 1.2
+skinparam LifeLineBorderThickness 1.0
+skinparam participant {
+  BackgroundColor #FFFFFF
+  BorderColor #5D6D7E
+}
+skinparam actor {
+  BackgroundColor #ECF0F1
+  BorderColor #1B4F72
+  FontStyle bold
+}
+skinparam database {
+  BackgroundColor #EBF5FB
+  BorderColor #1B4F72
+}
+skinparam collections {
+  BackgroundColor #E8F8F5
+  BorderColor #1E8449
+}
+skinparam control {
+  BackgroundColor #FAE5D3
+  BorderColor #BA4A00
+}
+skinparam entity {
+  BackgroundColor #E8DAEF
+  BorderColor #7D3C98
+}
+skinparam note {
+  BackgroundColor #FEF9E7
+  BorderColor #B7950B
+  FontSize 9
+}
+skinparam sequence {
+  ArrowColor #34495E
+  LifeLineBorderColor #7F8C8D
+  LifeLineBackgroundColor #FDFEFE
+  GroupBorderColor #1B4F72
+  GroupHeaderFontColor #1B4F72
+  GroupHeaderFontStyle bold
+  DividerBorderColor #1B4F72
+  DividerBackgroundColor #D6EAF8
+  DividerFontColor #1B4F72
+  DividerFontStyle bold
+}
+
+title <size:14><b>Cert_EET — DS-04 : Émission d'un Certificat</b></size>\n<size:10>Asynchrone · Bull/Redis · PDFKit · SHA-256 · QR code · F3 / ADR-10</size>
+
+control     "CertificatService\n(NestJS — thread web)" as CS
+collections "Bull Queue\n(Redis)" as BQ
+entity      "CertificatWorker\n(processus séparé)" as CW
+control     "PDFService" as PS
+control     "CryptoService\n(SHA-256)" as CRS
+control     "QRCodeService" as QR
+control     "StorageService\n(S3/MinIO)" as STO
+database    "PostgreSQL" as DB
+control     "NotifService" as NOTIF
+actor       "Apprenant" as APP
+
+' =====================================================================
+'  DÉCLENCHEMENT
+' =====================================================================
+== Déclenchement — Post-validation de formation ==
+
+note over CS
+  Déclenché par DS-03 (Correction finalisée)
+  si toutes les conditions sont réunies :
+  • Tous les QCM requis validés (score >= seuil)
+  • Tous les ateliers notés (score >= seuil)
+  • Formation non clôturée
+end note
+
+CS   ->  CS  : verifierEligibiliteCertification(\n  apprenantId, formationId\n)
+CS   ->  DB  : SELECT COUNT modules_valides\nvs modules_requis
+DB  --> CS   : { eligibleCertification: true,\n  scoreFinal, mention }
+
+CS   ->  DB  : INSERT INTO certificats\n({ apprenantId, formationId,\n  statut: EN_ATTENTE_GENERATION,\n  scoreFinal, mention,\n  organismeEmetteur: "ESPRIT",\n  dateEmission: NOW() })
+DB  --> CS   : certificatId
+
+CS   ->  BQ  : queue.add("generer-certificat",\n  { certificatId, apprenantId,\n    formationId, scoreFinal },\n  { attempts: 3,\n    backoff: 5000 })
+BQ  --> CS   : jobId
+
+CS  --> CS   : Retourne immédiatement\n(requête HTTP débloquée)
+
+note right of CS
+  **Asynchrone (ADR-04)**
+  Le thread web ne bloque pas.
+  La génération s'effectue dans
+  un processus Worker séparé.
+end note
+
+' =====================================================================
+'  WORKER — Traitement de la tâche
+' =====================================================================
+== Worker — Génération asynchrone (processus séparé) ==
+
+BQ   ->  CW  : Consomme le job\n"generer-certificat"
+
+CW   ->  DB  : UPDATE certificats SET\nstatut = EN_GENERATION\nWHERE id = :certificatId
+DB  --> CW   : OK
+
+CW   ->  DB  : SELECT certificat, apprenant,\nformation, formateur
+DB  --> CW   : Métadonnées complètes
+
+group #EBF5FB Génération PDF (PDFKit)
+  CW   ->  PS  : genererPDF({\n  nom, formation, score,\n  mention, dateEmission,\n  organismeEmetteur: "ESPRIT",\n  certificatId (UUID)\n})
+  PS   ->  PS  : Construit le PDF en mémoire\n(logo ESPRIT, mise en page,\nchamps certifiants)
+  PS  --> CW   : pdfBuffer (binaire en mémoire)
+end
+
+group #EBF5FB Calcul de l'empreinte SHA-256
+  CW   ->  CRS : calculerHash(pdfBuffer)
+  CRS  ->  CRS : crypto.createHash("sha256")\n.update(pdfBuffer).digest("hex")
+  CRS --> CW   : empreinteHex (64 caractères)
+end
+
+group #EBF5FB Génération du QR code
+  CW   ->  QR  : genererQR(\n  urlVerification =\n  "https://cert.esprit.tn/v/\n  {certificatId}"\n)
+  note right of QR
+    L'URL encode uniquement l'UUID.
+    Aucune donnée personnelle
+    dans le QR code (RGPD).
+  end note
+  QR  --> CW   : qrBuffer (PNG)
+end
+
+group #EBF5FB Reconstruction du PDF final avec QR + hash
+  CW   ->  PS  : ajouterQRcodeEtHash(\n  pdfBuffer, qrBuffer, empreinteHex\n)
+  PS  --> CW   : pdfFinal (avec QR + SHA-256\nen pied de page)
+end
+
+CW   ->  STO : upload(pdfFinal,\n  "certificats/{certificatId}.pdf")
+STO --> CW   : cheminStockage
+
+CW   ->  DB  : UPDATE certificats SET\n{ statut: ACTIF,\n  cheminPdf: cheminStockage,\n  urlVerification:\n    "https://cert.esprit.tn/v/\n    {certificatId}" }
+CW   ->  DB  : INSERT INTO empreintes_sha256\n({ certificatId,\n  valeurHash: empreinteHex,\n  algorithme: "SHA-256",\n  dateCalcul: NOW() })
+DB  --> CW   : OK
+
+CW   ->  NOTIF : notifier(apprenantId,\n  "Votre certificat est disponible",\n  { lienTelechargement,\n    urlVerification })
+NOTIF  ->  DB  : INSERT INTO notifications
+NOTIF  ->  APP : Notification In-App\n+ Email (si abonné)
+
+CW   ->  DB  : INSERT INTO audit_log\n({ action: "CERTIFICAT_EMIS",\n  certificatId, apprenantId,\n  formationId, hash })
+DB  --> CW   : OK
+
+CW  --> BQ   : Job terminé (SUCCESS)
+
+' =====================================================================
+'  GESTION DES ERREURS WORKER
+' =====================================================================
+== Gestion des erreurs (retry policy) ==
+
+alt #FFE8E8 Erreur durant la génération (tentative 1 ou 2)
+  CW  --> BQ  : Job FAILED\n(exception levée)
+  BQ   ->  BQ  : Replanifie avec backoff\n(5s, 10s, 20s)
+  BQ   ->  CW  : Relance le job\n(jusqu'à 3 tentatives)
+else #FFE8E8 Échec définitif (3 tentatives épuisées)
+  BQ   ->  DB  : UPDATE certificats SET\nstatut = EN_ATTENTE_GENERATION\n(reset pour réessai manuel)
+  BQ   ->  DB  : INSERT INTO audit_log\n({ action: "CERTIFICAT_ECHEC", certificatId })
+  BQ   ->  NOTIF : Alerte admin\n(échec de génération)
+end
+
+note over CW, DB
+  **Immuabilité (F3, NF3)**
+  Un certificat ACTIF ne peut plus être
+  modifié ni supprimé. Toute correction
+  passe par révocation + réémission.
+  Le PDF et le hash sont conservés
+  même après révocation.
+end note
+
+legend bottom
+  | <b>Couleur</b> | <b>Signification</b> |
+  | <back:#EBF5FB> bleu   </back> | Traitement asynchrone dans le Worker |
+  | <back:#FFE8E8> rouge  </back> | Chemin d'erreur / retry |
+endlegend
+
+@enduml

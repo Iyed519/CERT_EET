@@ -1,0 +1,182 @@
+@startuml Cert_EET_DS12_Creer_QCM
+' =====================================================================
+'  DS-12 — Créer un QCM complet (contenu + anti-fraude + publication)
+'  Acteur : Formateur · Ref : UC1 + UC2 Formateur · F1
+' =====================================================================
+!pragma teoz true
+skinparam backgroundColor #FFFFFF
+skinparam shadowing false
+skinparam DefaultFontName "Segoe UI"
+skinparam DefaultFontSize 10
+skinparam sequenceMessageAlign center
+skinparam responseMessageBelowArrow true
+skinparam ParticipantPadding 18
+skinparam ArrowThickness 1.2
+skinparam LifeLineBorderThickness 1.0
+skinparam participant {
+  BackgroundColor #FFFFFF
+  BorderColor #5D6D7E
+}
+skinparam actor {
+  BackgroundColor #ECF0F1
+  BorderColor #1B4F72
+  FontStyle bold
+}
+skinparam database {
+  BackgroundColor #EBF5FB
+  BorderColor #1B4F72
+}
+skinparam boundary {
+  BackgroundColor #FEF9E7
+  BorderColor #B7950B
+}
+skinparam control {
+  BackgroundColor #FAE5D3
+  BorderColor #BA4A00
+}
+skinparam note {
+  BackgroundColor #FEF9E7
+  BorderColor #B7950B
+  FontSize 9
+}
+skinparam sequence {
+  ArrowColor #34495E
+  LifeLineBorderColor #7F8C8D
+  LifeLineBackgroundColor #FDFEFE
+  GroupBorderColor #1B4F72
+  GroupHeaderFontColor #1B4F72
+  GroupHeaderFontStyle bold
+  DividerBorderColor #1B4F72
+  DividerBackgroundColor #D6EAF8
+  DividerFontColor #1B4F72
+  DividerFontStyle bold
+}
+
+title <size:14><b>Cert_EET — DS-12 : Créer un QCM complet</b></size>\n<size:10>Contenu pédagogique · Configuration anti-fraude · Publication · UC1+UC2 Formateur</size>
+
+actor "Formateur" as FOR
+boundary "Frontend\n(Next.js)" as FE
+control "QCMController\n(NestJS)" as QC
+control "QCMService" as QS
+database "PostgreSQL" as DB
+
+== Partie 1 — Création du contenu pédagogique (UC1) ==
+
+FOR -> FE  : Accède à sa formation\net clique "Nouveau QCM"
+FE  -> QC  : GET /formations/:id/modules\n(pour sélectionner le module cible)
+QC  -> DB  : SELECT modules WHERE\nformationId = :id
+DB --> QC  : modules[]
+QC --> FE  : HTTP 200 OK
+FE --> FOR : Formulaire de création
+
+FOR -> FE  : Saisit les métadonnées :\n• Titre du QCM\n• Description\n• Module cible\n• Brouillon ou prêt à configurer
+FE  -> QC  : POST /qcm\n{ titre, description, moduleId,\n  formationId }
+QC  -> QS  : creerQCM(formateurId, data)
+QS  -> DB  : Vérifie que le formateur\nannime bien cette formation
+QS  -> DB  : INSERT INTO qcm\n({ titre, description, moduleId,\n  formateurId, statut: "Brouillon" })
+DB --> QS  : qcmId
+QS --> QC  : { qcmId }
+QC --> FE  : HTTP 201 Created
+FE --> FOR : Redirige vers l'éditeur\nde questions
+
+== Partie 2 — Ajout des questions ==
+
+loop Formateur ajoute chaque question
+  FOR -> FE  : Saisit :\n• Énoncé\n• Type (QCM/QCU/VF)\n• Options de réponse\n• Marque la/les bonnes réponses\n• Pondération\n• Explication (optionnel)
+
+  FE  -> QC  : POST /qcm/:qcmId/questions\n{ enonce, type, ponderation,\n  explication, options[] }
+  QC  -> QS  : ajouterQuestion(qcmId, data)
+
+  QS  -> QS  : valider(question)\n• Au moins 2 options\n• Au moins 1 option correcte\n• QCU → exactement 1 correcte
+
+  alt #FFE8E8 Validation échouée
+    QS --> QC : BadRequestException
+    QC --> FE : HTTP 400 + détail erreur
+    FE --> FOR : Message d'erreur ciblé
+  else #E8F8F5 Valide
+    QS  -> DB  : INSERT INTO questions\n({ qcmId, enonce, type,\n  ponderation, explication })
+    QS  -> DB  : INSERT INTO options[]\n(texte, estCorrecte)
+    DB --> QS  : questionId
+    QS --> QC  : { questionId }
+    QC --> FE  : HTTP 201 Created
+    FE --> FOR : Question ajoutée ✓\n(compteur mis à jour)
+  end
+end
+
+alt #FEF9E7 Import depuis banque de questions
+  FOR -> FE  : Clique "Importer depuis\nla banque"
+  FE  -> QC  : GET /banque-questions\n?formateurId=:id&search=:terme
+  QC  -> DB  : SELECT questions FROM\nbanque_questions WHERE formateurId
+  DB --> QC  : questions[]
+  QC --> FE  : HTTP 200 OK
+  FE --> FOR : Liste des questions\nde la banque
+
+  FOR -> FE  : Sélectionne des questions
+  FE  -> QC  : POST /qcm/:qcmId/questions/importer\n{ questionIds[] }
+  QC  -> QS  : importerDepuisBanque(qcmId, ids)
+  QS  -> DB  : INSERT INTO qcm_questions\n(liaison QCM ↔ Question existante)
+  DB --> QS  : OK
+  QS --> QC  : OK
+  QC --> FE  : HTTP 200 OK
+  FE --> FOR : "X questions importées"
+end
+
+== Partie 3 — Configuration anti-fraude et publication (UC2) ==
+
+FOR -> FE  : Clique "Paramètres et Publication"
+FE --> FOR : Formulaire de configuration :
+
+FOR -> FE  : Configure :\n• Randomisation questions/options\n• Durée maximale (min)\n• Fenêtre ouverture/fermeture\n• Nb tentatives max\n• Délai entre tentatives (h)\n• Blocage sessions multiples\n• Affichage résultats (Immédiat/Différé)\n• Score minimum de validation (%)\n• Pondération dans la formation (%)\n• Proctoring webcam (optionnel)
+
+FE  -> QC  : POST /qcm/:qcmId/configuration\n{ randomiserQuestions, randomiserOptions,\n  dureeMaxMinutes, dateOuverture,\n  dateFermeture, nbTentativesMax,\n  delaiEntreTentatives, blocageSessionsMultiples,\n  affichageResultats, scoreMinValidation,\n  ponderationFormation, proctoringWebcam }
+QC  -> QS  : configurerAntiFraude(qcmId, config)
+
+QS  -> QS  : validerConfiguration()\n• dateOuverture < dateFermeture\n• dureeMax > 0\n• scoreMin IN [0, 100]\n• ponderation IN [0, 100]
+
+alt #FFE8E8 Configuration invalide
+  QS --> QC : BadRequestException
+  QC --> FE : HTTP 400 + erreurs
+  FE --> FOR : Erreurs de validation
+else #E8F8F5 Configuration valide
+  QS  -> DB  : INSERT INTO config_anti_fraude\n({ qcmId, randomiserQuestions, ... })
+  QS  -> DB  : UPDATE qcm SET statut = "NonPublié"
+  DB --> QS  : OK
+  QS --> QC  : OK
+  QC --> FE  : HTTP 200 OK
+  FE --> FOR : "Configuration sauvegardée.\nProchain : Publier le QCM"
+end
+
+FOR -> FE  : Clique "Publier"
+FE  -> QC  : PATCH /qcm/:qcmId/publier
+QC  -> QS  : publierQCM(qcmId, formateurId)
+
+QS  -> DB  : SELECT COUNT(questions)\nWHERE qcmId = :id
+DB --> QS  : nbQuestions
+
+alt #FFE8E8 Aucune question ou\nconfiguration manquante
+  QS --> QC : BadRequestException\n"QCM incomplet pour publication"
+  QC --> FE : HTTP 400
+  FE --> FOR : "Ajoutez au moins 1 question\net configurez l'anti-fraude"
+else #E8F8F5 QCM complet
+  QS  -> DB  : UPDATE qcm SET statut = "Publié"
+  QS  -> DB  : INSERT INTO audit_log\n({ action: "QCM_PUBLIE",\n  qcmId, formateurId })
+  DB --> QS  : OK
+  QS --> QC  : { qcm }
+  QC --> FE  : HTTP 200 OK
+  FE --> FOR : "QCM publié ✅\nVisible aux apprenants\ndès l'ouverture de la fenêtre."
+end
+
+note over QS, DB
+  **Modification post-première tentative**
+  Dès qu'un apprenant a soumis une tentative,
+  seules les EXPLICATIONS sont modifiables.
+  Toute modification de contenu est bloquée
+  (intégrité de l'évaluation certifiante).
+end note
+
+legend bottom
+  | <back:#E8F8F5> vert  </back> | Succès |
+  | <back:#FFE8E8> rouge </back> | Erreur / validation |
+  | <back:#FEF9E7> jaune </back> | Variante (banque) |
+endlegend
+@enduml

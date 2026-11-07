@@ -1,0 +1,175 @@
+@startuml Cert_EET_DS11_Desinscription
+' =====================================================================
+'  DS-11 — Désinscription d'une formation
+'  Acteurs : Apprenant (auto-désinscription) + Admin (retrait forcé)
+' =====================================================================
+!pragma teoz true
+skinparam backgroundColor #FFFFFF
+skinparam shadowing false
+skinparam DefaultFontName "Segoe UI"
+skinparam DefaultFontSize 10
+skinparam sequenceMessageAlign center
+skinparam responseMessageBelowArrow true
+skinparam ParticipantPadding 18
+skinparam ArrowThickness 1.2
+skinparam LifeLineBorderThickness 1.0
+skinparam participant {
+  BackgroundColor #FFFFFF
+  BorderColor #5D6D7E
+}
+skinparam actor {
+  BackgroundColor #ECF0F1
+  BorderColor #1B4F72
+  FontStyle bold
+}
+skinparam database {
+  BackgroundColor #EBF5FB
+  BorderColor #1B4F72
+}
+skinparam boundary {
+  BackgroundColor #FEF9E7
+  BorderColor #B7950B
+}
+skinparam control {
+  BackgroundColor #FAE5D3
+  BorderColor #BA4A00
+}
+skinparam collections {
+  BackgroundColor #E8F8F5
+  BorderColor #1E8449
+}
+skinparam note {
+  BackgroundColor #FEF9E7
+  BorderColor #B7950B
+  FontSize 9
+}
+skinparam sequence {
+  ArrowColor #34495E
+  LifeLineBorderColor #7F8C8D
+  LifeLineBackgroundColor #FDFEFE
+  GroupBorderColor #1B4F72
+  GroupHeaderFontColor #1B4F72
+  GroupHeaderFontStyle bold
+  DividerBorderColor #1B4F72
+  DividerBackgroundColor #D6EAF8
+  DividerFontColor #1B4F72
+  DividerFontStyle bold
+}
+
+title <size:14><b>Cert_EET — DS-11 : Désinscription d'une Formation</b></size>\n<size:10>Auto-désinscription apprenant · Retrait admin · Conservation des données · UC1/UC4</size>
+
+actor "Apprenant" as APP
+actor "Administrateur" as ADM
+boundary "Frontend\n(Next.js)" as FE
+control "InscriptionController\n(NestJS)" as IC
+control "InscriptionService" as IS
+database "PostgreSQL" as DB
+collections "NotifService" as NOTIF
+
+== Partie 1 — Auto-désinscription (Apprenant) ==
+
+APP -> FE  : Ouvre la formation\net clique "Me désinscrire"
+FE --> APP : Affiche les conséquences :\n"• Votre progression sera conservée\n  en lecture seule\n• Les certificats déjà obtenus\n  restent valides\n• Vous ne pourrez plus accéder\n  aux évaluations\n• Action réversible uniquement\n  par un administrateur"
+APP -> FE  : Confirme la désinscription
+
+FE  -> IC  : DELETE /inscriptions/:inscriptionId\n(Bearer token apprenant)
+IC  -> IS  : demanderDesinscription(\n  apprenantId, inscriptionId\n)
+
+IS  -> DB  : SELECT inscription\nWHERE id = :id\nAND apprenantId = :appId
+DB --> IS  : inscription
+
+alt #FFE8E8 Inscription non trouvée ou\nne lui appartient pas
+  IS --> IC : NotFoundException
+  IC --> FE : HTTP 404
+  FE --> APP : "Inscription introuvable"
+end
+
+IS  -> DB  : SELECT COUNT(*) FROM certificats\nWHERE apprenantId = :id\nAND formationId = :formationId\nAND statut = "ACTIF"
+DB --> IS  : nbCertificatsActifs
+
+note right of IS
+  Si l'apprenant a déjà un certificat
+  ACTIF, la désinscription ne l'affecte
+  pas — il restera titulaire.
+  C'est une désinscription du parcours
+  actif, pas une révocation.
+end note
+
+IS  -> DB  : UPDATE inscriptions SET\nstatut = "Suspendue"\nWHERE id = :inscriptionId
+
+note right of DB
+  On ne SUPPRIME pas l'inscription.
+  On la SUSPEND pour conserver
+  la traçabilité (audit, RGPD).
+end note
+
+IS  -> DB  : INSERT INTO audit_log\n({ action: "DESINSCRIPTION_APPRENANT",\n  apprenantId, formationId })
+IS  -> NOTIF : notifier(formateurs[],\n  "Un apprenant s'est désincrit",\n  { apprenantNom, formationTitre })
+NOTIF -> DB  : INSERT INTO notifications
+DB --> IS  : OK
+
+IS --> IC  : OK
+IC --> FE  : HTTP 200 OK
+FE --> APP : "Vous avez été désinscrit.\nVos données et certificats\nsont conservés."
+
+== Partie 2 — Retrait forcé par l'administrateur (UC4 Admin) ==
+
+ADM -> FE  : Ouvre la fiche de la formation\nUnglet "Apprenants inscrits"
+FE  -> IC  : GET /admin/formations/:id/inscriptions
+IC  -> IS  : getInscriptions(formationId)
+IS  -> DB  : SELECT inscriptions JOIN apprenants
+DB --> IS  : liste[]
+IS --> IC  : liste[]
+IC --> FE  : HTTP 200 OK
+FE --> ADM : Tableau des apprenants
+
+ADM -> FE  : Clique "Retirer" pour\nun apprenant spécifique
+
+FE --> ADM : Confirmation :\n"Retrait avec ou sans\nconservation des données ?"
+
+alt #EBF5FB Aucune activité enregistrée\n(inscription toute récente)
+  ADM -> FE  : Choisit "Supprimer\ncomplètement"
+  FE  -> IC  : DELETE /admin/inscriptions/:id?mode=hard
+  IC  -> IS  : supprimerInscription(\n  inscriptionId, mode: "hard"\n)
+  IS  -> DB  : DELETE FROM inscriptions\nWHERE id = :id
+  IS  -> DB  : INSERT INTO audit_log\n({ action: "DESINSCRIPTION_ADMIN_HARD",\n  adminId, apprenantId })
+  DB --> IS  : OK
+  IS --> IC  : OK
+  IC --> FE  : HTTP 200 OK
+  FE --> ADM : "Apprenant retiré (données supprimées)"
+
+else #FEF9E7 Activité enregistrée\n(tentatives QCM, livrables…)
+  ADM -> FE  : Choisit "Suspendre\n(données conservées)"
+  FE  -> IC  : PATCH /admin/inscriptions/:id\n{ statut: "Suspendue",\n  motif: "Retrait administratif" }
+  IC  -> IS  : suspendreInscription(\n  inscriptionId, adminId, motif\n)
+  IS  -> DB  : UPDATE inscriptions SET\nstatut = "Suspendue"
+  IS  -> DB  : INSERT INTO audit_log\n({ action: "DESINSCRIPTION_ADMIN_SOFT",\n  adminId, apprenantId, motif })
+  IS  -> NOTIF : notifier(apprenant,\n  "Vous avez été retiré de la formation\n  {titre}", { motif })
+  NOTIF -> DB  : INSERT INTO notifications
+  NOTIF --> APP : Notification In-App + Email
+  DB --> IS  : OK
+  IS --> IC  : OK
+  IC --> FE  : HTTP 200 OK
+  FE --> ADM : "Inscription suspendue\n(données conservées)"
+end
+
+== Partie 3 — Ré-inscription après suspension (Admin) ==
+
+ADM -> FE  : Clique "Réactiver" sur\nune inscription suspendue
+FE  -> IC  : PATCH /admin/inscriptions/:id\n{ statut: "EnCours" }
+IC  -> IS  : reactiverInscription(inscriptionId)
+IS  -> DB  : UPDATE inscriptions SET\nstatut = "EnCours"
+IS  -> DB  : INSERT INTO audit_log\n({ action: "REINSCRIPTION", adminId })
+IS  -> NOTIF : notifier(apprenant,\n  "Votre accès a été rétabli")
+DB --> IS  : OK
+IS --> IC  : OK
+IC --> FE  : HTTP 200 OK
+FE --> ADM : "Inscription réactivée"
+
+legend bottom
+  | <back:#E8F8F5> vert  </back> | Désinscription apprenant (soft) |
+  | <back:#EBF5FB> bleu  </back> | Suppression admin (hard) |
+  | <back:#FEF9E7> jaune </back> | Suspension admin (soft) |
+  | <back:#FFE8E8> rouge </back> | Erreur / refus |
+endlegend
+@enduml

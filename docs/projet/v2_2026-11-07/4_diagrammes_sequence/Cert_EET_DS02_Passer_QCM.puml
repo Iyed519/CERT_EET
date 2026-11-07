@@ -1,0 +1,283 @@
+@startuml Cert_EET_DS02_Passer_QCM
+' =====================================================================
+'  Projet    : Cert_EET — Plateforme de Certification Numérique
+'  Diagramme : DS-02 — Passer un QCM (de l'ouverture au corrigé)
+'  Acteur    : Apprenant
+'  Ref CdC   : F1 (QCM anti-fraude) — ConfigurationAntiFraude
+'  Version   : 1.1 — 07/11/2026, alignée sur l'implémentation du Sprint 2
+'              (US-QCM-05 à 09, engineering-log/30 à 34). Changements v1.0 → v1.1 :
+'              routes réelles ; refus 409 (403 réservé à l'inscription) ;
+'              échéance décidée par PostgreSQL, Redis en miroir ; balayage 60 s ;
+'              état final NOTEE + trigger ; audit TENTATIVE_NOTEE ; corrigé sur
+'              une route dédiée (étape 5) ; verrou multi-session = US-QCM-10.
+'  Auteur    : Iyed Omri — PFE ESPRIT Ingénierie Logicielle 2026
+' =====================================================================
+
+!pragma teoz true
+skinparam backgroundColor #FFFFFF
+skinparam shadowing false
+skinparam DefaultFontName "Segoe UI"
+skinparam DefaultFontSize 10
+skinparam sequenceMessageAlign center
+skinparam responseMessageBelowArrow true
+skinparam BoxPadding 12
+skinparam ParticipantPadding 18
+skinparam ArrowThickness 1.2
+skinparam LifeLineBorderThickness 1.0
+
+skinparam participant {
+  BackgroundColor #FFFFFF
+  BorderColor #5D6D7E
+  BorderThickness 1.1
+}
+skinparam actor {
+  BackgroundColor #ECF0F1
+  BorderColor #1B4F72
+  BorderThickness 1.4
+  FontStyle bold
+}
+skinparam database {
+  BackgroundColor #EBF5FB
+  BorderColor #1B4F72
+}
+skinparam collections {
+  BackgroundColor #E8F8F5
+  BorderColor #1E8449
+}
+skinparam boundary {
+  BackgroundColor #FEF9E7
+  BorderColor #B7950B
+}
+skinparam control {
+  BackgroundColor #FAE5D3
+  BorderColor #BA4A00
+}
+skinparam note {
+  BackgroundColor #FEF9E7
+  BorderColor #B7950B
+  FontSize 9
+}
+skinparam sequence {
+  ArrowColor #34495E
+  LifeLineBorderColor #7F8C8D
+  LifeLineBackgroundColor #FDFEFE
+  GroupBorderColor #1B4F72
+  GroupHeaderFontColor #1B4F72
+  GroupHeaderFontStyle bold
+  DividerBorderColor #1B4F72
+  DividerBackgroundColor #D6EAF8
+  DividerFontColor #1B4F72
+  DividerFontStyle bold
+}
+
+title <size:14><b>Cert_EET — DS-02 : Passer un QCM</b></size>\n<size:10>Anti-fraude · Échéance serveur · Tirage · Notation serveur · Corrigé · F1 — v1.1</size>
+
+' =====================================================================
+'  PARTICIPANTS
+' =====================================================================
+actor       "Apprenant" as APP
+boundary    "Frontend\n(Next.js)" as FE
+control     "TentativesController\n(NestJS)" as TC
+control     "Services de tentative\n(démarrage, tirage, passage,\nnotation, correction)" as TS
+database    "PostgreSQL" as DB
+collections "Redis\n(miroir de minuterie)" as RD
+
+' =====================================================================
+'  ÉTAPE 1 — Démarrer une tentative (US-QCM-05)
+' =====================================================================
+== Étape 1 — Démarrer une tentative (contrôle serveur, US-QCM-05) ==
+
+APP  ->  FE  : Clique « Commencer »\ndepuis « Mon espace » (DS-09)
+FE   ->  TC  : POST /qcm/:qcmId/tentatives\n(Authorization: Bearer accessToken)
+TC   ->  TS  : demarrer(apprenantId, qcmId)
+
+TS   ->  DB  : BEGIN ; SELECT qcm, config_anti_fraude,\ninscription … FOR UPDATE ;\nSELECT now()
+DB  --> TS   : { statut, dateOuverture, dateFermeture,\nnbTentativesMax, delaiEntreTentatives,\ninscription, maintenant }
+
+alt #FFE8E8 Non inscrit, inscription suspendue ou terminée
+  TS  --> TC  : ForbiddenException
+  TC  --> FE  : HTTP 403 { message }
+  FE  --> APP : Message ciblé
+end
+
+group #FFE8E8 Vérifications anti-fraude (horloge de PostgreSQL, sous verrou)
+  TS   ->  TS  : QCM PUBLIE ?
+  TS   ->  TS  : maintenant ∈ [dateOuverture, dateFermeture[ ?
+  TS   ->  TS  : nbTentativesPassees < nbTentativesMax ?
+  TS   ->  TS  : délai depuis la précédente ≥ délai minimal ?
+
+  alt #FFE8E8 Une vérification échoue
+    TS  --> TC  : refus renvoyé par la transaction,\nlevé après COMMIT
+    TC  --> FE  : HTTP 409 Conflict\n{ raison: "hors_fenetre"\n| "tentatives_epuisees"\n| "delai_non_respecte",\n  message, date de réouverture }
+    FE  --> APP : Message ciblé\n+ date de réouverture si applicable
+  end
+end
+
+note right of TS
+  Une tentative EN_COURS existante
+  est **reprise** (200), jamais dupliquée.
+  Verrou « sessions multiples » :
+  US-QCM-10 (Sprint 3).
+end note
+
+' =====================================================================
+'  ÉTAPE 2 — Tirage figé et non-fuite (US-QCM-06)
+' =====================================================================
+== Étape 2 — Création de la tentative, tirage et non-fuite (US-QCM-06) ==
+
+TS   ->  DB  : SELECT questions du QCM\n(+ id des options, sans estCorrecte)
+DB  --> TS   : N questions + options
+
+group #EBF5FB Tirage côté serveur (générateur cryptographique)
+  TS   ->  TS  : tirer K questions parmi N (si configuré)
+  TS   ->  TS  : mélanger questions et options\n(si la randomisation est activée ;\nVrai/Faux jamais mélangé)
+end
+
+TS   ->  DB  : INSERT tentatives_qcm\n({ statut: EN_COURS, dateDebut: now(),\n  dateLimite: min(dateDebut + durée, dateFermeture),\n  planTirage }) ; audit TENTATIVE_DEMARREE ; COMMIT
+DB  --> TS   : tentativeId
+TS   ->  RD  : SET timer:{tentativeId}\n(miroir de dateLimite, jamais décideur)
+
+TS  --> TC   : { id, numero, dateLimite, maintenant }
+TC  --> FE   : HTTP 201 Created
+FE   ->  TC  : GET /tentatives/:tentativeId
+TC   ->  TS  : consulter(apprenantId, tentativeId)
+TS  --> TC   : questions dans l'ordre du plan,\nen **liste blanche** { id, enonce, type,\noptions: [{ id, texte }] } + réponses déjà\nenregistrées + état du corrigé
+TC  --> FE   : HTTP 200 OK
+FE  --> APP  : Affiche le QCM + compte à rebours\ncalé sur l'heure du serveur
+
+note right of TS
+  Jamais transmis pendant le passage :
+  estCorrecte, explication, pondération.
+  Prouvé par un test de non-fuite
+  sur le trafic réel (US-QCM-06).
+end note
+
+' =====================================================================
+'  ÉTAPE 3 — Réponses et échéance serveur (US-QCM-07)
+' =====================================================================
+== Étape 3 — Réponses enregistrées au fil de l'eau, échéance serveur (US-QCM-07) ==
+
+loop L'apprenant répond (envoi peu après chaque changement)
+  APP  ->  FE  : Coche / décoche une option
+  FE   ->  TC  : PUT /tentatives/:tentativeId/reponses/:questionId\n{ optionIds[] }
+  TC   ->  TS  : enregistrer(apprenantId, tentativeId, questionId, optionIds)
+  TS   ->  DB  : BEGIN ; SELECT tentative FOR UPDATE ;\nSELECT clock_timestamp()
+
+  alt #FFE8E8 Échéance atteinte (maintenant ≥ dateLimite)
+    TS   ->  DB  : UPDATE tentatives_qcm SET\nstatut = ABANDONNEE_TIMER,\ndateFin = dateLimite ; COMMIT\n(réponses partielles conservées)
+    TS   ->  TS  : notation (étape 4)
+    TS  --> TC   : refus levé après COMMIT
+    TC  --> FE   : HTTP 409 { raison: "temps_ecoule" }
+    FE  --> APP  : « Temps écoulé » + résultat
+  else #E8F8F5 Dans le temps
+    TS   ->  DB  : remplace la réponse de la question\n(liste vide = réponse effacée) ; COMMIT
+    TS  --> TC   : { enregistree, maintenant, dateLimite }
+    TC  --> FE   : HTTP 200 OK
+    FE  --> APP  : Indicateur « Enregistré »
+  end
+end
+
+note over TS, RD
+  **Balayage** (toutes les 60 s) : clôt en ABANDONNEE_TIMER
+  les tentatives échues que plus personne ne touche,
+  puis les note (rattrapage compris).
+end note
+
+' =====================================================================
+'  ÉTAPE 4 — Soumission et notation serveur (US-QCM-08)
+' =====================================================================
+== Étape 4 — Soumission et notation serveur (US-QCM-07 / US-QCM-08) ==
+
+APP  ->  FE  : Clique « Soumettre »
+FE   ->  FE  : Demande confirmation
+APP  ->  FE  : Confirme
+FE   ->  TC  : POST /tentatives/:tentativeId/soumettre
+TC   ->  TS  : soumettre(apprenantId, tentativeId)
+TS   ->  DB  : BEGIN ; SELECT tentative FOR UPDATE ;\nstatut = SOUMISE, dateFin = now() ;\naudit QCM_SOUMIS ; COMMIT
+TS   ->  RD  : DEL timer:{tentativeId}
+
+group #EBF5FB Notation côté serveur (F1 — jamais côté client), dans sa propre transaction
+  TS   ->  DB  : SELECT tentative FOR UPDATE\n(rien si déjà NOTEE)
+  TS   ->  DB  : questions du plan (pondération),\noptions correctes (requête explicite\nsur est_correcte), réponses cochées
+  TS   ->  TS  : correcte = ensemble coché == ensemble correct\n(choix multiple : tout ou rien)
+  TS   ->  TS  : score = Σ(pondération × correcte)\n/ Σ(pondération) × 100 (2 décimales)
+  TS   ->  TS  : estReussie = score ≥ scoreMinValidation
+  TS   ->  DB  : UPDATE reponses SET estCorrecte, pointsObtenus
+  TS   ->  DB  : UPDATE tentatives_qcm SET statut = NOTEE,\nscore, estReussie
+  TS   ->  DB  : UPDATE inscriptions SET taux_avancement\n(sous verrou, recalculé à la notation)
+  TS   ->  DB  : COMMIT ; audit TENTATIVE_NOTEE
+end
+
+TS  --> TC   : { statut: NOTEE, score, estReussie, … }\n(aucune bonne réponse)
+TC  --> FE   : HTTP 200 OK
+FE   ->  TC  : GET /tentatives/:tentativeId\n(relecture : état du corrigé)
+TC  --> FE   : HTTP 200 { …, score, estReussie,\n  correction: { mode, disponible,\n  raison, disponibleLe } }
+
+note right of DB
+  **Trigger** : toute modification d'une
+  tentative NOTEE est refusée,
+  même en SQL direct (immuabilité).
+end note
+
+' =====================================================================
+'  ÉTAPE 5 — Résultat et corrigé (US-QCM-09)
+' =====================================================================
+== Étape 5 — Résultat et corrigé (US-QCM-09) ==
+
+FE  --> APP  : Score + « Réussi » / « Échoué »
+
+alt #E8F8F5 correction.disponible = true\n(fenêtre fermée, ou IMMÉDIAT sans tentative restante ni en cours)
+  FE  --> APP  : Bouton « Voir le corrigé »
+  APP  ->  FE  : Clique
+  FE   ->  TC  : GET /tentatives/:tentativeId/correction
+  TC   ->  TS  : corriger(apprenantId, tentativeId)
+  TS   ->  DB  : propriétaire ? NOTEE ? SELECT now() ;\ncompte de mes tentatives sur ce QCM
+  TS   ->  DB  : questions du plan, options correctes\n(requête explicite), réponses notées
+  TS  --> TC   : corrigé en liste blanche, ordre du tirage
+  TC  --> FE   : HTTP 200 { score, scoreMinValidation,\n  questions: [{ enonce, ponderation, repondue,\n  estCorrecte, pointsObtenus, explication,\n  options: [{ texte, cochee, estCorrecte }] }] }
+  FE  --> APP  : Par question : ma réponse, juste / faux,\npoints, bonne(s) réponse(s), explication
+else #FEF9E7 Différé, avant la fermeture
+  FE  --> APP  : « Le corrigé sera disponible le {disponibleLe},\naprès la fermeture du QCM »
+else #FEF9E7 Immédiat, tentative encore possible
+  FE  --> APP  : « Le corrigé sera disponible après votre\ndernière tentative, ou au plus tard le {disponibleLe} »
+end
+
+note right of TC
+  Demande directe avant l'heure :
+  HTTP 409 { raison: "non_notee"
+  | "correction_differee"
+  | "tentatives_restantes", disponibleLe }.
+  Tentative d'un autre apprenant : 404.
+  Lecture seule, sans audit.
+end note
+
+' =====================================================================
+'  NOTES
+' =====================================================================
+note over TS, DB
+  **Logique 100 % côté serveur (F1)**
+  Horloge unique : PostgreSQL (now() / clock_timestamp()).
+  Un refus n'annule jamais une écriture légitime :
+  il est renvoyé par la transaction et levé après COMMIT.
+end note
+
+note over RD
+  **Redis — usage ici**
+  Miroir de l'échéance (timer:{id}),
+  supprimé à la clôture.
+  Verrou de session multi-appareil :
+  US-QCM-10 (Sprint 3).
+end note
+
+' =====================================================================
+'  LÉGENDE
+' =====================================================================
+legend bottom
+  | <b>Couleur</b> | <b>Signification</b> |
+  | <back:#FFE8E8> rouge </back> | Chemin d'erreur / refus |
+  | <back:#E8F8F5> vert  </back> | Chemin nominal / succès |
+  | <back:#EBF5FB> bleu  </back> | Traitement critique côté serveur |
+  | <back:#FEF9E7> jaune </back> | Variante de comportement |
+endlegend
+
+@enduml
