@@ -13,6 +13,109 @@
 
 ---
 
+## [Sprint 2] — Formations, inscriptions & moteur de QCM anti-fraude — ✅ CLÔTURÉ
+
+**Résumé :** 13 stories livrées (12 engagées, 46 pts + 1 d'extension, 2 pts) et le modèle de données,
+du 05/10 au 07/11/2026 (PR #23 → #38). **741 tests automatisés verts** (468 unitaires + 273 e2e). Un
+administrateur organise une formation, un apprenant s'y inscrit et passe un **QCM certifiant** dont
+toutes les règles — tirage, temps, notation, corrigé — sont décidées par le serveur. Revue de sprint et
+rétrospective : `docs/Sprint2_Review.md`.
+
+### Socle
+
+#### Enabler — Modèle de données du Sprint 2 — PR #23 · journal `engineering-log/21`
+- **Quoi :** 12 tables du cœur métier (formations, modules, inscriptions, affectations, QCM,
+  configuration anti-fraude, questions, options, tentatives, réponses) en deux migrations réversibles.
+  **Pourquoi :** aucune story ne se code sans elles ; le schéma porte lui-même une partie des garanties
+  (unicités, clés étrangères, bonne réponse jamais chargée par défaut).
+
+### Formations & autorisation (E2 / E1)
+
+#### US-FORM-01 — Créer et configurer une formation — PR #24 · journal `engineering-log/22`
+- **Quoi :** l'administrateur crée, modifie une formation (objectifs, capacité, seuil, modèle de
+  certificat) et gère ses modules ; chaque écriture est auditée. **Pourquoi :** la racine du métier.
+
+#### US-FORM-03 — Affecter un formateur à une formation — PR #25 · journal `engineering-log/23`
+- **Quoi :** affectation et retrait de formateurs, email au formateur, audit. **Pourquoi :** c'est la
+  donnée que lit l'autorisation par ressource.
+
+#### US-AUTH-16 — Autorisation par ressource — PR #26 · journal `engineering-log/24`
+- **Quoi :** garde réutilisable `@FormateurDeLaFormation` : un formateur n'agit que sur ses formations
+  affectées, sinon **403** + audit `ACCES_RESSOURCE_REFUSE` ; écran « Mes formations ». **Pourquoi :** le
+  rôle seul ne dit pas *sur quelle* formation un formateur peut agir (ADR-11).
+
+### Inscriptions (E2)
+
+#### US-INSC-01 — S'inscrire à une formation — PR #29 · journal `engineering-log/25`
+- **Quoi :** inscription immédiate à une formation ouverte ; capacité jamais dépassée (transaction +
+  verrou), email de bienvenue, audit ; catalogue, fiche, « Mes inscriptions ». **Pourquoi :** sans
+  inscription, pas d'accès aux évaluations. *(Une première fusion, #27, a été annulée par erreur via le
+  bouton « Revert » (#28), puis rétablie par #29.)*
+
+#### US-INSC-04 — Accéder aux modules et choisir une évaluation — PR #30 · journal `engineering-log/26`
+- **Quoi :** « Mon espace » : progression, échéance, modules dans l'ordre, QCM publiés avec mon
+  avancement ; 403 audité si non inscrit ou suspendu. **Pourquoi :** porte d'entrée du passage d'un QCM.
+
+### Moteur de QCM anti-fraude (E3)
+
+#### US-QCM-01 — Créer le contenu d'un QCM — PR #31 · journal `engineering-log/27`
+- **Quoi :** questions à choix unique, multiple ou vrai / faux, options, pondérations, explications,
+  validées par le serveur ; contenu figé dès la première tentative (sauf explications). **Pourquoi :** la
+  matière de l'évaluation, stable une fois l'examen commencé.
+
+#### US-QCM-03 — Paramètres anti-fraude d'un QCM — PR #32 · journal `engineering-log/28`
+- **Quoi :** randomisation, tirage K parmi N, durée, fenêtre, tentatives, délai, mode d'affichage du
+  résultat, seuil ; cohérence vérifiée, règles figées à la première tentative (seule la fermeture peut
+  être repoussée). **Pourquoi :** transformer un quiz en évaluation certifiante. *(Webcam et copier-coller :
+  enregistrés, signalés « Bientôt actif », non appliqués — révision v1.6.)*
+
+#### US-QCM-04 — Publier un QCM — PR #33 · journal `engineering-log/29`
+- **Quoi :** publication après revérification complète sous verrou, audit `QCM_PUBLIE` ; le QCM apparaît
+  dans « Mon espace » avec sa fenêtre. **Pourquoi :** séparer préparation et mise à disposition.
+
+#### US-QCM-05 — Démarrer une tentative (contrôle serveur) — PR #34 · journal `engineering-log/30`
+- **Quoi :** démarrage vérifié avec l'horloge de la base (publié, inscrit, dans la fenêtre, tentative
+  restante, délai) ; refus **409** avec motif précis ; échéance jamais après la fermeture ; reprise d'une
+  tentative en cours. **Pourquoi :** l'entrée de l'examen est le premier point de triche possible.
+
+#### US-QCM-06 — Randomisation et confidentialité des réponses — PR #35 · journal `engineering-log/31`
+- **Quoi :** tirage cryptographique des questions et des options, figé par tentative (`planTirage`) ;
+  questions servies en liste blanche, sans bonne réponse, explication ni pondération (test de non-fuite
+  sur le trafic réel). **Pourquoi :** ni le voisin ni l'inspecteur réseau ne donnent la réponse.
+
+#### US-QCM-07 — Minuterie serveur et sauvegarde des réponses — PR #36 · journal `engineering-log/32`
+- **Quoi :** réponses enregistrées au fil de l'eau et restaurées ; refus dès l'échéance fixée par
+  PostgreSQL (clôture ABANDONNEE_TIMER, réponses conservées) ; soumission ; balayage des tentatives
+  échues toutes les 60 s ; Redis en miroir. **Pourquoi :** le temps n'est pas contournable et une coupure
+  ne fait rien perdre.
+
+#### US-QCM-08 — Notation serveur et tentative figée — PR #37 · journal `engineering-log/33`
+- **Quoi :** score pondéré (choix multiple en tout ou rien), réussite au seuil, correction écrite par
+  réponse, état **NOTEE** protégé par un **trigger** (aucune modification possible, même en SQL),
+  avancement de l'inscription recalculé, audit `TENTATIVE_NOTEE`. **Pourquoi :** un résultat fiable et
+  immuable, base de la future certification.
+
+#### US-QCM-09 — Voir son résultat (corrigé) — PR #38 · journal `engineering-log/34` *(extension)*
+- **Quoi :** route `GET /tentatives/:id/correction` : par question, ma réponse, juste / faux, points,
+  bonne réponse, explication ; disponible après la fermeture en mode différé, après la dernière tentative
+  en mode immédiat, sinon 409 avec la date. **Pourquoi :** comprendre ses erreurs sans faire fuiter le
+  corrigé vers une autre tentative ou un autre apprenant.
+
+### Décisions de périmètre (Sprint 2)
+- **Révision v1.4 (10/10)** — US-FORM-04 : le formateur affecté gère le contenu pédagogique de ses
+  formations (extension, reportée au Sprint 3).
+- **Révision v1.5 (11/10)** — ressources de module : US-FORM-05 liens (extension, reportée au Sprint 3),
+  US-FORM-06 fichiers (Sprint 4, avec MinIO).
+- **Révision v1.6 (12/10)** — US-QCM-12 surveillance webcam (Could, Sprint 5+, sous conditions :
+  encadrant, protection des données).
+- **Écarts assumés avec DS-02 / DS-09** (409 pour les refus liés au temps, routes REST, échéance décidée
+  par PostgreSQL, état final NOTEE, audit `TENTATIVE_NOTEE`, avancement recalculé à la notation, corrigé
+  sur une route dédiée et après la dernière tentative) : tableau dans `docs/Sprint2_Review.md` §6.
+- **Reporté au Sprint 3 :** US-FORM-04, US-FORM-05, US-FORM-02, US-INSC-02, US-INSC-03, US-QCM-02
+  (16 pts d'extension).
+
+---
+
 ## [Sprint 1] — Fondations backend & infrastructure — ✅ CLÔTURÉ
 
 **Résumé :** 15 stories livrées (9 engagées + 6 d'extension + bonus), 110 tests automatisés verts,
@@ -144,6 +247,22 @@ pipelines CI **et** CD opérationnels. Le socle technique de la plateforme est e
 - **PR (Pull Request)** — proposition de modification relue avant intégration.
 - **squash-merge** — intégration qui condense les commits d'une branche en un seul, propre, sur `main`.
 - **Story points** — estimation de complexité (échelle relative), pas des heures.
+- **Autorisation par ressource** — au-delà du rôle, vérifier *sur quelle* ressource on agit (« sa »
+  formation).
+- **Tentative** — un passage de QCM : EN_COURS → SOUMISE ou ABANDONNEE_TIMER (temps écoulé) → NOTEE.
+- **Tirage / randomisation** — choix et ordre des questions et options propres à une tentative, faits
+  au hasard par le serveur puis figés.
+- **Non-fuite / liste blanche** — aucune bonne réponse ne part vers le navigateur ; on liste ce qu'on
+  envoie plutôt que de retirer ce qu'on cache.
+- **Balayage** — tâche serveur qui, toutes les 60 s, clôt et note les tentatives échues.
+- **Verrou / transaction** — empêche deux requêtes simultanées de modifier la même donnée (ex. : la
+  dernière place d'une formation).
+- **Trigger** — règle posée dans la base elle-même ; ici, elle refuse toute modification d'une tentative
+  notée.
+- **HTTP 403 / 409** — 403 : « tu n'as pas le droit » ; 409 : « pas maintenant » (hors fenêtre, temps
+  écoulé, corrigé pas encore disponible).
+- **Test e2e / test de mutation** — e2e : appelle la vraie API sur une vraie base ; mutation : on retire
+  volontairement une protection pour vérifier que le test échoue.
 
 ---
 
