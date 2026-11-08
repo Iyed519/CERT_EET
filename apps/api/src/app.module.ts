@@ -3,6 +3,7 @@ import { ConfigModule } from './config/config.module';
 import { DatabaseModule } from './database/database.module';
 import { RedisModule } from './redis/redis.module';
 import { MailModule } from './mail/mail.module';
+import { StockageModule } from './stockage/stockage.module';
 import { AuditModule } from './modules/audit/audit.module';
 import { HealthModule } from './modules/health/health.module';
 import { AuthModule } from './modules/auth/auth.module';
@@ -28,7 +29,8 @@ import { AteliersModule } from './modules/ateliers/ateliers.module';
  * cœur métier du Sprint 2 ; InscriptionsModule (US-INSC-01) y ajoute
  * l'inscription des apprenants, QcmModule (US-QCM-01) les évaluations,
  * TentativesModule (US-QCM-05) leur passage par l'apprenant, AteliersModule
- * (US-ATEL-01, Sprint 3) les ateliers pratiques.
+ * (US-ATEL-01, Sprint 3) les ateliers pratiques. StockageModule (@Global,
+ * US-ATEL-04) dépose les livrables sur MinIO / S3 (ADR-07).
  */
 @Module({
   imports: [
@@ -36,6 +38,7 @@ import { AteliersModule } from './modules/ateliers/ateliers.module';
     DatabaseModule,
     RedisModule,
     MailModule,
+    StockageModule,
     AuditModule,
     HealthModule,
     AuthModule,

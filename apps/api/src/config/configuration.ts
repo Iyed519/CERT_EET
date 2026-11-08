@@ -84,6 +84,18 @@ export interface MinuterieConfig {
   intervalleSecondes: number;
   delaiGraceSecondes: number;
 }
+/**
+ * Stockage objet S3 / MinIO (US-ATEL-04, ADR-07) : livrables d'ateliers.
+ * `forcePathStyle` : MinIO sert les buckets sous le chemin
+ * (http://minio:9000/<bucket>/<clé>), pas en sous-domaine.
+ */
+export interface StockageConfig {
+  endpoint: string;
+  region: string;
+  accessKey: string;
+  secretKey: string;
+  bucketLivrables: string;
+}
 export default (): {
   app: AppConfig;
   jwt: JwtConfig;
@@ -92,6 +104,7 @@ export default (): {
   oauthGoogle: OauthGoogleConfig;
   oauthGithub: OauthGithubConfig;
   minuterie: MinuterieConfig;
+  stockage: StockageConfig;
 } => ({
   app: {
     nodeEnv: (process.env.NODE_ENV as AppConfig['nodeEnv']) ?? 'development',
@@ -135,5 +148,12 @@ export default (): {
     balayageActif: process.env.MINUTERIE_BALAYAGE_ACTIF !== 'false',
     intervalleSecondes: 60,
     delaiGraceSecondes: 30,
+  },
+  stockage: {
+    endpoint: process.env.S3_ENDPOINT as string,
+    region: process.env.S3_REGION ?? 'us-east-1',
+    accessKey: process.env.S3_ACCESS_KEY as string,
+    secretKey: process.env.S3_SECRET_KEY as string,
+    bucketLivrables: process.env.S3_BUCKET_LIVRABLES ?? 'livrables',
   },
 });

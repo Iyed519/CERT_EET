@@ -8,6 +8,7 @@ import type {
   RaisonCorrection,
   StatutAtelier,
   StatutInscription,
+  StatutLivrable,
   StatutQcm,
   StatutTentative,
   TypeQuestion,
@@ -221,4 +222,18 @@ export const echeanceAtelierFr = (
     case 'CLOS':
       return `Dépôt clos depuis le ${dateHeureFr(toleranceRetardHeures > 0 ? finTolerance : dateLimite)}`;
   }
+};
+
+/** Taille en octets -> « 820 o », « 12,4 Ko », « 3,1 Mo » (US-ATEL-04). */
+export const tailleFr = (octets: number): string => {
+  if (octets < 1024) return `${octets} o`;
+  if (octets < 1024 * 1024) return `${(octets / 1024).toLocaleString('fr-FR', { maximumFractionDigits: 1 })} Ko`;
+  return `${(octets / (1024 * 1024)).toLocaleString('fr-FR', { maximumFractionDigits: 1 })} Mo`;
+};
+
+/** Libellés courts du statut de mon livrable, pour « Mon espace » (US-ATEL-04). */
+export const LIBELLES_LIVRABLE_COURT: Record<StatutLivrable, string> = {
+  SOUMIS: 'Livrable soumis',
+  EN_CORRECTION: 'En correction',
+  NOTE: 'Noté',
 };

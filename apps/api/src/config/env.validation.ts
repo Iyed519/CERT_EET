@@ -60,6 +60,17 @@ export const envValidationSchema = Joi.object({
   // Balayage des tentatives échues (toutes les 60 s). Actif par défaut ;
   // toujours désactivé quand NODE_ENV=test.
   MINUTERIE_BALAYAGE_ACTIF: Joi.boolean().default(true),
+// --- Stockage objet S3 / MinIO (US-ATEL-04, ADR-07) ---
+  // Requis (fail-fast) : sans stockage, un livrable ne peut pas être déposé.
+  // En dev, MinIO (service « minio ») ; en CI, un conteneur MinIO.
+  S3_ENDPOINT: Joi.string().uri().required(),
+  S3_REGION: Joi.string().default('us-east-1'),
+  S3_ACCESS_KEY: Joi.string().required(),
+  S3_SECRET_KEY: Joi.string().required(),
+  // Nom de bucket S3 : 3 à 63 caractères, minuscules, chiffres, points, tirets.
+  S3_BUCKET_LIVRABLES: Joi.string()
+    .pattern(/^[a-z0-9][a-z0-9.-]{1,61}[a-z0-9]$/)
+    .default('livrables'),
 })
   // Refuse les clés inconnues seulement en avertissement : on n'échoue pas
   // sur des variables système, mais on valide strictement celles qu'on connaît.

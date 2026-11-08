@@ -2055,6 +2055,8 @@ export interface AtelierEspace {
   toleranceRetardHeures: number;
   typesLivrables: ExtensionLivrable[];
   etatDepot: EtatDepot;
+  /** US-ATEL-04 — statut de mon livrable (null : rien déposé). */
+  statutMonLivrable: StatutLivrable | null;
 }
 
 /** Fiche d'un atelier publié, avec sa grille en lecture. */
@@ -2074,6 +2076,8 @@ export interface AtelierApprenant {
   nbMaxFichiers: number;
   etatDepot: EtatDepot;
   grille: { totalPonderations: number; criteres: CritereGrille[] };
+  /** US-ATEL-04 — mon livrable, ou null si rien n'est déposé. */
+  monLivrable: LivrableApprenant | null;
 }
 
 /**
@@ -2084,4 +2088,52 @@ export interface AtelierApprenant {
 export async function getMonAtelier(atelierId: string): Promise<AtelierApprenant> {
   const response = await apiFetch(`/api/mes-ateliers/${atelierId}`);
   return lireReponseFormation<AtelierApprenant>(response, 'Impossible de charger l’atelier.');
+}
+
+/* ============================================================
+ * US-ATEL-04 — Soumettre un livrable (apprenant)
+ * ============================================================ */
+
+export type StatutLivrable = 'SOUMIS' | 'EN_CORRECTION' | 'NOTE';
+
+/** Mon livrable pour un atelier (le hash prouve l'antériorité du contenu). */
+export interface LivrableApprenant {
+  id: string;
+  atelierId: string;
+  version: number;
+  statut: StatutLivrable;
+  dateSoumission: string;
+  enRetard: boolean;
+  hashTracabilite: string;
+  commentaire: string | null;
+  liens: string[];
+  fichiers: Array<{
+    ordre: number;
+    nomOriginal: string;
+    extension: string;
+    tailleOctets: number;
+    sha256: string;
+  }>;
+}
+
+/**
+ * POST /api/ateliers/:id/livrable (multipart) — dépose le livrable.
+ *   - 400 -> fichier refusé (format, contenu, taille, nombre), lien ou
+ *     commentaire invalide (message exact du serveur) ;
+ *   - 409 -> date limite dépassée, ou livrable déjà soumis ;
+ *   - 403 / 404 / 503 -> message exact du serveur.
+ */
+export async function soumettreLivrable(
+  atelierId: string,
+  depot: { fichiers: File[]; commentaire: string; liens: string[] },
+): Promise<LivrableApprenant> {
+  const corps = new FormData();
+  for (const f of depot.fichiers) corps.append('fichiers', f, f.name);
+  if (depot.commentaire.trim().length > 0) corps.append('commentaire', depot.commentaire);
+  for (const lien of depot.liens) corps.append('liens', lien);
+  const response = await apiFetch(`/api/ateliers/${atelierId}/livrable`, {
+    method: 'POST',
+    body: corps,
+  });
+  return lireReponseFormation<LivrableApprenant>(response, 'Impossible de soumettre le livrable.');
 }

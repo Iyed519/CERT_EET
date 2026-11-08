@@ -544,3 +544,28 @@ textarea.input { resize: vertical; font-family: inherit; line-height: 1.45; }
 .atelier-echeance { margin: 0 0 18px; }
 .grille-lecture-tete { display: flex; align-items: baseline; justify-content: space-between; gap: 10px; flex-wrap: wrap; }
 .atelier-annonce { margin-bottom: 16px; }
+
+/* US-ATEL-04 — Dépôt d'un livrable et livrable déposé. */
+.depot, .mon-livrable { margin: 26px 0 0; padding: 18px; border: 1px solid var(--border); border-radius: var(--radius-sm); background: var(--surface); }
+.depot .section-title, .mon-livrable .section-title { margin-top: 0; }
+.depot-message { margin-bottom: 12px; }
+.depot-zone { display: flex; align-items: center; gap: 12px; flex-wrap: wrap; margin-bottom: 12px; }
+.depot-input { position: absolute; width: 1px; height: 1px; opacity: 0; pointer-events: none; }
+.depot-choisir { cursor: pointer; }
+.depot-zone:focus-within .depot-choisir { outline: 2px solid var(--primary); outline-offset: 2px; }
+.depot-fichiers { list-style: none; margin: 0 0 14px; padding: 0; display: flex; flex-direction: column; gap: 8px; }
+.depot-fichier { display: flex; align-items: center; gap: 10px; flex-wrap: wrap; padding: 8px 12px; border: 1px solid var(--border); border-radius: var(--radius-sm); background: #faf9f6; }
+.depot-fichier-nom { font-weight: 600; overflow-wrap: anywhere; flex: 1 1 160px; }
+.depot-commentaire { width: 100%; resize: vertical; }
+.depot-liens { display: flex; flex-direction: column; gap: 8px; margin: 14px 0; align-items: flex-start; }
+.depot-lien { display: flex; gap: 8px; width: 100%; }
+.depot-lien .input { flex: 1; min-width: 0; }
+.depot-pied { display: flex; align-items: center; justify-content: space-between; gap: 12px; flex-wrap: wrap; border-top: 1px solid var(--border); padding-top: 14px; }
+.mon-livrable-tete { display: flex; align-items: center; justify-content: space-between; gap: 10px; flex-wrap: wrap; }
+.mon-livrable-fiche { margin: 12px 0 0; }
+.empreinte { font-family: ui-monospace, SFMono-Regular, Menlo, Consolas, monospace; font-size: 0.74rem; color: var(--muted); overflow-wrap: anywhere; word-break: break-all; flex-basis: 100%; }
+.lien-externe { display: block; overflow-wrap: anywhere; }
+.livrable-SOUMIS { background: var(--success-soft); color: var(--primary-dark); }
+.livrable-EN_CORRECTION { background: #fef3e2; color: var(--accent-dark); }
+.livrable-NOTE { background: #eef2f7; color: #475569; }
+.depot-succes { margin-top: 26px; }

@@ -7,6 +7,7 @@ import { ContexteAcces, EspaceFormationService } from '../inscriptions/espace-fo
 import { etatDepot, EtatDepot } from './atelier.regles';
 import { AteliersService } from './ateliers.service';
 import { CritereVue, GrillesService } from './grille/grilles.service';
+import { LivrablesService, LivrableVue } from './livrables/livrables.service';
 
 /** Fiche d'un atelier publié, pour un apprenant inscrit (liste blanche). */
 export interface AtelierApprenantVue {
@@ -25,6 +26,8 @@ export interface AtelierApprenantVue {
   nbMaxFichiers: number;
   etatDepot: EtatDepot;
   grille: { totalPonderations: number; criteres: CritereVue[] };
+  /** US-ATEL-04 — mon livrable pour cet atelier, ou null si rien n'est déposé. */
+  monLivrable: LivrableVue | null;
 }
 
 export const MESSAGE_ATELIER_INTROUVABLE = 'Atelier introuvable.';
@@ -49,6 +52,7 @@ export class AteliersApprenantService {
     private readonly ateliersService: AteliersService,
     private readonly grillesService: GrillesService,
     private readonly espaceFormationService: EspaceFormationService,
+    private readonly livrablesService: LivrablesService,
   ) {}
 
   async fiche(
@@ -90,6 +94,7 @@ export class AteliersApprenantService {
         totalPonderations: criteres.reduce((total, c) => total + c.ponderation, 0),
         criteres,
       },
+      monLivrable: await this.livrablesService.monLivrable(apprenantId, atelierId),
     };
   }
 }

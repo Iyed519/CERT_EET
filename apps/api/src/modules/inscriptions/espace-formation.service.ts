@@ -4,12 +4,14 @@ import { In, Repository } from 'typeorm';
 import { Atelier } from '../../database/entities/atelier.entity';
 import { Formation } from '../../database/entities/formation.entity';
 import { Inscription } from '../../database/entities/inscription.entity';
+import { Livrable } from '../../database/entities/livrable.entity';
 import { ModuleFormation } from '../../database/entities/module-formation.entity';
 import { Qcm } from '../../database/entities/qcm.entity';
 import { TentativeQcm } from '../../database/entities/tentative-qcm.entity';
 import { StatutAtelier } from '../../database/enums/statut-atelier.enum';
 import { StatutFormation } from '../../database/enums/statut-formation.enum';
 import { StatutInscription } from '../../database/enums/statut-inscription.enum';
+import { StatutLivrable } from '../../database/enums/statut-livrable.enum';
 import { StatutQcm } from '../../database/enums/statut-qcm.enum';
 import { StatutTentative } from '../../database/enums/statut-tentative.enum';
 import { etatDepot, EtatDepot } from '../ateliers/atelier.regles';
@@ -90,6 +92,8 @@ export interface EspaceFormationVue {
       toleranceRetardHeures: number;
       typesLivrables: string[];
       etatDepot: EtatDepot;
+      // US-ATEL-04 — statut de MON livrable (null : rien déposé).
+      statutMonLivrable: StatutLivrable | null;
     }>;
   }>;
 }
@@ -121,6 +125,8 @@ export class EspaceFormationService {
     private readonly tentativeRepository: Repository<TentativeQcm>,
     @InjectRepository(Atelier)
     private readonly atelierRepository: Repository<Atelier>,
+    @InjectRepository(Livrable)
+    private readonly livrableRepository: Repository<Livrable>,
     // Writer d'audit UNIQUE (@Global, US-AUTH-12).
     private readonly auditService: AuditService,
   ) {}
@@ -207,6 +213,13 @@ export class EspaceFormationService {
             },
             order: { dateLimite: 'ASC', id: 'ASC' },
           });
+    const mesLivrables =
+      ateliers.length === 0
+        ? []
+        : await this.livrableRepository.find({
+            where: { apprenantId, atelierId: In(ateliers.map((a) => a.id)) },
+            select: { id: true, atelierId: true, statut: true },
+          });
     const maintenantBase = ateliers.length === 0 ? new Date() : await this.maintenantPostgres();
 
     return {
@@ -240,6 +253,7 @@ export class EspaceFormationService {
             toleranceRetardHeures: a.toleranceRetardHeures,
             typesLivrables: a.typesLivrables,
             etatDepot: etatDepot(a.dateLimite, a.toleranceRetardHeures, maintenantBase),
+            statutMonLivrable: mesLivrables.find((l) => l.atelierId === a.id)?.statut ?? null,
           })),
       })),
     };

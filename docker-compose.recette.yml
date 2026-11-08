@@ -30,3 +30,6 @@ services:
 
   nginx:
     restart: unless-stopped
+
+  minio:
+    restart: unless-stopped

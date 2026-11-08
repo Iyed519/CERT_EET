@@ -12,6 +12,7 @@ import {
   LIBELLES_AVANCEMENT_QCM,
   LIBELLES_ETAT_DEPOT,
   LIBELLES_INSCRIPTION,
+  LIBELLES_LIVRABLE_COURT,
   periodeFr,
 } from '../../../lib/format';
 
@@ -97,6 +98,7 @@ function actionQcm(q: QcmEspace, inscriptionActive: boolean): ActionQcm {
  * ou dont l'inscription est suspendue, reçoit le message exact du serveur (403).
  * US-ATEL-03 — Sous les QCM, les ateliers publiés du module : date limite,
  * état du dépôt (calculé par le serveur) et lien vers leur fiche.
+ * US-ATEL-04 — Un atelier où j'ai déposé montre le statut de mon livrable.
  */
 export default function MonEspacePage(): JSX.Element {
   const params = useParams<{ formationId: string }>();
@@ -275,9 +277,15 @@ export default function MonEspacePage(): JSX.Element {
                               {echeanceAtelierFr(a.etatDepot, a.dateLimite, a.toleranceRetardHeures)}
                             </div>
                           </div>
-                          <span className={`statut-badge depot-badge-${a.etatDepot}`}>
-                            {LIBELLES_ETAT_DEPOT[a.etatDepot]}
-                          </span>
+                          {a.statutMonLivrable !== null ? (
+                            <span className={`statut-badge livrable-${a.statutMonLivrable}`}>
+                              {LIBELLES_LIVRABLE_COURT[a.statutMonLivrable]}
+                            </span>
+                          ) : (
+                            <span className={`statut-badge depot-badge-${a.etatDepot}`}>
+                              {LIBELLES_ETAT_DEPOT[a.etatDepot]}
+                            </span>
+                          )}
                           <Link className="btn-sm btn-link" href={`/mes-ateliers/${a.id}`}>
                             Consulter
                           </Link>
