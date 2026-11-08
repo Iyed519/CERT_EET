@@ -470,3 +470,66 @@ textarea.input { resize: vertical; font-family: inherit; line-height: 1.45; }
   .espace-module-tete { flex-wrap: wrap; }
   .espace-module-tete .module-boutons { flex-basis: 100%; justify-content: flex-start; }
 }
+
+/* US-ATEL-02 — Grille de notation pondérée : barre de total, critères, niveaux, modèles */
+.grille { margin: 0 0 26px; }
+.grille-tete { display: flex; align-items: center; justify-content: space-between; gap: 12px; flex-wrap: wrap; margin-bottom: 12px; }
+.grille-titre { display: flex; align-items: center; gap: 10px; flex-wrap: wrap; margin: 0; }
+.grille-message { margin-bottom: 12px; }
+.badge-grille-validee { background: var(--success-soft); color: var(--primary-dark); border: 1px solid #bfe3cd; }
+.badge-grille-a-valider { background: #fef3e2; color: var(--accent-dark); border: 1px solid #f6dcae; }
+.total-barre { padding: 12px 14px; border: 1px solid var(--border); border-radius: var(--radius-sm); background: var(--surface); margin-bottom: 14px; }
+.total-barre-texte { display: flex; justify-content: space-between; gap: 10px; flex-wrap: wrap; font-size: 0.9rem; margin-bottom: 8px; }
+.total-barre-etat { font-weight: 650; }
+.total-barre-piste { height: 10px; border-radius: 999px; background: #eef1ee; overflow: hidden; }
+.total-barre-remplie { height: 100%; border-radius: 999px; transition: width 0.25s ease; }
+.total-ok .total-barre-remplie { background: var(--primary); }
+.total-ok .total-barre-etat { color: var(--primary-dark); }
+.total-incomplet .total-barre-remplie { background: var(--accent); }
+.total-incomplet .total-barre-etat { color: var(--accent-dark); }
+.total-depasse .total-barre-remplie { background: var(--danger); }
+.total-depasse .total-barre-etat { color: #922b21; }
+.criteres { list-style: none; margin: 0; padding: 0; display: grid; gap: 10px; }
+.critere { border: 1px solid var(--border); border-radius: var(--radius-sm); background: var(--surface); padding: 12px 14px; }
+.critere-tete { display: flex; align-items: flex-start; gap: 12px; }
+.critere-intitule { margin: 3px 0 0; font-weight: 650; overflow-wrap: anywhere; }
+.critere-poids { display: inline-block; margin-left: 6px; padding: 1px 9px; border-radius: 999px; background: var(--primary-soft); color: var(--primary-dark); font-size: 0.8rem; font-weight: 700; }
+.critere-description { margin: 4px 0 0; color: var(--muted); font-size: 0.88rem; white-space: pre-line; overflow-wrap: anywhere; }
+.niveaux { list-style: none; margin: 10px 0 0 40px; padding: 0; display: grid; grid-template-columns: repeat(4, minmax(0, 1fr)); gap: 8px; }
+.niveau { display: flex; flex-direction: column; gap: 2px; padding: 8px 10px; border-radius: 8px; border-left: 3px solid; background: #fafbf9; font-size: 0.82rem; min-width: 0; }
+.niveau-1 { border-left-color: #d0493b; }
+.niveau-2 { border-left-color: #e8a33a; }
+.niveau-3 { border-left-color: #58a776; }
+.niveau-4 { border-left-color: var(--primary-dark); }
+.niveau-libelle { font-weight: 650; }
+.niveau-plage { color: var(--muted); font-variant-numeric: tabular-nums; }
+.niveau-descripteur { margin-top: 2px; overflow-wrap: anywhere; }
+.grille-pied { display: flex; align-items: center; justify-content: space-between; gap: 12px; flex-wrap: wrap; margin-top: 14px; }
+.total-apercu { margin: -4px 0 0; padding: 8px 12px; border-radius: var(--radius-sm); font-size: 0.86rem; font-weight: 600; }
+.total-apercu.total-ok { background: var(--success-soft); color: var(--primary-dark); }
+.total-apercu.total-incomplet { background: #fef3e2; color: var(--accent-dark); }
+.total-apercu.total-depasse { background: var(--danger-soft); color: #922b21; }
+.grille-champs { grid-template-columns: minmax(0, 1fr) 150px; }
+.niveaux-saisie { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 10px; }
+.niveau-saisie { display: flex; flex-direction: column; gap: 6px; padding: 8px 10px; border-radius: 8px; border-left-width: 3px; border-left-style: solid; background: #fafbf9; }
+.niveau-saisie-tete { display: flex; align-items: center; justify-content: space-between; gap: 8px; font-size: 0.86rem; }
+.input-borne { width: 70px; padding: 6px 8px; display: inline-block; }
+.texte-erreur { color: #922b21; }
+.modeles-liste { list-style: none; margin: 0; padding: 0; display: grid; gap: 10px; }
+.modele-item { display: flex; align-items: center; justify-content: space-between; gap: 12px; padding: 10px 12px; border: 1px solid var(--border); border-radius: var(--radius-sm); background: var(--surface); flex-wrap: wrap; }
+.modele-corps { flex: 1 1 260px; min-width: 0; }
+.modele-nom { margin: 0; font-weight: 650; overflow-wrap: anywhere; }
+.modele-criteres { margin: 2px 0 0; font-size: 0.84rem; overflow-wrap: anywhere; }
+@media (max-width: 760px) {
+  .niveaux { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+}
+@media (max-width: 560px) {
+  .grille-actions { justify-content: flex-start; }
+  .critere-tete { flex-wrap: wrap; }
+  .critere-tete .module-corps { flex-basis: calc(100% - 42px); }
+  .critere-actions { margin-left: 40px; justify-content: flex-start; }
+  .niveaux { margin-left: 0; }
+  .grille-champs { grid-template-columns: 1fr; }
+  .niveaux-saisie { grid-template-columns: 1fr; }
+  .grille-pied .grille-valider { width: 100%; }
+}

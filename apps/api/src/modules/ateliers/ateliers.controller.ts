@@ -31,8 +31,8 @@ const REFUS_403 =
  * (`/ateliers/:atelierId`). @FormateurDeLaFormation remonte à la formation et
  * vérifie l'affectation avant que la requête n'atteigne le service.
  *
- * La grille (US-ATEL-02) et la publication (US-ATEL-03) viendront s'ajouter
- * sous `/ateliers/:atelierId/...`.
+ * La grille (US-ATEL-02) a son propre contrôleur (grille/grilles.controller.ts) ;
+ * la publication (US-ATEL-03) viendra sous `/ateliers/:atelierId/...`.
  */
 @ApiBearerAuth('access-token')
 @ApiTags('ateliers')
