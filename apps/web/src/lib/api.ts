@@ -1748,8 +1748,11 @@ export async function getCorrection(tentativeId: string): Promise<CorrectionTent
 /** Statut d'un atelier (l'enum backend reste la source de vérité). */
 export type StatutAtelier = 'BROUILLON' | 'PUBLIE' | 'ARCHIVE';
 
-/** Extensions de livrable acceptées par le serveur (liste fermée). */
-export const EXTENSIONS_LIVRABLE = [
+/**
+ * Extensions de livrable acceptées par le serveur (liste fermée, même ordre
+ * que `atelier.regles.ts`) : documents et archives, puis code source.
+ */
+export const EXTENSIONS_DOCUMENT = [
   'pdf',
   'zip',
   'docx',
@@ -1760,6 +1763,22 @@ export const EXTENSIONS_LIVRABLE = [
   'png',
   'jpg',
 ] as const;
+export const EXTENSIONS_CODE = [
+  'js',
+  'ts',
+  'py',
+  'java',
+  'c',
+  'cpp',
+  'cs',
+  'php',
+  'sql',
+  'html',
+  'css',
+  'json',
+  'ipynb',
+] as const;
+export const EXTENSIONS_LIVRABLE = [...EXTENSIONS_DOCUMENT, ...EXTENSIONS_CODE] as const;
 export type ExtensionLivrable = (typeof EXTENSIONS_LIVRABLE)[number];
 
 /** Un atelier dans la liste d'un module (sans son énoncé). */

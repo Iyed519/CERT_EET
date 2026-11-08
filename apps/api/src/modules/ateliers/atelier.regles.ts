@@ -11,9 +11,15 @@ import { StatutAtelier } from '../../database/enums/statut-atelier.enum';
 /**
  * Extensions de livrable acceptées (liste fermée). US-ATEL-04 (dépôt sur
  * MinIO) refusera tout fichier dont l'extension n'est pas cochée sur
- * l'atelier. La migration reprend la même liste dans un CHECK.
+ * l'atelier. La migration reprend la même liste dans un CHECK
+ * (1786400000000-ElargirTypesLivrables).
+ *
+ * Deux familles : documents et archives, puis fichiers de code source
+ * (ajoutés le 08/11 : un atelier de programmation peut demander un fichier
+ * `.py` ou `.java` seul, sans passer par un `.zip`). Les fichiers ne sont
+ * jamais exécutés par la plateforme : stockés, puis téléchargés.
  */
-export const EXTENSIONS_LIVRABLE = [
+export const EXTENSIONS_DOCUMENT = [
   'pdf',
   'zip',
   'docx',
@@ -24,6 +30,22 @@ export const EXTENSIONS_LIVRABLE = [
   'png',
   'jpg',
 ] as const;
+export const EXTENSIONS_CODE = [
+  'js',
+  'ts',
+  'py',
+  'java',
+  'c',
+  'cpp',
+  'cs',
+  'php',
+  'sql',
+  'html',
+  'css',
+  'json',
+  'ipynb',
+] as const;
+export const EXTENSIONS_LIVRABLE = [...EXTENSIONS_DOCUMENT, ...EXTENSIONS_CODE] as const;
 export type ExtensionLivrable = (typeof EXTENSIONS_LIVRABLE)[number];
 
 /** Bornes partagées par les DTO, la migration et l'interface. */

@@ -4,7 +4,8 @@ import {
   AdminError,
   AtelierDetail,
   createAtelier,
-  EXTENSIONS_LIVRABLE,
+  EXTENSIONS_CODE,
+  EXTENSIONS_DOCUMENT,
   ExtensionLivrable,
   updateAtelier,
 } from '../lib/api';
@@ -198,18 +199,31 @@ export function AtelierModal({
 
           <fieldset className="groupe-config" disabled={enCours}>
             <legend className="field-label">Types de livrables acceptés</legend>
-            <div className="cases-types">
-              {EXTENSIONS_LIVRABLE.map((type) => (
-                <label key={type} className="case">
-                  <input
-                    type="checkbox"
-                    checked={s.typesLivrables.includes(type)}
-                    onChange={() => basculerType(type)}
-                  />
-                  .{type}
-                </label>
-              ))}
-            </div>
+            {(
+              [
+                ['Documents et archives', EXTENSIONS_DOCUMENT],
+                ['Code source', EXTENSIONS_CODE],
+              ] as const
+            ).map(([famille, types]) => (
+              <div key={famille}>
+                <p className="field-hint famille-types">{famille}</p>
+                <div className="cases-types">
+                  {types.map((type) => (
+                    <label key={type} className="case">
+                      <input
+                        type="checkbox"
+                        checked={s.typesLivrables.includes(type)}
+                        onChange={() => basculerType(type)}
+                      />
+                      .{type}
+                    </label>
+                  ))}
+                </div>
+              </div>
+            ))}
+            <span className="field-hint">
+              Un projet de plusieurs fichiers se rend en .zip.
+            </span>
           </fieldset>
 
           <fieldset className="groupe-config" disabled={enCours}>

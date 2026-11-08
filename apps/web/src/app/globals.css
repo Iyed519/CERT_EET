@@ -461,6 +461,7 @@ textarea.input { resize: vertical; font-family: inherit; line-height: 1.45; }
 }
 
 /* US-ATEL-01 — Ateliers : cases des types de livrables, liste sous le module */
+.famille-types { margin: 6px 0 6px; font-weight: 600; }
 .cases-types { display: grid; grid-template-columns: repeat(auto-fill, minmax(84px, 1fr)); gap: 8px 12px; }
 .espace-atelier { background: #f7f9fc; }
 .module-boutons { display: flex; gap: 8px; flex-wrap: wrap; justify-content: flex-end; }

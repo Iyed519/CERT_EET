@@ -175,3 +175,25 @@ Pipeline inchangé (scope `apps/api`) : la migration passe par
   texte libre, ressources, tags, date d'ouverture : voir Décisions).
 - Sprint 3 (périmètre A confirmé, B en bonus) : US-ATEL-02 — grille de
   notation pondérée — ensuite.
+
+## Complément du 08/11 — Fichiers de code source
+- **Pourquoi** : la liste fermée D3 ne prévoyait que documents et archives ;
+  un atelier de programmation n'acceptait un `.py` ou un `.java` que dans un
+  `.zip`. UC4 Apprenant cite pourtant le « code source ». Décision d'Iyed :
+  option 2 (ajouter les types de code ; les liens GitHub iront avec US-ATEL-04).
+- **Quoi** : 13 extensions ajoutées — `js, ts, py, java, c, cpp, cs, php, sql,
+  html, css, json, ipynb` (`EXTENSIONS_CODE`), après `EXTENSIONS_DOCUMENT`.
+  Les exécutables (`exe, sh, bat, jar, dll`) restent refusés ; la plateforme
+  stocke et sert les fichiers, elle ne les exécute jamais.
+- **Migration** `1786400000000-ElargirTypesLivrables` : remplace le CHECK
+  `CHK_ateliers_types_livrables` ; `down` rétablit la liste initiale et échoue
+  volontairement si un atelier utilise déjà un type de code.
+- **UI** : cases regroupées « Documents et archives » / « Code source », rappel
+  « Un projet de plusieurs fichiers se rend en .zip ».
+- **Tests** : unitaires 40 suites / 540 (+8 : types de code rangés après les
+  documents, 5 exécutables refusés, liste sans doublon et ≤ 10 caractères,
+  liste de la migration = liste du code) ; e2e 23 suites / 307 (+2 : création
+  avec `ipynb, py, java, zip` → 201 dans l'ordre canonique ; la base refuse
+  `exe` par son CHECK). Migration aller / retour / aller vérifiée. Web : `tsc`,
+  `next lint` propres ; Chromium 1280 px et 390 px (création `.py` + `.ipynb`,
+  aucun débordement).
