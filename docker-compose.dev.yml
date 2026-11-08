@@ -37,6 +37,13 @@ services:
       TSC_WATCHFILE: DynamicPriorityPolling
       TSC_WATCHDIRECTORY: RecursiveDirectoryUsingDynamicPriorityPolling
     command: ["npm", "run", "start:dev"]
+    # Premier démarrage après `up --build -V` : npm ci dans l'image, puis
+    # compilation complète par `nest start --watch` en scrutation (Windows),
+    # environ 2 minutes. Avec le délai de grâce de base (20 s + 5 essais),
+    # compose déclarait l'api « unhealthy » et ne démarrait ni web ni nginx.
+    # Dev uniquement : la recette et la production gardent leur sonde.
+    healthcheck:
+      start_period: 240s
     volumes:
       - ./apps/api:/app          # live source for hot reload
       - /app/node_modules        # keep the container's node_modules (not the host's)
