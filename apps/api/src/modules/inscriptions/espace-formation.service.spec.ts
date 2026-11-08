@@ -4,6 +4,7 @@ import { getRepositoryToken } from '@nestjs/typeorm';
 import { Atelier } from '../../database/entities/atelier.entity';
 import { Formation } from '../../database/entities/formation.entity';
 import { Inscription } from '../../database/entities/inscription.entity';
+import { Livrable } from '../../database/entities/livrable.entity';
 import { Qcm } from '../../database/entities/qcm.entity';
 import { TentativeQcm } from '../../database/entities/tentative-qcm.entity';
 import { StatutAtelier } from '../../database/enums/statut-atelier.enum';
@@ -35,6 +36,7 @@ describe('EspaceFormationService', () => {
   const mockQcmRepo = { find: jest.fn() };
   const mockTentativeRepo = { find: jest.fn() };
   const mockAtelierRepo = { find: jest.fn(), query: jest.fn() };
+  const mockLivrableRepo = { find: jest.fn() };
   const mockAuditService = { record: jest.fn().mockResolvedValue(undefined) };
 
   const contexte = {
@@ -79,6 +81,7 @@ describe('EspaceFormationService', () => {
         { provide: getRepositoryToken(Qcm), useValue: mockQcmRepo },
         { provide: getRepositoryToken(TentativeQcm), useValue: mockTentativeRepo },
         { provide: getRepositoryToken(Atelier), useValue: mockAtelierRepo },
+        { provide: getRepositoryToken(Livrable), useValue: mockLivrableRepo },
         { provide: AuditService, useValue: mockAuditService },
       ],
     }).compile();
@@ -96,6 +99,7 @@ describe('EspaceFormationService', () => {
       { qcmId: 'qcm-2', statut: StatutTentative.NOTEE, estReussie: false },
     ]);
     mockAtelierRepo.find.mockResolvedValue([]);
+    mockLivrableRepo.find.mockResolvedValue([]);
     mockAtelierRepo.query.mockResolvedValue([{ maintenant: new Date('2026-11-08T10:00:00Z') }]);
   });
 
@@ -128,6 +132,7 @@ describe('EspaceFormationService', () => {
         },
       ]);
 
+      mockLivrableRepo.find.mockResolvedValue([{ id: 'l1', atelierId: 'at-1', statut: 'SOUMIS' }]);
       const espace = await service.monEspace('appr-1', 'form-1', contexte);
 
       expect(mockAtelierRepo.find).toHaveBeenCalledWith(
@@ -148,6 +153,13 @@ describe('EspaceFormationService', () => {
         ['at-2', 'EN_RETARD'],
       ]);
       expect(espace.modules[2].ateliers).toEqual([]);
+      // US-ATEL-04 : seulement MES livrables, sur ces ateliers.
+      expect(mockLivrableRepo.find).toHaveBeenCalledWith(
+        expect.objectContaining({
+          where: expect.objectContaining({ apprenantId: 'appr-1' }),
+        }),
+      );
+      expect(espace.modules[1].ateliers.map((a) => a.statutMonLivrable)).toEqual(['SOUMIS', null]);
       // Les ateliers ne changent pas l'avancement du module (pas encore notés).
       expect(espace.modules[2].avancement).toBe('SANS_EVALUATION');
     });

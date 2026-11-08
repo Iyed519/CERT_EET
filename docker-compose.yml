@@ -1,5 +1,5 @@
 # Cert_EET — INF03 (US-INFRA-03) — Base Docker Compose
-# Starts api + web + postgres + redis + nginx in the correct order, one command.
+# Starts api + web + postgres + redis + minio + nginx in the correct order, one command.
 #
 #   Dev     : docker compose -f docker-compose.yml -f docker-compose.dev.yml up --build
 #   Recette : docker compose -f docker-compose.yml -f docker-compose.recette.yml up --build -d
@@ -40,6 +40,30 @@ services:
       retries: 5
     networks: [cert_eet_net]
 
+  # --- MinIO (US-ATEL-04, ADR-07) : stockage objet S3 des livrables ---
+  # Privé au réseau docker (aucun port publié) : seule l'api y accède. Le
+  # bucket est créé par l'api au démarrage s'il manque.
+  # Image : MinIO ne publie plus d'images sur Docker Hub ni quay.io (fin
+  # 2025). J'utilise la build Bitnami archivée de la même version de MinIO
+  # (RELEASE.2025-04-22), figée : elle démarre le serveur toute seule, sous un
+  # utilisateur non root, données dans /bitnami/minio/data.
+  minio:
+    image: bitnamilegacy/minio:2025.4.22
+    container_name: cert_eet_minio
+    environment:
+      MINIO_ROOT_USER: ${MINIO_ROOT_USER}
+      MINIO_ROOT_PASSWORD: ${MINIO_ROOT_PASSWORD}
+    volumes:
+      - miniodata:/bitnami/minio/data       # livrables persistés sur l'hôte (ADR-07)
+    healthcheck:
+      # Sonde officielle de MinIO (la CI attend exactement la même URL).
+      test: ["CMD", "curl", "-fs", "http://localhost:9000/minio/health/live"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+      start_period: 15s
+    networks: [cert_eet_net]
+
   api:
     build:
       context: ./apps/api
@@ -62,12 +86,19 @@ services:
       # --- JWT RS256 keys (INF07) ---
       JWT_PRIVATE_KEY_PATH: /run/secrets/jwt_private.pem
       JWT_PUBLIC_KEY_PATH: /run/secrets/jwt_public.pem
+      # --- Stockage objet MinIO / S3 (US-ATEL-04, ADR-07) ---
+      S3_ENDPOINT: http://minio:9000
+      S3_ACCESS_KEY: ${MINIO_ROOT_USER}
+      S3_SECRET_KEY: ${MINIO_ROOT_PASSWORD}
+      S3_BUCKET_LIVRABLES: ${S3_BUCKET_LIVRABLES:-livrables}
     volumes:
       - ./secrets:/run/secrets:ro          # RS256 keys, read-only (INF07)
     depends_on:
       postgres:
         condition: service_healthy        # API waits for DB ready (INF03 acceptance criterion)
       redis:
+        condition: service_healthy
+      minio:
         condition: service_healthy
     healthcheck:
       test: ["CMD-SHELL", "wget -qO- http://localhost:3000/health || exit 1"]
@@ -121,6 +152,7 @@ services:
 volumes:
   pgdata:
   redisdata:
+  miniodata:
 
 networks:
   cert_eet_net:

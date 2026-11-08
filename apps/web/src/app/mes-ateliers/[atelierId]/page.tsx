@@ -2,7 +2,9 @@
 import Link from 'next/link';
 import { useParams } from 'next/navigation';
 import { useEffect, useState } from 'react';
+import { DepotLivrable } from '../../../components/DepotLivrable';
 import { GrilleLecture } from '../../../components/GrilleLecture';
+import { MonLivrable } from '../../../components/MonLivrable';
 import { AdminError, AtelierApprenant, getMonAtelier } from '../../../lib/api';
 import { dateHeureFr, echeanceAtelierFr, LIBELLES_ETAT_DEPOT } from '../../../lib/format';
 
@@ -12,8 +14,9 @@ import { dateHeureFr, echeanceAtelierFr, LIBELLES_ETAT_DEPOT } from '../../../li
  * consignes, grille de notation visible »).
  *
  * Échéance et état du dépôt (calculé par le serveur), modalités de dépôt,
- * énoncé, compétences visées, puis la grille en lecture seule. Le dépôt d'un
- * livrable arrivera avec US-ATEL-04. Un atelier inconnu ou encore en brouillon
+ * énoncé, compétences visées, puis la grille en lecture seule.
+ * US-ATEL-04 — En bas : mon livrable s'il est déposé, sinon le formulaire de
+ * dépôt tant que le dépôt n'est pas clos (le serveur revérifie tout). Un atelier inconnu ou encore en brouillon
  * répond 404, un apprenant non inscrit 403 : le message du serveur s'affiche.
  */
 export default function MonAtelierPage(): JSX.Element {
@@ -22,6 +25,7 @@ export default function MonAtelierPage(): JSX.Element {
   const [atelier, setAtelier] = useState<AtelierApprenant | null>(null);
   const [chargement, setChargement] = useState(true);
   const [erreur, setErreur] = useState<string | null>(null);
+  const [succes, setSucces] = useState<string | null>(null);
 
   useEffect(() => {
     if (!atelierId) return;
@@ -122,6 +126,23 @@ export default function MonAtelierPage(): JSX.Element {
             </div>
             <GrilleLecture criteres={atelier.grille.criteres} />
           </section>
+
+          {succes !== null && <p className="alert alert-success depot-succes">{succes}</p>}
+          {atelier.monLivrable ? (
+            <MonLivrable livrable={atelier.monLivrable} />
+          ) : atelier.etatDepot === 'CLOS' ? (
+            <p className="alert alert-error depot-succes">
+              Le dépôt est clos : vous n’avez pas soumis de livrable pour cet atelier.
+            </p>
+          ) : (
+            <DepotLivrable
+              atelier={atelier}
+              onDepose={(livrable) => {
+                setAtelier({ ...atelier, monLivrable: livrable });
+                setSucces(`Livrable soumis avec succès (version ${livrable.version}) ✅`);
+              }}
+            />
+          )}
         </>
       )}
     </>

@@ -7,6 +7,7 @@ import { EspaceFormationService } from '../inscriptions/espace-formation.service
 import { AteliersApprenantService } from './ateliers-apprenant.service';
 import { AteliersService } from './ateliers.service';
 import { GrillesService } from './grille/grilles.service';
+import { LivrablesService } from './livrables/livrables.service';
 
 /**
  * AteliersApprenantService (US-ATEL-03) : fiche d'un atelier publié pour un
@@ -22,6 +23,7 @@ describe('AteliersApprenantService (US-ATEL-03)', () => {
   const mockAteliersService = { maintenant: jest.fn() };
   const mockGrillesService = { criteresDeLAtelier: jest.fn() };
   const mockEspaceService = { exigerAccesContenu: jest.fn() };
+  const mockLivrablesService = { monLivrable: jest.fn() };
 
   const atelierPublie = {
     id: 'at-1',
@@ -67,6 +69,7 @@ describe('AteliersApprenantService (US-ATEL-03)', () => {
         { provide: AteliersService, useValue: mockAteliersService },
         { provide: GrillesService, useValue: mockGrillesService },
         { provide: EspaceFormationService, useValue: mockEspaceService },
+        { provide: LivrablesService, useValue: mockLivrablesService },
       ],
     }).compile();
     service = moduleRef.get(AteliersApprenantService);
@@ -75,6 +78,7 @@ describe('AteliersApprenantService (US-ATEL-03)', () => {
     mockAteliersService.maintenant.mockResolvedValue(MAINTENANT);
     mockGrillesService.criteresDeLAtelier.mockResolvedValue(criteres);
     mockEspaceService.exigerAccesContenu.mockResolvedValue({ id: 'insc-1' });
+    mockLivrablesService.monLivrable.mockResolvedValue(null);
   });
 
   it('renvoie la fiche en liste blanche, la grille et l’état du dépôt', async () => {
@@ -104,7 +108,9 @@ describe('AteliersApprenantService (US-ATEL-03)', () => {
       nbMaxFichiers: 2,
       etatDepot: 'OUVERT',
       grille: { totalPonderations: 100, criteres },
+      monLivrable: null,
     });
+    expect(mockLivrablesService.monLivrable).toHaveBeenCalledWith('appr-1', 'at-1');
     expect(fiche).not.toHaveProperty('formateurId');
     expect(fiche).not.toHaveProperty('statut');
   });

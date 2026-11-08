@@ -1,6 +1,7 @@
 import { Module } from '@nestjs/common';
 import { TypeOrmModule } from '@nestjs/typeorm';
 import { Atelier } from '../../database/entities/atelier.entity';
+import { Livrable } from '../../database/entities/livrable.entity';
 import { ModuleFormation } from '../../database/entities/module-formation.entity';
 import { FormationsModule } from '../formations/formations.module';
 import { InscriptionsModule } from '../inscriptions/inscriptions.module';
@@ -10,6 +11,8 @@ import { AteliersController } from './ateliers.controller';
 import { AteliersService } from './ateliers.service';
 import { GrillesController } from './grille/grilles.controller';
 import { GrillesService } from './grille/grilles.service';
+import { LivrablesController } from './livrables/livrables.controller';
+import { LivrablesService } from './livrables/livrables.service';
 
 /**
  * Module des ateliers pratiques (F2 ; US-ATEL-01 création ; US-ATEL-02
@@ -25,15 +28,22 @@ import { GrillesService } from './grille/grilles.service';
  * - Publication (US-ATEL-03) : AteliersService.publier ; côté apprenant,
  *   AteliersApprenantController, qui importe InscriptionsModule pour le
  *   contrôle d'accès de « Mon espace » (EspaceFormationService).
- * - AuditService (US-AUTH-12) est @Global.
+ * - Livrables (US-ATEL-04) : LivrablesController / LivrablesService, dépôt
+ *   multipart vers StockageService (@Global, MinIO) ; Livrable en forFeature.
+ * - AuditService (US-AUTH-12), MailService et StockageService sont @Global.
  */
 @Module({
   imports: [
     FormationsModule,
     InscriptionsModule,
-    TypeOrmModule.forFeature([Atelier, ModuleFormation]),
+    TypeOrmModule.forFeature([Atelier, ModuleFormation, Livrable]),
   ],
-  controllers: [AteliersController, GrillesController, AteliersApprenantController],
-  providers: [AteliersService, GrillesService, AteliersApprenantService],
+  controllers: [
+    AteliersController,
+    GrillesController,
+    AteliersApprenantController,
+    LivrablesController,
+  ],
+  providers: [AteliersService, GrillesService, AteliersApprenantService, LivrablesService],
 })
 export class AteliersModule {}

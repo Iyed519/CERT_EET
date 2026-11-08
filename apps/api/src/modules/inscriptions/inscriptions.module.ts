@@ -3,6 +3,7 @@ import { TypeOrmModule } from '@nestjs/typeorm';
 import { Atelier } from '../../database/entities/atelier.entity';
 import { Formation } from '../../database/entities/formation.entity';
 import { Inscription } from '../../database/entities/inscription.entity';
+import { Livrable } from '../../database/entities/livrable.entity';
 import { Qcm } from '../../database/entities/qcm.entity';
 import { TentativeQcm } from '../../database/entities/tentative-qcm.entity';
 import { User } from '../../database/entities/user.entity';
@@ -15,13 +16,15 @@ import { InscriptionsService } from './inscriptions.service';
  * suivra).
  *
  * - forFeature : Inscription (écriture) ; User (LECTURE : email et prénom
- *   pour l'email de bienvenue) ; Formation, Qcm, TentativeQcm, Atelier (LECTURE :
- *   « mon espace », US-INSC-04 et US-ATEL-03). Pendant l'inscription, la formation est lue
+ *   pour l'email de bienvenue) ; Formation, Qcm, TentativeQcm, Atelier, Livrable
+ *   (LECTURE : « mon espace », US-INSC-04, US-ATEL-03 et US-ATEL-04). Pendant l'inscription, la formation est lue
  *   dans la transaction, via l'EntityManager, avec un verrou.
  * - AuditService (US-AUTH-12) et MailService (US-CPT-05) sont @Global.
  */
 @Module({
-  imports: [TypeOrmModule.forFeature([Inscription, User, Formation, Qcm, TentativeQcm, Atelier])],
+  imports: [
+    TypeOrmModule.forFeature([Inscription, User, Formation, Qcm, TentativeQcm, Atelier, Livrable]),
+  ],
   controllers: [InscriptionsController],
   providers: [InscriptionsService, EspaceFormationService],
   // US-ATEL-03 : la fiche d'un atelier côté apprenant réutilise le contrôle d'accès.
