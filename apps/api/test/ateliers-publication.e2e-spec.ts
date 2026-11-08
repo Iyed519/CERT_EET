@@ -499,15 +499,17 @@ describe('Publication d’un atelier (e2e) — US-ATEL-03', () => {
       expect(g.body.validee).toBe(true);
       const critereId = g.body.criteres[1].id as string;
 
-      // Je bloque toute prise de verrou FOR UPDATE sur `ateliers` (ROW SHARE
-      // contre EXCLUSIVE) : les deux requêtes attendent, dans l'ordre d'envoi.
+      // Je tiens le verrou de LA LIGNE de l'atelier : les deux requêtes
+      // attendent ce verrou, et PostgreSQL le leur accorde dans l'ordre
+      // d'arrivée (file d'attente du verrou de ligne). Un verrou de TABLE ne
+      // suffit pas : libérées ensemble, elles se disputeraient la ligne.
       const bloqueur = dataSource.createQueryRunner();
       await bloqueur.connect();
       await bloqueur.startTransaction();
       let critere: request.Response;
       let publication: request.Response;
       try {
-        await bloqueur.query('LOCK TABLE ateliers IN EXCLUSIVE MODE');
+        await bloqueur.query('SELECT id FROM ateliers WHERE id = $1 FOR UPDATE', [at.C]);
         const premier = api(
           'patch',
           `/ateliers/${at.C}/grille/criteres/${critereId}`,
