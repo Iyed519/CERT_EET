@@ -283,6 +283,32 @@ describe('Ateliers (e2e) — US-ATEL-01', () => {
       expect(await nbAteliersMarques()).toBe(avant);
     });
 
+    it('201 avec des fichiers de code source (complément du 08/11)', async () => {
+      const res = await api('post', `/modules/${moduleId}/ateliers`, tokenFormateur)
+        .send(corps({ titre: `${MARQUEUR} Code`, typesLivrables: ['ipynb', 'py', 'java', 'zip'] }))
+        .expect(201);
+      expect(res.body.typesLivrables).toEqual(['zip', 'py', 'java', 'ipynb']);
+      await api('delete', `/ateliers/${res.body.id}`, tokenFormateur).expect(204);
+    });
+
+    it('la base refuse elle aussi un type hors liste (CHECK)', async () => {
+      await expect(
+        dataSource.query(`UPDATE ateliers SET types_livrables = ARRAY['exe'] WHERE id = $1`, [
+          atelierId,
+        ]),
+      ).rejects.toThrow(/CHK_ateliers_types_livrables/);
+      await expect(
+        dataSource.query(
+          `UPDATE ateliers SET types_livrables = ARRAY['py', 'ipynb'] WHERE id = $1`,
+          [atelierId],
+        ),
+      ).resolves.toBeDefined();
+      await dataSource.query(
+        `UPDATE ateliers SET types_livrables = ARRAY['pdf', 'zip'] WHERE id = $1`,
+        [atelierId],
+      );
+    });
+
     it('403 + ACCES_RESSOURCE_REFUSE pour un formateur non affecté ; 403 pour un apprenant', async () => {
       await api('post', `/modules/${moduleId}/ateliers`, tokenAutre)
         .send(corps({ titre: `${MARQUEUR} Intrus` }))

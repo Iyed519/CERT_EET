@@ -1,6 +1,10 @@
 import { BadRequestException, ConflictException } from '@nestjs/common';
+import { readFileSync } from 'fs';
+import { join } from 'path';
 import { StatutAtelier } from '../../database/enums/statut-atelier.enum';
 import {
+  EXTENSIONS_CODE,
+  EXTENSIONS_DOCUMENT,
   EXTENSIONS_LIVRABLE,
   MESSAGE_DATE_PASSEE,
   normaliserTypesLivrables,
@@ -51,6 +55,44 @@ describe('atelier.regles (US-ATEL-01)', () => {
       expect(normaliserTypesLivrables([...EXTENSIONS_LIVRABLE].reverse())).toEqual([
         ...EXTENSIONS_LIVRABLE,
       ]);
+    });
+
+    it('accepte les fichiers de code source, rangés après les documents', () => {
+      expect(normaliserTypesLivrables(['ipynb', 'py', 'zip', 'java'])).toEqual([
+        'zip',
+        'py',
+        'java',
+        'ipynb',
+      ]);
+    });
+
+    it.each(['exe', 'sh', 'bat', 'jar', 'dll'])(
+      'refuse toujours (400) un exécutable : %s',
+      (type) => {
+        expect(() => normaliserTypesLivrables([type])).toThrow(BadRequestException);
+      },
+    );
+
+    it('documents + code = la liste complète, sans doublon', () => {
+      expect(EXTENSIONS_LIVRABLE).toEqual([...EXTENSIONS_DOCUMENT, ...EXTENSIONS_CODE]);
+      expect(new Set(EXTENSIONS_LIVRABLE).size).toBe(EXTENSIONS_LIVRABLE.length);
+      // La colonne est un varchar(10) : aucune extension ne doit dépasser.
+      expect(EXTENSIONS_LIVRABLE.every((e) => e.length <= 10)).toBe(true);
+    });
+
+    it('le CHECK de la dernière migration reprend exactement la même liste', () => {
+      const source = readFileSync(
+        join(__dirname, '../../database/migrations/1786400000000-ElargirTypesLivrables.ts'),
+        'utf8',
+      );
+      const extraire = (nom: string): string[] =>
+        [
+          ...(source.match(new RegExp(`const ${nom} = \`([^\`]*)\``))?.[1] ?? '').matchAll(
+            /'([a-z0-9]+)'/g,
+          ),
+        ].map((m) => m[1]);
+      expect(extraire('DOCUMENTS')).toEqual([...EXTENSIONS_DOCUMENT]);
+      expect(extraire('CODE')).toEqual([...EXTENSIONS_CODE]);
     });
 
     it('refuse (400) une extension hors de la liste, en la nommant', () => {
