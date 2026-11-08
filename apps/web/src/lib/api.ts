@@ -1861,3 +1861,168 @@ export async function deleteAtelier(atelierId: string): Promise<void> {
     await lireReponseFormation<never>(response, 'Impossible de supprimer l’atelier.');
   }
 }
+
+/* ============================================================
+ * US-ATEL-02 — Grille de notation pondérée et modèles
+ * ============================================================ */
+
+/** Les 4 niveaux, dans l'ordre (le rang fixe le libellé côté serveur). */
+export const LIBELLES_NIVEAUX = ['Insuffisant', 'Acceptable', 'Bon', 'Excellent'] as const;
+
+/** Plages par défaut en % des points du critère (exemple de l'UC4). */
+export const PLAGES_PAR_DEFAUT: ReadonlyArray<readonly [number, number]> = [
+  [0, 25],
+  [25, 50],
+  [50, 75],
+  [75, 100],
+];
+
+export interface NiveauPerformance {
+  ordre: number;
+  libelle: string;
+  pointsMinPct: number;
+  pointsMaxPct: number;
+  descripteur: string | null;
+}
+
+export interface CritereGrille {
+  id: string;
+  ordre: number;
+  intitule: string;
+  ponderation: number;
+  description: string | null;
+  niveaux: NiveauPerformance[];
+}
+
+/** La grille d'un atelier (`id` null tant qu'aucun critère n'a été écrit). */
+export interface GrilleNotation {
+  id: string | null;
+  atelierId: string;
+  statutAtelier: StatutAtelier;
+  modifiable: boolean;
+  validee: boolean;
+  totalPonderations: number;
+  criteres: CritereGrille[];
+  updatedAt: string | null;
+}
+
+/** Un niveau saisi : plage en % du critère, descripteur facultatif. */
+export interface NiveauInput {
+  pointsMinPct: number;
+  pointsMaxPct: number;
+  descripteur?: string | null;
+}
+
+export interface CritereInput {
+  intitule: string;
+  ponderation: number;
+  description?: string | null;
+  niveaux?: NiveauInput[];
+}
+
+/** Un modèle de grille (« Partir d'un modèle »). */
+export interface ModeleGrille {
+  id: string;
+  nomModele: string;
+  nbCriteres: number;
+  totalPonderations: number;
+  criteres: Array<{ intitule: string; ponderation: number }>;
+  estAMoi: boolean;
+  createdAt: string;
+}
+
+/** GET /api/ateliers/:id/grille — n'écrit rien (grille vide tant que non commencée). */
+export async function getGrille(atelierId: string): Promise<GrilleNotation> {
+  const response = await apiFetch(`/api/ateliers/${atelierId}/grille`);
+  return lireReponseFormation<GrilleNotation>(response, 'Impossible de charger la grille.');
+}
+
+/**
+ * POST /api/ateliers/:id/grille/criteres — 400 si le total dépasserait 100 %
+ * ou si les plages des niveaux sont incohérentes ; 409 hors brouillon.
+ */
+export async function addCritere(atelierId: string, input: CritereInput): Promise<GrilleNotation> {
+  const response = await apiFetch(`/api/ateliers/${atelierId}/grille/criteres`, {
+    method: 'POST',
+    headers: JSON_HEADERS,
+    body: JSON.stringify(input),
+  });
+  return lireReponseFormation<GrilleNotation>(response, 'Impossible d’ajouter le critère.');
+}
+
+/** PATCH /api/ateliers/:id/grille/criteres/:critereId — retire la validation. */
+export async function updateCritere(
+  atelierId: string,
+  critereId: string,
+  patch: Partial<CritereInput>,
+): Promise<GrilleNotation> {
+  const response = await apiFetch(`/api/ateliers/${atelierId}/grille/criteres/${critereId}`, {
+    method: 'PATCH',
+    headers: JSON_HEADERS,
+    body: JSON.stringify(patch),
+  });
+  return lireReponseFormation<GrilleNotation>(response, 'Impossible de modifier le critère.');
+}
+
+/** DELETE /api/ateliers/:id/grille/criteres/:critereId — renvoie la grille à jour. */
+export async function deleteCritere(atelierId: string, critereId: string): Promise<GrilleNotation> {
+  const response = await apiFetch(`/api/ateliers/${atelierId}/grille/criteres/${critereId}`, {
+    method: 'DELETE',
+  });
+  return lireReponseFormation<GrilleNotation>(response, 'Impossible de supprimer le critère.');
+}
+
+/** PUT /api/ateliers/:id/grille/criteres/ordre — liste complète, dans l'ordre voulu. */
+export async function reorderCriteres(
+  atelierId: string,
+  critereIds: string[],
+): Promise<GrilleNotation> {
+  const response = await apiFetch(`/api/ateliers/${atelierId}/grille/criteres/ordre`, {
+    method: 'PUT',
+    headers: JSON_HEADERS,
+    body: JSON.stringify({ critereIds }),
+  });
+  return lireReponseFormation<GrilleNotation>(response, 'Impossible de réordonner les critères.');
+}
+
+/** POST /api/ateliers/:id/grille/valider — 400 si le total n'est pas exactement 100 %. */
+export async function validerGrille(atelierId: string): Promise<GrilleNotation> {
+  const response = await apiFetch(`/api/ateliers/${atelierId}/grille/valider`, {
+    method: 'POST',
+  });
+  return lireReponseFormation<GrilleNotation>(response, 'Impossible de valider la grille.');
+}
+
+/** POST /api/ateliers/:id/grille/modele — enregistre une copie (409 nom déjà pris). */
+export async function enregistrerModele(atelierId: string, nomModele: string): Promise<ModeleGrille> {
+  const response = await apiFetch(`/api/ateliers/${atelierId}/grille/modele`, {
+    method: 'POST',
+    headers: JSON_HEADERS,
+    body: JSON.stringify({ nomModele }),
+  });
+  return lireReponseFormation<ModeleGrille>(response, 'Impossible d’enregistrer le modèle.');
+}
+
+/** POST /api/ateliers/:id/grille/copier — remplace la grille par une copie du modèle. */
+export async function copierModele(atelierId: string, modeleId: string): Promise<GrilleNotation> {
+  const response = await apiFetch(`/api/ateliers/${atelierId}/grille/copier`, {
+    method: 'POST',
+    headers: JSON_HEADERS,
+    body: JSON.stringify({ modeleId }),
+  });
+  return lireReponseFormation<GrilleNotation>(response, 'Impossible de copier le modèle.');
+}
+
+/** GET /api/grilles/modeles — mes modèles (administrateur : tous). */
+export async function getModelesGrille(): Promise<ModeleGrille[]> {
+  const response = await apiFetch('/api/grilles/modeles');
+  return lireReponseFormation<ModeleGrille[]>(response, 'Impossible de charger les modèles.');
+}
+
+/** DELETE /api/grilles/modeles/:id — les grilles déjà copiées restent intactes. */
+export async function deleteModeleGrille(modeleId: string): Promise<void> {
+  const response = await apiFetch(`/api/grilles/modeles/${modeleId}`, { method: 'DELETE' });
+  if (!response.ok) {
+    await lireReponseFormation<never>(response, 'Impossible de supprimer le modèle.');
+  }
+}

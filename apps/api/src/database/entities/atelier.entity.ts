@@ -27,7 +27,7 @@ import { ModuleFormation } from './module-formation.entity';
  * Les bornes (taille, nombre de fichiers, tolérance, extensions autorisées)
  * sont vérifiées par les DTO ET par des CHECK en base : une écriture qui
  * contournerait l'API ne peut pas créer un atelier incohérent.
- * La grille de notation (US-ATEL-02) vivra dans sa propre table.
+ * La grille de notation (US-ATEL-02) vit dans sa propre table (`grilles`).
  */
 @Index('IDX_ateliers_module', ['moduleId'])
 @Entity('ateliers')

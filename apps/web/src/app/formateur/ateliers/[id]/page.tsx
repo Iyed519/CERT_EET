@@ -4,6 +4,7 @@ import { useParams, useRouter } from 'next/navigation';
 import { useCallback, useEffect, useState } from 'react';
 import { AtelierModal } from '../../../../components/AtelierModal';
 import { ConfirmationModal } from '../../../../components/ConfirmationModal';
+import { GrilleNotation } from '../../../../components/GrilleNotation';
 import { AdminError, AtelierDetail, deleteAtelier, getAtelier } from '../../../../lib/api';
 import { dateHeureFr, LIBELLES_STATUT_ATELIER } from '../../../../lib/format';
 
@@ -16,8 +17,8 @@ type Fenetre = { type: 'modifier' } | { type: 'supprimer' } | null;
  * Résumé (date limite, livrables, modalités), énoncé et compétences visées.
  * Tant que l'atelier est en brouillon, il se modifie et se supprime ; le
  * serveur refuse (409) dès qu'il est publié, la page désactive alors les
- * boutons. La grille de notation arrive avec US-ATEL-02, la publication avec
- * US-ATEL-03.
+ * boutons. En bas, l'éditeur de la grille de notation (US-ATEL-02) ; la
+ * publication arrive avec US-ATEL-03.
  */
 export default function AtelierPage(): JSX.Element {
   const params = useParams<{ id: string }>();
@@ -93,8 +94,8 @@ export default function AtelierPage(): JSX.Element {
 
           {brouillon && (
             <p className="alert alert-info">
-              Brouillon : invisible pour les apprenants. Définissez ensuite la grille de notation,
-              puis publiez l’atelier.
+              Brouillon : invisible pour les apprenants. Définissez la grille de notation (total
+              de 100 %) et validez-la : la publication l’exigera.
             </p>
           )}
 
@@ -133,10 +134,7 @@ export default function AtelierPage(): JSX.Element {
           <h2 className="section-title">Énoncé</h2>
           <div className="enonce-atelier">{atelier.enonce}</div>
 
-          <h2 className="section-title">Grille de notation</h2>
-          <p className="page-subtitle espace-bas">
-            À définir (US-ATEL-02) : critères pondérés, total de 100 %.
-          </p>
+          <GrilleNotation atelierId={atelier.id} titreAtelier={atelier.titre} />
         </>
       )}
 

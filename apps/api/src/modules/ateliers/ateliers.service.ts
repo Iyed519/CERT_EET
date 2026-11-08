@@ -265,8 +265,11 @@ export class AteliersService {
    * formation : 404 s'il n'existe pas, 409 si la formation est archivée.
    * Le module est lu à part : PostgreSQL refuse FOR UPDATE sur le côté
    * nullable d'une jointure externe.
+   *
+   * Public : la grille de notation (US-ATEL-02) prend le même verrou avant
+   * toute écriture — l'atelier est le parent unique de sa grille.
    */
-  private async verrouiller(manager: EntityManager, atelierId: string): Promise<Atelier> {
+  async verrouiller(manager: EntityManager, atelierId: string): Promise<Atelier> {
     const atelier = await manager.findOne(Atelier, {
       where: { id: atelierId },
       lock: { mode: 'pessimistic_write' },
