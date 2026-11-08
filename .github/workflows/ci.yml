@@ -80,6 +80,16 @@ jobs:
       # MinIO ne peut pas être un « service » GitHub Actions (il faut passer la
       # commande `server /data`) : je le lance moi-même, même image que
       # docker-compose.yml, et j'attends la même sonde que son healthcheck.
+      - name: Sonde des images MinIO (temporaire)
+        run: |
+          for img in quay.io/minio/minio:RELEASE.2025-04-22T22-12-26Z quay.io/minio/minio:RELEASE.2025-09-07T16-13-09Z quay.io/minio/minio:latest bitnamilegacy/minio:2025.4.22 bitnamilegacy/minio:latest cgr.dev/chainguard/minio:latest minio/minio:latest; do
+            if docker pull -q "$img" >/dev/null 2>&1; then
+              echo "OK   $img $(docker image inspect -f '{{.Created}}' "$img")"
+              docker run --rm --entrypoint sh "$img" -c 'for b in mc curl wget minio; do command -v $b || echo "absent $b"; done' 2>&1 | sed 's/^/     /' || echo "     (pas de sh)"
+            else
+              echo "KO   $img"
+            fi
+          done
       - name: Start MinIO (US-ATEL-04)
         run: |
           docker run -d --name minio -p 9000:9000 \
