@@ -1,5 +1,6 @@
 import { Module } from '@nestjs/common';
 import { TypeOrmModule } from '@nestjs/typeorm';
+import { Atelier } from '../../database/entities/atelier.entity';
 import { AffectationFormateur } from '../../database/entities/affectation-formateur.entity';
 import { Formation } from '../../database/entities/formation.entity';
 import { Inscription } from '../../database/entities/inscription.entity';
@@ -21,8 +22,8 @@ import { FormationsService } from './formations.service';
 /**
  * Module des formations (US-FORM-01, US-FORM-03, US-AUTH-16).
  *
- * - forFeature : Formation et ModuleFormation (le cœur) ; Inscription et Qcm
- *   en LECTURE seule, pour deux garde-fous — ne pas réduire la capacité sous
+ * - forFeature : Formation et ModuleFormation (le cœur) ; Inscription, Qcm et
+ *   Atelier (US-ATEL-01) en LECTURE seule, pour deux garde-fous — ne pas réduire la capacité sous
  *   le nombre d'inscrits, ne pas supprimer un module qui porte une évaluation.
  *   AffectationFormateur (écriture) et User (LECTURE seule : rôle et statut du
  *   compte à affecter) pour US-FORM-03.
@@ -44,6 +45,7 @@ import { FormationsService } from './formations.service';
       ModuleFormation,
       Inscription,
       Qcm,
+      Atelier,
       AffectationFormateur,
       User,
     ]),

@@ -7,6 +7,7 @@ import {
 import { InjectRepository } from '@nestjs/typeorm';
 import { MoreThan, Repository } from 'typeorm';
 import { ModuleFormation } from '../../database/entities/module-formation.entity';
+import { Atelier } from '../../database/entities/atelier.entity';
 import { Qcm } from '../../database/entities/qcm.entity';
 import { AuditService } from '../audit/audit.service';
 import { CreateModuleDto } from './dto/create-module.dto';
@@ -36,6 +37,8 @@ export class FormationModulesService {
     private readonly moduleRepository: Repository<ModuleFormation>,
     @InjectRepository(Qcm)
     private readonly qcmRepository: Repository<Qcm>,
+    @InjectRepository(Atelier)
+    private readonly atelierRepository: Repository<Atelier>,
     private readonly formationsService: FormationsService,
     // Writer d'audit UNIQUE (@Global, US-AUTH-12).
     private readonly auditService: AuditService,
@@ -136,7 +139,10 @@ export class FormationModulesService {
     await this.formationsService.chargerPourEcriture(formationId);
     const module = await this.chargerModule(formationId, moduleId);
 
-    const evaluations = await this.qcmRepository.count({ where: { moduleId } });
+    // QCM et ateliers (US-ATEL-01) sont tous deux des évaluations du module.
+    const evaluations =
+      (await this.qcmRepository.count({ where: { moduleId } })) +
+      (await this.atelierRepository.count({ where: { moduleId } }));
     if (evaluations > 0) {
       throw new ConflictException(
         'Ce module contient des évaluations et ne peut pas être supprimé.',

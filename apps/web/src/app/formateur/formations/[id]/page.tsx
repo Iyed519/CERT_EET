@@ -2,16 +2,23 @@
 import Link from 'next/link';
 import { useParams, useRouter } from 'next/navigation';
 import { useCallback, useEffect, useState } from 'react';
+import { AtelierModal } from '../../../../components/AtelierModal';
 import { QcmInfosModal } from '../../../../components/QcmInfosModal';
 import {
   AdminError,
+  AtelierResume,
   FormationDetailVue,
+  getAteliersDuModule,
   getMaFormation,
   getQcmsDuModule,
   QcmResume,
   StatutFormation,
 } from '../../../../lib/api';
-import { LIBELLES_STATUT_QCM } from '../../../../lib/format';
+import {
+  dateHeureFr,
+  LIBELLES_STATUT_ATELIER,
+  LIBELLES_STATUT_QCM,
+} from '../../../../lib/format';
 
 const LIBELLES: Record<StatutFormation, string> = {
   OUVERTE: 'Ouverte',
@@ -43,6 +50,9 @@ const dateFr = (iso: string | null): string => {
  * US-QCM-01 — Sous chaque module : ses QCM (statut, nombre de questions, lien
  * vers l'éditeur) et un bouton « Nouveau QCM », sauf si la formation est
  * archivée (le serveur refuserait toute écriture).
+ *
+ * US-ATEL-01 — Sous les QCM : les ateliers du module (statut, date limite,
+ * types de livrables, lien vers la fiche) et un bouton « Nouvel atelier ».
  */
 export default function MaFormationPage(): JSX.Element {
   const params = useParams<{ id: string }>();
@@ -53,11 +63,18 @@ export default function MaFormationPage(): JSX.Element {
   // QCM de chaque module, indexés par identifiant de module.
   const [qcms, setQcms] = useState<Record<string, QcmResume[]>>({});
   const [nouveauQcm, setNouveauQcm] = useState<{ id: string; titre: string } | null>(null);
+  // Ateliers de chaque module (US-ATEL-01), indexés par identifiant de module.
+  const [ateliers, setAteliers] = useState<Record<string, AtelierResume[]>>({});
+  const [nouvelAtelier, setNouvelAtelier] = useState<{ id: string; titre: string } | null>(null);
   const router = useRouter();
 
   const chargerQcms = useCallback(async (f: FormationDetailVue): Promise<void> => {
-    const listes = await Promise.all(f.modules.map((m) => getQcmsDuModule(m.id)));
-    setQcms(Object.fromEntries(f.modules.map((m, i) => [m.id, listes[i]])));
+    const [listesQcm, listesAteliers] = await Promise.all([
+      Promise.all(f.modules.map((m) => getQcmsDuModule(m.id))),
+      Promise.all(f.modules.map((m) => getAteliersDuModule(m.id))),
+    ]);
+    setQcms(Object.fromEntries(f.modules.map((m, i) => [m.id, listesQcm[i]])));
+    setAteliers(Object.fromEntries(f.modules.map((m, i) => [m.id, listesAteliers[i]])));
   }, []);
 
   useEffect(() => {
@@ -157,12 +174,20 @@ export default function MaFormationPage(): JSX.Element {
                       {m.description && <div className="field-hint">{m.description}</div>}
                     </div>
                     {modifiable && (
-                      <button
-                        className="btn-sm btn-primary-sm"
-                        onClick={() => setNouveauQcm({ id: m.id, titre: m.titre })}
-                      >
-                        + Nouveau QCM
-                      </button>
+                      <div className="module-boutons">
+                        <button
+                          className="btn-sm btn-primary-sm"
+                          onClick={() => setNouveauQcm({ id: m.id, titre: m.titre })}
+                        >
+                          + Nouveau QCM
+                        </button>
+                        <button
+                          className="btn-sm btn-primary-sm"
+                          onClick={() => setNouvelAtelier({ id: m.id, titre: m.titre })}
+                        >
+                          + Nouvel atelier
+                        </button>
+                      </div>
                     )}
                   </div>
                   {(qcms[m.id] ?? []).length === 0 ? (
@@ -189,11 +214,45 @@ export default function MaFormationPage(): JSX.Element {
                       ))}
                     </ul>
                   )}
+                  {(ateliers[m.id] ?? []).length === 0 ? (
+                    <p className="espace-vide">Aucun atelier dans ce module.</p>
+                  ) : (
+                    <ul className="espace-qcms">
+                      {(ateliers[m.id] ?? []).map((a) => (
+                        <li key={a.id} className="espace-qcm espace-atelier">
+                          <div className="module-corps">
+                            <Link className="table-link" href={`/formateur/ateliers/${a.id}`}>
+                              Atelier · {a.titre}
+                            </Link>
+                            <div className="field-hint">
+                              À rendre avant le {dateHeureFr(a.dateLimite)} ·{' '}
+                              {a.typesLivrables.map((t) => `.${t}`).join(' ')}
+                            </div>
+                          </div>
+                          <span className={`statut-badge statut-${a.statut}`}>
+                            {LIBELLES_STATUT_ATELIER[a.statut]}
+                          </span>
+                          <Link className="btn-sm btn-link" href={`/formateur/ateliers/${a.id}`}>
+                            Ouvrir
+                          </Link>
+                        </li>
+                      ))}
+                    </ul>
+                  )}
                 </li>
               ))}
             </ol>
           )}
         </>
+      )}
+
+      {nouvelAtelier && (
+        <AtelierModal
+          moduleId={nouvelAtelier.id}
+          moduleTitre={nouvelAtelier.titre}
+          onClose={() => setNouvelAtelier(null)}
+          onEnregistre={(cree) => router.push(`/formateur/ateliers/${cree.id}`)}
+        />
       )}
 
       {nouveauQcm && (

@@ -13,6 +13,7 @@ import { FormationsModule } from './modules/formations/formations.module';
 import { InscriptionsModule } from './modules/inscriptions/inscriptions.module';
 import { QcmModule } from './modules/qcm/qcm.module';
 import { TentativesModule } from './modules/tentatives/tentatives.module';
+import { AteliersModule } from './modules/ateliers/ateliers.module';
 /**
  * Module racine (AppModule).
  *
@@ -26,7 +27,8 @@ import { TentativesModule } from './modules/tentatives/tentatives.module';
  * ajoutés ici au fil des sprints. FormationsModule (US-FORM-01) ouvre le
  * cœur métier du Sprint 2 ; InscriptionsModule (US-INSC-01) y ajoute
  * l'inscription des apprenants, QcmModule (US-QCM-01) les évaluations,
- * TentativesModule (US-QCM-05) leur passage par l'apprenant.
+ * TentativesModule (US-QCM-05) leur passage par l'apprenant, AteliersModule
+ * (US-ATEL-01, Sprint 3) les ateliers pratiques.
  */
 @Module({
   imports: [
@@ -44,6 +46,7 @@ import { TentativesModule } from './modules/tentatives/tentatives.module';
     InscriptionsModule,
     QcmModule,
     TentativesModule,
+    AteliersModule,
   ],
 })
 export class AppModule {}

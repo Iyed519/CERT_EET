@@ -459,3 +459,13 @@ textarea.input { resize: vertical; font-family: inherit; line-height: 1.45; }
   .carte-ailleurs { padding: 16px; }
   .carte-ailleurs .btn { width: 100%; justify-content: center; }
 }
+
+/* US-ATEL-01 — Ateliers : cases des types de livrables, liste sous le module */
+.cases-types { display: grid; grid-template-columns: repeat(auto-fill, minmax(84px, 1fr)); gap: 8px 12px; }
+.espace-atelier { background: #f7f9fc; }
+.module-boutons { display: flex; gap: 8px; flex-wrap: wrap; justify-content: flex-end; }
+.enonce-atelier { white-space: pre-line; overflow-wrap: anywhere; margin: 0 0 26px; padding: 14px 16px; border: 1px solid var(--border); border-radius: var(--radius-sm); background: var(--surface); line-height: 1.55; }
+@media (max-width: 560px) {
+  .espace-module-tete { flex-wrap: wrap; }
+  .espace-module-tete .module-boutons { flex-basis: 100%; justify-content: flex-start; }
+}

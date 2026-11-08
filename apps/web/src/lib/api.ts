@@ -1740,3 +1740,105 @@ export async function getCorrection(tentativeId: string): Promise<CorrectionTent
   }
   return data as CorrectionTentative;
 }
+
+/* ============================================================
+ * US-ATEL-01 — Ateliers (formateur affecté, administrateur)
+ * ============================================================ */
+
+/** Statut d'un atelier (l'enum backend reste la source de vérité). */
+export type StatutAtelier = 'BROUILLON' | 'PUBLIE' | 'ARCHIVE';
+
+/** Extensions de livrable acceptées par le serveur (liste fermée). */
+export const EXTENSIONS_LIVRABLE = [
+  'pdf',
+  'zip',
+  'docx',
+  'pptx',
+  'xlsx',
+  'txt',
+  'md',
+  'png',
+  'jpg',
+] as const;
+export type ExtensionLivrable = (typeof EXTENSIONS_LIVRABLE)[number];
+
+/** Un atelier dans la liste d'un module (sans son énoncé). */
+export interface AtelierResume {
+  id: string;
+  moduleId: string;
+  titre: string;
+  dateLimite: string;
+  typesLivrables: ExtensionLivrable[];
+  statut: StatutAtelier;
+  createdAt: string;
+  updatedAt: string;
+}
+
+/** Fiche complète d'un atelier. */
+export interface AtelierDetail extends AtelierResume {
+  formationId: string;
+  moduleTitre: string;
+  enonce: string;
+  competencesVisees: string | null;
+  tailleMaxMo: number;
+  nbMaxFichiers: number;
+  toleranceRetardHeures: number;
+}
+
+/** Corps de création (la date limite en ISO 8601). */
+export interface AtelierInput {
+  titre: string;
+  enonce: string;
+  competencesVisees?: string;
+  dateLimite: string;
+  typesLivrables: ExtensionLivrable[];
+  tailleMaxMo?: number;
+  nbMaxFichiers?: number;
+  toleranceRetardHeures?: number;
+}
+
+/** GET /api/modules/:id/ateliers — les ateliers d'un module (tous statuts). */
+export async function getAteliersDuModule(moduleId: string): Promise<AtelierResume[]> {
+  const response = await apiFetch(`/api/modules/${moduleId}/ateliers`);
+  return lireReponseFormation<AtelierResume[]>(
+    response,
+    'Impossible de charger les ateliers du module.',
+  );
+}
+
+/** POST /api/modules/:id/ateliers — crée un atelier au statut BROUILLON. */
+export async function createAtelier(moduleId: string, input: AtelierInput): Promise<AtelierDetail> {
+  const response = await apiFetch(`/api/modules/${moduleId}/ateliers`, {
+    method: 'POST',
+    headers: JSON_HEADERS,
+    body: JSON.stringify(input),
+  });
+  return lireReponseFormation<AtelierDetail>(response, 'Impossible de créer l’atelier.');
+}
+
+/** GET /api/ateliers/:id — la fiche complète. */
+export async function getAtelier(atelierId: string): Promise<AtelierDetail> {
+  const response = await apiFetch(`/api/ateliers/${atelierId}`);
+  return lireReponseFormation<AtelierDetail>(response, 'Impossible de charger l’atelier.');
+}
+
+/** PATCH /api/ateliers/:id — brouillon seulement (`competencesVisees: null` les efface). */
+export async function updateAtelier(
+  atelierId: string,
+  patch: Partial<Omit<AtelierInput, 'competencesVisees'>> & { competencesVisees?: string | null },
+): Promise<AtelierDetail> {
+  const response = await apiFetch(`/api/ateliers/${atelierId}`, {
+    method: 'PATCH',
+    headers: JSON_HEADERS,
+    body: JSON.stringify(patch),
+  });
+  return lireReponseFormation<AtelierDetail>(response, 'Impossible de modifier l’atelier.');
+}
+
+/** DELETE /api/ateliers/:id — 409 si l'atelier n'est plus en brouillon. */
+export async function deleteAtelier(atelierId: string): Promise<void> {
+  const response = await apiFetch(`/api/ateliers/${atelierId}`, { method: 'DELETE' });
+  if (!response.ok) {
+    await lireReponseFormation<never>(response, 'Impossible de supprimer l’atelier.');
+  }
+}
