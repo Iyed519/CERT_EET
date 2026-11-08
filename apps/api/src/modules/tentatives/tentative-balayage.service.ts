@@ -6,6 +6,7 @@ import { StatutTentative } from '../../database/enums/statut-tentative.enum';
 import { AuditService } from '../audit/audit.service';
 import { TentativeMinuterieService } from './tentative-minuterie.service';
 import { TentativeNotationService } from './tentative-notation.service';
+import { TentativeSessionService } from './tentative-session.service';
 
 /** Ligne clôturée par le balayage (colonnes renvoyées par RETURNING). */
 interface LigneCloturee {
@@ -51,6 +52,8 @@ export class TentativeBalayageService implements OnModuleInit, OnModuleDestroy {
     private readonly auditService: AuditService,
     private readonly minuterie: TentativeMinuterieService,
     private readonly notation: TentativeNotationService,
+    // Miroir Redis du verrou de session, supprimé à la clôture (US-QCM-10).
+    private readonly session: TentativeSessionService,
   ) {}
 
   onModuleInit(): void {
@@ -100,6 +103,7 @@ export class TentativeBalayageService implements OnModuleInit, OnModuleDestroy {
     for (const ligne of lignes) {
       await this.journaliser(ligne);
       await this.minuterie.effacer(ligne.id);
+      await this.session.effacerMiroir(ligne.apprenant_id, ligne.qcm_id);
     }
     await this.notation.noterEnAttente();
     return lignes.map((l) => l.id);

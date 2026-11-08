@@ -6,6 +6,10 @@ export interface AccessTokenPayload {
   email: string;
   role: Role;
   jti: string;
+  // US-QCM-10 — identifiant de la session (famille du refresh token), stable
+  // à travers les rotations, terminée à la déconnexion. Absent des jetons émis
+  // avant US-QCM-10 : leur `jti` tient alors lieu de session.
+  sid?: string;
   iat: number;
   exp: number;
 }

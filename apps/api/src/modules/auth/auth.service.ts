@@ -119,10 +119,7 @@ export class AuthService {
    *   5. journalisation COMPTE_CREE ;
    *   6. AUCUNE session ouverte : on ne connecte pas l'utilisateur (201, sans jeton).
    */
-  async register(
-    dto: RegisterDto,
-    context: { adresseIp: string | null },
-  ): Promise<void> {
+  async register(dto: RegisterDto, context: { adresseIp: string | null }): Promise<void> {
     const emailExistant = await this.userRepository.findOne({
       where: { email: dto.email },
     });
@@ -143,11 +140,7 @@ export class AuthService {
     const saved = await this.userRepository.save(user);
     // Jeton à usage unique en Redis : clé -> userId, expiration auto à 48 h.
     const token = crypto.randomUUID();
-    await this.redisService.set(
-      verifyEmailKey(token),
-      saved.id,
-      VERIFY_EMAIL_TTL_SECONDS,
-    );
+    await this.redisService.set(verifyEmailKey(token), saved.id, VERIFY_EMAIL_TTL_SECONDS);
     // Envoi bloquant (await) : si l'email ne part pas, on veut le savoir tout
     // de suite (fail-fast honnête). Le renvoi d'email est une story ultérieure.
     await this.mailService.sendVerificationEmail(saved.email, token);
@@ -200,8 +193,7 @@ export class AuthService {
       where: { email: dto.email },
     });
     const hashToCompare =
-      user?.motDePasseHash ??
-      '$2a$12$invalidplaceholderhashinvalidplaceholderhash123456789';
+      user?.motDePasseHash ?? '$2a$12$invalidplaceholderhashinvalidplaceholderhash123456789';
     const passwordMatches = await bcrypt.compare(dto.password, hashToCompare);
     if (!user || !passwordMatches) {
       throw new UnauthorizedException(GENERIC_LOGIN_ERROR);
@@ -214,11 +206,7 @@ export class AuthService {
     // un défi ; les jetons ne seront émis qu'après /auth/mfa/verify.
     if (user.mfaActive) {
       const mfaToken = crypto.randomUUID();
-      await this.redisService.set(
-        mfaSessionKey(mfaToken),
-        user.id,
-        MFA_SESSION_TTL_SECONDS,
-      );
+      await this.redisService.set(mfaSessionKey(mfaToken), user.id, MFA_SESSION_TTL_SECONDS);
       return { mfaRequired: true, mfaToken };
     }
     return this.issueSession(user, context, 'LOGIN');
@@ -240,12 +228,7 @@ export class AuthService {
       throw new UnauthorizedException(GENERIC_MFA_ERROR);
     }
     const user = await this.userRepository.findOne({ where: { id: userId } });
-    if (
-      !user ||
-      user.statut !== StatutCompte.ACTIF ||
-      !user.mfaActive ||
-      !user.mfaSecret
-    ) {
+    if (!user || user.statut !== StatutCompte.ACTIF || !user.mfaActive || !user.mfaSecret) {
       throw new UnauthorizedException(GENERIC_MFA_ERROR);
     }
     if (!this.verifierTotp(code, user.mfaSecret)) {
@@ -266,9 +249,11 @@ export class AuthService {
     context: { adresseIp: string | null; userAgent: string | null },
     auditAction: string,
   ): Promise<LoginResult> {
-    const accessToken = await this.signAccessToken(user);
-    const refreshToken = await this.signRefreshToken(user);
+    // La famille du refresh token EST la session (US-QCM-10, D2) : son
+    // identifiant part aussi dans l'access token (claim `sid`).
     const familleId = crypto.randomUUID();
+    const accessToken = await this.signAccessToken(user, familleId);
+    const refreshToken = await this.signRefreshToken(user);
     await this.persistRefreshToken(user.id, refreshToken, familleId, context);
     user.derniereConnexion = new Date();
     await this.userRepository.save(user);
@@ -354,9 +339,11 @@ export class AuthService {
       // DESACTIVE ou ANONYMISE : connexion refusée.
       throw new UnauthorizedException(GENERIC_OAUTH_ERROR);
     }
-    const accessToken = await this.signAccessToken(user);
-    const refreshToken = await this.signRefreshToken(user);
+    // La famille du refresh token EST la session (US-QCM-10, D2) : son
+    // identifiant part aussi dans l'access token (claim `sid`).
     const familleId = crypto.randomUUID();
+    const accessToken = await this.signAccessToken(user, familleId);
+    const refreshToken = await this.signRefreshToken(user);
     await this.persistRefreshToken(user.id, refreshToken, familleId, context);
     user.derniereConnexion = new Date();
     await this.userRepository.save(user);
@@ -415,15 +402,14 @@ export class AuthService {
     if (!user || user.statut !== StatutCompte.ACTIF) {
       throw new UnauthorizedException(GENERIC_REFRESH_ERROR);
     }
-    await this.burnRefreshToken(stored);
-    const accessToken = await this.signAccessToken(user);
+    // Même session après rotation : le `sid` reste celui de la famille.
+    // Le nouveau jeton est enregistré AVANT de brûler l'ancien : la famille
+    // n'a jamais zéro jeton actif, sinon une session vivante paraîtrait
+    // terminée un instant (verrou de session QCM, US-QCM-10, D6).
+    const accessToken = await this.signAccessToken(user, stored.familleId);
     const newRefreshToken = await this.signRefreshToken(user);
-    await this.persistRefreshToken(
-      user.id,
-      newRefreshToken,
-      stored.familleId,
-      context,
-    );
+    await this.persistRefreshToken(user.id, newRefreshToken, stored.familleId, context);
+    await this.burnRefreshToken(stored);
     return {
       accessToken,
       refreshToken: newRefreshToken,
@@ -475,10 +461,7 @@ export class AuthService {
    * TTL du marqueur = durée de vie d'un access token (au-delà ils sont expirés).
    */
   async invalidateUserSessions(userId: string): Promise<void> {
-    await this.refreshTokenRepository.update(
-      { userId, active: true },
-      { active: false },
-    );
+    await this.refreshTokenRepository.update({ userId, active: true }, { active: false });
     const nowSeconds = Math.floor(Date.now() / 1000);
     await this.redisService.set(
       sessionsValidAfterKey(userId),
@@ -580,16 +563,10 @@ export class AuthService {
       throw new UnauthorizedException('Non authentifie.');
     }
     if (user.mfaActive) {
-      throw new ConflictException(
-        'La double authentification est deja activee.',
-      );
+      throw new ConflictException('La double authentification est deja activee.');
     }
     const secret = authenticator.generateSecret();
-    await this.redisService.set(
-      mfaSetupKey(userId),
-      secret,
-      MFA_SETUP_TTL_SECONDS,
-    );
+    await this.redisService.set(mfaSetupKey(userId), secret, MFA_SETUP_TTL_SECONDS);
     const otpauthUrl = authenticator.keyuri(user.email, MFA_ISSUER, secret);
     const qrDataUrl = await QRCode.toDataURL(otpauthUrl);
     return { otpauthUrl, qrDataUrl };
@@ -611,9 +588,7 @@ export class AuthService {
       throw new UnauthorizedException('Non authentifie.');
     }
     if (user.mfaActive) {
-      throw new ConflictException(
-        'La double authentification est deja activee.',
-      );
+      throw new ConflictException('La double authentification est deja activee.');
     }
     const secret = await this.redisService.get(mfaSetupKey(userId));
     if (!secret) {
@@ -652,9 +627,7 @@ export class AuthService {
       throw new UnauthorizedException('Non authentifie.');
     }
     if (!user.mfaActive || !user.mfaSecret) {
-      throw new BadRequestException(
-        "La double authentification n'est pas activee.",
-      );
+      throw new BadRequestException("La double authentification n'est pas activee.");
     }
     if (!this.verifierTotp(code, user.mfaSecret)) {
       throw new BadRequestException('Code invalide.');
@@ -705,22 +678,23 @@ export class AuthService {
     const maintenant = new Date();
     let age = maintenant.getFullYear() - naissance.getFullYear();
     const mois = maintenant.getMonth() - naissance.getMonth();
-    if (
-      mois < 0 ||
-      (mois === 0 && maintenant.getDate() < naissance.getDate())
-    ) {
+    if (mois < 0 || (mois === 0 && maintenant.getDate() < naissance.getDate())) {
       age -= 1;
     }
     return age;
   }
-  /** Access token (15 min — ADR-08). jti unique (révocation ciblée). */
-  private async signAccessToken(user: User): Promise<string> {
+  /**
+   * Access token (15 min — ADR-08). jti unique (révocation ciblée) ; `sid` =
+   * famille du refresh token, stable pendant toute la session (US-QCM-10).
+   */
+  private async signAccessToken(user: User, familleId: string): Promise<string> {
     return this.jwtService.signAsync(
       {
         sub: user.id,
         email: user.email,
         role: user.role,
         jti: crypto.randomUUID(),
+        sid: familleId,
       },
       {
         privateKey: this.getPrivateKey(),
@@ -763,28 +737,15 @@ export class AuthService {
   private async burnRefreshToken(token: RefreshToken): Promise<void> {
     token.active = false;
     await this.refreshTokenRepository.save(token);
-    const ttlSeconds = Math.max(
-      1,
-      Math.ceil((token.dateExpiration.getTime() - Date.now()) / 1000),
-    );
-    await this.redisService.set(
-      refreshDenylistKey(token.tokenHash),
-      '1',
-      ttlSeconds,
-    );
+    const ttlSeconds = Math.max(1, Math.ceil((token.dateExpiration.getTime() - Date.now()) / 1000));
+    await this.redisService.set(refreshDenylistKey(token.tokenHash), '1', ttlSeconds);
   }
   /** Détection de rejeu : révoque toute la famille (US-AUTH-03). */
   private async revokeFamille(familleId: string): Promise<void> {
-    await this.refreshTokenRepository.update(
-      { familleId, active: true },
-      { active: false },
-    );
+    await this.refreshTokenRepository.update({ familleId, active: true }, { active: false });
   }
   /** Écrit une entrée d'audit LOGOUT via le writer unique (US-AUTH-12). */
-  private async journaliserLogout(
-    userId: string,
-    adresseIp: string | null,
-  ): Promise<void> {
+  private async journaliserLogout(userId: string, adresseIp: string | null): Promise<void> {
     await this.auditService.record({
       action: 'LOGOUT',
       acteur: userId,

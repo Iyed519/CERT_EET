@@ -9,7 +9,9 @@ import { StatutTentative } from '../../database/enums/statut-tentative.enum';
 import { TypeQuestion } from '../../database/enums/type-question.enum';
 import { AuditService } from '../audit/audit.service';
 import { TentativeMinuterieService } from './tentative-minuterie.service';
+import { ConfigurationAntiFraude } from '../../database/entities/configuration-anti-fraude.entity';
 import { TentativeNotationService } from './tentative-notation.service';
+import { TentativeSessionService } from './tentative-session.service';
 import {
   MESSAGE_TEMPS_ECOULE,
   MESSAGE_TENTATIVE_INTROUVABLE,
@@ -30,7 +32,9 @@ describe('TentativePassageService', () => {
   const MAINTENANT = new Date('2026-11-02T10:10:00Z');
   const DEBUT = new Date('2026-11-02T10:00:00Z');
   const LIMITE = new Date('2026-11-02T10:30:00Z');
-  const CONTEXTE = { adresseIp: '127.0.0.1' };
+  const SESSION = 's0000000-0000-4000-8000-000000000001';
+  const AUTRE_SESSION = 's0000000-0000-4000-8000-000000000002';
+  const CONTEXTE = { adresseIp: '127.0.0.1', sessionId: SESSION, route: '/api/tentatives/x' };
   const PLAN = [
     { questionId: 'q1', optionIds: ['c', 'a', 'b'] },
     { questionId: 'q2', optionIds: ['v', 'f'] },
@@ -51,6 +55,8 @@ describe('TentativePassageService', () => {
   let dataSource: { transaction: jest.Mock };
   let auditService: { record: jest.Mock };
   let minuterie: { armer: jest.Mock; effacer: jest.Mock };
+  let session: { controler: jest.Mock; effacerMiroir: jest.Mock; refuser: jest.Mock };
+  let blocage: boolean;
   let notation: { noterSansEchec: jest.Mock };
 
   const enCours = (surcharge: Partial<TentativeQcm> = {}): TentativeQcm =>
@@ -64,15 +70,20 @@ describe('TentativePassageService', () => {
       dateFin: null,
       dureeEffective: null,
       planTirage: PLAN,
+      sessionId: SESSION,
       ...surcharge,
     }) as TentativeQcm;
 
   beforeEach(async () => {
     tentative = enCours();
+    blocage = true;
     types = { q1: TypeQuestion.QCM, q2: TypeQuestion.VRAI_FAUX };
     manager = {
       findOne: jest.fn((entite: unknown, options: { where: { id: string } }) => {
         if (entite === TentativeQcm) return Promise.resolve(tentative);
+        if (entite === ConfigurationAntiFraude) {
+          return Promise.resolve({ id: 'conf', blocageSessionsMultiples: blocage });
+        }
         if (entite === Question) {
           const type = types[options.where.id];
           return Promise.resolve(type ? { id: options.where.id, type } : null);
@@ -99,6 +110,11 @@ describe('TentativePassageService', () => {
       armer: jest.fn().mockResolvedValue(undefined),
       effacer: jest.fn().mockResolvedValue(undefined),
     };
+    session = {
+      controler: jest.fn().mockResolvedValue('autorisee'),
+      effacerMiroir: jest.fn().mockResolvedValue(undefined),
+      refuser: jest.fn().mockRejectedValue(new ConflictException('session')),
+    };
     // Notation (US-QCM-08) : 1 point sur 2 questions -> 50 %, réussie.
     notation = {
       noterSansEchec: jest.fn().mockResolvedValue({
@@ -117,6 +133,7 @@ describe('TentativePassageService', () => {
         { provide: AuditService, useValue: auditService },
         { provide: TentativeMinuterieService, useValue: minuterie },
         { provide: TentativeNotationService, useValue: notation },
+        { provide: TentativeSessionService, useValue: session },
       ],
     }).compile();
     service = moduleRef.get(TentativePassageService);
@@ -347,6 +364,7 @@ describe('TentativePassageService', () => {
         },
       });
       expect(minuterie.effacer).toHaveBeenCalledWith(TENTATIVE);
+      expect(session.effacerMiroir).toHaveBeenCalledWith(APPRENANT, 'qcm-1');
       // Notée APRÈS la soumission validée et tracée, par l'apprenant.
       expect(notation.noterSansEchec).toHaveBeenCalledWith(TENTATIVE, APPRENANT);
       expect(notation.noterSansEchec.mock.invocationCallOrder[0]).toBeGreaterThan(
@@ -365,6 +383,54 @@ describe('TentativePassageService', () => {
       await expect(service.soumettre(APPRENANT, TENTATIVE, CONTEXTE)).rejects.toThrow(
         'audit indisponible',
       );
+    });
+  });
+
+  describe('US-QCM-10 — verrou de session', () => {
+    it('même session : aucun contrôle, aucune lecture de configuration', async () => {
+      await enregistrer('q1', ['a']);
+      expect(session.controler).not.toHaveBeenCalled();
+      expect(manager.findOne).not.toHaveBeenCalledWith(ConfigurationAntiFraude, expect.anything());
+    });
+
+    it.each([
+      ['sauvegarde', (): Promise<unknown> => enregistrer('q1', ['a'])],
+      ['soumission', (): Promise<unknown> => service.soumettre(APPRENANT, TENTATIVE, CONTEXTE)],
+    ])('%s depuis une autre session ouverte -> 409, rien écrit, refus tracé', async (_l, appel) => {
+      tentative = enCours({ sessionId: AUTRE_SESSION });
+      session.controler.mockResolvedValue('refusee');
+
+      await expect(appel()).rejects.toThrow(ConflictException);
+      expect(session.controler).toHaveBeenCalledWith(manager, tentative, SESSION, true);
+      expect(session.refuser).toHaveBeenCalledWith({
+        apprenantId: APPRENANT,
+        tentativeId: TENTATIVE,
+        qcmId: 'qcm-1',
+        adresseIp: '127.0.0.1',
+        route: CONTEXTE.route,
+      });
+      expect(manager.update).not.toHaveBeenCalled();
+      expect(manager.insert).not.toHaveBeenCalled();
+      expect(notation.noterSansEchec).not.toHaveBeenCalled();
+    });
+
+    it('blocage désactivé : le paramètre du QCM est transmis au contrôle', async () => {
+      tentative = enCours({ sessionId: AUTRE_SESSION });
+      blocage = false;
+      await enregistrer('q1', ['a']);
+      expect(session.controler).toHaveBeenCalledWith(manager, tentative, SESSION, false);
+    });
+
+    it('échéance atteinte : la clôture passe avant la session (409 temps_ecoule)', async () => {
+      tentative = enCours({
+        sessionId: AUTRE_SESSION,
+        dateLimite: new Date(MAINTENANT.getTime() - 1),
+      });
+      expect(await corpsErreur(enregistrer('q1', ['a']), ConflictException)).toMatchObject({
+        raison: 'temps_ecoule',
+      });
+      expect(session.controler).not.toHaveBeenCalled();
+      expect(session.effacerMiroir).toHaveBeenCalledWith(APPRENANT, 'qcm-1');
     });
   });
 });

@@ -6,6 +6,7 @@ import { AuditService } from '../audit/audit.service';
 import { TentativeBalayageService } from './tentative-balayage.service';
 import { TentativeMinuterieService } from './tentative-minuterie.service';
 import { TentativeNotationService } from './tentative-notation.service';
+import { TentativeSessionService } from './tentative-session.service';
 
 /**
  * Tests unitaires du balayage des tentatives échues (US-QCM-07, D2, D11,
@@ -25,6 +26,7 @@ describe('TentativeBalayageService', () => {
   let dataSource: { query: jest.Mock };
   let auditService: { record: jest.Mock };
   let minuterie: { effacer: jest.Mock };
+  let session: { effacerMiroir: jest.Mock };
   let notation: { noterEnAttente: jest.Mock };
   let config: { app: { nodeEnv: string }; minuterie: Record<string, unknown> };
 
@@ -36,6 +38,7 @@ describe('TentativeBalayageService', () => {
         { provide: AuditService, useValue: auditService },
         { provide: TentativeMinuterieService, useValue: minuterie },
         { provide: TentativeNotationService, useValue: notation },
+        { provide: TentativeSessionService, useValue: session },
         {
           provide: ConfigService,
           useValue: { getOrThrow: (cle: keyof typeof config): unknown => config[cle] },
@@ -50,6 +53,7 @@ describe('TentativeBalayageService', () => {
     dataSource = { query: jest.fn().mockResolvedValue([LIGNES, 2]) };
     auditService = { record: jest.fn().mockResolvedValue(undefined) };
     minuterie = { effacer: jest.fn().mockResolvedValue(undefined) };
+    session = { effacerMiroir: jest.fn().mockResolvedValue(undefined) };
     notation = { noterEnAttente: jest.fn().mockResolvedValue([]) };
     config = {
       app: { nodeEnv: 'development' },
@@ -102,6 +106,11 @@ describe('TentativeBalayageService', () => {
       },
     });
     expect(minuterie.effacer.mock.calls).toEqual([['t-1'], ['t-2']]);
+    // Miroir du verrou de session supprimé aussi (US-QCM-10).
+    expect(session.effacerMiroir.mock.calls).toEqual([
+      ['appr-1', 'qcm-1'],
+      ['appr-2', 'qcm-1'],
+    ]);
     // Puis rattrapage de la notation (US-QCM-08), après les clôtures.
     expect(notation.noterEnAttente).toHaveBeenCalledTimes(1);
     expect(notation.noterEnAttente.mock.invocationCallOrder[0]).toBeGreaterThan(

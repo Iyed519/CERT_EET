@@ -49,10 +49,7 @@ export interface QuestionTiree {
 })
 @Index('IDX_tentatives_qcm_apprenant_qcm', ['apprenantId', 'qcmId'])
 @Index('IDX_tentatives_qcm_qcm', ['qcmId'])
-@Check(
-  'CHK_tentatives_qcm_score',
-  '"score" IS NULL OR ("score" >= 0 AND "score" <= 100)',
-)
+@Check('CHK_tentatives_qcm_score', '"score" IS NULL OR ("score" >= 0 AND "score" <= 100)')
 @Entity('tentatives_qcm')
 export class TentativeQcm {
   @PrimaryGeneratedColumn('uuid')
@@ -115,6 +112,11 @@ export class TentativeQcm {
 
   @Column({ name: 'plan_tirage', type: 'jsonb', nullable: true })
   planTirage: QuestionTiree[] | null;
+
+  // US-QCM-10 — session (claim `sid`) qui détient la tentative ; null pour
+  // une tentative créée avant US-QCM-10 (adoptée par la première session).
+  @Column({ name: 'session_id', type: 'uuid', nullable: true })
+  sessionId: string | null;
 
   // Composition : les réponses n'existent pas hors de leur tentative.
   @OneToMany(() => Reponse, (reponse) => reponse.tentative)

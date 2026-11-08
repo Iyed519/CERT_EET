@@ -18,6 +18,7 @@ import {
 import { TentativeDemarrageService } from './tentative-demarrage.service';
 import { TentativeMinuterieService } from './tentative-minuterie.service';
 import { TentativeNotationService } from './tentative-notation.service';
+import { TentativeSessionService } from './tentative-session.service';
 import { TentativeTirageService } from './tentative-tirage.service';
 
 /**
@@ -137,7 +138,13 @@ describe('Démarrage d’une tentative', () => {
     let service: TentativeDemarrageService;
     let qcmRepository: { findOne: jest.Mock };
     let inscriptionRepository: { findOne: jest.Mock };
-    let tentativeRepository: { findOneOrFail: jest.Mock; countBy: jest.Mock };
+    let session: {
+      controler: jest.Mock;
+      armerMiroir: jest.Mock;
+      effacerMiroir: jest.Mock;
+      refuser: jest.Mock;
+    };
+    const SESSION = 's0000000-0000-4000-8000-000000000001';
     let auditService: { record: jest.Mock };
     let tirageService: { tirer: jest.Mock };
     let minuterie: { armer: jest.Mock; effacer: jest.Mock };
@@ -146,6 +153,7 @@ describe('Démarrage d’une tentative', () => {
     let dataSource: { transaction: jest.Mock };
     let manager: {
       findOne: jest.Mock;
+      findOneOrFail: jest.Mock;
       countBy: jest.Mock;
       query: jest.Mock;
       update: jest.Mock;
@@ -165,6 +173,7 @@ describe('Démarrage d’une tentative', () => {
       dateFermeture: FERMETURE,
       nbTentativesMax: 2,
       delaiEntreTentatives: 0,
+      blocageSessionsMultiples: false,
       ...surcharge,
     });
 
@@ -190,7 +199,7 @@ describe('Démarrage d’une tentative', () => {
       }) as TentativeQcm;
 
     const demarrer = (): ReturnType<TentativeDemarrageService['demarrer']> =>
-      service.demarrer(APPRENANT, QCM_ID, CONTEXTE);
+      service.demarrer(APPRENANT, QCM_ID, SESSION, CONTEXTE);
 
     beforeEach(async () => {
       inscriptionVerrouillee = { id: INSCRIPTION_ID, statut: StatutInscription.EN_COURS };
@@ -204,6 +213,7 @@ describe('Démarrage d’une tentative', () => {
           if (options.where.statut === StatutTentative.EN_COURS) return Promise.resolve(enCours);
           return Promise.resolve(precedente);
         }),
+        findOneOrFail: jest.fn(),
         countBy: jest.fn(() => Promise.resolve(nbTentatives)),
         query: jest.fn().mockResolvedValue([{ maintenant: MAINTENANT }]),
         update: jest.fn().mockResolvedValue(undefined),
@@ -218,7 +228,12 @@ describe('Démarrage d’une tentative', () => {
           .fn()
           .mockResolvedValue({ id: INSCRIPTION_ID, statut: StatutInscription.EN_COURS }),
       };
-      tentativeRepository = { findOneOrFail: jest.fn(), countBy: jest.fn() };
+      session = {
+        controler: jest.fn().mockResolvedValue('autorisee'),
+        armerMiroir: jest.fn().mockResolvedValue(undefined),
+        effacerMiroir: jest.fn().mockResolvedValue(undefined),
+        refuser: jest.fn().mockRejectedValue(new ConflictException('session')),
+      };
       auditService = { record: jest.fn().mockResolvedValue(undefined) };
       tirageService = { tirer: jest.fn().mockResolvedValue(PLAN) };
       notation = { noterSansEchec: jest.fn().mockResolvedValue(null) };
@@ -238,7 +253,7 @@ describe('Démarrage d’une tentative', () => {
           { provide: DataSource, useValue: dataSource },
           { provide: getRepositoryToken(Qcm), useValue: qcmRepository },
           { provide: getRepositoryToken(Inscription), useValue: inscriptionRepository },
-          { provide: getRepositoryToken(TentativeQcm), useValue: tentativeRepository },
+          { provide: TentativeSessionService, useValue: session },
           { provide: AuditService, useValue: auditService },
           { provide: TentativeTirageService, useValue: tirageService },
           { provide: TentativeMinuterieService, useValue: minuterie },
@@ -312,6 +327,8 @@ describe('Démarrage d’une tentative', () => {
             dateDebut: MAINTENANT,
             dateLimite: new Date('2026-11-02T10:30:00Z'),
             planTirage: PLAN,
+            // US-QCM-10 : la session de la requête détient la tentative.
+            sessionId: SESSION,
           }),
         );
         // Tirage dans la transaction de création, avec la configuration du QCM (US-QCM-06).
@@ -344,6 +361,15 @@ describe('Démarrage d’une tentative', () => {
         // Minuterie Redis posée à l'échéance de la tentative (US-QCM-07, D1).
         expect(minuterie.armer).toHaveBeenCalledWith('nouvelle', new Date('2026-11-02T10:30:00Z'));
         expect(minuterie.effacer).not.toHaveBeenCalled();
+        // Miroir Redis du verrou de session, à la même échéance (US-QCM-10, D3).
+        expect(session.armerMiroir).toHaveBeenCalledWith(
+          APPRENANT,
+          QCM_ID,
+          SESSION,
+          new Date('2026-11-02T10:30:00Z'),
+        );
+        // Une création ne passe pas par le contrôle de session.
+        expect(session.controler).not.toHaveBeenCalled();
       });
 
       it('la seconde tentative, délai écoulé, porte le numéro 2', async () => {
@@ -383,6 +409,54 @@ describe('Démarrage d’une tentative', () => {
       });
     });
 
+    describe('US-QCM-10 — verrou de session à la reprise', () => {
+      it('contrôle la session sous le verrou de l’inscription, avec le paramètre du QCM', async () => {
+        qcmRepository.findOne.mockResolvedValue(
+          qcmPublie({ configuration: configuration({ blocageSessionsMultiples: true }) }),
+        );
+        enCours = tentative();
+        nbTentatives = 1;
+
+        await expect(demarrer()).resolves.toMatchObject({ reprise: true });
+        expect(session.controler).toHaveBeenCalledWith(manager, enCours, SESSION, true);
+      });
+
+      it('autre session encore ouverte -> 409 session_active_ailleurs, rien créé', async () => {
+        enCours = tentative();
+        nbTentatives = 1;
+        session.controler.mockResolvedValue('refusee');
+
+        await expect(demarrer()).rejects.toThrow(ConflictException);
+        expect(session.refuser).toHaveBeenCalledWith({
+          apprenantId: APPRENANT,
+          tentativeId: enCours.id,
+          qcmId: QCM_ID,
+          adresseIp: CONTEXTE.adresseIp,
+          route: CONTEXTE.route,
+        });
+        expect(manager.save).not.toHaveBeenCalled();
+        expect(minuterie.armer).not.toHaveBeenCalled();
+        expect(auditService.record).not.toHaveBeenCalled();
+      });
+
+      it('session détentrice terminée -> adoptée, reprise normale', async () => {
+        enCours = tentative();
+        nbTentatives = 1;
+        session.controler.mockImplementation((_m: unknown, t: TentativeQcm, s: string) => {
+          t.sessionId = s;
+          return Promise.resolve('adoptee');
+        });
+
+        await expect(demarrer()).resolves.toMatchObject({ reprise: true });
+        expect(session.armerMiroir).toHaveBeenCalledWith(
+          APPRENANT,
+          QCM_ID,
+          SESSION,
+          enCours.dateLimite,
+        );
+      });
+    });
+
     describe('tentative EN_COURS expirée (D11)', () => {
       it('la clôture ABANDONNEE_TIMER à son échéance, puis en crée une nouvelle', async () => {
         const echeance = new Date(MAINTENANT.getTime() - 60_000);
@@ -405,6 +479,7 @@ describe('Démarrage d’une tentative', () => {
         ]);
         // Clé de l'ancienne tentative supprimée, clé de la nouvelle posée.
         expect(minuterie.effacer).toHaveBeenCalledWith(enCours.id);
+        expect(session.effacerMiroir).toHaveBeenCalledWith(APPRENANT, QCM_ID);
         expect(minuterie.armer).toHaveBeenCalledWith('nouvelle', expect.any(Date));
         // Réponses partielles de l'ancienne notées (US-QCM-08), une seule fois.
         expect(notation.noterSansEchec.mock.calls).toEqual([[enCours.id, APPRENANT]]);
@@ -509,14 +584,33 @@ describe('Démarrage d’une tentative', () => {
       });
 
       it('violation de l’index unique (23505) -> reprise de la tentative gagnante', async () => {
-        dataSource.transaction.mockRejectedValue(
+        dataSource.transaction.mockRejectedValueOnce(
           new QueryFailedError('INSERT', [], Object.assign(new Error('dup'), { code: '23505' })),
         );
-        tentativeRepository.findOneOrFail.mockResolvedValue(tentative());
-        tentativeRepository.countBy.mockResolvedValue(1);
+        manager.findOneOrFail.mockResolvedValue(tentative());
+        nbTentatives = 1;
 
         await expect(demarrer()).resolves.toMatchObject({ reprise: true, numero: 1 });
         expect(auditService.record).not.toHaveBeenCalled();
+        // La tentative gagnante est relue sous verrou et soumise au contrôle de session.
+        expect(manager.findOneOrFail).toHaveBeenCalledWith(
+          TentativeQcm,
+          expect.objectContaining({ lock: { mode: 'pessimistic_write' } }),
+        );
+        expect(session.controler).toHaveBeenCalledWith(manager, expect.anything(), SESSION, false);
+      });
+
+      it('23505 puis gagnante détenue par une autre session ouverte -> 409 session', async () => {
+        dataSource.transaction.mockRejectedValueOnce(
+          new QueryFailedError('INSERT', [], Object.assign(new Error('dup'), { code: '23505' })),
+        );
+        manager.findOneOrFail.mockResolvedValue(tentative());
+        session.controler.mockResolvedValue('refusee');
+
+        await expect(demarrer()).rejects.toThrow(ConflictException);
+        expect(session.refuser).toHaveBeenCalledWith(
+          expect.objectContaining({ apprenantId: APPRENANT, qcmId: QCM_ID }),
+        );
       });
 
       it('toute autre erreur de base remonte telle quelle', async () => {
