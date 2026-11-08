@@ -7,7 +7,15 @@ import { QuestionTiree, TentativeQcm } from '../../database/entities/tentative-q
 import { StatutTentative } from '../../database/enums/statut-tentative.enum';
 import { EtatCorrection } from './tentative-correction.regles';
 import { TentativeCorrectionService } from './tentative-correction.service';
+import { TentativeSessionService } from './tentative-session.service';
 import { QuestionPresentee, TentativeTirageService } from './tentative-tirage.service';
+
+/** Contexte de la requête : session (claim `sid`) et audit (US-QCM-10). */
+export interface ContexteConsultation {
+  sessionId: string;
+  adresseIp: string | null;
+  route: string;
+}
 
 /**
  * Une de MES tentatives, telle que la page de passage l'affiche (US-QCM-05,
@@ -70,13 +78,24 @@ export class TentativeConsultationService {
     private readonly tentativeRepository: Repository<TentativeQcm>,
     private readonly tirageService: TentativeTirageService,
     private readonly correctionService: TentativeCorrectionService,
+    // Verrou de session (US-QCM-10).
+    private readonly session: TentativeSessionService,
   ) {}
 
   /**
    * La tentative d'un AUTRE apprenant donne le même 404 qu'une tentative
    * inconnue : son existence n'est pas révélée.
+   *
+   * US-QCM-10 (D4) : pendant le temps de passage, blocage des sessions
+   * multiples actif, une tentative détenue par une autre session encore
+   * ouverte donne 409 `session_active_ailleurs` — aucune question ne sort.
+   * Une tentative terminée reste consultable de partout.
    */
-  async consulter(apprenantId: string, tentativeId: string): Promise<TentativeConsulteeVue> {
+  async consulter(
+    apprenantId: string,
+    tentativeId: string,
+    contexte: ContexteConsultation,
+  ): Promise<TentativeConsulteeVue> {
     const tentative = await this.tentativeRepository.findOne({
       where: { id: tentativeId, apprenantId },
       relations: { qcm: { module: true, configuration: true } },
@@ -100,6 +119,14 @@ export class TentativeConsultationService {
     const enPassage =
       tentative.statut === StatutTentative.EN_COURS &&
       new Date(tentative.dateLimite).getTime() > new Date(maintenant).getTime();
+
+    if (
+      enPassage &&
+      configuration.blocageSessionsMultiples &&
+      tentative.sessionId !== contexte.sessionId
+    ) {
+      await this.exigerSession(apprenantId, tentative, contexte);
+    }
 
     let plan = tentative.planTirage;
     if (enPassage && plan === null) {
@@ -133,6 +160,42 @@ export class TentativeConsultationService {
       reponses,
       correction,
     };
+  }
+
+  /**
+   * Contrôle de session sous le verrou de la tentative (deux lectures de deux
+   * appareils ne l'adoptent pas toutes les deux). Refus levé après le COMMIT.
+   */
+  private async exigerSession(
+    apprenantId: string,
+    tentative: TentativeQcm,
+    contexte: ContexteConsultation,
+  ): Promise<void> {
+    const controle = await this.dataSource.transaction(async (manager) => {
+      const verrouillee = await manager.findOneOrFail(TentativeQcm, {
+        where: { id: tentative.id },
+        lock: { mode: 'pessimistic_write' },
+      });
+      return this.session.controler(manager, verrouillee, contexte.sessionId, true);
+    });
+    if (controle === 'refusee') {
+      await this.session.refuser({
+        apprenantId,
+        tentativeId: tentative.id,
+        qcmId: tentative.qcmId,
+        adresseIp: contexte.adresseIp,
+        route: contexte.route,
+      });
+    }
+    if (controle === 'adoptee') {
+      tentative.sessionId = contexte.sessionId;
+      await this.session.armerMiroir(
+        apprenantId,
+        tentative.qcmId,
+        contexte.sessionId,
+        tentative.dateLimite,
+      );
+    }
   }
 
   /**

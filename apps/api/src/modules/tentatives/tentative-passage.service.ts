@@ -6,6 +6,7 @@ import {
   NotFoundException,
 } from '@nestjs/common';
 import { DataSource, EntityManager } from 'typeorm';
+import { ConfigurationAntiFraude } from '../../database/entities/configuration-anti-fraude.entity';
 import { Question } from '../../database/entities/question.entity';
 import { Reponse } from '../../database/entities/reponse.entity';
 import { ReponseOption } from '../../database/entities/reponse-option.entity';
@@ -14,6 +15,7 @@ import { StatutTentative } from '../../database/enums/statut-tentative.enum';
 import { AuditService } from '../audit/audit.service';
 import { TentativeMinuterieService } from './tentative-minuterie.service';
 import { TentativeNotationService } from './tentative-notation.service';
+import { TentativeSessionService } from './tentative-session.service';
 import {
   MESSAGE_QUESTION_HORS_TIRAGE,
   MESSAGE_TEMPS_ECOULE,
@@ -27,9 +29,12 @@ import {
   verifierOptions,
 } from './tentative-passage.regles';
 
-/** Contexte de la requête, pour l'audit. */
+/** Contexte de la requête, pour l'audit et le verrou de session. */
 export interface ContextePassage {
   adresseIp: string | null;
+  // Session de la requête (claim `sid`, US-QCM-10, D2).
+  sessionId: string;
+  route: string;
 }
 
 /** Réponse enregistrée, renvoyée au navigateur (D3). */
@@ -73,6 +78,8 @@ type Etat =
   | { type: 'introuvable' }
   | { type: 'terminee'; statut: StatutTentative }
   | { type: 'expiree'; tentative: TentativeQcm }
+  // US-QCM-10 : une autre session, encore ouverte, détient la tentative.
+  | { type: 'session_refusee'; tentative: TentativeQcm }
   | { type: 'active'; tentative: TentativeQcm; maintenant: Date };
 
 type IssueEnregistrement =
@@ -107,6 +114,8 @@ export class TentativePassageService {
     private readonly minuterie: TentativeMinuterieService,
     // Notation juste après chaque clôture (US-QCM-08, D2).
     private readonly notation: TentativeNotationService,
+    // Verrou de session (US-QCM-10).
+    private readonly session: TentativeSessionService,
   ) {}
 
   /**
@@ -115,6 +124,9 @@ export class TentativePassageService {
    *   2. tentative terminée -> 409 « terminée » ;
    *   3. échéance atteinte -> clôture ABANDONNEE_TIMER (validée), audit
    *      TENTATIVE_EXPIREE, 409 `temps_ecoule` (D4, D6) ;
+   *   3 bis. blocage des sessions multiples actif et tentative détenue par une
+   *      autre session encore ouverte -> 409 `session_active_ailleurs`, audit
+   *      SESSION_MULTIPLE_REFUSEE (US-QCM-10) ;
    *   4. question hors du tirage de CETTE tentative -> 400 ;
    *   5. options hors de la question ou du tirage, plus d'une option sur un
    *      QCU / Vrai-Faux, type non répondu par options -> 400 ;
@@ -130,7 +142,12 @@ export class TentativePassageService {
   ): Promise<ReponseEnregistreeVue> {
     const issue = await this.dataSource.transaction(
       async (manager): Promise<IssueEnregistrement> => {
-        const etat = await this.lireSousVerrou(manager, apprenantId, tentativeId);
+        const etat = await this.lireSousVerrou(
+          manager,
+          apprenantId,
+          tentativeId,
+          contexte.sessionId,
+        );
         if (etat.type !== 'active') return etat;
         return this.ecrireReponse(manager, etat.tentative, etat.maintenant, questionId, optionIds);
       },
@@ -154,7 +171,7 @@ export class TentativePassageService {
   }
 
   /**
-   * Soumission manuelle (D7, DS-02 étape 4) : mêmes contrôles 1 à 3, puis
+   * Soumission manuelle (D7, DS-02 étape 4) : mêmes contrôles 1 à 3 bis, puis
    * SOUMISE, `dateFin` = maintenant, `dureeEffective`. Audit QCM_SOUMIS (nom
    * DS-02), clé Redis supprimée, puis notation (US-QCM-08) : la réponse porte
    * le score si elle a réussi.
@@ -165,7 +182,7 @@ export class TentativePassageService {
     contexte: ContextePassage,
   ): Promise<TentativeSoumiseVue> {
     const issue = await this.dataSource.transaction(async (manager): Promise<IssueSoumission> => {
-      const etat = await this.lireSousVerrou(manager, apprenantId, tentativeId);
+      const etat = await this.lireSousVerrou(manager, apprenantId, tentativeId, contexte.sessionId);
       if (etat.type !== 'active') return etat;
       const { tentative, maintenant } = etat;
       tentative.statut = StatutTentative.SOUMISE;
@@ -208,6 +225,7 @@ export class TentativePassageService {
       },
     });
     await this.minuterie.effacer(tentative.id);
+    await this.session.effacerMiroir(apprenantId, tentative.qcmId);
     const note = await this.notation.noterSansEchec(tentative.id, apprenantId);
 
     return {
@@ -231,13 +249,15 @@ export class TentativePassageService {
 
   /**
    * Verrouille MA tentative et la classe : introuvable, terminée, expirée
-   * (clôturée ici, dans la transaction) ou active. L'instant est lu après le
-   * verrou.
+   * (clôturée ici, dans la transaction), détenue par une autre session
+   * (US-QCM-10) ou active. L'instant est lu après le verrou. L'échéance passe
+   * avant la session : une clôture à l'échéance est toujours légitime.
    */
   private async lireSousVerrou(
     manager: EntityManager,
     apprenantId: string,
     tentativeId: string,
+    sessionId: string,
   ): Promise<Etat> {
     const tentative = await manager.findOne(TentativeQcm, {
       where: { id: tentativeId, apprenantId },
@@ -252,6 +272,20 @@ export class TentativePassageService {
       'SELECT clock_timestamp() AS maintenant',
     )) as Array<{ maintenant: Date }>;
     if (!estEchue(tentative.dateLimite, maintenant)) {
+      if (tentative.sessionId !== sessionId) {
+        // Configuration lue seulement quand la session diffère (cas rare).
+        const configuration = await manager.findOne(ConfigurationAntiFraude, {
+          where: { qcmId: tentative.qcmId },
+          select: { id: true, blocageSessionsMultiples: true },
+        });
+        const controle = await this.session.controler(
+          manager,
+          tentative,
+          sessionId,
+          configuration?.blocageSessionsMultiples ?? false,
+        );
+        if (controle === 'refusee') return { type: 'session_refusee', tentative };
+      }
       return { type: 'active', tentative, maintenant };
     }
 
@@ -322,7 +356,8 @@ export class TentativePassageService {
   }
 
   /**
-   * 404, 409 « terminée » ou 409 `temps_ecoule`. Pour une clôture à
+   * 404, 409 « terminée », 409 `session_active_ailleurs` (US-QCM-10) ou 409
+   * `temps_ecoule`. Pour une clôture à
    * l'échéance : audit TENTATIVE_EXPIREE, clé Redis supprimée et notation des
    * réponses partielles (US-QCM-08) d'abord. `statut` du 409 dit comment la
    * tentative s'est terminée (ABANDONNEE_TIMER), même une fois notée.
@@ -335,6 +370,15 @@ export class TentativePassageService {
   ): Promise<never> {
     if (issue.type === 'introuvable') {
       throw new NotFoundException(MESSAGE_TENTATIVE_INTROUVABLE);
+    }
+    if (issue.type === 'session_refusee') {
+      return this.session.refuser({
+        apprenantId,
+        tentativeId: issue.tentative.id,
+        qcmId: issue.tentative.qcmId,
+        adresseIp: contexte.adresseIp,
+        route: contexte.route,
+      });
     }
     if (issue.type === 'terminee') {
       throw new ConflictException({
@@ -361,6 +405,7 @@ export class TentativePassageService {
       },
     });
     await this.minuterie.effacer(tentative.id);
+    await this.session.effacerMiroir(apprenantId, tentative.qcmId);
     await this.notation.noterSansEchec(tentative.id, apprenantId);
     throw new ConflictException({
       statusCode: 409,

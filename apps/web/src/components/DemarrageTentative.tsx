@@ -1,6 +1,12 @@
 'use client';
 import { useState } from 'react';
-import { AdminError, demarrerTentative, TentativeDemarree, TentativeRefusee } from '../lib/api';
+import {
+  AdminError,
+  CONSEIL_SESSION_AILLEURS,
+  demarrerTentative,
+  TentativeDemarree,
+  TentativeRefusee,
+} from '../lib/api';
 import { dateHeureFr, dureeFr } from '../lib/format';
 import { CroixFermeture } from './CroixFermeture';
 
@@ -23,7 +29,8 @@ export interface QcmADemarrer {
  * l'avertissement que le temps continue de courir même page fermée. Les
  * chiffres viennent de « Mon espace » et ne servent qu'à informer : c'est le
  * serveur qui décide. En cas de refus (409), son message exact s'affiche,
- * suivi de la date de réouverture quand il en donne une.
+ * suivi de la date de réouverture quand il en donne une, ou d'un conseil
+ * quand la tentative est en cours sur un autre appareil (US-QCM-10).
  */
 export function DemarrageTentative({
   qcm,
@@ -51,7 +58,10 @@ export function DemarrageTentative({
     try {
       onDemarree(await demarrerTentative(qcm.id));
     } catch (error) {
-      if (error instanceof TentativeRefusee && error.dateReouverture) {
+      if (error instanceof TentativeRefusee && error.raison === 'session_active_ailleurs') {
+        // US-QCM-10 — tentative déjà en cours sur un autre appareil.
+        setErreur(`${error.message} ${CONSEIL_SESSION_AILLEURS}`);
+      } else if (error instanceof TentativeRefusee && error.dateReouverture) {
         setErreur(
           `${error.message} Nouvel essai possible à partir du ${dateHeureFr(error.dateReouverture)}.`,
         );

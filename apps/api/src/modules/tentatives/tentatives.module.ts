@@ -10,6 +10,7 @@ import { TentativeDemarrageService } from './tentative-demarrage.service';
 import { TentativeMinuterieService } from './tentative-minuterie.service';
 import { TentativeNotationService } from './tentative-notation.service';
 import { TentativePassageService } from './tentative-passage.service';
+import { TentativeSessionService } from './tentative-session.service';
 import { TentativeTirageService } from './tentative-tirage.service';
 import { TentativesController } from './tentatives.controller';
 
@@ -18,7 +19,8 @@ import { TentativesController } from './tentatives.controller';
  * consultation ; US-QCM-06 tirage des questions ; US-QCM-07 réponses,
  * soumission, minuterie Redis et balayage des tentatives échues ; US-QCM-08
  * notation serveur et tentative figée NOTEE ; US-QCM-09 corrigé selon le mode
- * d'affichage).
+ * d'affichage ; US-QCM-10 verrou de session : une tentative EN_COURS n'est
+ * utilisée que par la session qui la détient, si le QCM l'exige).
  *
  * Séparé de QcmModule (côté formateur) : aucune dépendance vers lui ni vers
  * FormationsModule, donc aucun risque d'import circulaire.
@@ -41,6 +43,7 @@ import { TentativesController } from './tentatives.controller';
     TentativeBalayageService,
     TentativeNotationService,
     TentativeCorrectionService,
+    TentativeSessionService,
   ],
 })
 export class TentativesModule {}

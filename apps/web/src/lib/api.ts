@@ -1437,7 +1437,19 @@ export async function publishQcm(qcmId: string): Promise<QcmDetail> {
 export type StatutTentative = 'EN_COURS' | 'SOUMISE' | 'ABANDONNEE_TIMER' | 'NOTEE';
 
 /** Motif machine d'un démarrage refusé (409, DS-02). */
-export type RaisonRefusTentative = 'hors_fenetre' | 'tentatives_epuisees' | 'delai_non_respecte';
+export type RaisonRefusTentative =
+  | 'hors_fenetre'
+  | 'tentatives_epuisees'
+  | 'delai_non_respecte'
+  // US-QCM-10 — la tentative EN_COURS est ouverte sur un autre appareil.
+  | 'session_active_ailleurs';
+
+/**
+ * US-QCM-10 — Conseil affiché après le message du serveur quand la tentative
+ * est détenue par une autre session (autre appareil, autre navigateur).
+ */
+export const CONSEIL_SESSION_AILLEURS =
+  'Terminez-la sur l’autre appareil, ou déconnectez-vous de celui-ci pour la reprendre ici. Sinon, elle se terminera à son échéance.';
 
 /** Réponse de POST /api/qcm/:id/tentatives (201 créée, 200 reprise). */
 export interface TentativeDemarree {
@@ -1533,10 +1545,14 @@ export async function demarrerTentative(qcmId: string): Promise<TentativeDemarre
   return data as TentativeDemarree;
 }
 
-/** GET /api/tentatives/:id — une de mes tentatives (404 pour celle d'un autre). */
+/**
+ * GET /api/tentatives/:id — une de mes tentatives (404 pour celle d'un autre).
+ * US-QCM-10 : 409 `session_active_ailleurs` (PassageRefuse) si elle est en
+ * cours sur un autre appareil.
+ */
 export async function getTentative(tentativeId: string): Promise<TentativeConsultee> {
   const response = await apiFetch(`/api/tentatives/${tentativeId}`);
-  return lireReponseFormation<TentativeConsultee>(
+  return lireReponsePassage<TentativeConsultee>(
     response,
     'Impossible de charger cette tentative.',
   );
@@ -1585,7 +1601,9 @@ export type RaisonRefusPassage =
   | 'question_hors_tirage'
   | 'option_hors_question'
   | 'une_seule_option'
-  | 'type_non_pris_en_charge';
+  | 'type_non_pris_en_charge'
+  // US-QCM-10 — tentative en cours sur un autre appareil (409).
+  | 'session_active_ailleurs';
 
 /**
  * Refus pendant le passage : message exact du serveur et motif. Un 409
@@ -1602,6 +1620,11 @@ export class PassageRefuse extends AdminError {
 
   get tentativeFinie(): boolean {
     return this.raison === 'temps_ecoule' || this.raison === 'tentative_terminee';
+  }
+
+  /** US-QCM-10 — la tentative continue, mais sur un autre appareil. */
+  get sessionAilleurs(): boolean {
+    return this.raison === 'session_active_ailleurs';
   }
 }
 

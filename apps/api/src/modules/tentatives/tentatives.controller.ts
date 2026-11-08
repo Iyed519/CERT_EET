@@ -24,11 +24,20 @@ import {
 import { CorrectionVue, TentativeCorrectionService } from './tentative-correction.service';
 import { TentativeDemarrageService, TentativeDemarreeVue } from './tentative-demarrage.service';
 import {
+  ContextePassage,
   ReponseEnregistreeVue,
   TentativePassageService,
   TentativeSoumiseVue,
 } from './tentative-passage.service';
+import { sessionDe } from './tentative-session.regles';
 import { EnregistrerReponseDto } from './dto/enregistrer-reponse.dto';
+
+/** Texte Swagger commun aux quatre routes protégées par US-QCM-10. */
+const REFUS_SESSION =
+  '`raison: session_active_ailleurs` : blocage des sessions multiples actif et tentative ' +
+  'EN_COURS détenue par une autre session encore ouverte (autre appareil) ; audit ' +
+  'SESSION_MULTIPLE_REFUSEE (US-QCM-10). Le verrou tombe à la déconnexion de cette session ' +
+  'ou à l’échéance de la tentative.';
 
 /**
  * Passage des QCM — côté APPRENANT (US-QCM-05 : démarrer, consulter ;
@@ -50,6 +59,10 @@ import { EnregistrerReponseDto } from './dto/enregistrer-reponse.dto';
  * `GET /tentatives/:tentativeId/correction`, plutôt que le `detailParQuestion`
  * de la réponse de soumission (DS-02 étape 5) : ni la consultation ni la
  * soumission ne portent de bonne réponse (US-QCM-09, D1).
+ *
+ * US-QCM-10 : la session de la requête (claim `sid`) est transmise aux
+ * services ; démarrage-reprise, consultation, réponse et soumission refusent
+ * (409) une tentative EN_COURS détenue par une autre session ouverte.
  */
 @ApiBearerAuth('access-token')
 @ApiTags('tentatives')
@@ -94,7 +107,9 @@ export class TentativesController {
     status: 409,
     description:
       'Démarrage refusé, avec `message`, `raison` (hors_fenetre | tentatives_epuisees | ' +
-      'delai_non_respecte) et `dateReouverture` quand elle existe ; audit TENTATIVE_DEMARREE (Échec).',
+      'delai_non_respecte) et `dateReouverture` quand elle existe ; audit TENTATIVE_DEMARREE (Échec). ' +
+      'Ou reprise refusée : ' +
+      REFUS_SESSION,
   })
   async demarrer(
     @Param('qcmId', ParseUUIDPipe) qcmId: string,
@@ -102,7 +117,7 @@ export class TentativesController {
     @Res({ passthrough: true }) res: Response,
   ): Promise<TentativeDemarreeVue> {
     const apprenant = this.exigerUtilisateur(req);
-    const vue = await this.demarrageService.demarrer(apprenant.sub, qcmId, {
+    const vue = await this.demarrageService.demarrer(apprenant.sub, qcmId, sessionDe(apprenant), {
       adresseIp: req.ip ?? null,
       methode: req.method,
       route: req.originalUrl,
@@ -137,11 +152,17 @@ export class TentativesController {
     status: 404,
     description: 'Tentative inconnue, ou tentative d’un autre apprenant (non révélée).',
   })
+  @ApiResponse({ status: 409, description: `Pendant le temps de passage : ${REFUS_SESSION}` })
   consulter(
     @Param('tentativeId', ParseUUIDPipe) tentativeId: string,
     @Req() req: AuthenticatedRequest,
   ): Promise<TentativeConsulteeVue> {
-    return this.consultationService.consulter(this.exigerUtilisateur(req).sub, tentativeId);
+    const apprenant = this.exigerUtilisateur(req);
+    return this.consultationService.consulter(apprenant.sub, tentativeId, {
+      sessionId: sessionDe(apprenant),
+      adresseIp: req.ip ?? null,
+      route: req.originalUrl,
+    });
   }
 
   @Get('tentatives/:tentativeId/correction')
@@ -209,7 +230,8 @@ export class TentativesController {
     status: 409,
     description:
       'Tentative terminée (`raison: tentative_terminee`, `statut`) ou temps écoulé ' +
-      '(`raison: temps_ecoule`, `dateLimite`) : la tentative vient d’être clôturée.',
+      '(`raison: temps_ecoule`, `dateLimite`) : la tentative vient d’être clôturée. Ou ' +
+      REFUS_SESSION,
   })
   enregistrerReponse(
     @Param('tentativeId', ParseUUIDPipe) tentativeId: string,
@@ -217,12 +239,13 @@ export class TentativesController {
     @Body() dto: EnregistrerReponseDto,
     @Req() req: AuthenticatedRequest,
   ): Promise<ReponseEnregistreeVue> {
+    const apprenant = this.exigerUtilisateur(req);
     return this.passageService.enregistrerReponse(
-      this.exigerUtilisateur(req).sub,
+      apprenant.sub,
       tentativeId,
       questionId,
       dto.optionIds,
-      { adresseIp: req.ip ?? null },
+      this.contextePassage(req, apprenant),
     );
   }
 
@@ -255,15 +278,30 @@ export class TentativesController {
     status: 409,
     description:
       'Déjà terminée (`raison: tentative_terminee`) ou temps écoulé (`raison: temps_ecoule`, ' +
-      'la tentative est clôturée ABANDONNEE_TIMER).',
+      'la tentative est clôturée ABANDONNEE_TIMER). Ou ' +
+      REFUS_SESSION,
   })
   soumettre(
     @Param('tentativeId', ParseUUIDPipe) tentativeId: string,
     @Req() req: AuthenticatedRequest,
   ): Promise<TentativeSoumiseVue> {
-    return this.passageService.soumettre(this.exigerUtilisateur(req).sub, tentativeId, {
+    const apprenant = this.exigerUtilisateur(req);
+    return this.passageService.soumettre(
+      apprenant.sub,
+      tentativeId,
+      this.contextePassage(req, apprenant),
+    );
+  }
+
+  private contextePassage(
+    req: AuthenticatedRequest,
+    apprenant: AccessTokenPayload,
+  ): ContextePassage {
+    return {
       adresseIp: req.ip ?? null,
-    });
+      sessionId: sessionDe(apprenant),
+      route: req.originalUrl,
+    };
   }
 
   private exigerUtilisateur(req: AuthenticatedRequest): AccessTokenPayload {

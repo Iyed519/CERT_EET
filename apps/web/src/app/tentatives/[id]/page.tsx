@@ -6,6 +6,7 @@ import { ConfirmationModal } from '../../../components/ConfirmationModal';
 import { CorrigeTentative } from '../../../components/CorrigeTentative';
 import {
   AdminError,
+  CONSEIL_SESSION_AILLEURS,
   CorrectionTentative,
   enregistrerReponse,
   getCorrection,
@@ -69,12 +70,21 @@ type Fin = 'soumise' | 'temps_ecoule' | 'terminee';
  * (affichage différé, ou tentatives restantes en affichage immédiat). Le
  * corrigé lui-même vient de GET /api/tentatives/:id/correction, chargé
  * seulement sur demande ; la page ne décide jamais seule de le montrer.
+ *
+ * US-QCM-10 — Si le QCM bloque les sessions multiples et que la tentative est
+ * en cours sur un autre appareil, le serveur refuse (409
+ * `session_active_ailleurs`) la lecture, les réponses et la soumission : la
+ * page affiche alors « Évaluation ouverte sur un autre appareil », le message
+ * du serveur, un conseil et le lien vers « Mon espace ». Rien n'est décidé
+ * ici : c'est le serveur qui sait quelle session détient la tentative.
  */
 export default function TentativePage(): JSX.Element {
   const params = useParams<{ id: string }>();
   const tentativeId = params?.id ?? '';
   const [tentative, setTentative] = useState<TentativeConsultee | null>(null);
   const [erreur, setErreur] = useState<string | null>(null);
+  // US-QCM-10 — message du serveur quand la tentative est sur un autre appareil.
+  const [ailleurs, setAilleurs] = useState<string | null>(null);
   // Heure du serveur moins heure locale, mesurée à chaque réponse du serveur.
   const [ecart, setEcart] = useState(0);
   const [maintenant, setMaintenant] = useState(() => Date.now());
@@ -100,6 +110,7 @@ export default function TentativePage(): JSX.Element {
   // Questions dont la dernière sauvegarde a échoué (renvoyées avant la soumission).
   const echecs = useRef(new Set<string>());
   const finRef = useRef<Fin | null>(null);
+  const ailleursRef = useRef(false);
 
   const terminer = useCallback((raison: Fin): void => {
     if (finRef.current !== null) return;
@@ -107,6 +118,17 @@ export default function TentativePage(): JSX.Element {
     setFin(raison);
     minuteurs.current.forEach((id) => window.clearTimeout(id));
     minuteurs.current.clear();
+  }, []);
+
+  /**
+   * US-QCM-10 — La tentative est détenue par un autre appareil : plus aucun
+   * enregistrement depuis cette page (ils seraient tous refusés).
+   */
+  const bloquer = useCallback((message: string): void => {
+    ailleursRef.current = true;
+    minuteurs.current.forEach((id) => window.clearTimeout(id));
+    minuteurs.current.clear();
+    setAilleurs(message);
   }, []);
 
   /**
@@ -156,12 +178,16 @@ export default function TentativePage(): JSX.Element {
         );
         setTentative(vue);
       } catch (error) {
+        if (error instanceof PassageRefuse && error.sessionAilleurs) {
+          bloquer(error.message);
+          return;
+        }
         setErreur(
           error instanceof AdminError ? error.message : 'Impossible de charger cette tentative.',
         );
       }
     })();
-  }, [tentativeId]);
+  }, [tentativeId, bloquer]);
 
   useEffect(() => {
     const minuterie = window.setInterval(() => setMaintenant(Date.now()), 1000);
@@ -193,6 +219,9 @@ export default function TentativePage(): JSX.Element {
           if (error instanceof PassageRefuse && error.tentativeFinie) {
             terminer(error.raison === 'temps_ecoule' ? 'temps_ecoule' : 'terminee');
           }
+          if (error instanceof PassageRefuse && error.sessionAilleurs) {
+            bloquer(error.message);
+          }
           if (estDerniere()) {
             echecs.current.add(questionId);
             setEtats((e) => ({ ...e, [questionId]: 'echec' }));
@@ -206,12 +235,12 @@ export default function TentativePage(): JSX.Element {
       });
       return envoi;
     },
-    [tentativeId, terminer],
+    [tentativeId, terminer, bloquer],
   );
 
   /** Changement d'une option : sélection mise à jour, enregistrement 600 ms plus tard. */
   const changer = (question: QuestionTentative, optionId: string, cochee: boolean): void => {
-    if (finRef.current !== null) return;
+    if (finRef.current !== null || ailleurs !== null) return;
     const actuelles = selectionsRef.current[question.id] ?? [];
     const suivantes =
       question.type === 'QCM'
@@ -254,7 +283,7 @@ export default function TentativePage(): JSX.Element {
   /** Confirmé dans la modale : une erreur levée ici s'y affiche (message exact). */
   const soumettre = async (): Promise<void> => {
     const ok = await toutEnregistrer();
-    if (finRef.current !== null) {
+    if (finRef.current !== null || ailleursRef.current) {
       setConfirmation(false);
       return;
     }
@@ -271,6 +300,11 @@ export default function TentativePage(): JSX.Element {
     } catch (error) {
       if (error instanceof PassageRefuse && error.tentativeFinie) {
         terminer(error.raison === 'temps_ecoule' ? 'temps_ecoule' : 'terminee');
+        setConfirmation(false);
+        return;
+      }
+      if (error instanceof PassageRefuse && error.sessionAilleurs) {
+        bloquer(error.message);
         setConfirmation(false);
         return;
       }
@@ -313,6 +347,34 @@ export default function TentativePage(): JSX.Element {
     if (tentative?.statut === 'EN_COURS' && restant <= 0) terminer('temps_ecoule');
   }, [tentative, restant, terminer]);
 
+  if (ailleurs !== null) {
+    return (
+      <>
+        <p className="back-link-row">
+          <Link className="back-link" href="/mes-inscriptions">
+            ← Mes inscriptions
+          </Link>
+        </p>
+        <section className="carte-ailleurs" aria-labelledby="titre-ailleurs">
+          <h1 className="page-title" id="titre-ailleurs">
+            Évaluation ouverte sur un autre appareil
+          </h1>
+          <p className="alert alert-error">{ailleurs}</p>
+          <p className="page-subtitle">{CONSEIL_SESSION_AILLEURS}</p>
+          <p>
+            <Link
+              className="btn"
+              href={
+                tentative ? `/mes-inscriptions/${tentative.formationId}` : '/mes-inscriptions'
+              }
+            >
+              {tentative ? 'Retour à Mon espace' : 'Retour à mes inscriptions'}
+            </Link>
+          </p>
+        </section>
+      </>
+    );
+  }
   if (erreur !== null) {
     return (
       <>

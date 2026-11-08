@@ -62,8 +62,9 @@ function sansHorodatage(c: ConfigurationQcm): ConfigurationQcm {
 /**
  * Modale « Paramètres anti-fraude » d'un QCM (US-QCM-03, UC2 Formateur).
  *
- * Champs regroupés comme dans l'UC : Randomisation · Temps · Tentatives ·
- * Résultat · Bientôt actif. Les dates se saisissent à l'heure locale du
+ * Champs regroupés comme dans l'UC : Randomisation · Temps · Tentatives (dont
+ * le blocage des sessions multiples, appliqué depuis US-QCM-10) · Résultat ·
+ * Bientôt actif. Les dates se saisissent à l'heure locale du
  * navigateur et partent au serveur en ISO 8601 (UTC).
  *
  * QCM déjà tenté : seule la date de fermeture reste saisissable (le serveur
@@ -280,6 +281,15 @@ export function ConfigurationModal({
                 />
               </div>
             </div>
+            {/* US-QCM-10 — appliqué par le serveur : sorti de « Bientôt actif ». */}
+            <label className="case">
+              <input
+                type="checkbox"
+                checked={c.blocageSessionsMultiples}
+                onChange={coche('blocageSessionsMultiples')}
+              />
+              Bloquer les sessions multiples (un seul appareil à la fois)
+            </label>
           </fieldset>
 
           <fieldset className="groupe-config" disabled={fige}>
@@ -343,14 +353,6 @@ export function ConfigurationModal({
             <legend className="field-label">
               Bientôt actif <span className="badge-bientot">enregistré, pas encore appliqué</span>
             </legend>
-            <label className="case">
-              <input
-                type="checkbox"
-                checked={c.blocageSessionsMultiples}
-                onChange={coche('blocageSessionsMultiples')}
-              />
-              Bloquer les sessions multiples (un seul navigateur à la fois)
-            </label>
             <label className="case">
               <input
                 type="checkbox"

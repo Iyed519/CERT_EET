@@ -25,6 +25,7 @@ import {
 } from './tentative-demarrage.regles';
 import { TentativeMinuterieService } from './tentative-minuterie.service';
 import { TentativeNotationService } from './tentative-notation.service';
+import { TentativeSessionService } from './tentative-session.service';
 import { TentativeTirageService } from './tentative-tirage.service';
 
 /** Contexte de la requête, pour l'audit (succès comme refus). */
@@ -66,6 +67,8 @@ const MS_PAR_SECONDE = 1000;
 type Issue =
   | { type: 'creee'; tentative: TentativeQcm; numero: number }
   | { type: 'reprise'; tentative: TentativeQcm; numero: number }
+  // US-QCM-10 — tentative EN_COURS détenue par une autre session encore ouverte.
+  | { type: 'session_refusee'; tentative: TentativeQcm }
   | { type: 'refus'; refus: RefusDemarrage; nbTentativesPassees: number };
 
 interface Bilan {
@@ -89,8 +92,6 @@ export class TentativeDemarrageService {
     private readonly qcmRepository: Repository<Qcm>,
     @InjectRepository(Inscription)
     private readonly inscriptionRepository: Repository<Inscription>,
-    @InjectRepository(TentativeQcm)
-    private readonly tentativeRepository: Repository<TentativeQcm>,
     // Writer d'audit UNIQUE (@Global, US-AUTH-12).
     private readonly auditService: AuditService,
     // Tirage des questions de la tentative (US-QCM-06).
@@ -99,6 +100,8 @@ export class TentativeDemarrageService {
     private readonly minuterie: TentativeMinuterieService,
     // Notation des tentatives clôturées ici (US-QCM-08, D2).
     private readonly notation: TentativeNotationService,
+    // Verrou de session (US-QCM-10).
+    private readonly session: TentativeSessionService,
   ) {}
 
   /**
@@ -112,12 +115,16 @@ export class TentativeDemarrageService {
    *   3. dans UNE transaction, la ligne d'inscription VERROUILLÉE (deux
    *      démarrages du même apprenant passent l'un après l'autre) et
    *      l'instant lu dans PostgreSQL (D12) :
-   *        a. tentative EN_COURS encore valide -> REPRISE, 200 (D3) ;
+   *        a. tentative EN_COURS encore valide -> REPRISE, 200 (D3), sauf si
+   *           le blocage des sessions multiples est actif et qu'une AUTRE
+   *           session encore ouverte la détient -> 409
+   *           `session_active_ailleurs` (US-QCM-10) ;
    *           échéance dépassée -> clôturée ABANDONNEE_TIMER (D11) ;
    *        b. fenêtre [ouverture, fermeture) (D9) ;
    *        c. quota, toutes tentatives confondues (D6) ;
    *        d. délai depuis la tentative précédente (D6) ;
-   *        e. création EN_COURS, échéance = min(début + durée, fermeture) (D5),
+   *        e. création EN_COURS, détenue par la session de la requête
+   *           (`session_id`, US-QCM-10), échéance = min(début + durée, fermeture) (D5),
    *           questions et ordre des options tirés et FIGÉS dans `planTirage`
    *           (US-QCM-06, D1) — un démarrage refusé ne tire rien ;
    *   4. après la transaction : audit (TENTATIVE_DEMARREE succès ou échec,
@@ -127,11 +134,15 @@ export class TentativeDemarrageService {
    *      le 409 avec son motif précis (D2).
    *
    * L'index unique partiel « une seule EN_COURS par (apprenant, QCM) » reste
-   * le dernier rempart : sa violation (23505) est traitée comme une reprise.
+   * le dernier rempart : sa violation (23505) est traitée comme une reprise,
+   * avec le même contrôle de session.
+   *
+   * `sessionId` : session de la requête (claim `sid`, US-QCM-10, D2).
    */
   async demarrer(
     apprenantId: string,
     qcmId: string,
+    sessionId: string,
     contexte: ContexteDemarrage,
   ): Promise<TentativeDemarreeVue> {
     const qcm = await this.qcmRepository.findOne({
@@ -149,14 +160,24 @@ export class TentativeDemarrageService {
     let bilan: Bilan;
     try {
       bilan = await this.dataSource.transaction((manager) =>
-        this.deciderEnTransaction(manager, inscription.id, apprenantId, qcmId, configuration),
+        this.deciderEnTransaction(
+          manager,
+          inscription.id,
+          apprenantId,
+          qcmId,
+          sessionId,
+          configuration,
+        ),
       );
     } catch (erreur) {
       if (!this.estViolationUnicite(erreur)) {
         throw erreur;
       }
       // Un démarrage concurrent a créé la tentative entre-temps : je la reprends.
-      bilan = { issue: await this.lireTentativeEnCours(apprenantId, qcmId), expiree: null };
+      bilan = {
+        issue: await this.reprendreApresCourse(apprenantId, qcmId, sessionId, configuration),
+        expiree: null,
+      };
     }
 
     if (bilan.expiree) {
@@ -174,11 +195,21 @@ export class TentativeDemarrageService {
         },
       });
       await this.minuterie.effacer(bilan.expiree.id);
+      await this.session.effacerMiroir(apprenantId, qcmId);
       // Réponses partielles notées (ET-02) ; un échec n'empêche pas le démarrage.
       await this.notation.noterSansEchec(bilan.expiree.id, apprenantId);
     }
 
     const { issue } = bilan;
+    if (issue.type === 'session_refusee') {
+      return this.session.refuser({
+        apprenantId,
+        tentativeId: issue.tentative.id,
+        qcmId,
+        adresseIp: contexte.adresseIp,
+        route: contexte.route,
+      });
+    }
     if (issue.type === 'refus') {
       await this.journaliser({
         action: 'TENTATIVE_DEMARREE',
@@ -226,6 +257,12 @@ export class TentativeDemarrageService {
     // Clé posée à la création, reposée à la reprise si elle a disparu : même
     // échéance absolue, le temps n'est jamais rallongé (US-QCM-07, D1).
     await this.minuterie.armer(issue.tentative.id, issue.tentative.dateLimite);
+    await this.session.armerMiroir(
+      apprenantId,
+      qcmId,
+      issue.tentative.sessionId,
+      issue.tentative.dateLimite,
+    );
 
     return this.versVue(issue.tentative, issue.numero, configuration, issue.type === 'reprise');
   }
@@ -273,6 +310,7 @@ export class TentativeDemarrageService {
     inscriptionId: string,
     apprenantId: string,
     qcmId: string,
+    sessionId: string,
     configuration: ConfigurationAntiFraude,
   ): Promise<Bilan> {
     const verrouillee = await manager.findOne(Inscription, {
@@ -299,6 +337,17 @@ export class TentativeDemarrageService {
     });
     if (enCours) {
       if (enCours.dateLimite.getTime() > maintenant.getTime()) {
+        // US-QCM-10 : sous le verrou de l'inscription, deux appareils ne
+        // peuvent pas décider en même temps qui détient la tentative.
+        const controle = await this.session.controler(
+          manager,
+          enCours,
+          sessionId,
+          configuration.blocageSessionsMultiples,
+        );
+        if (controle === 'refusee') {
+          return { issue: { type: 'session_refusee', tentative: enCours }, expiree: null };
+        }
         const numero = await manager.countBy(TentativeQcm, { apprenantId, qcmId });
         return { issue: { type: 'reprise', tentative: enCours, numero }, expiree: null };
       }
@@ -357,6 +406,8 @@ export class TentativeDemarrageService {
         ),
         statut: StatutTentative.EN_COURS,
         planTirage,
+        // Enregistrée même blocage désactivé (D7) : utile à US-QCM-11.
+        sessionId,
       }),
     );
     return {
@@ -365,13 +416,32 @@ export class TentativeDemarrageService {
     };
   }
 
-  /** Après une course perdue (23505) : la tentative EN_COURS existe forcément. */
-  private async lireTentativeEnCours(apprenantId: string, qcmId: string): Promise<Issue> {
-    const tentative = await this.tentativeRepository.findOneOrFail({
-      where: { apprenantId, qcmId, statut: StatutTentative.EN_COURS },
+  /**
+   * Après une course perdue (23505) : la tentative EN_COURS existe forcément.
+   * Elle est relue sous son verrou et soumise au même contrôle de session
+   * qu'une reprise ordinaire (US-QCM-10).
+   */
+  private reprendreApresCourse(
+    apprenantId: string,
+    qcmId: string,
+    sessionId: string,
+    configuration: ConfigurationAntiFraude,
+  ): Promise<Issue> {
+    return this.dataSource.transaction(async (manager): Promise<Issue> => {
+      const tentative = await manager.findOneOrFail(TentativeQcm, {
+        where: { apprenantId, qcmId, statut: StatutTentative.EN_COURS },
+        lock: { mode: 'pessimistic_write' },
+      });
+      const controle = await this.session.controler(
+        manager,
+        tentative,
+        sessionId,
+        configuration.blocageSessionsMultiples,
+      );
+      if (controle === 'refusee') return { type: 'session_refusee', tentative };
+      const numero = await manager.countBy(TentativeQcm, { apprenantId, qcmId });
+      return { type: 'reprise', tentative, numero };
     });
-    const numero = await this.tentativeRepository.countBy({ apprenantId, qcmId });
-    return { type: 'reprise', tentative, numero };
   }
 
   private versVue(
