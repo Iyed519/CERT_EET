@@ -22,6 +22,7 @@ const INTROUVABLE: Record<TypeRessource, string> = {
   formation: 'Formation introuvable.',
   module: 'Module introuvable.',
   qcm: 'QCM introuvable.',
+  atelier: 'Atelier introuvable.',
 };
 
 /**
@@ -97,6 +98,7 @@ export class FormateurDeLaFormationGuard implements CanActivate {
   private lireSource(source: SourceFormation): [TypeRessource, string] {
     if ('formationId' in source) return ['formation', source.formationId];
     if ('moduleId' in source) return ['module', source.moduleId];
+    if ('atelierId' in source) return ['atelier', source.atelierId];
     return ['qcm', source.qcmId];
   }
 

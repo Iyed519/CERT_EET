@@ -2,6 +2,7 @@ import { BadRequestException, ConflictException, NotFoundException } from '@nest
 import { Test, TestingModule } from '@nestjs/testing';
 import { getRepositoryToken } from '@nestjs/typeorm';
 import { ModuleFormation } from '../../database/entities/module-formation.entity';
+import { Atelier } from '../../database/entities/atelier.entity';
 import { Qcm } from '../../database/entities/qcm.entity';
 import { AuditService } from '../audit/audit.service';
 import { UpdateModuleDto } from './dto/update-module.dto';
@@ -35,6 +36,7 @@ describe('FormationModulesService', () => {
     },
   };
   const mockQcmRepo = { count: jest.fn() };
+  const mockAtelierRepo = { count: jest.fn() };
   const mockFormationsService = { chargerPourEcriture: jest.fn() };
   const mockAuditService = { record: jest.fn().mockResolvedValue(undefined) };
 
@@ -56,6 +58,7 @@ describe('FormationModulesService', () => {
         FormationModulesService,
         { provide: getRepositoryToken(ModuleFormation), useValue: mockModuleRepo },
         { provide: getRepositoryToken(Qcm), useValue: mockQcmRepo },
+        { provide: getRepositoryToken(Atelier), useValue: mockAtelierRepo },
         { provide: FormationsService, useValue: mockFormationsService },
         { provide: AuditService, useValue: mockAuditService },
       ],
@@ -66,6 +69,7 @@ describe('FormationModulesService', () => {
     mockModuleRepo.create.mockImplementation((m) => m);
     mockModuleRepo.save.mockImplementation(async (m) => ({ id: 'mod-nouveau', ...m }));
     mockQcmRepo.count.mockResolvedValue(0);
+    mockAtelierRepo.count.mockResolvedValue(0);
   });
 
   describe('ajouter', () => {
@@ -172,6 +176,16 @@ describe('FormationModulesService', () => {
       ).rejects.toBeInstanceOf(ConflictException);
       expect(mockManager.delete).not.toHaveBeenCalled();
     });
+
+    it('refuse (409) de supprimer un module qui porte un atelier (US-ATEL-01)', async () => {
+      mockAtelierRepo.count.mockResolvedValue(1);
+
+      await expect(
+        service.supprimer('admin-1', 'form-1', 'mod-2', contexte),
+      ).rejects.toBeInstanceOf(ConflictException);
+      expect(mockAtelierRepo.count).toHaveBeenCalledWith({ where: { moduleId: 'mod-2' } });
+      expect(mockManager.delete).not.toHaveBeenCalled();
+    });
   });
 
   describe('reordonner', () => {
@@ -208,9 +222,9 @@ describe('FormationModulesService', () => {
       ['un module étranger', ['a', 'b', 'x']],
       ['un module en trop', ['a', 'b', 'c', 'x']],
     ])('rejette (400) %s, sans rien écrire', async (_cas, ids) => {
-      await expect(
-        service.reordonner('admin-1', 'form-1', ids, contexte),
-      ).rejects.toBeInstanceOf(BadRequestException);
+      await expect(service.reordonner('admin-1', 'form-1', ids, contexte)).rejects.toBeInstanceOf(
+        BadRequestException,
+      );
       expect(mockManager.update).not.toHaveBeenCalled();
     });
   });

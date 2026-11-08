@@ -5,6 +5,7 @@ import type {
   EtatFenetre,
   NiveauDifficulte,
   RaisonCorrection,
+  StatutAtelier,
   StatutInscription,
   StatutQcm,
   StatutTentative,
@@ -52,6 +53,13 @@ export const LIBELLES_STATUT_QCM: Record<StatutQcm, string> = {
   BROUILLON: 'Brouillon',
   NON_PUBLIE: 'Non publié',
   PUBLIE: 'Publié',
+};
+
+/** Libellés FR des statuts d'un atelier (US-ATEL-01). */
+export const LIBELLES_STATUT_ATELIER: Record<StatutAtelier, string> = {
+  BROUILLON: 'Brouillon',
+  PUBLIE: 'Publié',
+  ARCHIVE: 'Archivé',
 };
 
 /** Libellés FR des types de questions (US-QCM-01). */

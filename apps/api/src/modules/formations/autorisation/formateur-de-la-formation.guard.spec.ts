@@ -189,6 +189,7 @@ describe('FormateurDeLaFormationGuard', () => {
   it.each([
     ['module', { moduleId: 'moduleId' }, { moduleId: MODULE }, 'Module introuvable.'],
     ['QCM', { qcmId: 'qcmId' }, { qcmId: QCM }, 'QCM introuvable.'],
+    ['atelier', { atelierId: 'atelierId' }, { atelierId: QCM }, 'Atelier introuvable.'],
   ])(
     'refuse en 404 un %s inconnu',
     async (_libelle, s: SourceFormation, params: Record<string, string>, message) => {
