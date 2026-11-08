@@ -1201,6 +1201,8 @@ export interface EspaceFormationVue {
       nbTentativesPassees: number;
       tentativeEnCoursId: string | null;
     }>;
+    // US-ATEL-03 — ateliers publiés du module (sans énoncé).
+    ateliers: AtelierEspace[];
   }>;
 }
 
@@ -1854,6 +1856,17 @@ export async function updateAtelier(
   return lireReponseFormation<AtelierDetail>(response, 'Impossible de modifier l’atelier.');
 }
 
+/**
+ * PATCH /api/ateliers/:id/publier — publie l'atelier (US-ATEL-03) : visible
+ * des apprenants inscrits, contenu et grille figés.
+ *   - 409 -> grille absente ou non validée, déjà publié, formation archivée ;
+ *   - 400 -> date limite déjà passée (message exact du serveur).
+ */
+export async function publishAtelier(atelierId: string): Promise<AtelierDetail> {
+  const response = await apiFetch(`/api/ateliers/${atelierId}/publier`, { method: 'PATCH' });
+  return lireReponseFormation<AtelierDetail>(response, 'Impossible de publier l’atelier.');
+}
+
 /** DELETE /api/ateliers/:id — 409 si l'atelier n'est plus en brouillon. */
 export async function deleteAtelier(atelierId: string): Promise<void> {
   const response = await apiFetch(`/api/ateliers/${atelierId}`, { method: 'DELETE' });
@@ -2025,4 +2038,50 @@ export async function deleteModeleGrille(modeleId: string): Promise<void> {
   if (!response.ok) {
     await lireReponseFormation<never>(response, 'Impossible de supprimer le modèle.');
   }
+}
+
+/* ============================================================
+ * US-ATEL-03 — Ateliers publiés, côté apprenant
+ * ============================================================ */
+
+/** Où en est le dépôt (calculé par le serveur, horloge PostgreSQL). */
+export type EtatDepot = 'OUVERT' | 'EN_RETARD' | 'CLOS';
+
+/** Un atelier publié dans « Mon espace » (sans énoncé). */
+export interface AtelierEspace {
+  id: string;
+  titre: string;
+  dateLimite: string;
+  toleranceRetardHeures: number;
+  typesLivrables: ExtensionLivrable[];
+  etatDepot: EtatDepot;
+}
+
+/** Fiche d'un atelier publié, avec sa grille en lecture. */
+export interface AtelierApprenant {
+  id: string;
+  formationId: string;
+  formationTitre: string;
+  moduleId: string;
+  moduleTitre: string;
+  titre: string;
+  enonce: string;
+  competencesVisees: string | null;
+  dateLimite: string;
+  toleranceRetardHeures: number;
+  typesLivrables: ExtensionLivrable[];
+  tailleMaxMo: number;
+  nbMaxFichiers: number;
+  etatDepot: EtatDepot;
+  grille: { totalPonderations: number; criteres: CritereGrille[] };
+}
+
+/**
+ * GET /api/mes-ateliers/:id — la fiche d'un atelier publié de ma formation.
+ *   - 404 -> atelier inconnu ou pas encore publié ;
+ *   - 403 -> pas inscrit, ou inscription suspendue (message exact du serveur).
+ */
+export async function getMonAtelier(atelierId: string): Promise<AtelierApprenant> {
+  const response = await apiFetch(`/api/mes-ateliers/${atelierId}`);
+  return lireReponseFormation<AtelierApprenant>(response, 'Impossible de charger l’atelier.');
 }

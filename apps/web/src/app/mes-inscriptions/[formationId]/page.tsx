@@ -6,9 +6,11 @@ import { DemarrageTentative, QcmADemarrer } from '../../../components/DemarrageT
 import { AdminError, EspaceFormationVue, getMonEspace } from '../../../lib/api';
 import {
   dateFr,
+  echeanceAtelierFr,
   fenetreQcmFr,
   LIBELLES_AVANCEMENT_MODULE,
   LIBELLES_AVANCEMENT_QCM,
+  LIBELLES_ETAT_DEPOT,
   LIBELLES_INSCRIPTION,
   periodeFr,
 } from '../../../lib/format';
@@ -93,6 +95,8 @@ function actionQcm(q: QcmEspace, inscriptionActive: boolean): ActionQcm {
  * (hors fenêtre, tentatives épuisées, délai) s'affiche dans la modale, et
  * l'espace est rechargé pour refléter l'état réel. Un apprenant non inscrit,
  * ou dont l'inscription est suspendue, reçoit le message exact du serveur (403).
+ * US-ATEL-03 — Sous les QCM, les ateliers publiés du module : date limite,
+ * état du dépôt (calculé par le serveur) et lien vers leur fiche.
  */
 export default function MonEspacePage(): JSX.Element {
   const params = useParams<{ formationId: string }>();
@@ -220,9 +224,9 @@ export default function MonEspacePage(): JSX.Element {
                     )}
                   </div>
 
-                  {m.qcms.length === 0 ? (
+                  {m.qcms.length === 0 && m.ateliers.length === 0 ? (
                     <p className="espace-vide">Aucune évaluation publiée dans ce module.</p>
-                  ) : (
+                  ) : m.qcms.length === 0 ? null : (
                     <ul className="espace-qcms">
                       {m.qcms.map((q) => {
                         const action = actionQcm(q, inscriptionActive);
@@ -257,6 +261,28 @@ export default function MonEspacePage(): JSX.Element {
                           </li>
                         );
                       })}
+                    </ul>
+                  )}
+                  {m.ateliers.length > 0 && (
+                    <ul className="espace-qcms">
+                      {m.ateliers.map((a) => (
+                        <li key={a.id} className="espace-qcm espace-atelier">
+                          <div className="module-corps">
+                            <Link className="table-link" href={`/mes-ateliers/${a.id}`}>
+                              Atelier · {a.titre}
+                            </Link>
+                            <div className={`fenetre-qcm depot-${a.etatDepot}`}>
+                              {echeanceAtelierFr(a.etatDepot, a.dateLimite, a.toleranceRetardHeures)}
+                            </div>
+                          </div>
+                          <span className={`statut-badge depot-badge-${a.etatDepot}`}>
+                            {LIBELLES_ETAT_DEPOT[a.etatDepot]}
+                          </span>
+                          <Link className="btn-sm btn-link" href={`/mes-ateliers/${a.id}`}>
+                            Consulter
+                          </Link>
+                        </li>
+                      ))}
                     </ul>
                   )}
                 </li>

@@ -3,6 +3,7 @@ import { Test, TestingModule } from '@nestjs/testing';
 import { getRepositoryToken } from '@nestjs/typeorm';
 import { DataSource } from 'typeorm';
 import { Atelier } from '../../database/entities/atelier.entity';
+import { Grille } from '../../database/entities/grille.entity';
 import { ModuleFormation } from '../../database/entities/module-formation.entity';
 import { StatutAtelier } from '../../database/enums/statut-atelier.enum';
 import { AuditService } from '../audit/audit.service';
@@ -47,6 +48,7 @@ describe('AteliersService (US-ATEL-01)', () => {
     findOneOrFail: jest.fn(),
     update: jest.fn(),
     delete: jest.fn(),
+    countBy: jest.fn(),
   };
   const mockDataSource = {
     manager: mockManager,
@@ -279,6 +281,91 @@ describe('AteliersService (US-ATEL-01)', () => {
       );
       expect(mockManager.delete).not.toHaveBeenCalled();
       expect(mockAuditService.record).not.toHaveBeenCalled();
+    });
+  });
+
+  describe('publier (US-ATEL-03)', () => {
+    /** Le gestionnaire répond selon l'entité : l'atelier verrouillé, puis sa grille. */
+    const preparer = (a: Atelier, grille: Partial<Grille> | null): void => {
+      mockManager.findOne.mockImplementation(async (entite: unknown) =>
+        entite === Grille ? grille : a,
+      );
+      mockManager.countBy.mockResolvedValue(4);
+    };
+
+    it('publie sous le verrou de l’atelier, à l’heure de PostgreSQL, et trace ATELIER_PUBLIE', async () => {
+      preparer(atelier(), { id: 'gr-1', validee: true });
+
+      await service.publier('form-1', 'at-1', contexte);
+
+      expect(mockManager.findOne).toHaveBeenCalledWith(
+        Atelier,
+        expect.objectContaining({ lock: { mode: 'pessimistic_write' } }),
+      );
+      expect(mockManager.query).toHaveBeenCalledWith('SELECT now() AS maintenant');
+      expect(mockManager.update).toHaveBeenCalledWith(
+        Atelier,
+        { id: 'at-1' },
+        { statut: StatutAtelier.PUBLIE },
+      );
+      expect(mockAuditService.record).toHaveBeenCalledWith(
+        expect.objectContaining({
+          action: 'ATELIER_PUBLIE',
+          acteur: 'form-1',
+          cible: 'at-1',
+          detailsAvantApres: expect.objectContaining({
+            statut: { avant: StatutAtelier.BROUILLON, apres: StatutAtelier.PUBLIE },
+            formationId: 'formation-1',
+            grilleId: 'gr-1',
+            nbCriteres: 4,
+          }),
+        }),
+      );
+    });
+
+    it('409 sans grille, ou avec une grille non validée — rien n’est écrit ni tracé', async () => {
+      for (const grille of [null, { id: 'gr-1', validee: false }]) {
+        preparer(atelier(), grille);
+        await expect(service.publier('form-1', 'at-1', contexte)).rejects.toBeInstanceOf(
+          ConflictException,
+        );
+      }
+      expect(mockManager.update).not.toHaveBeenCalled();
+      expect(mockAuditService.record).not.toHaveBeenCalled();
+    });
+
+    it('409 pour un atelier déjà publié', async () => {
+      preparer(atelier({ statut: StatutAtelier.PUBLIE }), { id: 'gr-1', validee: true });
+      await expect(service.publier('form-1', 'at-1', contexte)).rejects.toThrow(
+        'Cet atelier est déjà publié.',
+      );
+      expect(mockManager.update).not.toHaveBeenCalled();
+    });
+
+    it('400 si la date limite est passée selon PostgreSQL (même si l’horloge Node dit le contraire)', async () => {
+      preparer(atelier({ dateLimite: new Date('2026-11-08T09:59:59.999Z') }), {
+        id: 'gr-1',
+        validee: true,
+      });
+      await expect(service.publier('form-1', 'at-1', contexte)).rejects.toBeInstanceOf(
+        BadRequestException,
+      );
+      expect(mockManager.update).not.toHaveBeenCalled();
+    });
+
+    it('404 pour un atelier inconnu ; 409 si la formation est archivée', async () => {
+      mockManager.findOne.mockResolvedValue(null);
+      await expect(service.publier('form-1', 'inconnu', contexte)).rejects.toBeInstanceOf(
+        NotFoundException,
+      );
+      preparer(atelier(), { id: 'gr-1', validee: true });
+      mockFormationsService.chargerPourEcriture.mockRejectedValueOnce(
+        new ConflictException('Formation archivée.'),
+      );
+      await expect(service.publier('form-1', 'at-1', contexte)).rejects.toBeInstanceOf(
+        ConflictException,
+      );
+      expect(mockManager.update).not.toHaveBeenCalled();
     });
   });
 });

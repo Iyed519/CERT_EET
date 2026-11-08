@@ -146,6 +146,19 @@ export class GrillesService {
     return this.versVue(atelier, grille, criteres);
   }
 
+  /**
+   * Les critères d'une grille, pour la fiche d'un atelier PUBLIÉ côté
+   * apprenant (US-ATEL-03, UC4 : « la grille est affichée à l'apprenant dès
+   * l'ouverture »). Même contenu que pour le formateur, sans l'état
+   * d'édition. L'appelant a déjà vérifié le statut et l'inscription.
+   */
+  async criteresDeLAtelier(atelierId: string): Promise<CritereVue[]> {
+    const manager = this.dataSource.manager;
+    const grille = await manager.findOne(Grille, { where: { atelierId }, select: { id: true } });
+    const criteres = grille ? await this.chargerCriteres(manager, grille.id) : [];
+    return this.versVue({ id: atelierId, statut: StatutAtelier.PUBLIE }, grille, criteres).criteres;
+  }
+
   // ===================================================================
   //  Critères
   // ===================================================================

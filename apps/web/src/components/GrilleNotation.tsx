@@ -29,13 +29,17 @@ type Fenetre =
  * critères avec leurs 4 niveaux, ajout / modification / suppression /
  * réordonnancement, « Valider la grille » actif à 100 % seulement, modèles.
  * Hors brouillon, la grille est en lecture seule (le serveur refuse en 409).
+ * US-ATEL-03 — `onChange` informe la fiche de l'atelier de chaque état reçu du
+ * serveur (le bouton « Publier » exige une grille validée).
  */
 export function GrilleNotation({
   atelierId,
   titreAtelier,
+  onChange,
 }: {
   atelierId: string;
   titreAtelier: string;
+  onChange?: (grille: Grille) => void;
 }): JSX.Element {
   const [grille, setGrille] = useState<Grille | null>(null);
   const [erreur, setErreur] = useState<string | null>(null);
@@ -54,6 +58,10 @@ export function GrilleNotation({
   useEffect(() => {
     void charger();
   }, [charger]);
+
+  useEffect(() => {
+    if (grille !== null) onChange?.(grille);
+  }, [grille, onChange]);
 
   /** Une action qui renvoie la grille à jour ; l'erreur du serveur s'affiche telle quelle. */
   const agir = async (action: () => Promise<Grille>, message?: string): Promise<void> => {
@@ -254,7 +262,7 @@ export function GrilleNotation({
             onClick={() =>
               void agir(
                 () => validerGrille(atelierId),
-                'Grille validée. L’atelier pourra être publié (US-ATEL-03).',
+                'Grille validée. Vous pouvez maintenant publier l’atelier.',
               )
             }
             disabled={enCours || total !== 100 || grille.validee}

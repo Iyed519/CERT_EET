@@ -2,6 +2,8 @@ import { BadRequestException, Injectable, NotFoundException } from '@nestjs/comm
 import { InjectRepository } from '@nestjs/typeorm';
 import { DataSource, EntityManager, Repository } from 'typeorm';
 import { Atelier } from '../../database/entities/atelier.entity';
+import { Critere } from '../../database/entities/critere.entity';
+import { Grille } from '../../database/entities/grille.entity';
 import { ModuleFormation } from '../../database/entities/module-formation.entity';
 import { StatutAtelier } from '../../database/enums/statut-atelier.enum';
 import { AuditService } from '../audit/audit.service';
@@ -12,6 +14,7 @@ import {
   normaliserTypesLivrables,
   verifierDateLimite,
   verifierModifiable,
+  verifierPublicationAtelier,
 } from './atelier.regles';
 import { CreateAtelierDto } from './dto/create-atelier.dto';
 import { UpdateAtelierDto } from './dto/update-atelier.dto';
@@ -256,6 +259,66 @@ export class AteliersService {
     });
   }
 
+  /**
+   * Publie un atelier (US-ATEL-03, DS-13 partie 3) : il devient visible des
+   * apprenants inscrits, et son contenu comme sa grille se figent (les
+   * écritures exigent BROUILLON : 409).
+   *
+   * Tout se passe sous le verrou de la ligne de l'atelier — le même que celui
+   * des écritures de la grille : une modification de critère (qui retire la
+   * validation) ne peut pas se glisser entre la lecture de `validee` et le
+   * passage à PUBLIE. Ordre : 404 / 409 formation archivée, puis
+   * verifierPublicationAtelier (409 statut, 409 grille, 400 date passée,
+   * horloge PostgreSQL). Audit ATELIER_PUBLIE après le COMMIT.
+   */
+  async publier(
+    acteurId: string,
+    atelierId: string,
+    contexte: Contexte,
+  ): Promise<AtelierDetailVue> {
+    const bilan = await this.dataSource.transaction(async (manager) => {
+      const atelier = await this.verrouiller(manager, atelierId);
+      const grille = await manager.findOne(Grille, {
+        where: { atelierId },
+        select: { id: true, validee: true },
+      });
+      verifierPublicationAtelier(
+        {
+          statut: atelier.statut,
+          grilleValidee: grille?.validee ?? null,
+          dateLimite: atelier.dateLimite,
+        },
+        await this.maintenant(manager),
+      );
+      await manager.update(Atelier, { id: atelierId }, { statut: StatutAtelier.PUBLIE });
+      return {
+        statutAvant: atelier.statut,
+        formationId: atelier.module.formationId,
+        moduleId: atelier.moduleId,
+        dateLimite: atelier.dateLimite,
+        grilleId: (grille as Grille).id,
+        nbCriteres: await manager.countBy(Critere, { grilleId: (grille as Grille).id }),
+      };
+    });
+
+    await this.auditService.record({
+      action: 'ATELIER_PUBLIE',
+      acteur: acteurId,
+      cible: atelierId,
+      adresseIp: contexte.adresseIp,
+      resultat: 'Succès',
+      detailsAvantApres: {
+        statut: { avant: bilan.statutAvant, apres: StatutAtelier.PUBLIE },
+        formationId: bilan.formationId,
+        moduleId: bilan.moduleId,
+        dateLimite: bilan.dateLimite,
+        grilleId: bilan.grilleId,
+        nbCriteres: bilan.nbCriteres,
+      },
+    });
+    return this.detail(atelierId);
+  }
+
   // ===================================================================
   //  Outils
   // ===================================================================
@@ -286,7 +349,7 @@ export class AteliersService {
   }
 
   /** L'heure de PostgreSQL : une seule horloge pour toutes les règles. */
-  private async maintenant(manager: EntityManager): Promise<Date> {
+  async maintenant(manager: EntityManager): Promise<Date> {
     const [{ maintenant }] = (await manager.query('SELECT now() AS maintenant')) as Array<{
       maintenant: Date;
     }>;

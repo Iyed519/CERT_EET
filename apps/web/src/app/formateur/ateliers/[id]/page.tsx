@@ -5,11 +5,18 @@ import { useCallback, useEffect, useState } from 'react';
 import { AtelierModal } from '../../../../components/AtelierModal';
 import { ConfirmationModal } from '../../../../components/ConfirmationModal';
 import { GrilleNotation } from '../../../../components/GrilleNotation';
-import { AdminError, AtelierDetail, deleteAtelier, getAtelier } from '../../../../lib/api';
+import {
+  AdminError,
+  AtelierDetail,
+  deleteAtelier,
+  getAtelier,
+  GrilleNotation as Grille,
+  publishAtelier,
+} from '../../../../lib/api';
 import { dateHeureFr, LIBELLES_STATUT_ATELIER } from '../../../../lib/format';
 
 /** Ce qui est ouvert par-dessus la page (une modale à la fois). */
-type Fenetre = { type: 'modifier' } | { type: 'supprimer' } | null;
+type Fenetre = { type: 'modifier' } | { type: 'supprimer' } | { type: 'publier' } | null;
 
 /**
  * US-ATEL-01 — Fiche d'un atelier (formateur affecté, DS-13 partie 1).
@@ -17,8 +24,12 @@ type Fenetre = { type: 'modifier' } | { type: 'supprimer' } | null;
  * Résumé (date limite, livrables, modalités), énoncé et compétences visées.
  * Tant que l'atelier est en brouillon, il se modifie et se supprime ; le
  * serveur refuse (409) dès qu'il est publié, la page désactive alors les
- * boutons. En bas, l'éditeur de la grille de notation (US-ATEL-02) ; la
- * publication arrive avec US-ATEL-03.
+ * boutons. En bas, l'éditeur de la grille de notation (US-ATEL-02).
+ *
+ * US-ATEL-03 — « Publier l'atelier » (DS-13 partie 3) : actif une fois la
+ * grille validée ; une confirmation rappelle que l'atelier et sa grille se
+ * figent. Le serveur revérifie tout (409 grille non validée, 400 date limite
+ * passée) et son message s'affiche dans la modale.
  */
 export default function AtelierPage(): JSX.Element {
   const params = useParams<{ id: string }>();
@@ -28,6 +39,9 @@ export default function AtelierPage(): JSX.Element {
   const [chargement, setChargement] = useState(true);
   const [erreur, setErreur] = useState<string | null>(null);
   const [fenetre, setFenetre] = useState<Fenetre>(null);
+  const [grilleValidee, setGrilleValidee] = useState(false);
+  const [succes, setSucces] = useState<string | null>(null);
+  const suivreGrille = useCallback((g: Grille) => setGrilleValidee(g.validee), []);
 
   const charger = useCallback(async (): Promise<void> => {
     if (!atelierId) return;
@@ -47,6 +61,9 @@ export default function AtelierPage(): JSX.Element {
 
   const brouillon = atelier?.statut === 'BROUILLON';
   const raisonFige = 'Seul un atelier en brouillon se modifie ou se supprime.';
+  const raisonPublication = grilleValidee
+    ? undefined
+    : 'Validez d’abord la grille de notation (total de 100 %).';
 
   return (
     <>
@@ -89,13 +106,32 @@ export default function AtelierPage(): JSX.Element {
               >
                 Supprimer
               </button>
+              {brouillon && (
+                <button
+                  className="btn-sm btn-primary-sm"
+                  onClick={() => setFenetre({ type: 'publier' })}
+                  disabled={!grilleValidee}
+                  title={raisonPublication}
+                >
+                  Publier l’atelier
+                </button>
+              )}
             </div>
           </div>
 
+          {succes !== null && <p className="alert alert-success atelier-annonce">{succes}</p>}
           {brouillon && (
             <p className="alert alert-info">
-              Brouillon : invisible pour les apprenants. Définissez la grille de notation (total
-              de 100 %) et validez-la : la publication l’exigera.
+              Brouillon : invisible pour les apprenants.{' '}
+              {grilleValidee
+                ? 'La grille est validée : l’atelier peut être publié.'
+                : 'Définissez la grille de notation (total de 100 %) et validez-la : la publication l’exige.'}
+            </p>
+          )}
+          {atelier.statut === 'PUBLIE' && succes === null && (
+            <p className="alert alert-info">
+              Publié : visible des apprenants inscrits, avec sa grille. L’atelier et sa grille ne
+              se modifient plus.
             </p>
           )}
 
@@ -134,7 +170,12 @@ export default function AtelierPage(): JSX.Element {
           <h2 className="section-title">Énoncé</h2>
           <div className="enonce-atelier">{atelier.enonce}</div>
 
-          <GrilleNotation atelierId={atelier.id} titreAtelier={atelier.titre} />
+          <GrilleNotation
+            key={atelier.statut}
+            atelierId={atelier.id}
+            titreAtelier={atelier.titre}
+            onChange={suivreGrille}
+          />
         </>
       )}
 
@@ -146,6 +187,20 @@ export default function AtelierPage(): JSX.Element {
             setAtelier(maj);
             setFenetre(null);
           }}
+        />
+      )}
+
+      {fenetre?.type === 'publier' && atelier && (
+        <ConfirmationModal
+          titre="Publier l’atelier"
+          message={`« ${atelier.titre} » deviendra visible des apprenants inscrits, avec sa grille de notation, jusqu’au ${dateHeureFr(atelier.dateLimite)}. Ensuite, ni l’atelier ni sa grille ne pourront être modifiés.`}
+          libelleAction="Publier"
+          onConfirmer={async () => {
+            setAtelier(await publishAtelier(atelier.id));
+            setFenetre(null);
+            setSucces('Atelier publié ✅ Visible aux apprenants inscrits.');
+          }}
+          onClose={() => setFenetre(null)}
         />
       )}
 
