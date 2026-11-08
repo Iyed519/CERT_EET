@@ -26,6 +26,16 @@ services:
       GITHUB_CLIENT_ID: ${GITHUB_CLIENT_ID}
       GITHUB_CLIENT_SECRET: ${GITHUB_CLIENT_SECRET}
       GITHUB_CALLBACK_URL: "https://localhost/api/auth/oauth/github/callback"
+      # --- Rechargement à chaud sous Docker Desktop / Windows ---
+      # Un dossier Windows monté dans le conteneur ne transmet pas les
+      # événements de fichiers (inotify) : sans scrutation, `nest start --watch`
+      # ne voit ni les fichiers modifiés ni les fichiers ajoutés par un
+      # `git pull`, et l'api continue de servir l'ancien code. Ces deux
+      # variables passent le watcher TypeScript (fichiers ET dossiers) en
+      # scrutation. Valeurs exactes lues par TypeScript (sys.watchFile /
+      # watchDirectory).
+      TSC_WATCHFILE: DynamicPriorityPolling
+      TSC_WATCHDIRECTORY: RecursiveDirectoryUsingDynamicPriorityPolling
     command: ["npm", "run", "start:dev"]
     volumes:
       - ./apps/api:/app          # live source for hot reload
@@ -37,6 +47,9 @@ services:
       target: development
     environment:
       NODE_ENV: development
+      # Même raison que pour l'api : `next dev` (watchpack) passe en scrutation,
+      # sinon il garde en mémoire l'ancienne version des fichiers après un pull.
+      WATCHPACK_POLLING: "true"
     command: ["npm", "run", "dev"]
     volumes:
       - ./apps/web:/app
