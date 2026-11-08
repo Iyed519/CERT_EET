@@ -43,23 +43,25 @@ services:
   # --- MinIO (US-ATEL-04, ADR-07) : stockage objet S3 des livrables ---
   # Privé au réseau docker (aucun port publié) : seule l'api y accède. Le
   # bucket est créé par l'api au démarrage s'il manque.
+  # Image : MinIO ne publie plus d'images sur Docker Hub ni quay.io (fin
+  # 2025). J'utilise la build Bitnami archivée de la même version de MinIO
+  # (RELEASE.2025-04-22), figée : elle démarre le serveur toute seule, sous un
+  # utilisateur non root, données dans /bitnami/minio/data.
   minio:
-    image: minio/minio:RELEASE.2025-04-22T22-12-26Z
+    image: bitnamilegacy/minio:2025.4.22
     container_name: cert_eet_minio
-    command: ["server", "/data"]
     environment:
       MINIO_ROOT_USER: ${MINIO_ROOT_USER}
       MINIO_ROOT_PASSWORD: ${MINIO_ROOT_PASSWORD}
     volumes:
-      - miniodata:/data                    # livrables persistés sur l'hôte (ADR-07)
+      - miniodata:/bitnami/minio/data       # livrables persistés sur l'hôte (ADR-07)
     healthcheck:
-      # L'image MinIO n'embarque pas curl ; `mc ready local` est la sonde prévue
-      # (la CI exécute exactement la même commande).
-      test: ["CMD", "mc", "ready", "local"]
+      # Sonde officielle de MinIO (la CI attend exactement la même URL).
+      test: ["CMD", "curl", "-fs", "http://localhost:9000/minio/health/live"]
       interval: 10s
       timeout: 5s
       retries: 5
-      start_period: 10s
+      start_period: 15s
     networks: [cert_eet_net]
 
   api:

@@ -10,7 +10,8 @@ SOUMIS, en retard ou non) et prévient les formateurs par email.
 
 ## Découpage
 - **A — Infrastructure (ADR-07).** Service `minio` dans `docker-compose.yml`
-  (image figée, volume `miniodata`, sonde `mc ready local`, réseau privé ;
+  (image `bitnamilegacy/minio:2025.4.22` figée, volume `miniodata`, sonde
+  HTTP `/minio/health/live`, réseau privé ;
   l'api en dépend), redémarrage en recette, MinIO lancé dans la CI (même
   image, même sonde), `client_max_body_size 1024m` sur `/api/` dans nginx,
   variables dans `.env.example`. Module global `StockageModule` (client S3
@@ -93,6 +94,13 @@ SOUMIS, en retard ou non) et prévient les formateurs par email.
   `app/globals.css`.
 
 ## Incidents
+- **Image MinIO introuvable en CI** (« pull access denied for minio/minio ») :
+  MinIO ne publie plus d'images (Docker Hub et quay.io). Une étape de sonde
+  temporaire en CI a listé les images encore disponibles : build Bitnami
+  archivée `bitnamilegacy/minio:2025.4.22` (même version de MinIO, figée,
+  `curl` et `mc` présents) ou Chainguard (seulement `latest`, non figeable).
+  Retenu : Bitnami archivée — à surveiller, elle ne reçoit plus de mises à
+  jour (piste : construire l'image depuis les sources de MinIO).
 - Prettier a reformaté des lignes que je n'avais pas écrites dans trois
   fichiers de config / mail : remises à l'identique.
 - Un test unitaire laissait un flux de fichier s'ouvrir après la suppression
@@ -120,7 +128,7 @@ SOUMIS, en retard ou non) et prévient les formateurs par email.
   tolérance marqué en retard ; « Livrable soumis » dans « Mon espace » ; email
   « Nouveau livrable » reçu par le formateur (serveur SMTP local).
 - Non vérifié localement : le conteneur MinIO lui-même (image, sonde
-  `mc ready local`) — vérifié par la CI.
+  HTTP) — vérifié par la CI, qui lance la même image.
 
 ## CI
 Étape « Start MinIO » ajoutée avant l'installation ; verte sur la PR, puis sur
