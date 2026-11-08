@@ -32,7 +32,8 @@ const REFUS_403 =
  * vérifie l'affectation avant que la requête n'atteigne le service.
  *
  * La grille (US-ATEL-02) a son propre contrôleur (grille/grilles.controller.ts) ;
- * la publication (US-ATEL-03) viendra sous `/ateliers/:atelierId/...`.
+ * la publication (US-ATEL-03) est `PATCH /ateliers/:atelierId/publier` (DS-13).
+ * Le côté apprenant est dans ateliers-apprenant.controller.ts.
  */
 @ApiBearerAuth('access-token')
 @ApiTags('ateliers')
@@ -146,6 +147,38 @@ export class AteliersController {
     @Req() req: AuthenticatedRequest,
   ): Promise<void> {
     await this.ateliersService.supprimer(this.acteur(req).sub, atelierId, this.contexte(req));
+  }
+
+  @Patch('ateliers/:atelierId/publier')
+  @FormateurDeLaFormation({ atelierId: 'atelierId' })
+  @ApiOperation({
+    summary: 'Publier un atelier (US-ATEL-03)',
+    description:
+      'Exige une grille de notation validée (total de 100 %) et une date limite encore future ' +
+      '(horloge PostgreSQL). L’atelier devient visible des apprenants inscrits ; son contenu et ' +
+      'sa grille ne se modifient plus.',
+  })
+  @ApiResponse({
+    status: 200,
+    description: 'Atelier au statut PUBLIE ; audit ATELIER_PUBLIE.',
+  })
+  @ApiResponse({
+    status: 400,
+    description: 'Identifiant mal formé, ou date limite déjà passée (à repousser avant).',
+  })
+  @ApiResponse({ status: 401, description: 'Non authentifié.' })
+  @ApiResponse({ status: 403, description: REFUS_403 })
+  @ApiResponse({ status: 404, description: 'Atelier introuvable.' })
+  @ApiResponse({
+    status: 409,
+    description:
+      'Grille absente ou non validée, atelier déjà publié ou archivé, ou formation archivée.',
+  })
+  publier(
+    @Param('atelierId', ParseUUIDPipe) atelierId: string,
+    @Req() req: AuthenticatedRequest,
+  ): Promise<AtelierDetailVue> {
+    return this.ateliersService.publier(this.acteur(req).sub, atelierId, this.contexte(req));
   }
 
   private acteur(req: AuthenticatedRequest): AccessTokenPayload {

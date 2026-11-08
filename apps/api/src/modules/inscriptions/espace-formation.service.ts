@@ -1,15 +1,18 @@
 import { ForbiddenException, Injectable, Logger } from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
 import { In, Repository } from 'typeorm';
+import { Atelier } from '../../database/entities/atelier.entity';
 import { Formation } from '../../database/entities/formation.entity';
 import { Inscription } from '../../database/entities/inscription.entity';
 import { ModuleFormation } from '../../database/entities/module-formation.entity';
 import { Qcm } from '../../database/entities/qcm.entity';
 import { TentativeQcm } from '../../database/entities/tentative-qcm.entity';
+import { StatutAtelier } from '../../database/enums/statut-atelier.enum';
 import { StatutFormation } from '../../database/enums/statut-formation.enum';
 import { StatutInscription } from '../../database/enums/statut-inscription.enum';
 import { StatutQcm } from '../../database/enums/statut-qcm.enum';
 import { StatutTentative } from '../../database/enums/statut-tentative.enum';
+import { etatDepot, EtatDepot } from '../ateliers/atelier.regles';
 import { AuditService } from '../audit/audit.service';
 
 /** Où en est l'apprenant sur un QCM, d'après SES tentatives. */
@@ -79,6 +82,15 @@ export interface EspaceFormationVue {
       // Ma tentative EN_COURS encore dans son échéance, à reprendre ; sinon null.
       tentativeEnCoursId: string | null;
     }>;
+    // US-ATEL-03 — ateliers PUBLIÉS du module (jamais les brouillons), sans énoncé.
+    ateliers: Array<{
+      id: string;
+      titre: string;
+      dateLimite: Date;
+      toleranceRetardHeures: number;
+      typesLivrables: string[];
+      etatDepot: EtatDepot;
+    }>;
   }>;
 }
 
@@ -107,6 +119,8 @@ export class EspaceFormationService {
     private readonly qcmRepository: Repository<Qcm>,
     @InjectRepository(TentativeQcm)
     private readonly tentativeRepository: Repository<TentativeQcm>,
+    @InjectRepository(Atelier)
+    private readonly atelierRepository: Repository<Atelier>,
     // Writer d'audit UNIQUE (@Global, US-AUTH-12).
     private readonly auditService: AuditService,
   ) {}
@@ -124,7 +138,11 @@ export class EspaceFormationService {
    *      d'affichage seulement, plus les dates de leur fenêtre d'ouverture
    *      et son état (à venir, ouverte, fermée — US-QCM-04) ;
    *   4. MES tentatives sur ces QCM -> avancement de chaque QCM, puis de
-   *      chaque module.
+   *      chaque module ;
+   *   5. ateliers PUBLIÉS de ces modules (US-ATEL-03), sans énoncé, avec
+   *      l'état du dépôt (ouvert, en retard, clos) à l'heure de PostgreSQL.
+   *      Ils ne comptent pas (encore) dans l'avancement du module : c'est la
+   *      note d'un livrable qui le fera (US-ATEL-07).
    *
    * Lecture seule : le taux d'avancement renvoyé est celui ENREGISTRÉ sur
    * l'inscription ; il est recalculé après la notation d'une tentative
@@ -135,17 +153,7 @@ export class EspaceFormationService {
     formationId: string,
     contexte: ContexteAcces,
   ): Promise<EspaceFormationVue> {
-    const inscription = await this.inscriptionRepository.findOne({
-      where: { apprenantId, formationId },
-    });
-    if (!inscription) {
-      await this.journaliserRefus(apprenantId, formationId, 'NON_INSCRIT', contexte);
-      throw new ForbiddenException(MESSAGE_NON_INSCRIT);
-    }
-    if (inscription.statut === StatutInscription.SUSPENDUE) {
-      await this.journaliserRefus(apprenantId, formationId, 'INSCRIPTION_SUSPENDUE', contexte);
-      throw new ForbiddenException(MESSAGE_SUSPENDUE);
-    }
+    const inscription = await this.exigerAccesContenu(apprenantId, formationId, contexte);
 
     const formation = await this.formationRepository.findOneOrFail({
       where: { id: formationId },
@@ -184,6 +192,23 @@ export class EspaceFormationService {
             select: { id: true, qcmId: true, statut: true, estReussie: true, dateLimite: true },
           });
 
+    const ateliers =
+      modules.length === 0
+        ? []
+        : await this.atelierRepository.find({
+            where: { moduleId: In(modules.map((m) => m.id)), statut: StatutAtelier.PUBLIE },
+            select: {
+              id: true,
+              moduleId: true,
+              titre: true,
+              dateLimite: true,
+              toleranceRetardHeures: true,
+              typesLivrables: true,
+            },
+            order: { dateLimite: 'ASC', id: 'ASC' },
+          });
+    const maintenantBase = ateliers.length === 0 ? new Date() : await this.maintenantPostgres();
+
     return {
       formation: {
         id: formation.id,
@@ -204,8 +229,54 @@ export class EspaceFormationService {
         dateEcheance: inscription.dateEcheance,
         tauxAvancement: inscription.tauxAvancement,
       },
-      modules: modules.map((module) => this.versModule(module, qcms, tentatives, new Date())),
+      modules: modules.map((module) => ({
+        ...this.versModule(module, qcms, tentatives, new Date()),
+        ateliers: ateliers
+          .filter((a) => a.moduleId === module.id)
+          .map((a) => ({
+            id: a.id,
+            titre: a.titre,
+            dateLimite: a.dateLimite,
+            toleranceRetardHeures: a.toleranceRetardHeures,
+            typesLivrables: a.typesLivrables,
+            etatDepot: etatDepot(a.dateLimite, a.toleranceRetardHeures, maintenantBase),
+          })),
+      })),
     };
+  }
+
+  /**
+   * L'inscription ouvre l'accès au CONTENU d'une formation (espace, fiche d'un
+   * atelier) : EN_COURS ou TERMINEE. Absente -> 403 ; SUSPENDUE -> 403 avec
+   * le message qui renvoie vers un administrateur. Chaque refus est tracé
+   * (ACCES_RESSOURCE_REFUSE). Public : la fiche d'un atelier côté apprenant
+   * (US-ATEL-03) applique exactement la même règle.
+   */
+  async exigerAccesContenu(
+    apprenantId: string,
+    formationId: string,
+    contexte: ContexteAcces,
+  ): Promise<Inscription> {
+    const inscription = await this.inscriptionRepository.findOne({
+      where: { apprenantId, formationId },
+    });
+    if (!inscription) {
+      await this.journaliserRefus(apprenantId, formationId, 'NON_INSCRIT', contexte);
+      throw new ForbiddenException(MESSAGE_NON_INSCRIT);
+    }
+    if (inscription.statut === StatutInscription.SUSPENDUE) {
+      await this.journaliserRefus(apprenantId, formationId, 'INSCRIPTION_SUSPENDUE', contexte);
+      throw new ForbiddenException(MESSAGE_SUSPENDUE);
+    }
+    return inscription;
+  }
+
+  /** L'heure de PostgreSQL (une seule horloge pour l'état des dépôts). */
+  private async maintenantPostgres(): Promise<Date> {
+    const [{ maintenant }] = (await this.atelierRepository.query(
+      'SELECT now() AS maintenant',
+    )) as Array<{ maintenant: Date }>;
+    return new Date(maintenant);
   }
 
   // ===================================================================
@@ -217,7 +288,7 @@ export class EspaceFormationService {
     qcms: Qcm[],
     tentatives: TentativeQcm[],
     maintenant: Date,
-  ): EspaceFormationVue['modules'][number] {
+  ): Omit<EspaceFormationVue['modules'][number], 'ateliers'> {
     const qcmsDuModule = qcms
       .filter((q) => q.moduleId === module.id)
       .map((q) => {

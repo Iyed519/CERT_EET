@@ -533,3 +533,14 @@ textarea.input { resize: vertical; font-family: inherit; line-height: 1.45; }
   .niveaux-saisie { grid-template-columns: 1fr; }
   .grille-pied .grille-valider { width: 100%; }
 }
+
+/* US-ATEL-03 — Atelier publié côté apprenant (état du dépôt, fiche, grille en lecture). */
+.depot-OUVERT { color: var(--primary-dark); font-weight: 600; }
+.depot-EN_RETARD { color: var(--accent-dark); font-weight: 600; }
+.depot-CLOS { color: var(--muted); }
+.depot-badge-OUVERT { background: var(--success-soft); color: var(--primary-dark); }
+.depot-badge-EN_RETARD { background: #fef3e2; color: var(--accent-dark); }
+.depot-badge-CLOS { background: #eef2f7; color: #475569; }
+.atelier-echeance { margin: 0 0 18px; }
+.grille-lecture-tete { display: flex; align-items: baseline; justify-content: space-between; gap: 10px; flex-wrap: wrap; }
+.atelier-annonce { margin-bottom: 16px; }

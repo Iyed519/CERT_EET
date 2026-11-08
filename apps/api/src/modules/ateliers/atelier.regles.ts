@@ -111,3 +111,59 @@ export function verifierModifiable(statut: StatutAtelier, action: 'modifier' | '
     );
   }
 }
+
+/** Ce que la publication vérifie, lu sous le verrou de l'atelier (US-ATEL-03). */
+export interface EtatPublicationAtelier {
+  statut: StatutAtelier;
+  /** null : aucune grille n'a encore été commencée. */
+  grilleValidee: boolean | null;
+  dateLimite: Date;
+}
+
+export const MESSAGE_GRILLE_NON_VALIDEE =
+  'Validez la grille de notation d’abord : la publication exige une grille validée (total de 100 %).';
+export const MESSAGE_DATE_DEPASSEE_PUBLICATION =
+  'La date limite de cet atelier est déjà passée : repoussez-la avant de le publier.';
+
+/**
+ * Un atelier peut-il être publié (US-ATEL-03, DS-13 partie 3) ? Ordre fixe :
+ *   1. statut : déjà publié ou archivé -> 409 (c'est l'état qui bloque) ;
+ *   2. grille absente ou non validée -> 409 (DS-13 dit 400 ; je garde la
+ *      convention des refus d'état, comme la publication d'un QCM) ;
+ *   3. date limite déjà passée (horloge PostgreSQL) -> 400, comme à la
+ *      création (journal 36) : c'est la date saisie qu'il faut corriger.
+ */
+export function verifierPublicationAtelier(etat: EtatPublicationAtelier, maintenant: Date): void {
+  if (etat.statut === StatutAtelier.PUBLIE) {
+    throw new ConflictException('Cet atelier est déjà publié.');
+  }
+  if (etat.statut !== StatutAtelier.BROUILLON) {
+    throw new ConflictException('Un atelier archivé ne peut pas être publié.');
+  }
+  if (etat.grilleValidee !== true) {
+    throw new ConflictException(MESSAGE_GRILLE_NON_VALIDEE);
+  }
+  if (new Date(etat.dateLimite).getTime() <= maintenant.getTime()) {
+    throw new BadRequestException(MESSAGE_DATE_DEPASSEE_PUBLICATION);
+  }
+}
+
+/** Où en est le dépôt d'un atelier publié, vu de l'apprenant (informatif). */
+export type EtatDepot = 'OUVERT' | 'EN_RETARD' | 'CLOS';
+
+/**
+ * Avant la date limite -> OUVERT ; ensuite, pendant la tolérance de retard ->
+ * EN_RETARD (dépôt encore accepté, marqué en retard : US-ATEL-04) ; après ->
+ * CLOS. Le dépôt lui-même sera revérifié par le serveur.
+ */
+export function etatDepot(
+  dateLimite: Date | string,
+  toleranceRetardHeures: number,
+  maintenant: Date,
+): EtatDepot {
+  const limite = new Date(dateLimite).getTime();
+  const t = maintenant.getTime();
+  if (t < limite) return 'OUVERT';
+  if (t < limite + toleranceRetardHeures * 3_600_000) return 'EN_RETARD';
+  return 'CLOS';
+}

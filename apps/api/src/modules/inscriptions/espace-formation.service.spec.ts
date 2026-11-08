@@ -1,10 +1,12 @@
 import { ForbiddenException } from '@nestjs/common';
 import { Test, TestingModule } from '@nestjs/testing';
 import { getRepositoryToken } from '@nestjs/typeorm';
+import { Atelier } from '../../database/entities/atelier.entity';
 import { Formation } from '../../database/entities/formation.entity';
 import { Inscription } from '../../database/entities/inscription.entity';
 import { Qcm } from '../../database/entities/qcm.entity';
 import { TentativeQcm } from '../../database/entities/tentative-qcm.entity';
+import { StatutAtelier } from '../../database/enums/statut-atelier.enum';
 import { StatutFormation } from '../../database/enums/statut-formation.enum';
 import { StatutInscription } from '../../database/enums/statut-inscription.enum';
 import { StatutQcm } from '../../database/enums/statut-qcm.enum';
@@ -32,6 +34,7 @@ describe('EspaceFormationService', () => {
   const mockFormationRepo = { findOneOrFail: jest.fn() };
   const mockQcmRepo = { find: jest.fn() };
   const mockTentativeRepo = { find: jest.fn() };
+  const mockAtelierRepo = { find: jest.fn(), query: jest.fn() };
   const mockAuditService = { record: jest.fn().mockResolvedValue(undefined) };
 
   const contexte = {
@@ -75,6 +78,7 @@ describe('EspaceFormationService', () => {
         { provide: getRepositoryToken(Formation), useValue: mockFormationRepo },
         { provide: getRepositoryToken(Qcm), useValue: mockQcmRepo },
         { provide: getRepositoryToken(TentativeQcm), useValue: mockTentativeRepo },
+        { provide: getRepositoryToken(Atelier), useValue: mockAtelierRepo },
         { provide: AuditService, useValue: mockAuditService },
       ],
     }).compile();
@@ -91,6 +95,79 @@ describe('EspaceFormationService', () => {
       { qcmId: 'qcm-1', statut: StatutTentative.NOTEE, estReussie: true },
       { qcmId: 'qcm-2', statut: StatutTentative.NOTEE, estReussie: false },
     ]);
+    mockAtelierRepo.find.mockResolvedValue([]);
+    mockAtelierRepo.query.mockResolvedValue([{ maintenant: new Date('2026-11-08T10:00:00Z') }]);
+  });
+
+  describe('monEspace — ateliers publiés (US-ATEL-03)', () => {
+    it('ne demande que les ateliers PUBLIÉS des modules, et les range par module avec l’état du dépôt (horloge PostgreSQL)', async () => {
+      mockAtelierRepo.find.mockResolvedValue([
+        {
+          id: 'at-1',
+          moduleId: 'mod-2',
+          titre: 'Dockeriser une API',
+          dateLimite: new Date('2026-11-20T23:59:00Z'),
+          toleranceRetardHeures: 0,
+          typesLivrables: ['zip'],
+        },
+        {
+          id: 'at-2',
+          moduleId: 'mod-2',
+          titre: 'Compose',
+          dateLimite: new Date('2026-11-08T09:00:00Z'),
+          toleranceRetardHeures: 2,
+          typesLivrables: ['zip', 'md'],
+        },
+        {
+          id: 'at-3',
+          moduleId: 'mod-1',
+          titre: 'Ancien',
+          dateLimite: new Date('2026-11-01T00:00:00Z'),
+          toleranceRetardHeures: 0,
+          typesLivrables: ['pdf'],
+        },
+      ]);
+
+      const espace = await service.monEspace('appr-1', 'form-1', contexte);
+
+      expect(mockAtelierRepo.find).toHaveBeenCalledWith(
+        expect.objectContaining({
+          where: expect.objectContaining({ statut: StatutAtelier.PUBLIE }),
+        }),
+      );
+      // Liste blanche : jamais l'énoncé ni le formateur.
+      const select = mockAtelierRepo.find.mock.calls[0][0].select;
+      expect(select).not.toHaveProperty('enonce');
+      expect(select).not.toHaveProperty('formateurId');
+      expect(mockAtelierRepo.query).toHaveBeenCalledWith('SELECT now() AS maintenant');
+      expect(espace.modules[0].ateliers.map((a) => [a.id, a.etatDepot])).toEqual([
+        ['at-3', 'CLOS'],
+      ]);
+      expect(espace.modules[1].ateliers.map((a) => [a.id, a.etatDepot])).toEqual([
+        ['at-1', 'OUVERT'],
+        ['at-2', 'EN_RETARD'],
+      ]);
+      expect(espace.modules[2].ateliers).toEqual([]);
+      // Les ateliers ne changent pas l'avancement du module (pas encore notés).
+      expect(espace.modules[2].avancement).toBe('SANS_EVALUATION');
+    });
+
+    it('sans atelier publié : pas de lecture de l’horloge, listes vides', async () => {
+      const espace = await service.monEspace('appr-1', 'form-1', contexte);
+      expect(mockAtelierRepo.query).not.toHaveBeenCalled();
+      expect(espace.modules.every((m) => m.ateliers.length === 0)).toBe(true);
+    });
+
+    it('exigerAccesContenu : 403 tracé pour un non-inscrit, sans lire la formation', async () => {
+      mockInscriptionRepo.findOne.mockResolvedValue(null);
+      await expect(service.exigerAccesContenu('appr-1', 'form-1', contexte)).rejects.toThrow(
+        new ForbiddenException('Vous n’êtes pas inscrit à cette formation.'),
+      );
+      expect(mockAuditService.record).toHaveBeenCalledWith(
+        expect.objectContaining({ action: 'ACCES_RESSOURCE_REFUSE', resultat: 'Échec' }),
+      );
+      expect(mockFormationRepo.findOneOrFail).not.toHaveBeenCalled();
+    });
   });
 
   describe('monEspace', () => {
@@ -222,6 +299,7 @@ describe('EspaceFormationService', () => {
       expect(espace.modules).toEqual([]);
       expect(mockQcmRepo.find).not.toHaveBeenCalled();
       expect(mockTentativeRepo.find).not.toHaveBeenCalled();
+      expect(mockAtelierRepo.find).not.toHaveBeenCalled();
     });
 
     it('403 et refus tracé si l’apprenant n’est pas inscrit', async () => {

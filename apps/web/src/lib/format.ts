@@ -2,6 +2,7 @@ import type {
   AffichageResultats,
   AvancementModule,
   AvancementQcm,
+  EtatDepot,
   EtatFenetre,
   NiveauDifficulte,
   RaisonCorrection,
@@ -191,4 +192,33 @@ export const attenteCorrigeFr = (
       : 'Le corrigé sera disponible après votre dernière tentative.';
   }
   return null;
+};
+
+/** Libellés FR de l'état du dépôt d'un atelier publié (US-ATEL-03). */
+export const LIBELLES_ETAT_DEPOT: Record<EtatDepot, string> = {
+  OUVERT: 'Dépôt ouvert',
+  EN_RETARD: 'Tolérance de retard',
+  CLOS: 'Dépôt clos',
+};
+
+/**
+ * Date limite d'un atelier en une phrase pour l'apprenant (US-ATEL-03).
+ * L'état vient du serveur ; la fin de tolérance se déduit de la date limite.
+ */
+export const echeanceAtelierFr = (
+  etat: EtatDepot,
+  dateLimite: string,
+  toleranceRetardHeures: number,
+): string => {
+  const finTolerance = new Date(
+    new Date(dateLimite).getTime() + toleranceRetardHeures * 3_600_000,
+  ).toISOString();
+  switch (etat) {
+    case 'OUVERT':
+      return `À rendre avant le ${dateHeureFr(dateLimite)}`;
+    case 'EN_RETARD':
+      return `Date limite dépassée : dépôt accepté en retard jusqu’au ${dateHeureFr(finTolerance)}`;
+    case 'CLOS':
+      return `Dépôt clos depuis le ${dateHeureFr(toleranceRetardHeures > 0 ? finTolerance : dateLimite)}`;
+  }
 };
