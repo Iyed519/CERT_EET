@@ -84,6 +84,9 @@ jobs:
         run: npm run test:cov -- --passWithNoTests
       - name: Run database migrations
         run: npm run migration:run
+      # En série (--runInBand, dans le script test:e2e) : toutes les suites
+      # partagent la même base, et le balayage des tentatives échues appelé par
+      # une suite clôturait les fixtures d'une autre exécutée en parallèle.
       - name: Integration tests
         run: npm run test:e2e -- --passWithNoTests
       - name: Upload coverage report
