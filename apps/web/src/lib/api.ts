@@ -2421,3 +2421,44 @@ export async function telechargerMonCertificat(certificatId: string, nom: string
   lien.remove();
   setTimeout(() => URL.revokeObjectURL(url), 1000);
 }
+
+/* ============================================================
+ * US-CERT-04 — Vérification publique (SANS compte : fetch simple)
+ * ============================================================ */
+
+export type VerdictCertificat = 'VALIDE' | 'REVOQUE' | 'INTEGRITE_COMPROMISE';
+
+/** Ce que la vérification publique révèle (minimisation, DS-05). */
+export interface VerificationCertificat {
+  certificatId: string;
+  verdict: VerdictCertificat;
+  integrite: 'VERIFIEE' | 'COMPROMISE' | 'NON_VERIFIABLE';
+  titulaire: string;
+  formation: string;
+  organismeEmetteur: string;
+  mention: string;
+  scoreFinal: number;
+  dateEmission: string;
+  empreinteSha256: string;
+}
+
+/**
+ * GET /api/verification/:id — sans jeton (fetch simple : jamais de
+ * redirection vers /login). null si le certificat est inconnu (404).
+ */
+export async function verifierCertificat(id: string): Promise<VerificationCertificat | null> {
+  const response = await fetch(`/api/verification/${encodeURIComponent(id)}`);
+  if (response.status === 404) return null;
+  if (!response.ok) {
+    throw new AdminError('La vérification est momentanément indisponible : réessayez.', response.status);
+  }
+  return (await response.json()) as VerificationCertificat;
+}
+
+/** SHA-256 (hexadécimal) d'un fichier, calculé DANS le navigateur (rien n'est envoyé). */
+export async function empreinteFichier(fichier: File): Promise<string> {
+  const condensat = await crypto.subtle.digest('SHA-256', await fichier.arrayBuffer());
+  return Array.from(new Uint8Array(condensat))
+    .map((o) => o.toString(16).padStart(2, '0'))
+    .join('');
+}
