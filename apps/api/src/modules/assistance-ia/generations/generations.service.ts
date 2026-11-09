@@ -4,6 +4,7 @@ import { DataSource, QueryFailedError } from 'typeorm';
 import { IaConfig } from '../../../config/configuration';
 import { GenerationIa } from '../../../database/entities/generation-ia.entity';
 import { ModuleFormation } from '../../../database/entities/module-formation.entity';
+import { SuggestionQuestionIa } from '../../../database/entities/suggestion-question-ia.entity';
 import { SupportPedagogique } from '../../../database/entities/support-pedagogique.entity';
 import { StatutGeneration } from '../../../database/enums/statut-generation.enum';
 import { StatutSupport } from '../../../database/enums/statut-support.enum';
@@ -70,6 +71,19 @@ const VIOLATION_UNICITE = '23505';
  *   5. INSERT EN_COURS (heure de PostgreSQL), audit GENERATION_IA_LANCEE,
  *      travail en file (file injoignable -> ECHEC avec motif).
  */
+/** Une suggestion de question telle que l'expose l'API (US-IA-03). */
+export interface SuggestionVue {
+  id: string;
+  ordre: number;
+  enonce: string;
+  type: string;
+  options: Array<{ texte: string; estCorrecte: boolean }>;
+  explication: string | null;
+  scoreConfiance: number | null;
+  passagesSources: number[];
+  statut: string;
+}
+
 @Injectable()
 export class GenerationsService {
   private readonly logger = new Logger(GenerationsService.name);
@@ -190,6 +204,33 @@ export class GenerationsService {
     });
     if (!generation) throw new NotFoundException(MESSAGE_GENERATION_INTROUVABLE);
     return versVue(generation);
+  }
+
+  /**
+   * Suggestions d'une génération (US-IA-03), dans l'ordre proposé par le
+   * modèle : énoncé, type, options, explication, score de confiance, passages
+   * sources, statut (relecture : US-IA-04). 404 si la génération n'existe pas.
+   */
+  async suggestions(generationId: string): Promise<SuggestionVue[]> {
+    const existe = await this.dataSource.manager.exists(GenerationIa, {
+      where: { id: generationId },
+    });
+    if (!existe) throw new NotFoundException(MESSAGE_GENERATION_INTROUVABLE);
+    const lignes = await this.dataSource.manager.find(SuggestionQuestionIa, {
+      where: { generationId },
+      order: { ordre: 'ASC' },
+    });
+    return lignes.map((s) => ({
+      id: s.id,
+      ordre: s.ordre,
+      enonce: s.enonce,
+      type: s.type,
+      options: s.options,
+      explication: s.explication,
+      scoreConfiance: s.scoreConfiance,
+      passagesSources: s.passagesSources,
+      statut: s.statut,
+    }));
   }
 
   private async chargerModule(moduleId: string): Promise<ModuleFormation> {

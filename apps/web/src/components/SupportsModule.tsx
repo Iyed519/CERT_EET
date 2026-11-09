@@ -22,6 +22,7 @@ import {
 import { ConfirmationModal } from './ConfirmationModal';
 import { CroixFermeture } from './CroixFermeture';
 import { GenerationModal } from './GenerationModal';
+import { SuggestionsModal } from './SuggestionsModal';
 
 /** Générations affichées sous les supports (les plus récentes). */
 const GENERATIONS_AFFICHEES = 5;
@@ -82,6 +83,7 @@ export function SupportsModule({
   const [relanceEnCours, setRelanceEnCours] = useState<string | null>(null);
   const [generations, setGenerations] = useState<GenerationIa[]>([]);
   const [aGenerer, setAGenerer] = useState<SupportPedagogique | null>(null);
+  const [aConsulter, setAConsulter] = useState<GenerationIa | null>(null);
 
   const charger = useCallback(async (): Promise<void> => {
     try {
@@ -202,10 +204,19 @@ export function SupportsModule({
                 <span className={`statut-badge generation-${g.statut}`}>
                   {LIBELLES_STATUT_GENERATION[g.statut]}
                 </span>
+                {g.statut === 'TERMINEE' && (g.nbSuggestions ?? 0) > 0 && (
+                  <button type="button" className="btn-sm" onClick={() => setAConsulter(g)}>
+                    Voir les questions
+                  </button>
+                )}
               </li>
             ))}
           </ul>
         </>
+      )}
+
+      {aConsulter && (
+        <SuggestionsModal generation={aConsulter} onClose={() => setAConsulter(null)} />
       )}
 
       {aGenerer && (

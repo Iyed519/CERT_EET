@@ -268,4 +268,38 @@ describe('MailService', () => {
       expect(message.text.startsWith('Bonjour,\n')).toBe(true);
     });
   });
+
+  describe('sendGenerationTermineeEmail (US-IA-03)', () => {
+    const donnees = {
+      prenom: 'Sami',
+      titreSupport: 'Cours JWT',
+      formationId: 'f-1',
+      reussie: true,
+      nbSuggestions: 8,
+    };
+
+    it('annonce les suggestions à réviser et mène à la formation', async () => {
+      await service.sendGenerationTermineeEmail('sami@cert-eet.local', donnees);
+      const message = dernierMessage();
+      expect(message.subject).toBe('Cert_EET — Questions prêtes à réviser : « Cours JWT »');
+      expect(message.text).toContain('8 suggestions de questions');
+      expect(message.text).toContain("aucune n'est publiée sans votre validation");
+      expect(message.html).toContain('href="http://localhost:3001/formateur/formations/f-1"');
+    });
+
+    it('donne le motif d’un échec, échappe le HTML, objet sur une ligne', async () => {
+      await service.sendGenerationTermineeEmail('sami@cert-eet.local', {
+        ...donnees,
+        prenom: null,
+        reussie: false,
+        titreSupport: '<i>X</i>\r\nBcc: x@y.tn',
+        motif: 'Délai <dépassé>.',
+      });
+      const message = dernierMessage();
+      expect(message.subject).toMatch(/^Cert_EET — Génération impossible : /);
+      expect(message.subject).not.toMatch(/[\r\n]/);
+      expect(message.html).not.toContain('<i>X</i>');
+      expect(message.text).toContain('Motif : Délai <dépassé>.');
+    });
+  });
 });

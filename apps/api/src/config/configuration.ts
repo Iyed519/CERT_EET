@@ -114,6 +114,16 @@ export interface IaConfig {
   generationsParHeure: number;
 }
 
+/** US-IA-03 — fournisseur du modèle de langage (ADR-05). */
+export interface LlmConfig {
+  fournisseur: 'anthropic' | 'factice';
+  modele: string;
+  /** Jamais journalisée ni renvoyée ; lue seulement par le fournisseur Anthropic. */
+  cleAnthropic: string | undefined;
+  delaiMs: number;
+  promptMaxCaracteres: number;
+}
+
 /** US-FORM-06 — ressources « fichier » des modules. */
 export interface RessourcesConfig {
   tailleMaxMo: number;
@@ -139,6 +149,7 @@ export default (): {
   verification: VerificationConfig;
   ia: IaConfig;
   ressources: RessourcesConfig;
+  llm: LlmConfig;
 } => ({
   app: {
     nodeEnv: (process.env.NODE_ENV as AppConfig['nodeEnv']) ?? 'development',
@@ -207,5 +218,14 @@ export default (): {
   },
   ressources: {
     tailleMaxMo: parseInt(process.env.RESSOURCES_TAILLE_MAX_MO ?? '500', 10),
+  },
+  llm: {
+    fournisseur: process.env.LLM_FOURNISSEUR === 'anthropic' ? 'anthropic' : 'factice',
+    modele:
+      process.env.LLM_MODELE ||
+      (process.env.LLM_FOURNISSEUR === 'anthropic' ? 'claude-sonnet-5-5' : 'factice-v1'),
+    cleAnthropic: process.env.ANTHROPIC_API_KEY || undefined,
+    delaiMs: parseInt(process.env.LLM_DELAI_MS ?? '90000', 10),
+    promptMaxCaracteres: parseInt(process.env.LLM_PROMPT_MAX_CARACTERES ?? '24000', 10),
   },
 });

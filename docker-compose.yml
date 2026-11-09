@@ -91,6 +91,11 @@ services:
       S3_ACCESS_KEY: ${MINIO_ROOT_USER}
       S3_SECRET_KEY: ${MINIO_ROOT_PASSWORD}
       S3_BUCKET_LIVRABLES: ${S3_BUCKET_LIVRABLES:-livrables}
+      # --- Génération de questions par IA (US-IA-03, ADR-05) ---
+      # Clé lue depuis le .env local (jamais commitée) ; « factice » sans clé.
+      LLM_FOURNISSEUR: ${LLM_FOURNISSEUR:-factice}
+      LLM_MODELE: ${LLM_MODELE:-}
+      ANTHROPIC_API_KEY: ${ANTHROPIC_API_KEY:-}
     volumes:
       - ./secrets:/run/secrets:ro          # RS256 keys, read-only (INF07)
     depends_on:
