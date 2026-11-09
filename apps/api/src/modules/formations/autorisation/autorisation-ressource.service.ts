@@ -4,11 +4,12 @@ import { Repository } from 'typeorm';
 import { Atelier } from '../../../database/entities/atelier.entity';
 import { AffectationFormateur } from '../../../database/entities/affectation-formateur.entity';
 import { Formation } from '../../../database/entities/formation.entity';
+import { Livrable } from '../../../database/entities/livrable.entity';
 import { ModuleFormation } from '../../../database/entities/module-formation.entity';
 import { Qcm } from '../../../database/entities/qcm.entity';
 
 /** Type de ressource à partir de laquelle on remonte à la formation. */
-export type TypeRessource = 'formation' | 'module' | 'qcm' | 'atelier';
+export type TypeRessource = 'formation' | 'module' | 'qcm' | 'atelier' | 'livrable';
 
 /**
  * Lectures dont a besoin l'autorisation par ressource (US-AUTH-16) : retrouver
@@ -29,6 +30,8 @@ export class AutorisationRessourceService {
     private readonly qcmRepository: Repository<Qcm>,
     @InjectRepository(Atelier)
     private readonly atelierRepository: Repository<Atelier>,
+    @InjectRepository(Livrable)
+    private readonly livrableRepository: Repository<Livrable>,
     @InjectRepository(AffectationFormateur)
     private readonly affectationRepository: Repository<AffectationFormateur>,
   ) {}
@@ -36,7 +39,8 @@ export class AutorisationRessourceService {
   /**
    * Identifiant de la formation à laquelle appartient la ressource, ou null
    * si la ressource n'existe pas. Un QCM ou un atelier remonte par son module :
-   * la formation n'est stockée ni sur l'un ni sur l'autre (voir les entités).
+   * la formation n'est stockée ni sur l'un ni sur l'autre (voir les entités) ;
+   * un livrable remonte par son atelier (US-ATEL-06).
    */
   async formationDe(type: TypeRessource, id: string): Promise<string | null> {
     if (type === 'formation') {
@@ -56,6 +60,14 @@ export class AutorisationRessourceService {
         select: { id: true, module: { id: true, formationId: true } },
       });
       return atelier?.module?.formationId ?? null;
+    }
+    if (type === 'livrable') {
+      const livrable = await this.livrableRepository.findOne({
+        where: { id },
+        relations: { atelier: { module: true } },
+        select: { id: true, atelier: { id: true, module: { id: true, formationId: true } } },
+      });
+      return livrable?.atelier?.module?.formationId ?? null;
     }
     const qcm = await this.qcmRepository.findOne({
       where: { id },

@@ -8,7 +8,9 @@ export const FORMATEUR_FORMATION_KEY = 'formateur_de_la_formation';
  *  - `{ moduleId: 'moduleId' }`       : un module -> sa formation ;
  *  - `{ qcmId: 'qcmId' }`             : un QCM -> son module -> sa formation ;
  *  - `{ atelierId: 'atelierId' }`     : un atelier -> son module -> sa formation
- *    (US-ATEL-01).
+ *    (US-ATEL-01) ;
+ *  - `{ livrableId: 'livrableId' }`   : un livrable -> son atelier -> son
+ *    module -> sa formation (US-ATEL-06).
  *
  * Fichier séparé du décorateur et du garde : chacun des deux l'importe, sans
  * que l'un ait à importer l'autre pour cela (pas de dépendance circulaire).
@@ -17,4 +19,5 @@ export type SourceFormation =
   | { formationId: string }
   | { moduleId: string }
   | { qcmId: string }
-  | { atelierId: string };
+  | { atelierId: string }
+  | { livrableId: string };

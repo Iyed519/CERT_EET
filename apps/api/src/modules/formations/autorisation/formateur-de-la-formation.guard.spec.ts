@@ -190,6 +190,7 @@ describe('FormateurDeLaFormationGuard', () => {
     ['module', { moduleId: 'moduleId' }, { moduleId: MODULE }, 'Module introuvable.'],
     ['QCM', { qcmId: 'qcmId' }, { qcmId: QCM }, 'QCM introuvable.'],
     ['atelier', { atelierId: 'atelierId' }, { atelierId: QCM }, 'Atelier introuvable.'],
+    ['livrable', { livrableId: 'livrableId' }, { livrableId: QCM }, 'Livrable introuvable.'],
   ])(
     'refuse en 404 un %s inconnu',
     async (_libelle, s: SourceFormation, params: Record<string, string>, message) => {
@@ -201,6 +202,15 @@ describe('FormateurDeLaFormationGuard', () => {
       ).rejects.toThrow(new NotFoundException(message));
     },
   );
+
+  it('remonte d’un livrable à sa formation (US-ATEL-06)', async () => {
+    source({ livrableId: 'livrableId' });
+    await expect(
+      guard.canActivate(contexte(utilisateur(Role.FORMATEUR), { livrableId: QCM })),
+    ).resolves.toBe(true);
+    expect(mockAutorisation.formationDe).toHaveBeenCalledWith('livrable', QCM);
+    expect(mockAutorisation.estAffecte).toHaveBeenCalledWith(FORMATION, 'user-1');
+  });
 
   it('signale une route où le garde est posé sans décorateur', async () => {
     mockReflector.getAllAndOverride.mockReturnValue(undefined);

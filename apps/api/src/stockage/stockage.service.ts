@@ -1,6 +1,7 @@
 import {
   CreateBucketCommand,
   DeleteObjectsCommand,
+  GetObjectCommand,
   HeadBucketCommand,
   PutObjectCommand,
   S3Client,
@@ -8,6 +9,7 @@ import {
 import { Inject, Injectable, Logger, OnModuleInit } from '@nestjs/common';
 import { ConfigService } from '@nestjs/config';
 import { createReadStream } from 'fs';
+import { Readable } from 'stream';
 import { StockageConfig } from '../config/configuration';
 import { S3_CLIENT } from './stockage.constants';
 
@@ -21,8 +23,14 @@ export interface ObjetADeposer {
   sha256: string;
 }
 
+/** Un objet lu dans le bucket : son contenu en flux et sa taille. */
+export interface ObjetLu {
+  flux: Readable;
+  taille: number | null;
+}
+
 /**
- * Dépôt et suppression d'objets dans le bucket des livrables (US-ATEL-04).
+ * Dépôt, lecture et suppression d'objets dans le bucket des livrables (US-ATEL-04).
  *
  * - Les fichiers sont envoyés EN FLUX depuis le disque (jamais chargés en
  *   mémoire) avec leur taille exacte.
@@ -94,6 +102,20 @@ export class StockageService implements OnModuleInit {
       await this.supprimer(deposes);
       throw erreur;
     }
+  }
+
+  /**
+   * Lit un objet EN FLUX (US-ATEL-06 : le formateur télécharge un fichier du
+   * livrable). Le contenu n'est jamais chargé en mémoire : l'API le relaie au
+   * navigateur au fil de l'eau. Une erreur (objet absent, stockage
+   * injoignable) est relancée : l'appelant décide de la réponse.
+   */
+  async lire(cle: string): Promise<ObjetLu> {
+    const reponse = await this.client.send(new GetObjectCommand({ Bucket: this.bucket, Key: cle }));
+    if (!(reponse.Body instanceof Readable)) {
+      throw new Error(`Objet ${cle} : contenu illisible.`);
+    }
+    return { flux: reponse.Body, taille: reponse.ContentLength ?? null };
   }
 
   /** Supprime des objets (au mieux : une erreur est journalisée, pas relancée). */

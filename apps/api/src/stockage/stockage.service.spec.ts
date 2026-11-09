@@ -1,6 +1,7 @@
 import {
   CreateBucketCommand,
   DeleteObjectsCommand,
+  GetObjectCommand,
   HeadBucketCommand,
   PutObjectCommand,
 } from '@aws-sdk/client-s3';
@@ -9,6 +10,7 @@ import { Test, TestingModule } from '@nestjs/testing';
 import { mkdtempSync, writeFileSync } from 'fs';
 import { tmpdir } from 'os';
 import { join } from 'path';
+import { Readable } from 'stream';
 import { S3_CLIENT } from './stockage.constants';
 import { ObjetADeposer, StockageService } from './stockage.service';
 
@@ -97,5 +99,31 @@ describe('StockageService (US-ATEL-04)', () => {
     expect(send).not.toHaveBeenCalled();
     send.mockRejectedValue(new Error('panne'));
     await expect(service.supprimer(['k1'])).resolves.toBeUndefined();
+  });
+
+  describe('lire (US-ATEL-06)', () => {
+    it('renvoie le flux et la taille de l’objet', async () => {
+      const flux = Readable.from(['%PDF']);
+      send.mockResolvedValue({ Body: flux, ContentLength: 4 });
+      await expect(service.lire('livrables/a/b')).resolves.toEqual({ flux, taille: 4 });
+      const commande = send.mock.calls[0][0] as GetObjectCommand;
+      expect(commande).toBeInstanceOf(GetObjectCommand);
+      expect(commande.input).toEqual({ Bucket: 'livrables', Key: 'livrables/a/b' });
+    });
+
+    it('taille inconnue -> null', async () => {
+      send.mockResolvedValue({ Body: Readable.from(['x']) });
+      await expect(service.lire('k')).resolves.toMatchObject({ taille: null });
+    });
+
+    it('contenu qui n’est pas un flux -> erreur', async () => {
+      send.mockResolvedValue({ Body: undefined });
+      await expect(service.lire('k')).rejects.toThrow('contenu illisible');
+    });
+
+    it('relance l’erreur du stockage', async () => {
+      send.mockRejectedValue(new Error('NoSuchKey'));
+      await expect(service.lire('k')).rejects.toThrow('NoSuchKey');
+    });
   });
 });
