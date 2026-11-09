@@ -2637,6 +2637,30 @@ export async function getGenerationsDuModule(moduleId: string): Promise<Generati
   return lireReponseFormation<GenerationIa[]>(response, 'Impossible de charger les générations.');
 }
 
+export type StatutSuggestion = 'PROPOSEE' | 'ACCEPTEE' | 'MODIFIEE' | 'REJETEE';
+
+/** Une question proposée par l'IA (US-IA-03), avant ou après relecture (US-IA-04). */
+export interface SuggestionQuestion {
+  id: string;
+  ordre: number;
+  enonce: string;
+  type: TypeGenerable;
+  options: Array<{ texte: string; estCorrecte: boolean }>;
+  explication: string | null;
+  scoreConfiance: number | null;
+  passagesSources: number[];
+  statut: StatutSuggestion;
+}
+
+/** GET /api/generations/:id/suggestions — dans l'ordre du modèle. */
+export async function getSuggestionsGeneration(generationId: string): Promise<SuggestionQuestion[]> {
+  const response = await apiFetch(`/api/generations/${generationId}/suggestions`);
+  return lireReponseFormation<SuggestionQuestion[]>(
+    response,
+    'Impossible de charger les suggestions.',
+  );
+}
+
 /* ============================================================
  * US-FORM-05 — Ressources de module : liens et vidéos
  * ============================================================ */

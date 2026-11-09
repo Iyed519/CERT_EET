@@ -746,6 +746,28 @@ textarea.input { resize: vertical; font-family: inherit; line-height: 1.45; }
 .generation-types legend { margin-bottom: 6px; padding: 0; }
 .generation-type { display: inline-flex; align-items: center; gap: 6px; font-size: 0.9rem; cursor: pointer; }
 
+/* US-IA-03 — Suggestions de questions (lecture ; relecture : US-IA-04). */
+.suggestions-card { max-width: 720px; }
+.suggestions-liste { list-style: none; margin: 14px 0 0; padding: 0; display: grid; gap: 12px; }
+.suggestion { border: 1px solid var(--border); border-radius: var(--radius-sm); padding: 14px 16px; background: #fcfcfb; }
+.suggestion-tete { display: flex; align-items: center; flex-wrap: wrap; gap: 8px; margin-bottom: 8px; }
+.suggestion-numero { width: 24px; height: 24px; border-radius: 999px; display: grid; place-items: center; background: #eef2f7; color: #475569; font-size: 0.78rem; font-weight: 700; }
+.suggestion-type { font-size: 0.78rem; font-weight: 600; color: var(--muted); }
+.suggestion-confiance { margin-left: auto; font-size: 0.75rem; font-weight: 600; padding: 2px 8px; border-radius: 999px; }
+.confiance-haute { background: var(--success-soft); color: var(--primary-dark); }
+.confiance-moyenne { background: #fef3e2; color: var(--accent-dark); }
+.confiance-basse { background: var(--danger-soft); color: #922b21; }
+.suggestion-enonce { margin: 0 0 8px; font-weight: 600; font-size: 0.93rem; overflow-wrap: anywhere; }
+.suggestion-options { list-style: none; margin: 0; padding: 0; display: grid; gap: 4px; }
+.suggestion-option { display: flex; gap: 8px; align-items: baseline; font-size: 0.88rem; padding: 4px 8px; border-radius: var(--radius-sm); overflow-wrap: anywhere; }
+.suggestion-option.correcte { background: var(--success-soft); color: var(--primary-dark); font-weight: 600; }
+.suggestion-marque { flex: 0 0 auto; width: 14px; text-align: center; }
+.suggestion-explication { margin: 8px 0 4px; font-size: 0.84rem; color: #4b5563; font-style: italic; overflow-wrap: anywhere; }
+@media (max-width: 560px) {
+  .suggestion { padding: 12px; }
+  .suggestion-confiance { margin-left: 0; }
+}
+
 /* US-FORM-05 — Ressources du cours (liens, vidéos). */
 .ressources-apprenant { margin: 10px 0 4px; }
 .ressources-apprenant > .supports-titre { display: block; margin-left: 38px; }

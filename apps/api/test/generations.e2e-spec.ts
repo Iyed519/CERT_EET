@@ -25,6 +25,7 @@ import {
   MESSAGE_GENERATION_EN_COURS,
   MESSAGE_SUPPORT_NON_INDEXE,
 } from '../src/modules/assistance-ia/generations/generation.regles';
+import { PipelineRagService } from '../src/modules/assistance-ia/generations/pipeline-rag.service';
 import { MESSAGE_SUPPORT_UTILISE } from '../src/modules/assistance-ia/supports/supports.service';
 import { RedisService } from '../src/redis/redis.service';
 
@@ -227,7 +228,13 @@ describe('Lancer une génération IA (e2e) — US-IA-02', () => {
 
   beforeAll(async () => {
     process.env.IA_GENERATIONS_PAR_HEURE = '3';
-    moduleRef = await Test.createTestingModule({ imports: [AppModule] }).compile();
+    // Le pipeline (US-IA-03) est éprouvé par E2E-IARAG : ici les générations
+    // doivent rester EN_COURS, donc son worker n'est pas démarré (celui de
+    // l'indexation, lui, tourne).
+    moduleRef = await Test.createTestingModule({ imports: [AppModule] })
+      .overrideProvider(PipelineRagService)
+      .useValue({ onApplicationBootstrap: (): void => undefined })
+      .compile();
     app = moduleRef.createNestApplication();
     app.setGlobalPrefix('api', { exclude: ['health'] });
     app.use(cookieParser());

@@ -103,6 +103,24 @@ export const envValidationSchema = Joi.object({
   // Taille maximale d'un fichier (Mo), vidéos comprises ; 1 024 au plus
   // (plafond de nginx et de la base).
   RESSOURCES_TAILLE_MAX_MO: Joi.number().integer().min(1).max(1024).default(500),
+
+  // --- Génération de questions par IA (US-IA-03, ADR-05) ---
+  // « factice » (défaut : tests, CI, démonstration sans clé) ou « anthropic »
+  // (Claude). Avec « anthropic », la clé est OBLIGATOIRE : l'api refuse de
+  // démarrer sans elle. La clé ne vit que dans le .env local, jamais dans le dépôt.
+  LLM_FOURNISSEUR: Joi.string().valid('anthropic', 'factice').default('factice'),
+  LLM_MODELE: Joi.string().max(100).allow(''),
+  ANTHROPIC_API_KEY: Joi.when('LLM_FOURNISSEUR', {
+    is: 'anthropic',
+    then: Joi.string().min(20).required().messages({
+      'any.required': 'ANTHROPIC_API_KEY est obligatoire avec LLM_FOURNISSEUR=anthropic.',
+      'string.empty': 'ANTHROPIC_API_KEY est obligatoire avec LLM_FOURNISSEUR=anthropic.',
+    }),
+    otherwise: Joi.string().allow('').optional(),
+  }),
+  // Délai maximal d'un appel au modèle (ms) et taille maximale du prompt.
+  LLM_DELAI_MS: Joi.number().integer().min(1000).max(600000).default(90000),
+  LLM_PROMPT_MAX_CARACTERES: Joi.number().integer().min(2000).max(200000).default(24000),
 })
   // Refuse les clés inconnues seulement en avertissement : on n'échoue pas
   // sur des variables système, mais on valide strictement celles qu'on connaît.

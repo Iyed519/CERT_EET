@@ -16,7 +16,7 @@ import { AuthenticatedRequest } from '../../auth/auth.types';
 import { Roles } from '../../auth/decorators/roles.decorator';
 import { FormateurDeLaFormation } from '../../formations/autorisation/formateur-de-la-formation.decorator';
 import { LancerGenerationDto } from './generations.dto';
-import { GenerationsService, GenerationVue } from './generations.service';
+import { GenerationsService, GenerationVue, SuggestionVue } from './generations.service';
 
 /**
  * Générations de questions par IA (US-IA-02, DS-06 partie 2, UC10 Formateur).
@@ -83,5 +83,23 @@ export class GenerationsController {
   @ApiResponse({ status: 404, description: 'Génération introuvable.' })
   detail(@Param('generationId', ParseUUIDPipe) generationId: string): Promise<GenerationVue> {
     return this.generationsService.vue(generationId);
+  }
+
+  @Get('generations/:generationId/suggestions')
+  @FormateurDeLaFormation({ generationId: 'generationId' })
+  @ApiOperation({
+    summary: 'Suggestions de questions d’une génération (US-IA-03)',
+    description:
+      'Questions validées côté serveur, dans l’ordre du modèle, avec explication, score de ' +
+      'confiance et numéros des passages sources. Liste vide tant que la génération est en cours.',
+  })
+  @ApiResponse({ status: 200, description: 'Suggestions (statut PROPOSEE avant relecture).' })
+  @ApiResponse({ status: 401, description: 'Non authentifié.' })
+  @ApiResponse({ status: 403, description: 'Rôle insuffisant ou formateur non affecté (tracé).' })
+  @ApiResponse({ status: 404, description: 'Génération introuvable.' })
+  suggestions(
+    @Param('generationId', ParseUUIDPipe) generationId: string,
+  ): Promise<SuggestionVue[]> {
+    return this.generationsService.suggestions(generationId);
   }
 }

@@ -19,6 +19,12 @@ export interface DonneesIndexation {
   supportId: string;
 }
 
+/** Ce que fait le worker de génération, fourni par PipelineRagService (US-IA-03). */
+export interface TraitementsGeneration {
+  generer(generationId: string): Promise<void>;
+  echecDefinitif(generationId: string, erreur: unknown): Promise<void>;
+}
+
 /** Ce que fait le worker, fourni par SupportsService. */
 export interface TraitementsIndexation {
   indexer(supportId: string): Promise<void>;
@@ -44,6 +50,7 @@ export class FileIaService implements OnModuleDestroy {
   private readonly fileIndexation: Queue<DonneesIndexation>;
   private readonly fileGeneration: Queue<DonneesGeneration>;
   private workerIndexation: Worker<DonneesIndexation> | null = null;
+  private workerGeneration: Worker<DonneesGeneration> | null = null;
   private readonly config: IaConfig;
   private readonly connexion: { host: string; port: number; maxRetriesPerRequest: null };
 
@@ -62,7 +69,7 @@ export class FileIaService implements OnModuleDestroy {
   /**
    * Ajoute le travail de génération (US-IA-02) ; identifiant de travail =
    * identifiant de la génération : un seul travail par génération. Le worker
-   * qui l'exécute (pipeline RAG) est celui d'US-IA-03.
+   * qui l'exécute (pipeline RAG) est `demarrerWorkerGeneration` (US-IA-03).
    */
   async ajouterGeneration(generationId: string): Promise<void> {
     await this.fileGeneration.add(
@@ -133,7 +140,45 @@ export class FileIaService implements OnModuleDestroy {
     this.logger.log('Worker d’indexation des supports démarré.');
   }
 
+  /**
+   * Démarre le worker de génération (US-IA-03), une génération à la fois :
+   * l'appel au modèle est lent et coûteux. Même politique d'échec que
+   * l'indexation : UnrecoverableError -> échec immédiat ; sinon reprise avec
+   * délai exponentiel jusqu'à IA_TENTATIVES.
+   */
+  demarrerWorkerGeneration(traitements: TraitementsGeneration): void {
+    if (!this.config.workerActif || this.workerGeneration) return;
+    this.workerGeneration = new Worker<DonneesGeneration>(
+      FILE_IA_GENERATION,
+      async (job: Job<DonneesGeneration>) => traitements.generer(job.data.generationId),
+      { connection: this.connexion, concurrency: 1 },
+    );
+    this.workerGeneration.on('failed', (job, erreur) => {
+      if (!job) return;
+      const dernier =
+        erreur instanceof UnrecoverableError ||
+        erreur?.name === 'UnrecoverableError' ||
+        job.attemptsMade >= (job.opts.attempts ?? 1);
+      this.logger.warn(
+        `Génération ${job.data.generationId} : échec ${job.attemptsMade}/${job.opts.attempts ?? 1} (${erreur.message})`,
+      );
+      if (dernier) {
+        void traitements.echecDefinitif(job.data.generationId, erreur).catch((e: unknown) => {
+          const detail = e instanceof Error ? e.message : String(e);
+          this.logger.error(
+            `Échec de génération non enregistré (${job.data.generationId}) : ${detail}`,
+          );
+        });
+      }
+    });
+    this.workerGeneration.on('error', (erreur) =>
+      this.logger.error(`Worker de génération : ${erreur.message}`),
+    );
+    this.logger.log('Worker de génération de questions démarré.');
+  }
+
   async onModuleDestroy(): Promise<void> {
+    await this.workerGeneration?.close();
     await this.workerIndexation?.close();
     await this.fileIndexation.close();
     await this.fileGeneration.close();
