@@ -102,22 +102,27 @@ par email — ou à ECHEC_INDEXATION avec un motif clair, relançable.
   négatif pour les poids fractionnaires des trigrammes (0,25 -> -0,39) et
   inversait le signe du hachage. Remplacé par `ln(1 + tf)`, toujours positif,
   et épinglé par un test de valeur de référence.
+- CI rouge au premier passage : sous Node 20 (CI et image de production), le
+  `TextDecoder('windows-1252')` décode comme du Latin-1 pur (0x80 -> U+0080
+  au lieu de €). Décodage Windows-1252 par une table explicite des octets
+  0x80–0x9F ; tests de l'assistance IA et unitaires complets rejoués sous
+  Node 20 (`npx node@20`).
 
 ## Vérification
-- API : lint 0, `tsc`, unitaires **65 suites / 906 tests**, migration
+- API : lint 0, `tsc`, unitaires **65 suites / 906 tests** (Node 22 et Node 20), migration
   run + revert + run (extension, types, tables et index retirés puis remis),
   e2e **36 suites / 487 tests** (en série), dont la nouvelle suite
   `E2E-IASUPPORT` (18 tests : TXT, PDF, PPTX, DOCX indexés ; refus 400 / 403 /
   404 / 409 ; échecs d'indexation et relances ; panne passagère et pannes
   répétées ; suppression ; garanties en base ; deux tests de concurrence
   forcée).
-- Mutations tuées (21) : en unitaire, relance hors échec, signature,
+- Mutations tuées (22) : en unitaire, relance hors échec, signature,
   octet nul, contrôle de statut avant et après l'extraction, conversion en
   échec sans reprise, motif générique d'une panne, retrait de l'objet après un
   INSERT perdu, taille lue bornée, plafond de décompression par entrée, calage
   du chevauchement sur un mot, choix du point de coupe, signe du hachage,
   poids amorti, paires de mots, mots vides, formation archivée, contrôle
-  préalable du doublon ; en e2e, ressource `support` du garde
+  préalable du doublon, décodage Windows-1252 ; en e2e, ressource `support` du garde
   d'autorisation et verrou de ligne de la relance ; en base, le CHECK
   « INDEXE ⇔ passages ». Un mutant équivalent : `includes(256)` au lieu de
   `includes(0)` (Buffer ramène l'entier modulo 256).

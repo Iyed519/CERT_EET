@@ -12,6 +12,11 @@ describe('extraction du texte (US-IA-01)', () => {
     it('UTF-8 (marque BOM retirée), sinon Windows-1252', async () => {
       expect(decoderTexte(Buffer.from('﻿Élève à l’école', 'utf8'))).toBe('Élève à l’école');
       expect(decoderTexte(Buffer.from([0x45, 0x6c, 0xe8, 0x76, 0x65, 0x80]))).toBe('Elève€');
+      expect(
+        decoderTexte(
+          Buffer.from([0x93, 0x63, 0x6f, 0x75, 0x72, 0x73, 0x94, 0x20, 0x96, 0x9c, 0x81]),
+        ),
+      ).toBe('“cours” –œ\u0081');
       await expect(extraireTexte('md', Buffer.from('# Titre\nTexte'))).resolves.toBe(
         '# Titre\nTexte',
       );
