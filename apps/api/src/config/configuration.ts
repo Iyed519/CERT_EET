@@ -89,6 +89,13 @@ export interface MinuterieConfig {
  * `forcePathStyle` : MinIO sert les buckets sous le chemin
  * (http://minio:9000/<bucket>/<clé>), pas en sous-domaine.
  */
+/** US-CERT-01 — file d'émission des certificats (BullMQ, ADR-04). */
+export interface CertificatsConfig {
+  workerActif: boolean;
+  tentatives: number;
+  backoffMs: number;
+}
+
 export interface StockageConfig {
   endpoint: string;
   region: string;
@@ -105,6 +112,7 @@ export default (): {
   oauthGithub: OauthGithubConfig;
   minuterie: MinuterieConfig;
   stockage: StockageConfig;
+  certificats: CertificatsConfig;
 } => ({
   app: {
     nodeEnv: (process.env.NODE_ENV as AppConfig['nodeEnv']) ?? 'development',
@@ -155,5 +163,10 @@ export default (): {
     accessKey: process.env.S3_ACCESS_KEY as string,
     secretKey: process.env.S3_SECRET_KEY as string,
     bucketLivrables: process.env.S3_BUCKET_LIVRABLES ?? 'livrables',
+  },
+  certificats: {
+    workerActif: (process.env.CERTIFICATS_WORKER ?? 'on') !== 'off',
+    tentatives: parseInt(process.env.CERTIFICATS_TENTATIVES ?? '3', 10),
+    backoffMs: parseInt(process.env.CERTIFICATS_BACKOFF_MS ?? '5000', 10),
   },
 });

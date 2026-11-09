@@ -105,6 +105,29 @@ export class StockageService implements OnModuleInit {
   }
 
   /**
+   * Dépose un contenu déjà en mémoire (US-CERT-01 : le PDF d'un certificat,
+   * quelques dizaines de Ko). Même bucket que les livrables, préfixe distinct.
+   */
+  async deposerTampon(
+    cle: string,
+    contenu: Buffer,
+    typeContenu: string,
+    sha256: string,
+  ): Promise<void> {
+    await this.assurerBucket();
+    await this.client.send(
+      new PutObjectCommand({
+        Bucket: this.bucket,
+        Key: cle,
+        Body: contenu,
+        ContentLength: contenu.length,
+        ContentType: typeContenu,
+        Metadata: { sha256 },
+      }),
+    );
+  }
+
+  /**
    * Lit un objet EN FLUX (US-ATEL-06 : le formateur télécharge un fichier du
    * livrable). Le contenu n'est jamais chargé en mémoire : l'API le relaie au
    * navigateur au fil de l'eau. Une erreur (objet absent, stockage

@@ -200,4 +200,34 @@ describe('MailService', () => {
       ).rejects.toThrow('ECONNREFUSED');
     });
   });
+
+  describe('sendCertificatEmisEmail (US-CERT-01)', () => {
+    const donnees = {
+      prenom: 'Inès',
+      titreFormation: 'Back-end',
+      urlVerification: 'http://localhost:3001/verifier/c-1',
+    };
+
+    it('mène à « Mes certificats » et donne le lien de vérification', async () => {
+      await service.sendCertificatEmisEmail('ines@cert-eet.local', donnees);
+      const message = dernierMessage();
+      expect(message.subject).toBe('Cert_EET — Votre certificat : « Back-end »');
+      expect(message.text).toContain('Bonjour Inès,');
+      expect(message.text).toContain('http://localhost:3001/mes-certificats');
+      expect(message.text).toContain('http://localhost:3001/verifier/c-1');
+      expect(message.html).toContain('href="http://localhost:3001/verifier/c-1"');
+    });
+
+    it('échappe le titre ; objet sur une ligne', async () => {
+      await service.sendCertificatEmisEmail('ines@cert-eet.local', {
+        ...donnees,
+        prenom: null,
+        titreFormation: '<b>X</b>\r\nBcc: intrus@exemple.tn',
+      });
+      const message = dernierMessage();
+      expect(message.html).not.toContain('<b>X</b>');
+      expect(message.subject).not.toMatch(/[\r\n]/);
+      expect(message.text.startsWith('Bonjour,\n')).toBe(true);
+    });
+  });
 });

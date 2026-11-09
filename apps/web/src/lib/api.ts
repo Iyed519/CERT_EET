@@ -2331,3 +2331,41 @@ export async function finaliserCorrection(
   });
   return lireReponseFormation<LivrableACorriger>(response, 'Impossible d’envoyer le feedback.');
 }
+
+/* ============================================================
+ * US-CERT-01 — Émission asynchrone des certificats (suivi administrateur)
+ * ============================================================ */
+
+export type StatutCertificat = 'EN_ATTENTE_GENERATION' | 'EN_GENERATION' | 'ACTIF' | 'REVOQUE';
+
+/** Un certificat dans la liste de l'administrateur. */
+export interface CertificatAdmin {
+  id: string;
+  statut: StatutCertificat;
+  apprenant: { id: string; prenom: string | null; nom: string | null; email: string };
+  formation: { id: string; titre: string };
+  scoreFinal: number;
+  mention: string;
+  dateEmission: string;
+  dateGeneration: string | null;
+  empreinteSha256: string | null;
+  nbTentatives: number;
+  derniereErreur: string | null;
+}
+
+/** GET /api/admin/certificats — plus récents d'abord, filtre facultatif. */
+export async function getCertificatsAdmin(statut?: StatutCertificat): Promise<CertificatAdmin[]> {
+  const response = await apiFetch(`/api/admin/certificats${statut ? `?statut=${statut}` : ''}`);
+  return lireReponseFormation<CertificatAdmin[]>(response, 'Impossible de charger les certificats.');
+}
+
+/**
+ * POST /api/admin/certificats/:id/relancer — relance la génération.
+ *   - 409 -> certificat déjà actif ou révoqué.
+ */
+export async function relancerCertificat(certificatId: string): Promise<CertificatAdmin> {
+  const response = await apiFetch(`/api/admin/certificats/${certificatId}/relancer`, {
+    method: 'POST',
+  });
+  return lireReponseFormation<CertificatAdmin>(response, 'Impossible de relancer la génération.');
+}
