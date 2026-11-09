@@ -12,6 +12,7 @@ import { StatutFormation } from '../../database/enums/statut-formation.enum';
 import { StatutInscription } from '../../database/enums/statut-inscription.enum';
 import { StatutQcm } from '../../database/enums/statut-qcm.enum';
 import { StatutTentative } from '../../database/enums/statut-tentative.enum';
+import { EligibiliteService } from '../certificats/eligibilite.service';
 import { AuditService } from '../audit/audit.service';
 import {
   avancementModule,
@@ -38,6 +39,16 @@ describe('EspaceFormationService', () => {
   const mockAtelierRepo = { find: jest.fn(), query: jest.fn() };
   const mockLivrableRepo = { find: jest.fn(), query: jest.fn() };
   const mockAuditService = { record: jest.fn().mockResolvedValue(undefined) };
+  const mockEligibilite = {
+    evaluer: jest.fn().mockResolvedValue({
+      eligible: false,
+      raison: 'Certification non éligible : 0 évaluation validée sur 1.',
+      validees: 0,
+      requises: 1,
+      evaluations: [],
+      scoreFinal: null,
+    }),
+  };
 
   const contexte = {
     adresseIp: '127.0.0.1',
@@ -83,6 +94,7 @@ describe('EspaceFormationService', () => {
         { provide: getRepositoryToken(Atelier), useValue: mockAtelierRepo },
         { provide: getRepositoryToken(Livrable), useValue: mockLivrableRepo },
         { provide: AuditService, useValue: mockAuditService },
+        { provide: EligibiliteService, useValue: mockEligibilite },
       ],
     }).compile();
     service = moduleRef.get(EspaceFormationService);
@@ -100,7 +112,27 @@ describe('EspaceFormationService', () => {
     ]);
     mockAtelierRepo.find.mockResolvedValue([]);
     mockLivrableRepo.find.mockResolvedValue([]);
+    mockLivrableRepo.query.mockResolvedValue([]);
     mockAtelierRepo.query.mockResolvedValue([{ maintenant: new Date('2026-11-08T10:00:00Z') }]);
+  });
+
+  describe('monEspace — certification (US-ATEL-09)', () => {
+    it('donne le verdict d’éligibilité et, s’il existe, le statut de mon certificat', async () => {
+      mockLivrableRepo.query.mockResolvedValue([{ id: 'cert-1', statut: 'EN_GENERATION' }]);
+      const espace = await service.monEspace('appr-1', 'form-1', contexte);
+      expect(mockEligibilite.evaluer).toHaveBeenCalledWith('appr-1', 'form-1');
+      expect(mockLivrableRepo.query).toHaveBeenCalledWith(
+        'SELECT id, statut FROM certificats WHERE apprenant_id = $1 AND formation_id = $2',
+        ['appr-1', 'form-1'],
+      );
+      expect(espace.certification).toEqual({
+        eligible: false,
+        raison: 'Certification non éligible : 0 évaluation validée sur 1.',
+        validees: 0,
+        requises: 1,
+        certificat: { id: 'cert-1', statut: 'EN_GENERATION' },
+      });
+    });
   });
 
   describe('monEspace — ateliers publiés (US-ATEL-03)', () => {

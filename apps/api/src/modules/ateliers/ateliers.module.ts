@@ -3,6 +3,7 @@ import { TypeOrmModule } from '@nestjs/typeorm';
 import { Atelier } from '../../database/entities/atelier.entity';
 import { Livrable } from '../../database/entities/livrable.entity';
 import { ModuleFormation } from '../../database/entities/module-formation.entity';
+import { CertificatsModule } from '../certificats/certificats.module';
 import { FormationsModule } from '../formations/formations.module';
 import { InscriptionsModule } from '../inscriptions/inscriptions.module';
 import { AteliersApprenantController } from './ateliers-apprenant.controller';
@@ -39,6 +40,7 @@ import { LivrablesService } from './livrables/livrables.service';
  */
 @Module({
   imports: [
+    CertificatsModule,
     FormationsModule,
     InscriptionsModule,
     TypeOrmModule.forFeature([Atelier, ModuleFormation, Livrable]),

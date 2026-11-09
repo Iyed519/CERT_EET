@@ -667,3 +667,11 @@ textarea.input { resize: vertical; font-family: inherit; line-height: 1.45; }
 .certificat-ACTIF { background: var(--success-soft); color: var(--primary-dark); }
 .certificat-REVOQUE { background: var(--danger-soft); color: #922b21; }
 .alert + .livrables-liste { margin-top: 10px; }
+
+/* US-ATEL-09 — Carte « Certification » de « Mon espace ». */
+.carte-certification { margin: 0 0 22px; padding: 14px 16px; border: 1px solid var(--border); border-radius: var(--radius-sm); background: var(--surface); }
+.carte-certification-titre { margin: 0; font-weight: 700; }
+.carte-certification .field-hint { margin: 8px 0 0; }
+.certification-EN_ATTENTE_GENERATION, .certification-EN_GENERATION { border-color: #bcd3f0; background: #f3f7fd; }
+.certification-ACTIF { border-color: #bfe3cd; background: #f6fbf8; }
+.certification-REVOQUE { border-color: #f1c4bf; background: var(--danger-soft); }

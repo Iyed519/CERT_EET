@@ -19,6 +19,7 @@ import { User } from '../../../database/entities/user.entity';
 import { MailService } from '../../../mail/mail.service';
 import { StockageService } from '../../../stockage/stockage.service';
 import { AuditService } from '../../audit/audit.service';
+import { EligibiliteService } from '../../certificats/eligibilite.service';
 import { FormationsService } from '../../formations/formations.service';
 import { AteliersService } from '../ateliers.service';
 import { GrillesService } from '../grille/grilles.service';
@@ -72,6 +73,7 @@ describe('CorrectionsService (US-ATEL-06)', () => {
   };
   const mockDataSource = {
     manager: mockManager,
+    query: jest.fn().mockResolvedValue([{ formation_id: 'formation-1' }]),
     transaction: jest.fn(async (travail: (m: typeof mockManager) => Promise<unknown>) =>
       travail(mockManager),
     ),
@@ -81,6 +83,7 @@ describe('CorrectionsService (US-ATEL-06)', () => {
   const mockFormations = { chargerPourEcriture: jest.fn() };
   const mockStockage = { lire: jest.fn() };
   const mockMail = { sendCorrectionFinaliseeEmail: jest.fn() };
+  const mockEligibilite = { declencherSansEchec: jest.fn().mockResolvedValue(undefined) };
   const mockAudit = { record: jest.fn() };
 
   /** findOne selon l'entité demandée. */
@@ -101,6 +104,7 @@ describe('CorrectionsService (US-ATEL-06)', () => {
         { provide: FormationsService, useValue: mockFormations },
         { provide: StockageService, useValue: mockStockage },
         { provide: MailService, useValue: mockMail },
+        { provide: EligibiliteService, useValue: mockEligibilite },
         { provide: AuditService, useValue: mockAudit },
       ],
     }).compile();
@@ -538,6 +542,11 @@ describe('CorrectionsService (US-ATEL-06)', () => {
           cible: 'liv-1',
           detailsAvantApres: expect.objectContaining({ score: 70, nbCriteres: 2 }),
         }),
+      );
+      expect(mockEligibilite.declencherSansEchec).toHaveBeenCalledWith(
+        'app-1',
+        'formation-1',
+        'CORRECTION_FINALISEE',
       );
       expect(mockMail.sendCorrectionFinaliseeEmail).toHaveBeenCalledWith('s@x.tn', {
         prenom: 'Sami',

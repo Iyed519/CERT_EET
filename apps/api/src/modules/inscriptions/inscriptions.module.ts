@@ -1,3 +1,4 @@
+import { CertificatsModule } from '../certificats/certificats.module';
 import { Module } from '@nestjs/common';
 import { TypeOrmModule } from '@nestjs/typeorm';
 import { Atelier } from '../../database/entities/atelier.entity';
@@ -23,6 +24,7 @@ import { InscriptionsService } from './inscriptions.service';
  */
 @Module({
   imports: [
+    CertificatsModule,
     TypeOrmModule.forFeature([Inscription, User, Formation, Qcm, TentativeQcm, Atelier, Livrable]),
   ],
   controllers: [InscriptionsController],

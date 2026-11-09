@@ -3,7 +3,7 @@ import Link from 'next/link';
 import { useParams, useRouter } from 'next/navigation';
 import { useCallback, useEffect, useState } from 'react';
 import { DemarrageTentative, QcmADemarrer } from '../../../components/DemarrageTentative';
-import { AdminError, EspaceFormationVue, getMonEspace } from '../../../lib/api';
+import { AdminError, EspaceFormationVue, getMonEspace, StatutCertificat } from '../../../lib/api';
 import {
   dateFr,
   echeanceAtelierFr,
@@ -206,6 +206,8 @@ export default function MonEspacePage(): JSX.Element {
             </p>
           </section>
 
+          <CarteCertification certification={espace.certification} />
+
           <h2 className="section-title">Modules</h2>
           {espace.modules.length === 0 ? (
             <p className="page-subtitle">Le programme n’est pas encore publié.</p>
@@ -313,5 +315,66 @@ export default function MonEspacePage(): JSX.Element {
         />
       )}
     </>
+  );
+}
+
+/** Messages de la carte « Certification » selon l'état de mon certificat. */
+const ETAT_CERTIFICAT: Record<StatutCertificat, { titre: string; texte: string }> = {
+  EN_ATTENTE_GENERATION: {
+    titre: 'Certificat en préparation',
+    texte: 'Vous remplissez toutes les conditions : votre certificat est en cours d’émission.',
+  },
+  EN_GENERATION: {
+    titre: 'Certificat en préparation',
+    texte: 'Vous remplissez toutes les conditions : votre certificat est en cours d’émission.',
+  },
+  ACTIF: {
+    titre: 'Certificat délivré 🎓',
+    texte: 'Votre certificat est disponible ; vous l’avez reçu par email avec son lien de vérification.',
+  },
+  REVOQUE: {
+    titre: 'Certificat révoqué',
+    texte: 'Ce certificat a été révoqué par l’administration.',
+  },
+};
+
+/**
+ * US-ATEL-09 — Carte « Certification » de « Mon espace » : évaluations
+ * validées sur requises (chaque QCM réussi, chaque atelier noté au-dessus du
+ * seuil) ; une fois les conditions réunies, l'état de mon certificat.
+ */
+function CarteCertification({
+  certification,
+}: {
+  certification: EspaceFormationVue['certification'];
+}): JSX.Element {
+  const { certificat, validees, requises } = certification;
+  if (certificat) {
+    const etat = ETAT_CERTIFICAT[certificat.statut];
+    return (
+      <section className={`carte-certification certification-${certificat.statut}`} aria-live="polite">
+        <p className="carte-certification-titre">{etat.titre}</p>
+        <p className="field-hint">{etat.texte}</p>
+      </section>
+    );
+  }
+  const pct = requises === 0 ? 0 : Math.round((validees / requises) * 100);
+  return (
+    <section className="carte-certification" aria-label="Certification">
+      <div className="progression-tete">
+        <span className="carte-certification-titre">Certification</span>
+        <span className="progression-valeur">
+          {validees}/{requises} évaluation{validees > 1 ? 's' : ''} validée{validees > 1 ? 's' : ''}
+        </span>
+      </div>
+      <div className="progression-barre" role="progressbar" aria-valuemin={0} aria-valuemax={100} aria-valuenow={pct}>
+        <div className="progression-remplie" style={{ width: `${pct}%` }} />
+      </div>
+      <p className="field-hint">
+        {requises === 0
+          ? 'Aucune évaluation publiée pour le moment.'
+          : 'Réussissez chaque QCM et obtenez au moins le seuil de certification à chaque atelier : le certificat est alors émis automatiquement.'}
+      </p>
+    </section>
   );
 }

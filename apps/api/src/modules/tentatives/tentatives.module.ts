@@ -1,3 +1,4 @@
+import { CertificatsModule } from '../certificats/certificats.module';
 import { Module } from '@nestjs/common';
 import { TypeOrmModule } from '@nestjs/typeorm';
 import { Inscription } from '../../database/entities/inscription.entity';
@@ -32,7 +33,7 @@ import { TentativesController } from './tentatives.controller';
  * - AuditService (US-AUTH-12), RedisModule et ConfigModule sont @Global.
  */
 @Module({
-  imports: [TypeOrmModule.forFeature([TentativeQcm, Qcm, Inscription])],
+  imports: [CertificatsModule, TypeOrmModule.forFeature([TentativeQcm, Qcm, Inscription])],
   controllers: [TentativesController],
   providers: [
     TentativeDemarrageService,

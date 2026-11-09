@@ -1204,6 +1204,14 @@ export interface EspaceFormationVue {
     // US-ATEL-03 — ateliers publiés du module (sans énoncé).
     ateliers: AtelierEspace[];
   }>;
+  /** US-ATEL-09 — où en est ma certification (et mon certificat s'il est demandé). */
+  certification: {
+    eligible: boolean;
+    raison: string | null;
+    validees: number;
+    requises: number;
+    certificat: { id: string; statut: StatutCertificat } | null;
+  };
 }
 
 /**
