@@ -4,6 +4,7 @@ import { DataSource } from 'typeorm';
 import { ModuleFormation } from '../../database/entities/module-formation.entity';
 import { RessourceModule } from '../../database/entities/ressource-module.entity';
 import { NatureRessource } from '../../database/enums/nature-ressource.enum';
+import { StockageService } from '../../stockage/stockage.service';
 import { AuditService } from '../audit/audit.service';
 import { FormationsService } from '../formations/formations.service';
 import { MESSAGE_ORDRE_INVALIDE, MESSAGE_TROP_DE_RESSOURCES } from './ressource.regles';
@@ -33,6 +34,7 @@ describe('RessourcesService (US-FORM-05)', () => {
   };
   const mockFormations = { chargerPourEcriture: jest.fn() };
   const mockAudit = { record: jest.fn() };
+  const mockStockage = { supprimer: jest.fn() };
 
   const ressource = (): Partial<RessourceModule> => ({
     id: 'r-1',
@@ -55,6 +57,7 @@ describe('RessourcesService (US-FORM-05)', () => {
         { provide: DataSource, useValue: mockDataSource },
         { provide: FormationsService, useValue: mockFormations },
         { provide: AuditService, useValue: mockAudit },
+        { provide: StockageService, useValue: mockStockage },
       ],
     }).compile();
     service = moduleRef.get(RessourcesService);
@@ -150,6 +153,19 @@ describe('RessourcesService (US-FORM-05)', () => {
       );
     });
 
+    it('400 : un fichier n’a pas d’adresse à modifier', async () => {
+      mockManager.findOne.mockImplementation(async (entite: unknown) =>
+        entite === ModuleFormation
+          ? { id: 'm-1', formationId: 'f-1' }
+          : { ...ressource(), nature: NatureRessource.FICHIER },
+      );
+      await expect(
+        service.modifier('u-1', 'r-1', { url: 'https://exemple.tn' }, ctx),
+      ).rejects.toThrow(BadRequestException);
+      await service.modifier('u-1', 'r-1', { titre: 'Nouveau titre' }, ctx);
+      expect(mockManager.update).toHaveBeenCalledTimes(1);
+    });
+
     it('400 sans champ ou titre vide ; 404 inconnue', async () => {
       await expect(service.modifier('u-1', 'r-1', {}, ctx)).rejects.toThrow(BadRequestException);
       await expect(service.modifier('u-1', 'r-1', { titre: '  ' }, ctx)).rejects.toThrow(
@@ -197,6 +213,25 @@ describe('RessourcesService (US-FORM-05)', () => {
       expect(mockAudit.record).toHaveBeenCalledWith(
         expect.objectContaining({ action: 'RESSOURCE_SUPPRIMEE', cible: 'r-1' }),
       );
+    });
+
+    it('un fichier : son objet est retiré du stockage après la suppression', async () => {
+      mockManager.findOne.mockImplementation(async (entite: unknown) =>
+        entite === ModuleFormation
+          ? { id: 'm-1', formationId: 'f-1' }
+          : {
+              ...ressource(),
+              nature: NatureRessource.FICHIER,
+              cleStockage: 'ressources/m-1/r-1/fichier.pdf',
+            },
+      );
+      await service.supprimer('u-1', 'r-1', ctx);
+      expect(mockStockage.supprimer).toHaveBeenCalledWith(['ressources/m-1/r-1/fichier.pdf']);
+    });
+
+    it('un lien : rien à retirer du stockage', async () => {
+      await service.supprimer('u-1', 'r-1', ctx);
+      expect(mockStockage.supprimer).not.toHaveBeenCalled();
     });
 
     it('404 inconnue (avant ou après le verrou)', async () => {

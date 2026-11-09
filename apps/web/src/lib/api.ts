@@ -2655,6 +2655,14 @@ export interface RessourceCours {
   videoId: string | null;
   debutSecondes: number | null;
   domaine: string | null;
+  /** US-FORM-06 — fichier (null pour un lien). */
+  fichier: {
+    nomOriginal: string;
+    extension: string;
+    tailleOctets: number;
+    /** Lisible dans la plateforme ; null : à télécharger. */
+    lecture: 'VIDEO' | 'AUDIO' | 'PDF' | 'IMAGE' | null;
+  } | null;
 }
 
 /**
@@ -2726,4 +2734,38 @@ export async function supprimerRessource(ressourceId: string): Promise<void> {
   if (!response.ok) {
     await lireReponseFormation<unknown>(response, 'Impossible de retirer la ressource.');
   }
+}
+
+/* ============================================================
+ * US-FORM-06 — Ressources de module : fichiers
+ * ============================================================ */
+
+/** POST /api/modules/:id/ressources/fichiers (multipart). */
+export async function deposerFichierRessource(
+  moduleId: string,
+  depot: { fichier: File; titre: string; description: string },
+): Promise<RessourceCours> {
+  const corps = new FormData();
+  corps.append('fichier', depot.fichier, depot.fichier.name);
+  if (depot.titre.trim()) corps.append('titre', depot.titre.trim());
+  if (depot.description.trim()) corps.append('description', depot.description.trim());
+  const response = await apiFetch(`/api/modules/${moduleId}/ressources/fichiers`, {
+    method: 'POST',
+    body: corps,
+  });
+  return lireReponseFormation<RessourceCours>(response, 'Impossible de déposer le fichier.');
+}
+
+/**
+ * POST /api/ressources/:id/lien — lien signé (10 min) pour lire ou
+ * télécharger le fichier : un <video> ou un onglet ne peut pas envoyer le
+ * jeton d'accès, ce lien le remplace.
+ */
+export async function lienLectureRessource(ressourceId: string): Promise<string> {
+  const response = await apiFetch(`/api/ressources/${ressourceId}/lien`, { method: 'POST' });
+  const { url } = await lireReponseFormation<{ url: string }>(
+    response,
+    'Impossible d’ouvrir le fichier.',
+  );
+  return url;
 }

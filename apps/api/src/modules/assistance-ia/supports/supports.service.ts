@@ -18,6 +18,7 @@ import { User } from '../../../database/entities/user.entity';
 import { StatutSupport } from '../../../database/enums/statut-support.enum';
 import { MailService } from '../../../mail/mail.service';
 import { StockageService } from '../../../stockage/stockage.service';
+import { nomOriginal as nomRecu } from '../../ateliers/livrables/livrables.service';
 import { AuditService } from '../../audit/audit.service';
 import { FormationsService } from '../../formations/formations.service';
 import {
@@ -163,7 +164,8 @@ export class SupportsService implements OnApplicationBootstrap {
     const module = await this.chargerModule(moduleId);
     await this.formationsService.chargerPourEcriture(module.formationId);
 
-    const nom = fichier ? nomOriginal(fichier.originalname) : '';
+    // multer décode le nom en latin1 : relu en UTF-8 (correctif des livrables).
+    const nom = fichier ? nomOriginal(nomRecu(fichier.originalname)) : '';
     const extension = verifierFichierSupport(
       fichier ? { nom, taille: fichier.size, entete: await lireEntete(fichier.path) } : null,
     );

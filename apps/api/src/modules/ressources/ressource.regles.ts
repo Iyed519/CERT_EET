@@ -25,6 +25,8 @@ export const MESSAGE_TROP_DE_RESSOURCES = `Un module compte ${BORNES_RESSOURCE.p
 export const MESSAGE_ORDRE_INVALIDE =
   'Ordre invalide : donnez chaque ressource du module exactement une fois.';
 export const MESSAGE_RESSOURCE_INTROUVABLE = 'Ressource introuvable.';
+export const MESSAGE_ADRESSE_FICHIER =
+  'Un fichier n’a pas d’adresse : retirez-le puis déposez le nouveau fichier.';
 
 /** Ce que l'analyse d'un lien retient (et ce que la base stocke). */
 export interface LienAnalyse {
