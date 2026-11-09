@@ -3,6 +3,7 @@ import Link from 'next/link';
 import { useParams, useRouter } from 'next/navigation';
 import { useCallback, useEffect, useState } from 'react';
 import { DemarrageTentative, QcmADemarrer } from '../../../components/DemarrageTentative';
+import { RessourcesApprenant } from '../../../components/RessourcesCours';
 import { AdminError, EspaceFormationVue, getMonEspace, StatutCertificat } from '../../../lib/api';
 import {
   dateFr,
@@ -227,6 +228,8 @@ export default function MonEspacePage(): JSX.Element {
                       </span>
                     )}
                   </div>
+
+                  <RessourcesApprenant ressources={m.ressources ?? []} />
 
                   {m.qcms.length === 0 && m.ateliers.length === 0 ? (
                     <p className="espace-vide">Aucune évaluation publiée dans ce module.</p>

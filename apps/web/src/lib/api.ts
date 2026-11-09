@@ -1203,6 +1203,8 @@ export interface EspaceFormationVue {
     }>;
     // US-ATEL-03 — ateliers publiés du module (sans énoncé).
     ateliers: AtelierEspace[];
+    // US-FORM-05 — ressources du cours (liens, vidéos), dans l'ordre du formateur.
+    ressources: RessourceCours[];
   }>;
   /** US-ATEL-09 — où en est ma certification (et mon certificat s'il est demandé). */
   certification: {
@@ -2633,4 +2635,95 @@ export async function lancerGeneration(
 export async function getGenerationsDuModule(moduleId: string): Promise<GenerationIa[]> {
   const response = await apiFetch(`/api/modules/${moduleId}/generations`);
   return lireReponseFormation<GenerationIa[]>(response, 'Impossible de charger les générations.');
+}
+
+/* ============================================================
+ * US-FORM-05 — Ressources de module : liens et vidéos
+ * ============================================================ */
+
+export type PlateformeRessource = 'YOUTUBE' | 'VIMEO' | 'WEB';
+
+/** Une ressource du cours (même vue côté formateur et côté apprenant). */
+export interface RessourceCours {
+  id: string;
+  ordre: number;
+  nature: 'LIEN' | 'FICHIER';
+  titre: string;
+  description: string | null;
+  url: string | null;
+  plateforme: PlateformeRessource | null;
+  videoId: string | null;
+  debutSecondes: number | null;
+  domaine: string | null;
+}
+
+/**
+ * Adresse du lecteur INTÉGRÉ d'une vidéo, construite à partir de son
+ * identifiant (jamais de l'adresse saisie) : YouTube en mode « sans cookie »,
+ * Vimeo sans suivi. null pour un lien qui n'est pas une vidéo.
+ */
+export function lecteurVideo(r: RessourceCours): string | null {
+  if (!r.videoId) return null;
+  if (r.plateforme === 'YOUTUBE') {
+    const debut = r.debutSecondes ? `&start=${r.debutSecondes}` : '';
+    return `https://www.youtube-nocookie.com/embed/${encodeURIComponent(r.videoId)}?rel=0&autoplay=1${debut}`;
+  }
+  if (r.plateforme === 'VIMEO') {
+    const debut = r.debutSecondes ? `#t=${r.debutSecondes}s` : '';
+    return `https://player.vimeo.com/video/${encodeURIComponent(r.videoId)}?dnt=1&autoplay=1${debut}`;
+  }
+  return null;
+}
+
+/** GET /api/modules/:id/ressources — ordre d'affichage. */
+export async function getRessourcesDuModule(moduleId: string): Promise<RessourceCours[]> {
+  const response = await apiFetch(`/api/modules/${moduleId}/ressources`);
+  return lireReponseFormation<RessourceCours[]>(response, 'Impossible de charger les ressources.');
+}
+
+/** POST /api/modules/:id/ressources/liens. */
+export async function ajouterLien(
+  moduleId: string,
+  lien: { titre: string; url: string; description?: string },
+): Promise<RessourceCours> {
+  const response = await apiFetch(`/api/modules/${moduleId}/ressources/liens`, {
+    method: 'POST',
+    headers: JSON_HEADERS,
+    body: JSON.stringify(lien),
+  });
+  return lireReponseFormation<RessourceCours>(response, 'Impossible d’ajouter le lien.');
+}
+
+/** PATCH /api/ressources/:id. */
+export async function modifierRessource(
+  ressourceId: string,
+  champs: { titre?: string; url?: string; description?: string },
+): Promise<RessourceCours> {
+  const response = await apiFetch(`/api/ressources/${ressourceId}`, {
+    method: 'PATCH',
+    headers: JSON_HEADERS,
+    body: JSON.stringify(champs),
+  });
+  return lireReponseFormation<RessourceCours>(response, 'Impossible de modifier la ressource.');
+}
+
+/** PUT /api/modules/:id/ressources/ordre — liste complète. */
+export async function reordonnerRessources(
+  moduleId: string,
+  ids: string[],
+): Promise<RessourceCours[]> {
+  const response = await apiFetch(`/api/modules/${moduleId}/ressources/ordre`, {
+    method: 'PUT',
+    headers: JSON_HEADERS,
+    body: JSON.stringify({ ids }),
+  });
+  return lireReponseFormation<RessourceCours[]>(response, 'Impossible de réordonner les ressources.');
+}
+
+/** DELETE /api/ressources/:id. */
+export async function supprimerRessource(ressourceId: string): Promise<void> {
+  const response = await apiFetch(`/api/ressources/${ressourceId}`, { method: 'DELETE' });
+  if (!response.ok) {
+    await lireReponseFormation<unknown>(response, 'Impossible de retirer la ressource.');
+  }
 }

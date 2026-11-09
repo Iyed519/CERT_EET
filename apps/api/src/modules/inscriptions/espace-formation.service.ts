@@ -7,6 +7,7 @@ import { Inscription } from '../../database/entities/inscription.entity';
 import { Livrable } from '../../database/entities/livrable.entity';
 import { ModuleFormation } from '../../database/entities/module-formation.entity';
 import { Qcm } from '../../database/entities/qcm.entity';
+import { RessourceModule } from '../../database/entities/ressource-module.entity';
 import { TentativeQcm } from '../../database/entities/tentative-qcm.entity';
 import { StatutAtelier } from '../../database/enums/statut-atelier.enum';
 import { StatutFormation } from '../../database/enums/statut-formation.enum';
@@ -18,6 +19,7 @@ import { StatutTentative } from '../../database/enums/statut-tentative.enum';
 import { etatDepot, EtatDepot } from '../ateliers/atelier.regles';
 import { AuditService } from '../audit/audit.service';
 import { EligibiliteService } from '../certificats/eligibilite.service';
+import { RessourceVue, versVueRessource } from '../ressources/ressources.service';
 
 /** Où en est l'apprenant sur un QCM, d'après SES tentatives. */
 export type AvancementQcm = 'A_FAIRE' | 'EN_COURS' | 'REUSSI' | 'ECHOUE';
@@ -99,6 +101,8 @@ export interface EspaceFormationVue {
       // US-ATEL-08 — livrable noté dont je n'ai pas encore ouvert le feedback.
       nouveauFeedback: boolean;
     }>;
+    // US-FORM-05 — ressources du cours (liens, vidéos), dans l'ordre du formateur.
+    ressources: RessourceVue[];
   }>;
   /**
    * US-ATEL-09 — où en est ma certification : évaluations validées / requises,
@@ -143,6 +147,8 @@ export class EspaceFormationService {
     private readonly atelierRepository: Repository<Atelier>,
     @InjectRepository(Livrable)
     private readonly livrableRepository: Repository<Livrable>,
+    @InjectRepository(RessourceModule)
+    private readonly ressourceRepository: Repository<RessourceModule>,
     // Writer d'audit UNIQUE (@Global, US-AUTH-12).
     private readonly auditService: AuditService,
     private readonly eligibiliteService: EligibiliteService,
@@ -162,6 +168,7 @@ export class EspaceFormationService {
    *      et son état (à venir, ouverte, fermée — US-QCM-04) ;
    *   4. MES tentatives sur ces QCM -> avancement de chaque QCM, puis de
    *      chaque module ;
+   *   (US-FORM-05 : ressources du cours de chaque module, dans l'ordre.)
    *   5. ateliers PUBLIÉS de ces modules (US-ATEL-03), sans énoncé, avec
    *      l'état du dépôt (ouvert, en retard, clos) à l'heure de PostgreSQL.
    *      Ils ne comptent pas (encore) dans l'avancement du module : c'est la
@@ -230,6 +237,13 @@ export class EspaceFormationService {
             },
             order: { dateLimite: 'ASC', id: 'ASC' },
           });
+    const ressources =
+      modules.length === 0
+        ? []
+        : await this.ressourceRepository.find({
+            where: { moduleId: In(modules.map((m) => m.id)) },
+            order: { ordre: 'ASC' },
+          });
     const mesLivrables =
       ateliers.length === 0
         ? []
@@ -292,6 +306,7 @@ export class EspaceFormationService {
                 l.atelierId === a.id && l.statut === StatutLivrable.NOTE && !consultes.has(l.id),
             ),
           })),
+        ressources: ressources.filter((r) => r.moduleId === module.id).map(versVueRessource),
       })),
       certification: {
         eligible: verdict.eligible,
@@ -346,7 +361,7 @@ export class EspaceFormationService {
     qcms: Qcm[],
     tentatives: TentativeQcm[],
     maintenant: Date,
-  ): Omit<EspaceFormationVue['modules'][number], 'ateliers'> {
+  ): Omit<EspaceFormationVue['modules'][number], 'ateliers' | 'ressources'> {
     const qcmsDuModule = qcms
       .filter((q) => q.moduleId === module.id)
       .map((q) => {

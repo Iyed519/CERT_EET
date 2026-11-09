@@ -198,6 +198,7 @@ describe('FormateurDeLaFormationGuard', () => {
       { generationId: QCM },
       'Génération introuvable.',
     ],
+    ['ressource', { ressourceId: 'ressourceId' }, { ressourceId: QCM }, 'Ressource introuvable.'],
   ])(
     'refuse en 404 un %s inconnu',
     async (_libelle, s: SourceFormation, params: Record<string, string>, message) => {

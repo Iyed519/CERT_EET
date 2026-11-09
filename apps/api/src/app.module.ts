@@ -17,6 +17,7 @@ import { TentativesModule } from './modules/tentatives/tentatives.module';
 import { AteliersModule } from './modules/ateliers/ateliers.module';
 import { CertificatsModule } from './modules/certificats/certificats.module';
 import { AssistanceIaModule } from './modules/assistance-ia/assistance-ia.module';
+import { RessourcesModule } from './modules/ressources/ressources.module';
 /**
  * Module racine (AppModule).
  *
@@ -36,6 +37,7 @@ import { AssistanceIaModule } from './modules/assistance-ia/assistance-ia.module
  * (US-CERT-01) émet les certificats en asynchrone (BullMQ, ADR-04).
  * AssistanceIaModule (US-IA-01, Sprint 3 bloc B) indexe les supports
  * pédagogiques pour la génération de questions par IA (RAG, ADR-05).
+ * RessourcesModule (US-FORM-05) : liens et vidéos de cours des modules.
  */
 @Module({
   imports: [
@@ -57,6 +59,7 @@ import { AssistanceIaModule } from './modules/assistance-ia/assistance-ia.module
     AteliersModule,
     CertificatsModule,
     AssistanceIaModule,
+    RessourcesModule,
   ],
 })
 export class AppModule {}
