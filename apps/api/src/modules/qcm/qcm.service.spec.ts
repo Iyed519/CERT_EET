@@ -6,13 +6,15 @@ import { ConfigurationAntiFraude } from '../../database/entities/configuration-a
 import { ModuleFormation } from '../../database/entities/module-formation.entity';
 import { QcmQuestion } from '../../database/entities/qcm-question.entity';
 import { Qcm } from '../../database/entities/qcm.entity';
+import { Question } from '../../database/entities/question.entity';
 import { TentativeQcm } from '../../database/entities/tentative-qcm.entity';
+import { OrigineQuestion } from '../../database/enums/origine-question.enum';
 import { StatutQcm } from '../../database/enums/statut-qcm.enum';
 import { TypeQuestion } from '../../database/enums/type-question.enum';
 import { AuditService } from '../audit/audit.service';
 import { FormationsService } from '../formations/formations.service';
 import { QuestionDto } from './dto/question.dto';
-import { QcmService } from './qcm.service';
+import { QcmService, QuestionVue } from './qcm.service';
 
 /**
  * Tests unitaires de QcmService (US-QCM-01).
@@ -235,6 +237,109 @@ describe('QcmService', () => {
         ConflictException,
       );
       expect(mockQcmRepo.save).not.toHaveBeenCalled();
+    });
+  });
+
+  describe('US-IA-04 : origine des questions et ajout depuis une suggestion', () => {
+    const vue = (origine: OrigineQuestion): QuestionVue => ({
+      id: 'q-1',
+      enonce: 'Que désigne CI ?',
+      type: TypeQuestion.QCU,
+      ponderation: 1,
+      explication: null,
+      niveauDifficulte: null,
+      origine,
+      ordre: 1,
+      options: [
+        { id: 'o-1', texte: 'Intégration continue', estCorrecte: true, ordre: 1 },
+        { id: 'o-2', texte: 'Interface client', estCorrecte: false, ordre: 2 },
+      ],
+    });
+    const manager = {
+      query: jest.fn(),
+      save: jest.fn(async (v: unknown) => (Array.isArray(v) ? v : { id: 'q-9', ...(v as object) })),
+      create: jest.fn((_e: unknown, v: unknown) => v),
+      update: jest.fn(),
+      delete: jest.fn(),
+      createQueryBuilder: jest.fn(() => ({
+        select: jest.fn().mockReturnThis(),
+        where: jest.fn().mockReturnThis(),
+        getRawOne: jest.fn().mockResolvedValue({ max: '4' }),
+      })),
+    };
+    beforeEach(() => {
+      mockQcmRepo.findOne.mockResolvedValue(qcmExistant());
+      mockDataSource.transaction.mockImplementation(async (travail: (m: unknown) => unknown) =>
+        travail(manager),
+      );
+    });
+
+    it('insererQuestionEnFin : verrou du QCM d’abord, origine enregistrée, rang suivant', async () => {
+      const saisie = service.validerQuestion(question());
+      const id = await service.insererQuestionEnFin(
+        manager as never,
+        'qcm-1',
+        saisie,
+        OrigineQuestion.IA,
+      );
+      expect(id).toBe('q-9');
+      expect(manager.query).toHaveBeenCalledWith('SELECT id FROM qcm WHERE id = $1 FOR UPDATE', [
+        'qcm-1',
+      ]);
+      expect(manager.query.mock.invocationCallOrder[0]).toBeLessThan(
+        manager.save.mock.invocationCallOrder[0],
+      );
+      expect(manager.create).toHaveBeenCalledWith(
+        Question,
+        expect.objectContaining({ enonce: 'Que désigne CI ?', origine: OrigineQuestion.IA }),
+      );
+      expect(manager.create).toHaveBeenCalledWith(QcmQuestion, {
+        qcmId: 'qcm-1',
+        questionId: 'q-9',
+        ordre: 5,
+      });
+    });
+
+    it('ajout manuel : origine MANUELLE', async () => {
+      jest
+        .spyOn(service as never, 'questionDuQcm')
+        .mockResolvedValue(vue(OrigineQuestion.MANUELLE) as never);
+      await service.ajouterQuestion('u', 'qcm-1', question(), contexte);
+      expect(manager.create).toHaveBeenCalledWith(
+        Question,
+        expect.objectContaining({ origine: OrigineQuestion.MANUELLE }),
+      );
+    });
+
+    it('exigerAjoutPossible : module du QCM ; 409 si des tentatives existent', async () => {
+      await expect(service.exigerAjoutPossible('qcm-1')).resolves.toEqual({
+        moduleId: 'mod-1',
+        formationId: 'form-1',
+      });
+      mockTentativeRepo.countBy.mockResolvedValue(1);
+      await expect(service.exigerAjoutPossible('qcm-1')).rejects.toBeInstanceOf(ConflictException);
+    });
+
+    it.each([
+      ['IA retouchée -> IA_MODIFIEE', OrigineQuestion.IA, { enonce: 'Que désigne CD ?' }, true],
+      [
+        'IA, explication seule -> reste IA',
+        OrigineQuestion.IA,
+        { explication: 'Voir le cours.' },
+        false,
+      ],
+      [
+        'manuelle retouchée -> reste MANUELLE',
+        OrigineQuestion.MANUELLE,
+        { enonce: 'Que désigne CD ?' },
+        false,
+      ],
+    ])('remplacerQuestion : %s', async (_cas, origine, surcharge, devient) => {
+      jest.spyOn(service as never, 'questionDuQcm').mockResolvedValue(vue(origine) as never);
+      await service.remplacerQuestion('u', 'qcm-1', 'q-1', question(surcharge), contexte);
+      const [, , changements] = manager.update.mock.calls[0];
+      if (devient) expect(changements).toMatchObject({ origine: OrigineQuestion.IA_MODIFIEE });
+      else expect(changements).not.toHaveProperty('origine');
     });
   });
 

@@ -19,6 +19,7 @@ import {
   verifierQuotaGenerations,
   verifierSupportGenerable,
 } from './generation.regles';
+import { SuggestionVue, versSuggestionVue } from '../suggestions/suggestion.vue';
 import { LancerGenerationDto } from './generations.dto';
 
 export interface ContexteGeneration {
@@ -71,19 +72,6 @@ const VIOLATION_UNICITE = '23505';
  *   5. INSERT EN_COURS (heure de PostgreSQL), audit GENERATION_IA_LANCEE,
  *      travail en file (file injoignable -> ECHEC avec motif).
  */
-/** Une suggestion de question telle que l'expose l'API (US-IA-03). */
-export interface SuggestionVue {
-  id: string;
-  ordre: number;
-  enonce: string;
-  type: string;
-  options: Array<{ texte: string; estCorrecte: boolean }>;
-  explication: string | null;
-  scoreConfiance: number | null;
-  passagesSources: number[];
-  statut: string;
-}
-
 @Injectable()
 export class GenerationsService {
   private readonly logger = new Logger(GenerationsService.name);
@@ -220,17 +208,7 @@ export class GenerationsService {
       where: { generationId },
       order: { ordre: 'ASC' },
     });
-    return lignes.map((s) => ({
-      id: s.id,
-      ordre: s.ordre,
-      enonce: s.enonce,
-      type: s.type,
-      options: s.options,
-      explication: s.explication,
-      scoreConfiance: s.scoreConfiance,
-      passagesSources: s.passagesSources,
-      statut: s.statut,
-    }));
+    return lignes.map(versSuggestionVue);
   }
 
   private async chargerModule(moduleId: string): Promise<ModuleFormation> {

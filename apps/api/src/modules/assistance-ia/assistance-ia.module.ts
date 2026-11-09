@@ -5,12 +5,15 @@ import { ModuleFormation } from '../../database/entities/module-formation.entity
 import { SuggestionQuestionIa } from '../../database/entities/suggestion-question-ia.entity';
 import { SupportPedagogique } from '../../database/entities/support-pedagogique.entity';
 import { FormationsModule } from '../formations/formations.module';
+import { QcmModule } from '../qcm/qcm.module';
 import { embeddingsProvider } from './embeddings/embeddings.provider';
 import { FileIaService } from './file-ia.service';
 import { GenerationsController } from './generations/generations.controller';
 import { GenerationsService } from './generations/generations.service';
 import { PipelineRagService } from './generations/pipeline-rag.service';
 import { llmProvider } from './llm/llm.provider';
+import { RevisionSuggestionsController } from './suggestions/revision-suggestions.controller';
+import { RevisionSuggestionsService } from './suggestions/revision-suggestions.service';
 import { SupportsController } from './supports/supports.controller';
 import { SupportsService } from './supports/supports.service';
 
@@ -32,12 +35,16 @@ import { SupportsService } from './supports/supports.service';
  * interchangeable (FOURNISSEUR_LLM : Anthropic ou factice), validation,
  * suggestions PROPOSEE.
  *
+ * US-IA-04 : révision humaine (RevisionSuggestionsService) — accepter (telle
+ * quelle ou modifiée, vers un QCM du module, via QcmService) ou rejeter.
+ *
  * Importe FormationsModule : le garde @FormateurDeLaFormation et
  * FormationsService (formation archivée -> 409).
  */
 @Module({
   imports: [
     FormationsModule,
+    QcmModule,
     TypeOrmModule.forFeature([
       SupportPedagogique,
       ModuleFormation,
@@ -45,11 +52,12 @@ import { SupportsService } from './supports/supports.service';
       SuggestionQuestionIa,
     ]),
   ],
-  controllers: [SupportsController, GenerationsController],
+  controllers: [SupportsController, GenerationsController, RevisionSuggestionsController],
   providers: [
     SupportsService,
     GenerationsService,
     PipelineRagService,
+    RevisionSuggestionsService,
     FileIaService,
     embeddingsProvider,
     llmProvider,

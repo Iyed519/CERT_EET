@@ -13,6 +13,7 @@ import { QcmQuestion } from '../../database/entities/qcm-question.entity';
 import { Qcm } from '../../database/entities/qcm.entity';
 import { Question } from '../../database/entities/question.entity';
 import { TentativeQcm } from '../../database/entities/tentative-qcm.entity';
+import { OrigineQuestion } from '../../database/enums/origine-question.enum';
 import { StatutQcm } from '../../database/enums/statut-qcm.enum';
 import { TypeQuestion } from '../../database/enums/type-question.enum';
 import { AuditService } from '../audit/audit.service';
@@ -56,6 +57,8 @@ export interface QuestionVue {
   ponderation: number;
   explication: string | null;
   niveauDifficulte: string | null;
+  /** Saisie manuelle, ou issue d'une suggestion IA (US-IA-04). */
+  origine: OrigineQuestion;
   ordre: number;
   options: OptionVue[];
 }
@@ -307,31 +310,9 @@ export class QcmService {
     await this.exigerNonVerrouille(qcmId);
     const saisie = this.validerQuestion(dto);
 
-    const questionId = await this.dataSource.transaction(async (manager) => {
-      const question = await manager.save(
-        manager.create(Question, {
-          enonce: saisie.enonce,
-          type: saisie.type,
-          ponderation: saisie.ponderation,
-          explication: saisie.explication,
-          niveauDifficulte: saisie.niveauDifficulte,
-        }),
-      );
-      await this.enregistrerOptions(manager, question.id, saisie.options);
-      const dernier = await manager
-        .createQueryBuilder(QcmQuestion, 'lien')
-        .select('COALESCE(MAX(lien.ordre), 0)', 'max')
-        .where('lien.qcmId = :qcmId', { qcmId })
-        .getRawOne<{ max: number | string }>();
-      await manager.save(
-        manager.create(QcmQuestion, {
-          qcmId,
-          questionId: question.id,
-          ordre: Number(dernier?.max ?? 0) + 1,
-        }),
-      );
-      return question.id;
-    });
+    const questionId = await this.dataSource.transaction((manager) =>
+      this.insererQuestionEnFin(manager, qcmId, saisie, OrigineQuestion.MANUELLE),
+    );
 
     await this.auditService.record({
       action: 'QUESTION_AJOUTEE',
@@ -382,6 +363,11 @@ export class QcmService {
             ponderation: saisie.ponderation,
             explication: saisie.explication,
             niveauDifficulte: saisie.niveauDifficulte,
+            // Une question IA retouchée (hors explication) devient IA_MODIFIEE.
+            ...(actuelle.origine === OrigineQuestion.IA &&
+            !this.memeContenuHorsExplication(actuelle, saisie)
+              ? { origine: OrigineQuestion.IA_MODIFIEE }
+              : {}),
           },
         );
         await manager.delete(Option, { questionId });
@@ -504,6 +490,61 @@ export class QcmService {
   // ===================================================================
 
   /**
+   * Préalable à l'ajout d'une question venue d'ailleurs (suggestion IA,
+   * US-IA-04) : QCM existant (404), formation non archivée (409), QCM sans
+   * tentative (409). Renvoie le module du QCM.
+   */
+  async exigerAjoutPossible(qcmId: string): Promise<{ moduleId: string; formationId: string }> {
+    const { qcm, formationId } = await this.chargerPourEcriture(qcmId);
+    await this.exigerNonVerrouille(qcmId);
+    return { moduleId: qcm.moduleId, formationId };
+  }
+
+  /**
+   * Question + options + liaison en fin de QCM, dans la transaction de
+   * l'appelant (ajout manuel, ou acceptation d'une suggestion IA). La saisie
+   * est déjà validée (`validerQuestion`). La ligne du QCM est verrouillée :
+   * deux ajouts simultanés reçoivent deux rangs distincts.
+   */
+  async insererQuestionEnFin(
+    manager: EntityManager,
+    qcmId: string,
+    saisie: QuestionValidee,
+    origine: OrigineQuestion,
+  ): Promise<string> {
+    await manager.query('SELECT id FROM qcm WHERE id = $1 FOR UPDATE', [qcmId]);
+    const question = await manager.save(
+      manager.create(Question, {
+        enonce: saisie.enonce,
+        type: saisie.type,
+        ponderation: saisie.ponderation,
+        explication: saisie.explication,
+        niveauDifficulte: saisie.niveauDifficulte,
+        origine,
+      }),
+    );
+    await this.enregistrerOptions(manager, question.id, saisie.options);
+    const dernier = await manager
+      .createQueryBuilder(QcmQuestion, 'lien')
+      .select('COALESCE(MAX(lien.ordre), 0)', 'max')
+      .where('lien.qcmId = :qcmId', { qcmId })
+      .getRawOne<{ max: number | string }>();
+    await manager.save(
+      manager.create(QcmQuestion, {
+        qcmId,
+        questionId: question.id,
+        ordre: Number(dernier?.max ?? 0) + 1,
+      }),
+    );
+    return question.id;
+  }
+
+  /** La question dans sa forme de vue (US-IA-04 : réponse de l'acceptation). */
+  async vueQuestion(qcmId: string, questionId: string): Promise<QuestionVue> {
+    return this.questionDuQcm(qcmId, questionId);
+  }
+
+  /**
    * Valide une question et la normalise (textes rognés, pondération par
    * défaut). Une règle = un message ciblé (critère d'erreur de la story) :
    *  - type pris en charge : QCM, QCU, VRAI_FAUX ;
@@ -613,6 +654,7 @@ export class QcmService {
       ponderation: lien.question.ponderation,
       explication: lien.question.explication,
       niveauDifficulte: lien.question.niveauDifficulte,
+      origine: lien.question.origine,
       ordre: lien.ordre,
       options: (lien.question.options ?? []).map((o) => ({
         id: o.id,

@@ -1271,9 +1271,14 @@ export interface QuestionQcm {
   ponderation: number;
   explication: string | null;
   niveauDifficulte: NiveauDifficulte | null;
+  /** Saisie manuelle ou issue d'une suggestion IA (US-IA-04). */
+  origine: OrigineQuestion;
   ordre: number;
   options: OptionQcm[];
 }
+
+/** Origine d'une question (US-IA-04). */
+export type OrigineQuestion = 'MANUELLE' | 'IA' | 'IA_MODIFIEE';
 
 /** Affichage du résultat à l'apprenant (US-QCM-03). */
 export type AffichageResultats = 'IMMEDIAT' | 'DIFFERE';
@@ -2642,6 +2647,7 @@ export type StatutSuggestion = 'PROPOSEE' | 'ACCEPTEE' | 'MODIFIEE' | 'REJETEE';
 /** Une question proposée par l'IA (US-IA-03), avant ou après relecture (US-IA-04). */
 export interface SuggestionQuestion {
   id: string;
+  generationId: string;
   ordre: number;
   enonce: string;
   type: TypeGenerable;
@@ -2650,6 +2656,38 @@ export interface SuggestionQuestion {
   scoreConfiance: number | null;
   passagesSources: number[];
   statut: StatutSuggestion;
+  questionId: string | null;
+  qcmId: string | null;
+  decidePar: string | null;
+  dateDecision: string | null;
+  motifRejet: string | null;
+}
+
+/** POST /api/suggestions/:id/accepter — telle quelle, ou `question` retouchée (US-IA-04). */
+export async function accepterSuggestion(
+  suggestionId: string,
+  qcmId: string,
+  question?: QuestionInput,
+): Promise<{ suggestion: SuggestionQuestion; question: QuestionQcm }> {
+  const response = await apiFetch(`/api/suggestions/${suggestionId}/accepter`, {
+    method: 'POST',
+    headers: JSON_HEADERS,
+    body: JSON.stringify({ qcmId, ...(question ? { question } : {}) }),
+  });
+  return lireReponseFormation(response, 'Impossible d’accepter la suggestion.');
+}
+
+/** POST /api/suggestions/:id/rejeter — motif facultatif (US-IA-04). */
+export async function rejeterSuggestion(
+  suggestionId: string,
+  motif?: string,
+): Promise<SuggestionQuestion> {
+  const response = await apiFetch(`/api/suggestions/${suggestionId}/rejeter`, {
+    method: 'POST',
+    headers: JSON_HEADERS,
+    body: JSON.stringify(motif ? { motif } : {}),
+  });
+  return lireReponseFormation<SuggestionQuestion>(response, 'Impossible de rejeter la suggestion.');
 }
 
 /** GET /api/generations/:id/suggestions — dans l'ordre du modèle. */

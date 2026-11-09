@@ -7,6 +7,7 @@ import {
   PrimaryGeneratedColumn,
   UpdateDateColumn,
 } from 'typeorm';
+import { OrigineQuestion } from '../enums/origine-question.enum';
 import { TypeQuestion } from '../enums/type-question.enum';
 import { numericTransformer } from '../transformers/numeric.transformer';
 import { Option } from './option.entity';
@@ -57,6 +58,10 @@ export class Question {
     nullable: true,
   })
   niveauDifficulte: string | null;
+
+  // Saisie manuelle ou issue d'une suggestion IA (US-IA-04).
+  @Column({ type: 'enum', enum: OrigineQuestion, default: OrigineQuestion.MANUELLE })
+  origine: OrigineQuestion;
 
   // Composition : au moins deux options (règle validée par le service).
   @OneToMany(() => Option, (option) => option.question)

@@ -193,8 +193,8 @@ export function SupportsModule({
                   <div className="field-hint">{detailGeneration(g)}</div>
                   {g.statut === 'TERMINEE' && (
                     <div className="field-hint">
-                      {g.nbSuggestions ?? 0} suggestion{(g.nbSuggestions ?? 0) > 1 ? 's' : ''} à
-                      réviser
+                      {g.nbSuggestions ?? 0} question{(g.nbSuggestions ?? 0) > 1 ? 's' : ''} proposée
+                      {(g.nbSuggestions ?? 0) > 1 ? 's' : ''}
                     </div>
                   )}
                   {g.statut === 'ECHEC' && g.derniereErreur && (
@@ -206,7 +206,7 @@ export function SupportsModule({
                 </span>
                 {g.statut === 'TERMINEE' && (g.nbSuggestions ?? 0) > 0 && (
                   <button type="button" className="btn-sm" onClick={() => setAConsulter(g)}>
-                    Voir les questions
+                    {modifiable ? 'Réviser les questions' : 'Voir les questions'}
                   </button>
                 )}
               </li>
@@ -216,7 +216,12 @@ export function SupportsModule({
       )}
 
       {aConsulter && (
-        <SuggestionsModal generation={aConsulter} onClose={() => setAConsulter(null)} />
+        <SuggestionsModal
+          generation={aConsulter}
+          modifiable={modifiable}
+          onClose={() => setAConsulter(null)}
+          onDecision={() => void charger()}
+        />
       )}
 
       {aGenerer && (

@@ -41,5 +41,8 @@ import { QcmService } from './qcm.service';
   ],
   controllers: [QcmController],
   providers: [QcmService, QcmConfigurationService, QcmPublicationService],
+  // US-IA-04 : la révision des suggestions IA ajoute les questions acceptées
+  // avec les règles et l'écriture de l'éditeur de QCM.
+  exports: [QcmService],
 })
 export class QcmModule {}
