@@ -5,6 +5,7 @@ import { useCallback, useEffect, useState } from 'react';
 import { AtelierModal } from '../../../../components/AtelierModal';
 import { ConfirmationModal } from '../../../../components/ConfirmationModal';
 import { GrilleNotation } from '../../../../components/GrilleNotation';
+import { LivrablesAtelier } from '../../../../components/LivrablesAtelier';
 import {
   AdminError,
   AtelierDetail,
@@ -30,6 +31,9 @@ type Fenetre = { type: 'modifier' } | { type: 'supprimer' } | { type: 'publier' 
  * grille validée ; une confirmation rappelle que l'atelier et sa grille se
  * figent. Le serveur revérifie tout (409 grille non validée, 400 date limite
  * passée) et son message s'affiche dans la modale.
+ *
+ * US-ATEL-06 — Une fois l'atelier publié, la liste de ses livrables (à
+ * corriger, en correction, notés) s'affiche sous l'énoncé.
  */
 export default function AtelierPage(): JSX.Element {
   const params = useParams<{ id: string }>();
@@ -169,6 +173,8 @@ export default function AtelierPage(): JSX.Element {
 
           <h2 className="section-title">Énoncé</h2>
           <div className="enonce-atelier">{atelier.enonce}</div>
+
+          {!brouillon && <LivrablesAtelier atelierId={atelier.id} />}
 
           <GrilleNotation
             key={atelier.statut}

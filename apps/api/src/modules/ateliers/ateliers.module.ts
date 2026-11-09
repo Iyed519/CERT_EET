@@ -11,13 +11,15 @@ import { AteliersController } from './ateliers.controller';
 import { AteliersService } from './ateliers.service';
 import { GrillesController } from './grille/grilles.controller';
 import { GrillesService } from './grille/grilles.service';
+import { CorrectionsController } from './livrables/corrections.controller';
+import { CorrectionsService } from './livrables/corrections.service';
 import { LivrablesController } from './livrables/livrables.controller';
 import { LivrablesService } from './livrables/livrables.service';
 
 /**
  * Module des ateliers pratiques (F2 ; US-ATEL-01 création ; US-ATEL-02
- * grille de notation pondérée et modèles ; US-ATEL-03 publication ; la
- * soumission et la correction suivront : US-ATEL-04 à 09).
+ * grille de notation pondérée et modèles ; US-ATEL-03 publication ;
+ * US-ATEL-04 soumission ; US-ATEL-06 correction ; la suite : US-ATEL-07 à 09).
  *
  * - Importe FormationsModule : le garde @FormateurDeLaFormation (US-AUTH-16)
  *   et FormationsService.chargerPourEcriture (404 / 409 formation archivée).
@@ -30,6 +32,9 @@ import { LivrablesService } from './livrables/livrables.service';
  *   contrôle d'accès de « Mon espace » (EspaceFormationService).
  * - Livrables (US-ATEL-04) : LivrablesController / LivrablesService, dépôt
  *   multipart vers StockageService (@Global, MinIO) ; Livrable en forFeature.
+ * - Correction (US-ATEL-06) : CorrectionsController / CorrectionsService,
+ *   côté formateur ; @FormateurDeLaFormation({ livrableId }) remonte du
+ *   livrable à sa formation ; téléchargement en flux via StockageService.
  * - AuditService (US-AUTH-12), MailService et StockageService sont @Global.
  */
 @Module({
@@ -43,7 +48,14 @@ import { LivrablesService } from './livrables/livrables.service';
     GrillesController,
     AteliersApprenantController,
     LivrablesController,
+    CorrectionsController,
   ],
-  providers: [AteliersService, GrillesService, AteliersApprenantService, LivrablesService],
+  providers: [
+    AteliersService,
+    GrillesService,
+    AteliersApprenantService,
+    LivrablesService,
+    CorrectionsService,
+  ],
 })
 export class AteliersModule {}

@@ -237,3 +237,18 @@ export const LIBELLES_LIVRABLE_COURT: Record<StatutLivrable, string> = {
   EN_CORRECTION: 'En correction',
   NOTE: 'Noté',
 };
+
+/** Libellés du statut d'un livrable côté formateur (US-ATEL-06). */
+export const LIBELLES_LIVRABLE_FORMATEUR: Record<StatutLivrable, string> = {
+  SOUMIS: 'À corriger',
+  EN_CORRECTION: 'En correction',
+  NOTE: 'Noté',
+};
+
+/** Nombre décimal à la française, deux décimales au plus (« 62,5 ») — US-ATEL-06. */
+export const nombreFr = (valeur: number): string =>
+  valeur.toLocaleString('fr-FR', { maximumFractionDigits: 2 });
+
+/** « Sami Ben Ali », ou l'email à défaut de nom (US-ATEL-06). */
+export const nomApprenantFr = (a: { prenom: string | null; nom: string | null; email: string }): string =>
+  [a.prenom, a.nom].filter(Boolean).join(' ') || a.email;

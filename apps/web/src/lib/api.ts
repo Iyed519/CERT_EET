@@ -2137,3 +2137,147 @@ export async function soumettreLivrable(
   });
   return lireReponseFormation<LivrableApprenant>(response, 'Impossible de soumettre le livrable.');
 }
+
+/* ============================================================
+ * US-ATEL-06 — Corriger un livrable critère par critère (formateur)
+ * ============================================================ */
+
+/** Avancement d'une correction : critères notés / critères de la grille. */
+export interface AvancementCorrection {
+  notes: number;
+  total: number;
+  complete: boolean;
+}
+
+/** L'apprenant d'un livrable, vu par le formateur. */
+export interface ApprenantLivrable {
+  id: string;
+  prenom: string | null;
+  nom: string | null;
+  email: string;
+}
+
+/** Une ligne de la liste « Livrables » d'un atelier. */
+export interface LivrableResume {
+  id: string;
+  apprenant: ApprenantLivrable;
+  version: number;
+  statut: StatutLivrable;
+  dateSoumission: string;
+  enRetard: boolean;
+  nbFichiers: number;
+  /** null tant que la correction n'est pas ouverte. */
+  avancement: AvancementCorrection | null;
+}
+
+/** La note d'un critère (points en % du critère). */
+export interface NoteCritere {
+  critereId: string;
+  niveau: number;
+  libelleNiveau: string;
+  pointsPct: number;
+  contribution: number;
+  commentaire: string | null;
+  updatedAt: string;
+}
+
+/** La correction d'un livrable. */
+export interface CorrectionLivrable {
+  id: string;
+  statut: 'EN_COURS' | 'TERMINEE';
+  dateOuverture: string;
+  correcteur: { id: string; prenom: string | null; nom: string | null };
+  notes: NoteCritere[];
+  scoreActuel: number;
+  avancement: AvancementCorrection;
+}
+
+/** Le livrable à corriger, sa grille et sa correction. */
+export interface LivrableACorriger {
+  id: string;
+  atelier: { id: string; titre: string; formationId: string; formationTitre: string };
+  apprenant: ApprenantLivrable;
+  version: number;
+  statut: StatutLivrable;
+  dateSoumission: string;
+  enRetard: boolean;
+  hashTracabilite: string;
+  commentaire: string | null;
+  liens: string[];
+  fichiers: LivrableApprenant['fichiers'];
+  criteres: CritereGrille[];
+  correction: CorrectionLivrable | null;
+}
+
+/** Réponse à l'enregistrement d'une note. */
+export interface NoteEnregistree {
+  note: NoteCritere;
+  scoreActuel: number;
+  avancement: AvancementCorrection;
+}
+
+/** GET /api/ateliers/:id/livrables — les livrables d'un atelier (premier déposé en tête). */
+export async function getLivrablesAtelier(
+  atelierId: string,
+  statut?: StatutLivrable,
+): Promise<LivrableResume[]> {
+  const qs = statut ? `?statut=${statut}` : '';
+  const response = await apiFetch(`/api/ateliers/${atelierId}/livrables${qs}`);
+  return lireReponseFormation<LivrableResume[]>(response, 'Impossible de charger les livrables.');
+}
+
+/** GET /api/livrables/:id — le livrable, sa grille et sa correction (null si pas ouverte). */
+export async function getLivrableACorriger(livrableId: string): Promise<LivrableACorriger> {
+  const response = await apiFetch(`/api/livrables/${livrableId}`);
+  return lireReponseFormation<LivrableACorriger>(response, 'Impossible de charger le livrable.');
+}
+
+/**
+ * PATCH /api/livrables/:id/ouvrir — SOUMIS -> EN_CORRECTION.
+ *   - 409 -> déjà en correction ou déjà noté, ou formation archivée.
+ */
+export async function ouvrirCorrection(livrableId: string): Promise<LivrableACorriger> {
+  const response = await apiFetch(`/api/livrables/${livrableId}/ouvrir`, { method: 'PATCH' });
+  return lireReponseFormation<LivrableACorriger>(response, 'Impossible d’ouvrir la correction.');
+}
+
+/**
+ * PUT /api/livrables/:id/correction/criteres/:critereId — note (ou renote) un critère.
+ *   - 400 -> points hors de la plage du niveau, plus de deux décimales… ;
+ *   - 409 -> correction pas ouverte, livrable déjà noté, formation archivée.
+ */
+export async function noterCritere(
+  livrableId: string,
+  critereId: string,
+  note: { niveau: number; pointsPct: number; commentaire: string | null },
+): Promise<NoteEnregistree> {
+  const response = await apiFetch(
+    `/api/livrables/${livrableId}/correction/criteres/${critereId}`,
+    { method: 'PUT', headers: JSON_HEADERS, body: JSON.stringify(note) },
+  );
+  return lireReponseFormation<NoteEnregistree>(response, 'Impossible d’enregistrer la note.');
+}
+
+/**
+ * GET /api/livrables/:id/fichiers/:ordre — télécharge un fichier du livrable.
+ * Le jeton n'accompagne pas un simple lien : je récupère le contenu avec
+ * apiFetch, puis je le propose au navigateur sous son nom d'origine.
+ */
+export async function telechargerFichierLivrable(
+  livrableId: string,
+  ordre: number,
+  nomOriginal: string,
+): Promise<void> {
+  const response = await apiFetch(`/api/livrables/${livrableId}/fichiers/${ordre}`);
+  if (!response.ok) {
+    await lireReponseFormation<never>(response, 'Impossible de télécharger le fichier.');
+  }
+  const url = URL.createObjectURL(await response.blob());
+  const lien = document.createElement('a');
+  lien.href = url;
+  lien.download = nomOriginal;
+  document.body.appendChild(lien);
+  lien.click();
+  lien.remove();
+  setTimeout(() => URL.revokeObjectURL(url), 1000);
+}
