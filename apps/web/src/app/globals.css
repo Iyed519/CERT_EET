@@ -689,3 +689,33 @@ textarea.input { resize: vertical; font-family: inherit; line-height: 1.45; }
 @media (max-width: 560px) {
   .certificat-carte-actions .btn-sm { width: 100%; justify-content: center; text-align: center; }
 }
+
+/* US-CERT-04 — Page publique de vérification. */
+.verification { max-width: 720px; margin: 0 auto; }
+.verification-surtitre { margin: 0 0 10px; font-size: 0.8rem; font-weight: 700; letter-spacing: 0.06em; text-transform: uppercase; color: var(--muted); }
+.verification-carte { padding: 22px; border: 2px solid var(--border); border-radius: var(--radius); background: var(--surface); box-shadow: var(--shadow-sm); }
+.verdict-VALIDE { border-color: var(--primary); }
+.verdict-REVOQUE, .verdict-INTEGRITE_COMPROMISE { border-color: var(--danger); }
+.verification-verdict { display: flex; gap: 14px; align-items: flex-start; margin-bottom: 18px; }
+.verification-pastille { flex: 0 0 44px; height: 44px; display: grid; place-items: center; border-radius: 50%; font-size: 1.4rem; font-weight: 800; color: #fff; background: var(--primary); }
+.verdict-REVOQUE .verification-pastille, .verdict-INTEGRITE_COMPROMISE .verification-pastille { background: var(--danger); }
+.verification-titre { margin: 0; font-size: 1.4rem; }
+.verdict-VALIDE .verification-titre { color: var(--primary-dark); }
+.verdict-REVOQUE .verification-titre, .verdict-INTEGRITE_COMPROMISE .verification-titre { color: #922b21; }
+.verification-texte { margin: 4px 0 0; color: var(--muted); line-height: 1.5; }
+.verification-fiche { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 12px 18px; margin: 0 0 16px; }
+.verification-fiche dt { font-size: 0.75rem; font-weight: 700; text-transform: uppercase; letter-spacing: 0.04em; color: var(--muted); }
+.verification-fiche dd { margin: 2px 0 0; font-weight: 600; overflow-wrap: anywhere; }
+.verification-fiche-large { grid-column: 1 / -1; }
+.verification-comparer { margin: 0 0 16px; padding: 14px; border-radius: var(--radius-sm); background: #f6f8f6; }
+.verification-comparer-titre { margin: 0; font-weight: 700; }
+.verification-comparer .field-hint { margin: 4px 0 10px; }
+.verification-comparer .alert { margin: 10px 0 0; }
+.verification-fichier { display: inline-flex; cursor: pointer; }
+.verification-fichier:focus-within { outline: 2px solid var(--primary); outline-offset: 2px; }
+@media (max-width: 560px) {
+  .verification-carte { padding: 16px; }
+  .verification-fiche { grid-template-columns: 1fr; }
+  .verification .btn-lien, .verification-fichier { width: 100%; justify-content: center; }
+}
+.btn-primary-sm.btn-lien { color: #fff; }
