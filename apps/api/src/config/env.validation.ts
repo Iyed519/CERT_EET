@@ -79,6 +79,14 @@ export const envValidationSchema = Joi.object({
   CERTIFICATS_WORKER: Joi.string().valid('on', 'off').default('on'),
   CERTIFICATS_TENTATIVES: Joi.number().integer().min(1).max(10).default(3),
   CERTIFICATS_BACKOFF_MS: Joi.number().integer().min(10).max(600000).default(5000),
+
+  // --- Vérification publique (US-CERT-05) ---
+  // Requêtes par minute et par adresse IP sur /api/verification (DS-05 : 20).
+  VERIFICATION_LIMITE_PAR_MINUTE: Joi.number().integer().min(1).max(10000).default(20),
+  // Proxies de confiance pour lire l'IP du visiteur (X-Forwarded-For posé par
+  // nginx). Valeur Express « trust proxy » : par défaut les réseaux privés et
+  // la boucle locale (le conteneur nginx), jamais Internet.
+  TRUST_PROXY: Joi.string().default('loopback, uniquelocal'),
 })
   // Refuse les clés inconnues seulement en avertissement : on n'échoue pas
   // sur des variables système, mais on valide strictement celles qu'on connaît.

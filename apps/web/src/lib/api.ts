@@ -2449,6 +2449,14 @@ export interface VerificationCertificat {
 export async function verifierCertificat(id: string): Promise<VerificationCertificat | null> {
   const response = await fetch(`/api/verification/${encodeURIComponent(id)}`);
   if (response.status === 404) return null;
+  if (response.status === 429) {
+    // US-CERT-05 : limitation de débit — le message du serveur dit quand réessayer.
+    const corps = (await response.json().catch(() => null)) as { message?: string } | null;
+    throw new AdminError(
+      corps?.message ?? 'Trop de vérifications : réessayez dans une minute.',
+      response.status,
+    );
+  }
   if (!response.ok) {
     throw new AdminError('La vérification est momentanément indisponible : réessayez.', response.status);
   }
