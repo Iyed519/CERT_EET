@@ -2057,6 +2057,8 @@ export interface AtelierEspace {
   etatDepot: EtatDepot;
   /** US-ATEL-04 — statut de mon livrable (null : rien déposé). */
   statutMonLivrable: StatutLivrable | null;
+  /** US-ATEL-08 — livrable noté dont je n'ai pas encore ouvert le feedback. */
+  nouveauFeedback: boolean;
 }
 
 /** Fiche d'un atelier publié, avec sa grille en lecture. */
@@ -2076,8 +2078,30 @@ export interface AtelierApprenant {
   nbMaxFichiers: number;
   etatDepot: EtatDepot;
   grille: { totalPonderations: number; criteres: CritereGrille[] };
-  /** US-ATEL-04 — mon livrable, ou null si rien n'est déposé. */
+  /** US-ATEL-04 — mon livrable, ou null si rien n'est déposé (US-ATEL-08 : avec son feedback). */
   monLivrable: LivrableApprenant | null;
+}
+
+/** US-ATEL-08 — la note d'un critère, telle que l'apprenant la lit. */
+export interface NoteFeedback {
+  critereId: string;
+  ordre: number;
+  intitule: string;
+  ponderation: number;
+  niveau: number;
+  libelleNiveau: string;
+  pointsPct: number;
+  contribution: number;
+  commentaire: string | null;
+}
+
+/** US-ATEL-08 — le feedback d'un livrable noté (null avant l'envoi). */
+export interface FeedbackLivrable {
+  scoreFinal: number;
+  commentaireGeneral: string;
+  dateFinalisation: string;
+  correcteur: { prenom: string | null; nom: string | null };
+  criteres: NoteFeedback[];
 }
 
 /**
@@ -2114,6 +2138,8 @@ export interface LivrableApprenant {
     tailleOctets: number;
     sha256: string;
   }>;
+  /** US-ATEL-08 — présent sur la fiche : le feedback une fois noté, sinon null. */
+  feedback?: FeedbackLivrable | null;
 }
 
 /**
