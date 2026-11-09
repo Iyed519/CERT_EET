@@ -12,6 +12,7 @@ import type {
   StatutInscription,
   StatutLivrable,
   StatutQcm,
+  StatutSupport,
   StatutTentative,
   TypeQuestion,
 } from './api';
@@ -269,4 +270,11 @@ export const LIBELLES_MOTIF_REVOCATION: Record<MotifRevocation, string> = {
   ERREUR_ADMIN: 'Erreur administrative',
   DISCIPLINAIRE: 'Décision disciplinaire',
   JUDICIAIRE: 'Décision judiciaire',
+};
+
+/** Libellés FR du statut d'un support pédagogique (US-IA-01). */
+export const LIBELLES_STATUT_SUPPORT: Record<StatutSupport, string> = {
+  EN_INDEXATION: 'Indexation…',
+  INDEXE: 'Indexé',
+  ECHEC_INDEXATION: 'Échec',
 };

@@ -4,6 +4,7 @@ import { useParams, useRouter } from 'next/navigation';
 import { useCallback, useEffect, useState } from 'react';
 import { AtelierModal } from '../../../../components/AtelierModal';
 import { QcmInfosModal } from '../../../../components/QcmInfosModal';
+import { SupportsModule } from '../../../../components/SupportsModule';
 import {
   AdminError,
   AtelierResume,
@@ -53,6 +54,9 @@ const dateFr = (iso: string | null): string => {
  *
  * US-ATEL-01 — Sous les QCM : les ateliers du module (statut, date limite,
  * types de livrables, lien vers la fiche) et un bouton « Nouvel atelier ».
+ *
+ * US-IA-01 — Sous les ateliers : les supports pédagogiques du module pour
+ * l'assistance IA (dépôt, état d'indexation, relance, suppression).
  */
 export default function MaFormationPage(): JSX.Element {
   const params = useParams<{ id: string }>();
@@ -239,6 +243,7 @@ export default function MaFormationPage(): JSX.Element {
                       ))}
                     </ul>
                   )}
+                  <SupportsModule moduleId={m.id} moduleTitre={m.titre} modifiable={modifiable} />
                 </li>
               ))}
             </ol>
