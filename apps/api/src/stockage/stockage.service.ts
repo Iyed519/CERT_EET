@@ -141,6 +141,24 @@ export class StockageService implements OnModuleInit {
     return { flux: reponse.Body, taille: reponse.ContentLength ?? null };
   }
 
+  /**
+   * Lit une PLAGE d'octets d'un objet, en flux (US-FORM-06 : lecture d'une
+   * vidéo avec saut dans le temps). `plage` null : l'objet entier.
+   */
+  async lirePlage(cle: string, plage: { debut: number; fin: number } | null): Promise<ObjetLu> {
+    const reponse = await this.client.send(
+      new GetObjectCommand({
+        Bucket: this.bucket,
+        Key: cle,
+        ...(plage ? { Range: `bytes=${plage.debut}-${plage.fin}` } : {}),
+      }),
+    );
+    if (!(reponse.Body instanceof Readable)) {
+      throw new Error(`Objet ${cle} : contenu illisible.`);
+    }
+    return { flux: reponse.Body, taille: reponse.ContentLength ?? null };
+  }
+
   /** Supprime des objets (au mieux : une erreur est journalisée, pas relancée). */
   async supprimer(cles: string[]): Promise<void> {
     if (cles.length === 0) return;

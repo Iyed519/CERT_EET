@@ -392,6 +392,13 @@ describe('Supports pédagogiques (e2e) — US-IA-01', () => {
       expect(texte.startsWith('Le chiffrement TLS protège le transport.')).toBe(true);
     }, 40_000);
 
+    it('nom de fichier accentué conservé (multer le décode en latin1)', async () => {
+      const res = await deposer(Buffer.from(`${COURS}\nAccents.`), 'Résumé été.txt').expect(202);
+      expect(res.body.nomOriginal).toBe('Résumé été.txt');
+      expect(res.body.titre).toBe('Résumé été');
+      await attendreStatut(res.body.id as string, StatutSupport.INDEXE);
+    }, 30_000);
+
     it('liste du module : plus récents d’abord, jamais la clé de stockage', async () => {
       const res = await api('get', `/modules/${moduleId}/supports`, tokens.formateur).expect(200);
       expect(res.body.length).toBeGreaterThanOrEqual(4);

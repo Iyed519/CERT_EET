@@ -12,12 +12,30 @@ import {
   Put,
   Req,
   UnauthorizedException,
+  UploadedFile,
+  UseFilters,
+  UseInterceptors,
 } from '@nestjs/common';
-import { ApiBearerAuth, ApiOperation, ApiResponse, ApiTags } from '@nestjs/swagger';
+import { FileInterceptor } from '@nestjs/platform-express';
+import {
+  ApiBearerAuth,
+  ApiBody,
+  ApiConsumes,
+  ApiOperation,
+  ApiResponse,
+  ApiTags,
+} from '@nestjs/swagger';
+import { NettoyageSupportInterceptor } from '../assistance-ia/supports/depot-support';
 import { Role } from '../../database/enums/role.enum';
 import { AuthenticatedRequest } from '../auth/auth.types';
 import { Roles } from '../auth/decorators/roles.decorator';
 import { FormateurDeLaFormation } from '../formations/autorisation/formateur-de-la-formation.decorator';
+import {
+  DeposerFichierRessourceDto,
+  ErreursDepotRessourceFilter,
+  OPTIONS_DEPOT_RESSOURCE,
+} from './depot-ressource';
+import { FichiersRessourcesService } from './fichiers-ressources.service';
 import { AjouterLienDto, ModifierRessourceDto, ReordonnerRessourcesDto } from './ressources.dto';
 import { RessourcesService, RessourceVue } from './ressources.service';
 
@@ -31,7 +49,10 @@ import { RessourcesService, RessourceVue } from './ressources.service';
 @Roles(Role.FORMATEUR, Role.ADMINISTRATEUR)
 @Controller()
 export class RessourcesController {
-  constructor(private readonly ressourcesService: RessourcesService) {}
+  constructor(
+    private readonly ressourcesService: RessourcesService,
+    private readonly fichiers: FichiersRessourcesService,
+  ) {}
 
   @Get('modules/:moduleId/ressources')
   @FormateurDeLaFormation({ moduleId: 'moduleId' })
@@ -75,6 +96,60 @@ export class RessourcesController {
     @Req() req: AuthenticatedRequest,
   ): Promise<RessourceVue> {
     return this.ressourcesService.ajouterLien(this.acteur(req), moduleId, dto, {
+      adresseIp: req.ip ?? null,
+    });
+  }
+
+  @Post('modules/:moduleId/ressources/fichiers')
+  @HttpCode(HttpStatus.CREATED)
+  @FormateurDeLaFormation({ moduleId: 'moduleId' })
+  @UseFilters(ErreursDepotRessourceFilter)
+  // Intercepteur de nettoyage partagé avec les supports IA : il supprime le
+  // fichier temporaire (req.file) quelle que soit l'issue de la requête.
+  @UseInterceptors(NettoyageSupportInterceptor, FileInterceptor('fichier', OPTIONS_DEPOT_RESSOURCE))
+  @ApiConsumes('multipart/form-data')
+  @ApiBody({
+    schema: {
+      type: 'object',
+      required: ['fichier'],
+      properties: {
+        fichier: { type: 'string', format: 'binary' },
+        titre: { type: 'string', maxLength: 200 },
+        description: { type: 'string', maxLength: 500 },
+      },
+    },
+  })
+  @ApiOperation({
+    summary: 'Déposer un fichier dans le module (US-FORM-06)',
+    description:
+      'Tout type de fichier, sous la taille maximale (RESSOURCES_TAILLE_MAX_MO). PDF, images, ' +
+      'vidéos MP4/WebM et audio sont lisibles dans la plateforme (contenu contrôlé) ; le reste ' +
+      'se télécharge.',
+  })
+  @ApiResponse({
+    status: 201,
+    description: 'Fichier ajouté en dernière position ; audit RESSOURCE_AJOUTEE.',
+  })
+  @ApiResponse({
+    status: 400,
+    description: 'Fichier absent, vide, contenu non conforme, titre ou description invalide.',
+  })
+  @ApiResponse({ status: 401, description: 'Non authentifié.' })
+  @ApiResponse({ status: 403, description: 'Rôle insuffisant ou formateur non affecté (tracé).' })
+  @ApiResponse({ status: 404, description: 'Module introuvable.' })
+  @ApiResponse({
+    status: 409,
+    description: 'Formation archivée, ou 50 ressources déjà dans le module.',
+  })
+  @ApiResponse({ status: 413, description: 'Fichier au-delà de la taille maximale.' })
+  @ApiResponse({ status: 503, description: 'Stockage indisponible.' })
+  deposerFichier(
+    @Param('moduleId', ParseUUIDPipe) moduleId: string,
+    @UploadedFile() fichier: Express.Multer.File | undefined,
+    @Body() dto: DeposerFichierRessourceDto,
+    @Req() req: AuthenticatedRequest,
+  ): Promise<RessourceVue> {
+    return this.fichiers.deposer(this.acteur(req), moduleId, fichier ?? null, dto, {
       adresseIp: req.ip ?? null,
     });
   }

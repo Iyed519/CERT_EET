@@ -114,6 +114,11 @@ export interface IaConfig {
   generationsParHeure: number;
 }
 
+/** US-FORM-06 — ressources « fichier » des modules. */
+export interface RessourcesConfig {
+  tailleMaxMo: number;
+}
+
 export interface StockageConfig {
   endpoint: string;
   region: string;
@@ -133,6 +138,7 @@ export default (): {
   certificats: CertificatsConfig;
   verification: VerificationConfig;
   ia: IaConfig;
+  ressources: RessourcesConfig;
 } => ({
   app: {
     nodeEnv: (process.env.NODE_ENV as AppConfig['nodeEnv']) ?? 'development',
@@ -198,5 +204,8 @@ export default (): {
     backoffMs: parseInt(process.env.IA_BACKOFF_MS ?? '5000', 10),
     embeddingsFournisseur: 'hachage',
     generationsParHeure: parseInt(process.env.IA_GENERATIONS_PAR_HEURE ?? '10', 10),
+  },
+  ressources: {
+    tailleMaxMo: parseInt(process.env.RESSOURCES_TAILLE_MAX_MO ?? '500', 10),
   },
 });

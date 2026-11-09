@@ -3,10 +3,13 @@ import { DataSource, EntityManager } from 'typeorm';
 import { ModuleFormation } from '../../database/entities/module-formation.entity';
 import { RessourceModule } from '../../database/entities/ressource-module.entity';
 import { NatureRessource } from '../../database/enums/nature-ressource.enum';
+import { StockageService } from '../../stockage/stockage.service';
 import { AuditService } from '../audit/audit.service';
 import { FormationsService } from '../formations/formations.service';
+import { ModeLecture } from './fichier-ressource.regles';
 import {
   analyserLien,
+  MESSAGE_ADRESSE_FICHIER,
   domaineDe,
   MESSAGE_RESSOURCE_INTROUVABLE,
   nettoyerTexte,
@@ -36,6 +39,14 @@ export interface RessourceVue {
   videoId: string | null;
   debutSecondes: number | null;
   domaine: string | null;
+  /** US-FORM-06 — fichier (null pour un lien) ; jamais la clé de stockage. */
+  fichier: {
+    nomOriginal: string;
+    extension: string;
+    tailleOctets: number;
+    /** VIDEO, AUDIO, PDF, IMAGE : lisible dans la plateforme ; null : à télécharger. */
+    lecture: ModeLecture | null;
+  } | null;
 }
 
 export function versVueRessource(r: RessourceModule): RessourceVue {
@@ -50,6 +61,15 @@ export function versVueRessource(r: RessourceModule): RessourceVue {
     videoId: r.videoId,
     debutSecondes: r.debutSecondes,
     domaine: r.url ? domaineDe(r.url) : null,
+    fichier:
+      r.nature === NatureRessource.FICHIER
+        ? {
+            nomOriginal: r.nomOriginal as string,
+            extension: r.extension as string,
+            tailleOctets: r.tailleOctets as number,
+            lecture: r.lecture as ModeLecture | null,
+          }
+        : null,
   };
 }
 
@@ -68,6 +88,7 @@ export class RessourcesService {
   constructor(
     private readonly dataSource: DataSource,
     private readonly formationsService: FormationsService,
+    private readonly stockageService: StockageService,
     // Writer d'audit UNIQUE (@Global, US-AUTH-12).
     private readonly auditService: AuditService,
   ) {}
@@ -163,6 +184,9 @@ export class RessourcesService {
         lock: { mode: 'pessimistic_write' },
       });
       if (!ressource) throw new NotFoundException(MESSAGE_RESSOURCE_INTROUVABLE);
+      if (lien && ressource.nature === NatureRessource.FICHIER) {
+        throw new BadRequestException(MESSAGE_ADRESSE_FICHIER);
+      }
       await this.verifierFormationModifiable(manager, ressource.moduleId);
       await manager.update(
         RessourceModule,
@@ -254,6 +278,8 @@ export class RessourcesService {
       await manager.delete(RessourceModule, { id: ressourceId });
       return complete;
     });
+    // US-FORM-06 : l'objet du fichier, après validation (au mieux).
+    if (supprimee.cleStockage) await this.stockageService.supprimer([supprimee.cleStockage]);
     await this.auditService.record({
       action: 'RESSOURCE_SUPPRIMEE',
       acteur: acteurId,
@@ -263,7 +289,9 @@ export class RessourcesService {
       detailsAvantApres: {
         moduleId: supprimee.moduleId,
         titre: supprimee.titre,
+        nature: supprimee.nature,
         url: supprimee.url,
+        sha256: supprimee.sha256,
       },
     });
   }

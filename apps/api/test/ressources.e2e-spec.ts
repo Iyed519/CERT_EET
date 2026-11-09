@@ -259,6 +259,8 @@ describe('Ressources de module — liens (e2e) — US-FORM-05', () => {
         videoId: 'dQw4w9WgXcQ',
         debutSecondes: 90,
         domaine: 'youtube.com',
+        // US-FORM-06 : un lien n'a pas de fichier.
+        fichier: null,
       });
       r.youtube = yt.body.id as string;
       const vi = await ajouter(mod.M1, {
@@ -399,6 +401,7 @@ describe('Ressources de module — liens (e2e) — US-FORM-05', () => {
           'debutSecondes',
           'description',
           'domaine',
+          'fichier',
           'id',
           'nature',
           'ordre',
@@ -509,7 +512,7 @@ describe('Ressources de module — liens (e2e) — US-FORM-05', () => {
 
     it('adresse http(s), identifiant vidéo au bon format, page web sans vidéo', async () => {
       await expect(inserer(`'LIEN', 'x', 'javascript:alert(1)', 'WEB', NULL`)).rejects.toThrow(
-        /CHK_ressources_lien/,
+        /CHK_ressources_nature/,
       );
       await expect(
         inserer(`'LIEN', 'x', 'https://youtu.be/x', 'YOUTUBE', 'court'`),
@@ -518,7 +521,7 @@ describe('Ressources de module — liens (e2e) — US-FORM-05', () => {
         inserer(`'LIEN', 'x', 'https://exemple.tn', 'WEB', 'dQw4w9WgXcQ'`),
       ).rejects.toThrow(/CHK_ressources_video/);
       await expect(inserer(`'FICHIER', 'x', 'https://exemple.tn', 'WEB', NULL`)).rejects.toThrow(
-        /CHK_ressources_lien/,
+        /CHK_ressources_nature/,
       );
       await expect(inserer(`'LIEN', '  ', 'https://exemple.tn', 'WEB', NULL`)).rejects.toThrow(
         /CHK_ressources_titre/,

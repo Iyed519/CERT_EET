@@ -753,13 +753,23 @@ textarea.input { resize: vertical; font-family: inherit; line-height: 1.45; }
 .ressource-ligne > .btn-sm, .ressource-ligne > .support-actions { align-self: center; }
 .ressource-icone { flex: 0 0 auto; width: 30px; height: 30px; border-radius: 999px; display: grid; place-items: center; background: #eef2f7; color: #475569; margin-top: 1px; }
 .ressource-icone-video { background: var(--danger-soft); color: var(--danger); }
+/* US-FORM-06 — genres de fichiers. */
+.ressource-icone-audio { background: #f3e8ff; color: #7e22ce; }
+.ressource-icone-document { background: #e0f2fe; color: #0369a1; }
+.ressource-icone-image { background: var(--success-soft); color: var(--primary-dark); }
+.ressource-icone-fichier { background: #fef3e2; color: var(--accent-dark); }
+.ressource-lecteur video { position: absolute; inset: 0; width: 100%; height: 100%; background: #0f1419; }
+.ressource-audio { flex-basis: 100%; width: 100%; margin-top: 4px; }
+.ressource-image { flex-basis: 100%; max-width: 100%; max-height: 520px; object-fit: contain; border-radius: var(--radius-sm); margin-top: 4px; background: #fff; }
+.ressource-pleine { flex-basis: 100%; margin: 4px 0 0; }
+.supports-boutons { display: flex; gap: 8px; flex-wrap: wrap; }
 .ressource-description { margin-top: 4px; font-size: 0.85rem; color: #4a5866; overflow-wrap: anywhere; }
 .ressource-lecteur { flex-basis: 100%; position: relative; width: 100%; aspect-ratio: 16 / 9; border-radius: var(--radius-sm); overflow: hidden; background: #0f1419; margin-top: 4px; }
 .ressource-lecteur iframe { position: absolute; inset: 0; width: 100%; height: 100%; border: 0; }
 .ressources-formateur .support-actions { flex-wrap: wrap; justify-content: flex-end; }
 @media (max-width: 560px) {
   .ressources-apprenant > .supports-titre { margin-left: 0; }
-  .ressource-ligne .module-corps { flex: 1 1 0; min-width: 0; flex-basis: auto; }
+  .ressource-ligne .module-corps { flex: 1 1 calc(100% - 48px); min-width: 0; }
   .ressource-ligne > .support-actions { flex-basis: 100%; justify-content: flex-start; margin-left: 40px; gap: 6px; }
   .ressource-ligne .support-actions .btn-sm { margin-left: 0; }
 }

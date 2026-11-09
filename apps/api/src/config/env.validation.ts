@@ -98,6 +98,11 @@ export const envValidationSchema = Joi.object({
   EMBEDDINGS_FOURNISSEUR: Joi.string().valid('hachage').default('hachage'),
   // US-IA-02 : générations par formateur et par heure (fenêtre fixe, Redis).
   IA_GENERATIONS_PAR_HEURE: Joi.number().integer().min(1).max(1000).default(10),
+
+  // --- Ressources de module (US-FORM-06) ---
+  // Taille maximale d'un fichier (Mo), vidéos comprises ; 1 024 au plus
+  // (plafond de nginx et de la base).
+  RESSOURCES_TAILLE_MAX_MO: Joi.number().integer().min(1).max(1024).default(500),
 })
   // Refuse les clés inconnues seulement en avertissement : on n'échoue pas
   // sur des variables système, mais on valide strictement celles qu'on connaît.
