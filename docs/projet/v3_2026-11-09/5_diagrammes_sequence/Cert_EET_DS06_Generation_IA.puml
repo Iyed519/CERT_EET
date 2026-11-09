@@ -1,0 +1,206 @@
+@startuml Cert_EET_DS06_Generation_IA
+' =====================================================================
+'  Projet    : Cert_EET
+'  Diagramme : DS-06 — Génération de questions QCM par IA (RAG)
+'  Acteur    : Formateur (+ worker IA, LLM externe)
+'  Ref CdC   : F4 (Assistant IA) — ADR-04 — ADR-05
+'  Auteur    : Iyed Omri — PFE ESPRIT 2026
+'  Version   : 1.1 — 09/11/2026, alignée sur l'implémentation du Sprint 3
+'              (US-IA-01 à 04 ; engineering-log/49, 50, 53, 54).
+'              Changements v1.0 → v1.1 : routes sous le module ; formats
+'              PDF (processus enfant), PPTX, DOCX, TXT, MD ; doublon = 409 ;
+'              statut ECHEC_INDEXATION + relance ; passages de 2 000
+'              caractères / 200 de chevauchement ; embeddings derrière
+'              FournisseurEmbeddings (384 dimensions, fournisseur lexical
+'              local), modèle enregistré par support ; BullMQ, workers dans
+'              le processus de l'API ; emails (pas de notifications in-app,
+'              SSE = US-IA-07) ; prérequis manquant = 409, une génération en
+'              cours par formateur + plafond horaire (429) ; LLM derrière
+'              FournisseurLlm (Anthropic Claude, factice en CI), JSON imposé
+'              par appel d'outil, consignes en système, support en bloc de
+'              données ; statut ECHEC avec motif ; révision : question
+'              acceptée vers un QCM du même module (pas de banque séparée),
+'              origine IA / IA_MODIFIEE, décision unique garantie en base.
+' =====================================================================
+!pragma teoz true
+skinparam backgroundColor #FFFFFF
+skinparam shadowing false
+skinparam DefaultFontName "Segoe UI"
+skinparam DefaultFontSize 10
+skinparam sequenceMessageAlign center
+skinparam responseMessageBelowArrow true
+skinparam ParticipantPadding 18
+skinparam ArrowThickness 1.2
+skinparam LifeLineBorderThickness 1.0
+skinparam participant {
+  BackgroundColor #FFFFFF
+  BorderColor #5D6D7E
+}
+skinparam actor {
+  BackgroundColor #ECF0F1
+  BorderColor #1B4F72
+  FontStyle bold
+}
+skinparam database {
+  BackgroundColor #EBF5FB
+  BorderColor #1B4F72
+}
+skinparam collections {
+  BackgroundColor #E8F8F5
+  BorderColor #1E8449
+}
+skinparam boundary {
+  BackgroundColor #FEF9E7
+  BorderColor #B7950B
+}
+skinparam control {
+  BackgroundColor #FAE5D3
+  BorderColor #BA4A00
+}
+skinparam entity {
+  BackgroundColor #E8DAEF
+  BorderColor #7D3C98
+}
+skinparam note {
+  BackgroundColor #FEF9E7
+  BorderColor #B7950B
+  FontSize 9
+}
+skinparam sequence {
+  ArrowColor #34495E
+  LifeLineBorderColor #7F8C8D
+  LifeLineBackgroundColor #FDFEFE
+  GroupBorderColor #1B4F72
+  GroupHeaderFontColor #1B4F72
+  GroupHeaderFontStyle bold
+  DividerBorderColor #1B4F72
+  DividerBackgroundColor #D6EAF8
+  DividerFontColor #1B4F72
+  DividerFontStyle bold
+}
+
+title <size:14><b>Cert_EET — DS-06 : Génération de Questions QCM par IA (RAG)</b></size>\n<size:10>Formateur · Dépôt → Indexation → RAG → Révision → QCM · F4 · v1.1 (Sprint 3)</size>
+
+actor       "Formateur" as FOR
+boundary    "Frontend\n(Next.js)" as FE
+control     "Supports / Generations /\nRevisionSuggestions\nControllers" as AIC
+control     "Services\n(requête HTTP)" as AIS
+collections "Files BullMQ\nia-indexation, ia-generation" as BQ
+entity      "Workers\n(processus de l'API)" as GW
+control     "FournisseurEmbeddings\n(384 dim.)" as VS
+control     "FournisseurLlm\n(Anthropic | factice)" as LLM
+control     "StockageService\n(MinIO)" as STO
+database    "PostgreSQL\n(+ pgvector)" as DB
+control     "MailService" as NOTIF
+
+== Partie 1 — Dépôt et indexation du support (US-IA-01) ==
+
+FOR  ->  FE  : « + Support » dans un module de sa formation
+FE   ->  AIC : POST /modules/:moduleId/supports\n(multipart fichier, titre?)
+AIC  ->  AIS : garde @FormateurDeLaFormation ;\nformat (PDF, PPTX, DOCX, TXT, MD), ≤ 20 Mo,\nsignature, SHA-256
+alt #FFE8E8 Même fichier déjà dans le module / formation archivée
+  AIS --> FE  : HTTP 409
+else #E8F8F5 Accepté
+  AIS  ->  STO : supports/{module}/{support}/original.{ext}
+  AIS  ->  DB  : INSERT supports_pedagogiques (EN_INDEXATION) ;\naudit SUPPORT_DEPOSE
+  AIS  ->> BQ  : ia-indexation (jobId = support)
+  AIS --> FE   : HTTP 202 (EN_INDEXATION)
+end
+
+BQ   ->> GW  : travail d'indexation
+group #EBF5FB Indexation (asynchrone)
+  GW   ->  STO : lecture du fichier
+  GW   ->  GW  : extraction du texte (PDF dans un processus\nenfant borné ; ZIP interne pour PPTX / DOCX)
+  GW   ->  GW  : passages de 2 000 caractères,\nchevauchement 200 (≤ 2 000 passages)
+  GW   ->  VS  : vectoriser(passages, 'passage')
+  VS  --> GW   : vecteurs (384 dimensions)
+  GW   ->  DB  : INSERT segments_support (texte, embedding\nvector(384), index HNSW cosinus) ;\nsupport INDEXE, modèle d'embeddings, nb_segments
+end
+alt #FFE8E8 Texte illisible / échec définitif
+  GW   ->  DB  : ECHEC_INDEXATION + motif ; audit
+  note right of DB : relance : POST /supports/:id/reindexer (202)
+else #E8F8F5 Indexé
+  GW   ->  DB  : audit SUPPORT_INDEXE
+end
+GW   ->> NOTIF : email au déposant (succès ou échec)
+FE   ->  AIC : interrogation périodique de la liste\n(le temps réel SSE = US-IA-07)
+
+== Partie 2 — Paramétrage et lancement (US-IA-02) ==
+
+FOR  ->  FE  : « Générer » : nombre (1–20), types\n(QCU, QCM, VRAI_FAUX), niveau, thème
+FE   ->  AIC : POST /modules/:moduleId/generations\n{ supportId, nbQuestions, types, niveau,\n  focusThematique? }
+AIC  ->  AIS : lancer
+AIS  ->  DB  : support verrouillé (FOR SHARE), INDEXE ?
+alt #FFE8E8 Aucun support indexé / génération déjà en cours
+  AIS --> FE  : HTTP 409 (invitation à indexer un support)
+else #FFE8E8 Plafond horaire atteint (Redis)
+  AIS --> FE  : HTTP 429
+else #E8F8F5 Lancée
+  AIS  ->  DB  : INSERT generations_ia (EN_COURS)\n— une EN_COURS par formateur (index unique partiel) ;\naudit GENERATION_IA_LANCEE
+  AIS  ->> BQ  : ia-generation (jobId = génération)
+  AIS --> FE   : HTTP 202
+end
+
+== Partie 3 — Pipeline RAG (US-IA-03) ==
+
+BQ   ->> GW  : travail de génération
+GW   ->  DB  : verrou ; toujours EN_COURS ? (sinon rien) ;\nnb_tentatives + 1
+group #EBF5FB Retrieval (R du RAG)
+  GW   ->  VS  : vectoriser(thème ou « titre : notions\nessentielles du cours », 'requete')
+  note right of VS
+    Même modèle que les passages du support,
+    sinon échec définitif (réindexer).
+  end note
+  GW   ->  DB  : SELECT ordre, texte FROM segments_support\nWHERE support_id = :support\nORDER BY embedding <=> :vecteur LIMIT 8
+end
+group #EBF5FB Augmented Generation (AG du RAG)
+  GW   ->  GW  : prompt borné (LLM_PROMPT_MAX_CARACTERES) :\nconsignes en message système ;\npassages numérotés dans un bloc <support>\nde DONNÉES (chevrons neutralisés)
+  GW   ->  LLM : genererQuestions(prompt, { delaiMs })\nappel d'outil imposé « proposer_questions »\n(schéma JSON), aucune relance du SDK
+  LLM --> GW   : { questions: [...] }
+  GW   ->  GW  : validation serveur (règles de l'éditeur de QCM) :\ntype permis, énoncé 10–1 000, 2–6 options distinctes,\nune seule bonne réponse en QCU et Vrai/Faux…\nnon conformes comptées, jamais enregistrées
+end
+alt #FFE8E8 Réponse illisible, aucune conforme, panne passagère
+  GW  -->> BQ  : nouvelle tentative (IA_TENTATIVES)
+  opt #FFE8E8 Tentatives épuisées ou erreur définitive
+    GW   ->  DB  : ECHEC + motif en français (si encore EN_COURS) ;\naudit GENERATION_IA_ECHEC
+    GW   ->> NOTIF : email au formateur
+  end
+else #E8F8F5 Questions conformes
+  GW   ->  DB  : verrou ; INSERT suggestions_questions_ia (PROPOSEE) ;\nTERMINEE, nb_suggestions, nb_invalides, modele_llm,\ndate_fin = now() ; audit GENERATION_IA_TERMINEE
+  GW   ->> NOTIF : email « questions prêtes à réviser »
+end
+
+== Partie 4 — Révision (humain dans la boucle · US-IA-04) ==
+
+FOR  ->  FE  : « Réviser les questions »
+FE   ->  AIC : GET /generations/:generationId/suggestions
+AIC --> FE   : énoncés, options, explication, confiance,\npassages sources, statut
+FOR  ->  FE  : choisit le QCM du module qui recevra les questions
+loop Pour chaque suggestion
+  alt #E8F8F5 Accepter (telle quelle ou modifiée)
+    FE   ->  AIC : POST /suggestions/:id/accepter\n{ qcmId, question? }
+    AIC  ->  AIS : QCM du même module (400), ouvert à l'écriture\n(409 si déjà tenté) ; règles de l'éditeur (400)
+    AIS  ->  DB  : verrou de la suggestion (PROPOSEE, sinon 409) ;\nverrou du QCM ; INSERT questions (origine IA ou\nIA_MODIFIEE) + options + rang ; ACCEPTEE / MODIFIEE
+    AIS  ->  DB  : audit SUGGESTION_ACCEPTEE / SUGGESTION_MODIFIEE
+    AIS --> FE   : HTTP 201 (suggestion + question)
+  else #FFE8E8 Rejeter
+    FE   ->  AIC : POST /suggestions/:id/rejeter { motif? }
+    AIS  ->  DB  : verrou ; REJETEE + motif ; audit SUGGESTION_REJETEE
+    AIS --> FE   : HTTP 200
+  end
+end
+
+note over AIS, DB
+  **Humain dans la boucle (F4)** — garanti en base : une suggestion PROPOSEE
+  n'a ni question ni QCM (CHECK) ; elle naît PROPOSEE, son contenu ne change
+  jamais, une décision ne se prend qu'une fois (déclencheur). Dans l'éditeur
+  de QCM, la question porte la pastille « IA » ou « IA modifiée ».
+end note
+
+legend bottom
+  | <b>Couleur</b> | <b>Signification</b> |
+  | <back:#EBF5FB> bleu   </back> | Traitement asynchrone / RAG |
+  | <back:#E8F8F5> vert   </back> | Succès / acceptation |
+  | <back:#FFE8E8> rouge  </back> | Refus / échec / rejet |
+endlegend
+@enduml

@@ -1,0 +1,127 @@
+@startuml Cert_EET_DS05_Verification_Certificat
+' =====================================================================
+'  Projet    : Cert_EET
+'  Diagramme : DS-05 — Vérification publique d'un certificat
+'  Acteur    : Visiteur Public (anonyme, sans compte)
+'  Ref CdC   : F3 (Certification vérifiable) — Lacune G3 Benchmark
+'  Auteur    : Iyed Omri — PFE ESPRIT 2026
+'  Version   : 1.1 — 09/11/2026, alignée sur l'implémentation du Sprint 3
+'              (US-CERT-04, US-CERT-05 ; engineering-log/46, 47).
+'              Changements v1.0 → v1.1 : page /verifier/{id}, API
+'              GET /api/verification/:id (+ /pdf) ; 404 uniforme (inconnu,
+'              mal formé, pas encore émis) ; SHA-256 du PDF stocké
+'              recalculé à chaque appel (INTEGRITE_COMPROMISE,
+'              NON_VERIFIABLE si stockage injoignable) ; pas de verdict
+'              EXPIRE (pas de date d'expiration) ; audit
+'              CERTIFICAT_VERIFIE au lieu d'une table de vérifications ;
+'              limite 20 requêtes / min / IP en fenêtre fixe, Redis
+'              injoignable = ouvert, premier refus tracé ; IP derrière nginx
+'              (trust proxy) ; no-store, noindex, no-referrer ; comparaison
+'              d'un PDF reçu dans le navigateur ; révocation : date sans motif.
+' =====================================================================
+!pragma teoz true
+skinparam backgroundColor #FFFFFF
+skinparam shadowing false
+skinparam DefaultFontName "Segoe UI"
+skinparam DefaultFontSize 10
+skinparam sequenceMessageAlign center
+skinparam responseMessageBelowArrow true
+skinparam ParticipantPadding 18
+skinparam ArrowThickness 1.2
+skinparam LifeLineBorderThickness 1.0
+skinparam participant {
+  BackgroundColor #FFFFFF
+  BorderColor #5D6D7E
+}
+skinparam actor {
+  BackgroundColor #ECF0F1
+  BorderColor #1B4F72
+  FontStyle bold
+}
+skinparam database {
+  BackgroundColor #EBF5FB
+  BorderColor #1B4F72
+}
+skinparam collections {
+  BackgroundColor #E8F8F5
+  BorderColor #1E8449
+}
+skinparam boundary {
+  BackgroundColor #FEF9E7
+  BorderColor #B7950B
+}
+skinparam control {
+  BackgroundColor #FAE5D3
+  BorderColor #BA4A00
+}
+skinparam note {
+  BackgroundColor #FEF9E7
+  BorderColor #B7950B
+  FontSize 9
+}
+skinparam sequence {
+  ArrowColor #34495E
+  LifeLineBorderColor #7F8C8D
+  LifeLineBackgroundColor #FDFEFE
+  GroupBorderColor #1B4F72
+  GroupHeaderFontColor #1B4F72
+  GroupHeaderFontStyle bold
+  DividerBorderColor #1B4F72
+  DividerBackgroundColor #D6EAF8
+  DividerFontColor #1B4F72
+  DividerFontStyle bold
+}
+
+title <size:14><b>Cert_EET — DS-05 : Vérification publique d'un certificat</b></size>\n<size:10>Sans compte · QR code · SHA-256 recalculé · Débit limité · F3 · v1.1 (Sprint 3)</size>
+
+actor       "Visiteur Public\n(Recruteur / Anonyme)" as VIS
+boundary    "Page /verifier/{id}\n(Next.js)" as FE
+control     "LimiteDebitGuard" as LG
+collections "Redis\n(limitation de débit)" as RD
+control     "VerificationController\n(@Public)" as VC
+control     "VerificationService" as VS
+database    "PostgreSQL" as DB
+control     "StockageService\n(MinIO)" as STO
+
+VIS  ->  FE  : scanne le QR ou ouvre le lien partagé
+FE   ->  VC  : GET /api/verification/:id  (fetch simple, sans jeton)
+VC   ->  LG  : IP du visiteur (trust proxy : nginx seul)
+LG   ->  RD  : INCR limite:verification:{ip}\n(EXPIRE 60 s à la 1re requête)
+alt #FFE8E8 > 20 requêtes dans la minute
+  LG   ->  DB  : audit VERIFICATION_LIMITE_ATTEINTE\n(1er refus de la fenêtre seulement)
+  LG  --> FE   : HTTP 429 + Retry-After
+else #FEF9E7 Redis injoignable
+  LG   ->  LG  : ouvert (disponibilité), incident journalisé
+else #E8F8F5 Sous la limite
+  LG   ->  VS  : verifier(id)
+  VS   ->  DB  : SELECT certificat (ACTIF ou REVOQUE)
+  alt #FFE8E8 Inconnu, identifiant mal formé ou pas encore émis
+    VS  --> FE  : HTTP 404 uniforme\n« Aucun certificat ne correspond à ce lien. »
+  else #E8F8F5 Émis
+    VS   ->  STO : relit certificats/{id}.pdf
+    VS   ->  VS  : SHA-256 recalculé = empreinte stockée ?\n(VERIFIEE / COMPROMISE / NON_VERIFIABLE)
+    VS   ->  VS  : verdict : VALIDE · REVOQUE (+ date) ·\nINTEGRITE_COMPROMISE
+    VS   ->  DB  : audit CERTIFICAT_VERIFIE (verdict, IP, sans acteur)
+    VS  --> FE   : HTTP 200 — liste blanche : titulaire (prénom, nom),\nformation, organisme, date, mention, score,\nempreinte, verdict, intégrité, identifiant\nCache-Control: no-store · X-Robots-Tag: noindex ·\nReferrer-Policy: no-referrer
+    FE  --> VIS  : verdict lisible (jamais le motif d'une révocation)
+  end
+end
+
+opt Comparer un PDF reçu
+  VIS  ->  FE  : dépose le PDF
+  FE   ->  FE  : SHA-256 dans le navigateur (crypto.subtle) —\nle fichier n'est jamais envoyé
+  FE  --> VIS  : « identique » / « différent » de l'empreinte publiée
+end
+
+opt Télécharger l'original
+  FE   ->  VC  : GET /api/verification/:id/pdf (même limite)
+  VC   ->  VS  : seulement VALIDE et intègre (revérifié), sinon 404
+  VS  --> FE   : PDF
+end
+
+legend bottom
+  | <back:#E8F8F5> vert  </back> | Chemin nominal |
+  | <back:#FFE8E8> rouge </back> | Refus |
+  | <back:#FEF9E7> jaune </back> | Mode dégradé |
+endlegend
+@enduml

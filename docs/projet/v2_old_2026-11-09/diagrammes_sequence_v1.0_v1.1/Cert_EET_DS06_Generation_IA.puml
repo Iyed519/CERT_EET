@@ -1,0 +1,253 @@
+@startuml Cert_EET_DS06_Generation_IA
+' =====================================================================
+'  Projet    : Cert_EET
+'  Diagramme : DS-06 — Générer des questions QCM par IA (RAG)
+'  Acteur    : Formateur
+'  Ref CdC   : F4 (Assistance IA) — ADR-05 (LLM) — ADR-04 (Bull/Redis)
+'  Auteur    : Iyed Omri — PFE ESPRIT 2026
+' =====================================================================
+!pragma teoz true
+skinparam backgroundColor #FFFFFF
+skinparam shadowing false
+skinparam DefaultFontName "Segoe UI"
+skinparam DefaultFontSize 10
+skinparam sequenceMessageAlign center
+skinparam responseMessageBelowArrow true
+skinparam ParticipantPadding 18
+skinparam ArrowThickness 1.2
+skinparam LifeLineBorderThickness 1.0
+skinparam participant {
+  BackgroundColor #FFFFFF
+  BorderColor #5D6D7E
+}
+skinparam actor {
+  BackgroundColor #ECF0F1
+  BorderColor #1B4F72
+  FontStyle bold
+}
+skinparam database {
+  BackgroundColor #EBF5FB
+  BorderColor #1B4F72
+}
+skinparam collections {
+  BackgroundColor #E8F8F5
+  BorderColor #1E8449
+}
+skinparam boundary {
+  BackgroundColor #FEF9E7
+  BorderColor #B7950B
+}
+skinparam control {
+  BackgroundColor #FAE5D3
+  BorderColor #BA4A00
+}
+skinparam entity {
+  BackgroundColor #E8DAEF
+  BorderColor #7D3C98
+}
+skinparam note {
+  BackgroundColor #FEF9E7
+  BorderColor #B7950B
+  FontSize 9
+}
+skinparam sequence {
+  ArrowColor #34495E
+  LifeLineBorderColor #7F8C8D
+  LifeLineBackgroundColor #FDFEFE
+  GroupBorderColor #1B4F72
+  GroupHeaderFontColor #1B4F72
+  GroupHeaderFontStyle bold
+  DividerBorderColor #1B4F72
+  DividerBackgroundColor #D6EAF8
+  DividerFontColor #1B4F72
+  DividerFontStyle bold
+}
+
+title <size:14><b>Cert_EET — DS-06 : Génération de Questions QCM par IA (RAG)</b></size>\n<size:10>Formateur · Upload → Indexation → RAG → Révision → Banque · F4</size>
+
+actor       "Formateur" as FOR
+boundary    "Frontend\n(Next.js)" as FE
+control     "AssistanceIAController\n(NestJS)" as AIC
+control     "AssistanceIAService\n(NestJS — thread web)" as AIS
+collections "Bull Queue\n(Redis)" as BQ
+entity      "IndexationWorker\n(processus séparé)" as IW
+entity      "GenerationWorker\n(processus séparé)" as GW
+control     "VecteurService\n(pgvector)" as VS
+control     "LLMService\n(LLMProvider)" as LLM
+control     "StorageService" as STO
+database    "PostgreSQL\n(+ pgvector)" as DB
+control     "NotifService" as NOTIF
+
+' =====================================================================
+'  PARTIE 1 — UPLOAD ET INDEXATION DU SUPPORT
+' =====================================================================
+== Partie 1 — Upload du support pédagogique ==
+
+FOR  ->  FE  : Ouvre "Supports de cours"\ndans sa formation\net uploade un PDF de cours
+FE   ->  AIC : POST /formations/:id/supports\n{ fichier: cours.pdf,\n  moduleId }
+AIC  ->  AIS : uploaderSupport(\n  formateurId, moduleId, fichier\n)
+AIS  ->  STO : upload(fichier,\n  "supports/{formateurId}/{moduleId}/")
+STO --> AIS  : cheminStockage
+
+AIS  ->  DB  : INSERT INTO supports_pedagogiques\n({ moduleId, formateurId,\n  titre, typeFichier: "PDF",\n  cheminStockage,\n  statut: "EnIndexation",\n  dateUpload: NOW() })
+DB  --> AIS  : supportId
+
+AIS  ->  BQ  : queue.add("indexer-support",\n  { supportId },\n  { attempts: 3 })
+BQ  --> AIS  : jobId
+
+AIS --> AIC  : { supportId, statut: "EnIndexation" }
+AIC --> FE   : HTTP 202 Accepted\n{ supportId, statut: "EnIndexation" }
+FE  --> FOR  : "Indexation en cours…"\n(indicateur de progression)
+
+== Pipeline d'indexation asynchrone ==
+
+BQ   ->  IW  : Consomme le job\n"indexer-support"
+
+group #EBF5FB Indexation RAG (asynchrone)
+  IW   ->  STO : getPDF(cheminStockage)
+  STO --> IW   : pdfBuffer
+
+  IW   ->  IW  : extractText(pdfBuffer)\n(parser PDF → texte brut)
+
+  IW   ->  IW  : chunker(texte,\n  taille: 512 tokens,\n  overlap: 50 tokens)
+  note right of IW
+    Découpage en fragments (chunks)
+    avec chevauchement pour préserver
+    le contexte entre passages.
+  end note
+
+  loop Pour chaque chunk
+    IW   ->  LLM : embeddings.create(\n  model: "text-embedding-ada-002",\n  input: chunk\n)
+    LLM --> IW   : vecteur[1536 dimensions]
+    IW   ->  DB  : INSERT INTO embeddings\n({ supportId, chunkTexte,\n  vecteur, indexChunk })
+  end
+end
+
+IW   ->  DB  : UPDATE supports_pedagogiques SET\nstatut = "Indexé"\nWHERE id = :supportId
+DB  --> IW   : OK
+
+IW   ->  NOTIF : notifier(formateurId,\n  "Support indexé et prêt à\n  l'utilisation")
+NOTIF  ->  FOR : Notification In-App
+
+IW  --> BQ   : Job SUCCESS
+
+' =====================================================================
+'  PARTIE 2 — LANCEMENT DE LA GÉNÉRATION
+' =====================================================================
+== Partie 2 — Paramétrage et lancement de la génération ==
+
+FOR  ->  FE  : Ouvre l'interface\n"Générer des questions"\ndepuis son QCM
+FE   ->  AIC : GET /formations/:id/supports?statut=Indexé
+AIC  ->  DB  : SELECT supports WHERE\nstatut = "Indexé" AND moduleId = :id
+DB  --> AIC  : supports[]
+AIC --> FE   : { supports[] }
+FE  --> FOR  : Affiche les supports disponibles
+
+FOR  ->  FE  : Configure la génération :\n• Support source\n• Nombre : 10\n• Types : QCM + QCU\n• Niveau : Intermédiaire\n• Focus : "sécurité JWT"\n• Clique "Générer"
+FE   ->  AIC : POST /formations/:id/generations\n{ supportId, nbQuestions: 10,\n  types: ["QCM","QCU"],\n  niveau: "Intermédiaire",\n  focusThematique: "sécurité JWT" }
+
+AIC  ->  AIS : lancerGeneration(\n  formateurId, params\n)
+
+AIS  ->  DB  : INSERT INTO generations_ia\n({ formateurId, moduleId,\n  supportId, nbQuestionsdemandees: 10,\n  modeleUtilise: "gpt-4o",\n  statut: "EnCours",\n  parametres: params })
+DB  --> AIS  : generationId
+
+AIS  ->  BQ  : queue.add("generer-questions",\n  { generationId },\n  { attempts: 2 })
+BQ  --> AIS  : jobId
+
+AIS --> AIC  : { generationId, statut: "EnCours" }
+AIC --> FE   : HTTP 202 Accepted
+FE  --> FOR  : "Génération en cours…"
+
+== Pipeline de génération asynchrone (RAG) ==
+
+BQ   ->  GW  : Consomme le job\n"generer-questions"
+
+group #EBF5FB Retrieval (R du RAG)
+  GW   ->  LLM : embeddings.create(\n  input: focusThematique\n  + niveauCible\n)
+  LLM --> GW   : vecteurRequete
+
+  GW   ->  VS  : searchSimilar(\n  vecteurRequete,\n  supportId,\n  topK: 8\n)
+  note right of VS
+    Recherche par similarité cosinus
+    dans pgvector — uniquement
+    les passages du support indexé.
+  end note
+  VS   ->  DB  : SELECT chunks ORDER BY\ncosine_similarity(vecteur,\n  vecteurRequete) LIMIT 8
+  DB  --> VS   : top8Chunks (passages pertinents)
+  VS  --> GW   : contextPassages[]
+end
+
+group #EBF5FB Augmented Generation (AG du RAG)
+  GW   ->  GW  : Construit le prompt :\n  system: "Tu es un expert pédagogique.\n  Génère {n} questions de type {types}\n  niveau {niveau} basées UNIQUEMENT\n  sur les passages fournis."\n  + contextPassages\n  + "Format JSON strict : [{ enonce,\n    type, options:[{texte,estCorrecte}],\n    explication, scoreConfiance }]"
+
+  GW   ->  LLM : chat.completions.create(\n  model: "gpt-4o",\n  messages: [system + user]\n)
+  LLM --> GW   : suggestionsJSON (texte brut)
+
+  GW   ->  GW  : JSON.parse(suggestionsJSON)
+  GW   ->  GW  : valider(suggestions)\n(structure, min 2 options,\nune seule correcte par QCU)
+end
+
+loop Pour chaque suggestion valide
+  GW   ->  DB  : INSERT INTO suggestions_question_ia\n({ generationId, enonce,\n  type, optionsProposees,\n  explication,\n  scoreConfianceIA,\n  statut: "PROPOSEE" })
+end
+
+GW   ->  DB  : UPDATE generations_ia SET\nstatut = "Terminée"
+GW   ->  NOTIF : notifier(formateurId,\n  "10 suggestions prêtes à réviser",\n  { generationId })
+NOTIF  ->  FOR : Notification In-App
+
+GW  --> BQ   : Job SUCCESS
+
+' =====================================================================
+'  PARTIE 3 — RÉVISION ET VALIDATION
+' =====================================================================
+== Partie 3 — Révision et validation (Humain dans la boucle) ==
+
+FOR  ->  FE  : Ouvre la liste des suggestions
+FE   ->  AIC : GET /generations/:generationId/suggestions
+AIC  ->  DB  : SELECT suggestions WHERE\ngenerationId = :id AND statut = "PROPOSEE"
+DB  --> AIC  : suggestions[]
+AIC --> FE   : HTTP 200 OK
+FE  --> FOR  : Affiche les 10 suggestions\navec score de confiance IA
+
+loop Pour chaque suggestion
+  FOR  ->  FE  : Révise la suggestion\n(peut modifier l'énoncé,\nles options, l'explication)
+
+  alt #E8F8F5 Formateur accepte
+    FE   ->  AIC : POST /suggestions/:id/accepter\n{ enonce?, options?, explication? }
+    AIC  ->  AIS : accepterSuggestion(\n  suggestionId, modifications?\n)
+    AIS  ->  DB  : INSERT INTO questions\n({ enonce, type, ponderation: 1,\n  explication, origine: "IA" })
+    AIS  ->  DB  : INSERT INTO options\n(options[] avec estCorrecte)
+    AIS  ->  DB  : UPDATE suggestions SET\nstatut = "ACCEPTEE"\n(ou "MODIFIEE" si modifiée)
+    DB  --> AIS  : questionId
+    AIS --> AIC  : { questionId, statut }
+    AIC --> FE   : HTTP 200 OK
+    FE  --> FOR  : ✅ Ajoutée à la banque\nde questions
+
+  else #FFE8E8 Formateur rejette
+    FE   ->  AIC : POST /suggestions/:id/rejeter
+    AIC  ->  AIS : rejeterSuggestion(suggestionId)
+    AIS  ->  DB  : UPDATE suggestions SET\nstatut = "REJETEE"
+    DB  --> AIS  : OK
+    AIS --> AIC  : OK
+    AIC --> FE   : HTTP 200 OK
+    FE  --> FOR  : ❌ Suggestion rejetée
+  end
+end
+
+note over AIS, DB
+  **Humain dans la boucle (F4)**
+  Aucune suggestion n'est publiée
+  automatiquement dans un QCM.
+  L'acceptation explicite du formateur
+  est la seule voie d'entrée dans
+  la BanqueQuestions.
+end note
+
+legend bottom
+  | <b>Couleur</b> | <b>Signification</b> |
+  | <back:#EBF5FB> bleu   </back> | Traitement asynchrone / RAG |
+  | <back:#E8F8F5> vert   </back> | Acceptation / succès |
+  | <back:#FFE8E8> rouge  </back> | Rejet |
+endlegend
+
+@enduml

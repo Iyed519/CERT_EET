@@ -1,0 +1,193 @@
+@startuml Cert_EET_DS12_Creer_QCM
+' =====================================================================
+'  DS-12 — Créer un QCM complet (contenu + anti-fraude + publication)
+'  Acteur : Formateur · Ref : UC1 + UC2 Formateur · F1
+'  Version : 1.1 — 07/11/2026, alignée sur l'implémentation du Sprint 2
+'            (US-QCM-01, 03, 04 ; US-AUTH-16 ; engineering-log/24, 27 à 29).
+'            Changements v1.0 → v1.1 : routes réelles ; garde d'autorisation
+'            par ressource ; statuts BROUILLON → NON_PUBLIE → PUBLIE ;
+'            configuration en PUT, règles figées à la 1re tentative ;
+'            publication revérifiée sous verrou (409) ; import depuis la
+'            banque = US-QCM-02 (non livrée) ; webcam / copier-coller
+'            enregistrés mais non appliqués (révision v1.6).
+' =====================================================================
+!pragma teoz true
+skinparam backgroundColor #FFFFFF
+skinparam shadowing false
+skinparam DefaultFontName "Segoe UI"
+skinparam DefaultFontSize 10
+skinparam sequenceMessageAlign center
+skinparam responseMessageBelowArrow true
+skinparam ParticipantPadding 18
+skinparam ArrowThickness 1.2
+skinparam LifeLineBorderThickness 1.0
+skinparam participant {
+  BackgroundColor #FFFFFF
+  BorderColor #5D6D7E
+}
+skinparam actor {
+  BackgroundColor #ECF0F1
+  BorderColor #1B4F72
+  FontStyle bold
+}
+skinparam database {
+  BackgroundColor #EBF5FB
+  BorderColor #1B4F72
+}
+skinparam boundary {
+  BackgroundColor #FEF9E7
+  BorderColor #B7950B
+}
+skinparam control {
+  BackgroundColor #FAE5D3
+  BorderColor #BA4A00
+}
+skinparam note {
+  BackgroundColor #FEF9E7
+  BorderColor #B7950B
+  FontSize 9
+}
+skinparam sequence {
+  ArrowColor #34495E
+  LifeLineBorderColor #7F8C8D
+  LifeLineBackgroundColor #FDFEFE
+  GroupBorderColor #1B4F72
+  GroupHeaderFontColor #1B4F72
+  GroupHeaderFontStyle bold
+  DividerBorderColor #1B4F72
+  DividerBackgroundColor #D6EAF8
+  DividerFontColor #1B4F72
+  DividerFontStyle bold
+}
+
+title <size:14><b>Cert_EET — DS-12 : Créer un QCM complet</b></size>\n<size:10>Contenu pédagogique · Configuration anti-fraude · Publication · UC1+UC2 Formateur — v1.1</size>
+
+actor "Formateur" as FOR
+boundary "Frontend\n(Next.js)" as FE
+control "QcmController\n(NestJS)" as QC
+control "Garde\n@FormateurDeLaFormation" as G
+control "Services QCM\n(contenu, configuration,\npublication)" as QS
+database "PostgreSQL" as DB
+
+note over QC, G
+  **Toutes les routes ci-dessous** passent par le garde
+  d'autorisation par ressource (US-AUTH-16, ADR-11) :
+  formateur non affecté à la formation du module →
+  HTTP 403 + audit ACCES_RESSOURCE_REFUSE ;
+  l'administrateur passe toujours.
+end note
+
+== Partie 1 — Création du QCM (UC1, US-QCM-01) ==
+
+FOR -> FE  : « Mes formations » → formation → module\n→ « Nouveau QCM »
+FE  -> QC  : POST /modules/:moduleId/qcm\n{ titre, description }
+QC  -> G   : formateur affecté à la formation du module ?
+G  --> QC  : autorisé
+QC  -> QS  : creerQcm(moduleId, data, formateurId)
+QS  -> DB  : INSERT INTO qcm\n({ titre, description, moduleId,\n  formateurId, statut: BROUILLON })
+DB --> QS  : qcmId
+QS --> QC  : { qcm }
+QC --> FE  : HTTP 201 Created
+FE --> FOR : Éditeur de questions
+
+== Partie 2 — Ajout des questions (US-QCM-01) ==
+
+loop Le formateur ajoute chaque question
+  FOR -> FE  : Saisit :\n• Énoncé\n• Type (QCU / QCM / Vrai-Faux)\n• Options + bonne(s) réponse(s)\n• Pondération\n• Explication (optionnelle)
+
+  FE  -> QC  : POST /qcm/:qcmId/questions\n{ enonce, type, ponderation,\n  explication, options[] }
+  QC  -> QS  : ajouterQuestion(qcmId, data)
+
+  QS  -> QS  : valider(question)\n• au moins 2 options\n• au moins 1 bonne réponse\n• QCU → exactement 1 bonne réponse\n• Vrai/Faux → exactement 2 options,\n  dont 1 bonne réponse
+
+  alt #FFE8E8 Validation échouée
+    QS --> QC : BadRequestException (message ciblé)
+    QC --> FE : HTTP 400
+    FE --> FOR : Message d'erreur ciblé
+  else #E8F8F5 Valide
+    QS  -> DB  : INSERT questions, options\n(estCorrecte), qcm_questions (ordre)
+    DB --> QS  : questionId
+    QS --> QC  : { question }
+    QC --> FE  : HTTP 201 Created
+    FE --> FOR : Question ajoutée ✓
+  end
+end
+
+note right of QS
+  Aussi : PUT /qcm/:qcmId/questions/:questionId,
+  DELETE …/questions/:questionId,
+  PUT /qcm/:qcmId/questions/ordre.
+  Import depuis une banque de questions :
+  **US-QCM-02**, non livrée (Sprint 3).
+end note
+
+== Partie 3 — Configuration anti-fraude (UC2, US-QCM-03) ==
+
+FOR -> FE  : Clique « Paramètres »
+FOR -> FE  : Configure :\n• Randomisation questions / options\n• Tirage de K questions parmi N\n• Durée maximale (min)\n• Fenêtre ouverture / fermeture\n• Nb tentatives max (1–20)\n• Délai entre tentatives\n• Affichage des résultats (Immédiat / Différé)\n• Score minimum de validation (%)\n• Pondération dans la formation (%)\n• Webcam, copier-coller (« Bientôt actif »)
+
+FE  -> QC  : PUT /qcm/:qcmId/configuration\n{ randomiserQuestions, randomiserOptions,\n  nbQuestionsTirees, dureeMaxMinutes,\n  dateOuverture, dateFermeture, nbTentativesMax,\n  delaiEntreTentatives, affichageResultats,\n  scoreMinValidation, ponderationFormation, … }
+QC  -> QS  : configurer(qcmId, config)
+
+QS  -> QS  : valider la cohérence\n• dateOuverture < dateFermeture,\n  fermeture dans le futur\n• K ≤ N\n• valeurs dans leurs plages
+
+alt #FFE8E8 Aucune question dans le QCM
+  QS --> QC : ConflictException « Ajoutez au moins une\nquestion avant de configurer… »
+  QC --> FE : HTTP 409
+else #FFE8E8 Configuration invalide
+  QS --> QC : BadRequestException
+  QC --> FE : HTTP 400 + message
+  FE --> FOR : Erreur ciblée
+else #FFE8E8 Le QCM a déjà des tentatives
+  QS --> QC : ConflictException\n(seule la fermeture peut être repoussée)
+  QC --> FE : HTTP 409
+else #E8F8F5 Configuration valide
+  QS  -> DB  : UPSERT config_anti_fraude
+  QS  -> DB  : UPDATE qcm SET statut = NON_PUBLIE\n(s'il était BROUILLON)
+  DB --> QS  : OK
+  QS --> QC  : { configuration }
+  QC --> FE  : HTTP 200 OK
+  FE --> FOR : « Paramètres enregistrés »
+end
+
+== Partie 4 — Publication (US-QCM-04) ==
+
+FOR -> FE  : Clique « Publier »
+FE  -> QC  : PATCH /qcm/:qcmId/publier
+QC  -> QS  : publier(qcmId, formateurId)
+
+QS  -> DB  : BEGIN ; SELECT qcm FOR UPDATE ;\nSELECT now() ; nbQuestions ; configuration
+
+group #EBF5FB Revérification complète, sous verrou
+  QS  -> QS  : au moins une question ?
+  QS  -> QS  : configuration présente ?
+  QS  -> QS  : tirage possible (K ≤ N) ?
+  QS  -> QS  : fermeture encore à venir ?
+end
+
+alt #FFE8E8 QCM incomplet ou déjà publié
+  QS --> QC : ConflictException\n« QCM incomplet pour publication : <motif> »
+  QC --> FE : HTTP 409
+  FE --> FOR : Motif précis
+else #E8F8F5 QCM complet
+  QS  -> DB  : UPDATE qcm SET statut = PUBLIE ; COMMIT
+  QS  -> DB  : INSERT audit_logs\n({ action: QCM_PUBLIE, cible: qcmId })
+  QS --> QC  : { qcm }
+  QC --> FE  : HTTP 200 OK
+  FE --> FOR : « QCM publié » — visible des apprenants\ninscrits dans « Mon espace » (DS-09)
+end
+
+note over QS, DB
+  **Après la première tentative d'un apprenant**
+  Contenu figé : seules les EXPLICATIONS restent modifiables.
+  Configuration figée : seule la fermeture peut être repoussée.
+  Un QCM publié garde toujours au moins une question.
+  (Intégrité de l'évaluation certifiante.)
+end note
+
+legend bottom
+  | <back:#E8F8F5> vert  </back> | Succès |
+  | <back:#FFE8E8> rouge </back> | Erreur / refus |
+  | <back:#EBF5FB> bleu  </back> | Contrôle serveur sous verrou |
+endlegend
+@enduml

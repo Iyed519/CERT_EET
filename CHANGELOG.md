@@ -13,6 +13,127 @@
 
 ---
 
+## [Sprint 3] — Parcours certifiant complet : ateliers, certificat vérifiable, assistance IA — ✅ CLÔTURÉ
+
+**Résumé :** 20 stories livrées (14 engagées, 54 pts ; 4 d'extension, 24 pts ; 2 ajoutées, 8 pts) et 5 PR de
+maintenance, du 08/11 au 09/11/2026 (PR #40 → #65), avec un agent de développement qui suit la procédure
+fixée par le porteur. **1 720 tests automatisés verts** (1 128 unitaires + 592 e2e). L'apprenant rend des
+ateliers corrigés par critères, reçoit un **certificat PDF avec QR code** fabriqué seul et vérifiable par
+n'importe qui ; le formateur fait **proposer des questions par l'IA** à partir de son cours et les valide.
+Revue de sprint et rétrospective : `docs/Sprint3_Review.md`.
+
+### QCM anti-fraude (E3)
+
+#### US-QCM-10 — Bloquer les sessions multiples — PR #40 · journal `engineering-log/35`
+- **Quoi :** une tentative ne sert que depuis la connexion qui l'a démarrée ; ailleurs, 409 tracé ; verrou
+  levé à la déconnexion ou à l'échéance. **Pourquoi :** empêcher deux personnes de passer le même examen
+  sur un compte partagé.
+
+### Ateliers pratiques & correction (E4)
+
+#### US-ATEL-01 — Créer un atelier — PR #41, #43 · journal `engineering-log/36`
+- **Quoi :** atelier en brouillon sous un module (énoncé, date limite, types de fichiers dont le code
+  source, taille, tolérance de retard). **Pourquoi :** proposer une évaluation pratique (F2).
+
+#### US-ATEL-02 — Grille de notation pondérée — PR #44 · journal `engineering-log/37`
+- **Quoi :** critères pondérés en %, quatre niveaux à plages de points, validation à 100 %, modèles
+  réutilisables. **Pourquoi :** une note objective et reproductible.
+
+#### US-ATEL-03 — Publier l'atelier — PR #45 · journal `engineering-log/38`
+- **Quoi :** publication sous verrou, atelier et grille figés, fiche apprenant avec la grille.
+  **Pourquoi :** les règles connues avant de rendre et inchangeables ensuite.
+
+#### US-ATEL-04 — Soumettre un livrable — PR #47 · journal `engineering-log/39`
+- **Quoi :** dépôt contrôlé (contenu réel, taille, délai jugé par la base), SHA-256, stockage MinIO, email
+  aux formateurs. **Pourquoi :** une preuve d'antériorité du travail rendu.
+
+#### US-ATEL-06 — Corriger critère par critère — PR #49 · journal `engineering-log/40`
+- **Quoi :** ouverture qui verrouille le livrable, niveau + points + commentaire par critère, score en
+  direct, téléchargement des fichiers tracé. **Pourquoi :** une note pondérée fiable.
+
+#### US-ATEL-07 — Feedback immuable et notification — PR #50 · journal `engineering-log/41`
+- **Quoi :** finalisation (tout noté, commentaire général), note figée par l'API et par la base, email.
+  **Pourquoi :** une correction envoyée ne se retouche plus.
+
+#### US-ATEL-08 — Consulter son feedback — PR #51 · journal `engineering-log/42`
+- **Quoi :** détail par critère pour l'apprenant, badge « Nouveau feedback », aucune note partielle.
+  **Pourquoi :** comprendre sa note et progresser.
+
+#### US-ATEL-09 — Déclencher la certification — PR #53 · journal `engineering-log/44`
+- **Quoi :** éligibilité évaluée après chaque note, demande d'émission une seule fois ; état visible dans
+  « Mon espace ». **Pourquoi :** automatiser la certification.
+
+### Certification vérifiable (E5)
+
+#### US-CERT-01 — Émission asynchrone des certificats — PR #52 · journal `engineering-log/43`
+- **Quoi :** file BullMQ sur Redis, worker : PDF (PDFKit) + QR + SHA-256, MinIO, certificat ACTIF
+  immuable, reprises et relance administrateur. **Pourquoi :** ne jamais faire attendre une requête et ne
+  jamais produire deux certificats.
+
+#### US-CERT-03 — Consulter et télécharger son certificat — PR #54 · journal `engineering-log/45`
+- **Quoi :** « Mes certificats », PDF réservé au titulaire, empreinte, lien public. **Pourquoi :** la preuve
+  de réussite entre les mains de l'apprenant.
+
+#### US-CERT-04 — Vérification publique sans compte — PR #55 · journal `engineering-log/46`
+- **Quoi :** page `/verifier/{id}` : valide, révoqué ou intégrité compromise (empreinte recalculée) ;
+  comparaison d'un PDF dans le navigateur. **Pourquoi :** un certificat vérifiable par un recruteur
+  (lacune G3 du benchmark).
+
+#### US-CERT-05 — Protection et minimisation de la page publique — PR #56 · journal `engineering-log/47`
+- **Quoi :** 20 requêtes / min / IP (429), IP réelle derrière nginx, réponses jamais mises en cache ni
+  indexées, données minimales. **Pourquoi :** RGPD et résistance aux abus.
+
+#### US-CERT-06 — Révoquer un certificat — PR #57 · journal `engineering-log/48`
+- **Quoi :** révocation à double confirmation (case + mot de passe), irréversible en base, email au
+  titulaire, page publique « Révoqué » sans motif. **Pourquoi :** corriger une erreur ou une fraude sans
+  effacer la trace.
+
+### Ressources du cours (E2 — révision v1.5)
+
+#### US-FORM-05 — Ressources de module : liens et vidéos — PR #62 · journal `engineering-log/51`
+- **Quoi :** liens et vidéos YouTube / Vimeo par module, lecteur intégré sans cookie de suivi.
+  **Pourquoi :** le cours vit dans la plateforme, pas dans des outils dispersés.
+
+#### US-FORM-06 — Ressources de module : fichiers — PR #63 · journal `engineering-log/52`
+- **Quoi :** fichiers de tout type, lus par un lien signé de 10 minutes (vidéo, audio, image dans la page ;
+  PDF dans un onglet ; le reste téléchargé). **Pourquoi :** partager les supports sans adresse permanente.
+
+### Assistance IA aux formateurs (E6)
+
+#### US-IA-01 — Déposer et indexer un support — PR #60 · journal `engineering-log/49`
+- **Quoi :** dépôt (PDF, PPTX, DOCX, TXT, MD), indexation en arrière-plan : texte, passages, embeddings dans
+  pgvector ; email. **Pourquoi :** une source fiable pour l'IA.
+
+#### US-IA-02 — Lancer une génération paramétrée — PR #61 · journal `engineering-log/50`
+- **Quoi :** nombre, types, niveau, thème ; réponse 202 ; une génération en cours par formateur, plafond
+  horaire. **Pourquoi :** des suggestions adaptées au module, à coût maîtrisé.
+
+#### US-IA-03 — Pipeline RAG de génération de questions — PR #64 · journal `engineering-log/53`
+- **Quoi :** 8 passages les plus proches du support ciblé, modèle Claude (Anthropic) derrière une
+  interface, JSON imposé, validation serveur, suggestions PROPOSEE ; échec avec motif ; email.
+  **Pourquoi :** des questions ancrées dans le vrai cours.
+
+#### US-IA-04 — Révision humaine des suggestions — PR #65 · journal `engineering-log/54`
+- **Quoi :** accepter, modifier puis accepter, ou rejeter ; question ajoutée à un QCM du module avec son
+  origine (« IA » / « IA modifiée ») ; décision unique garantie en base. **Pourquoi :** rien n'entre dans un
+  QCM sans validation humaine.
+
+### Maintenance
+- **#42** rechargement à chaud sous Docker Windows · **#46** CI e2e déterministe (suites en série) ·
+  **#48** délai de grâce de la sonde de l'api · **#58** job frontend en CI (`tsc` + `next lint`) ·
+  **#59** délai e2e par défaut à 30 s.
+
+### Décisions de périmètre (Sprint 3)
+- **Bloc B (IA) démarré** : API hébergée Anthropic Claude derrière `FournisseurLlm` (fournisseur factice en
+  CI), clé dans le `.env` local uniquement.
+- **US-FORM-05 et 06 ajoutées** en cours de sprint (demande du 09/11).
+- **Écarts assumés avec DS-02, 03, 04, 05, 06, 07, 09, 13** : tableau dans `docs/Sprint3_Review.md` §6 ;
+  diagrammes réalignés dans `docs/projet/v3_2026-11-09/`.
+- **Reporté :** US-FORM-04, US-FORM-02, US-INSC-02, US-INSC-03, US-QCM-02, US-QCM-11, US-ATEL-05 (à trier au
+  Sprint 4).
+
+---
+
 ## [Sprint 2] — Formations, inscriptions & moteur de QCM anti-fraude — ✅ CLÔTURÉ
 
 **Résumé :** 13 stories livrées (12 engagées, 46 pts + 1 d'extension, 2 pts) et le modèle de données,
@@ -263,6 +384,17 @@ pipelines CI **et** CD opérationnels. Le socle technique de la plateforme est e
   écoulé, corrigé pas encore disponible).
 - **Test e2e / test de mutation** — e2e : appelle la vraie API sur une vraie base ; mutation : on retire
   volontairement une protection pour vérifier que le test échoue.
+- **MinIO / stockage objet** — entrepôt de fichiers séparé de la base (livrables, certificats, supports).
+- **SHA-256 / empreinte** — 64 caractères calculés à partir d'un fichier ; un octet changé change tout :
+  prouve qu'un fichier n'a pas été modifié.
+- **File de travaux (BullMQ)** — tâches lentes faites en arrière-plan (PDF, indexation, IA), rejouées en cas
+  d'échec ; la requête répond tout de suite (HTTP 202).
+- **Vérification publique / révocation** — page sans compte qui dit si un certificat est valide ; la
+  révocation l'annule définitivement sans effacer sa trace.
+- **RAG / embeddings / pgvector** — retrouver les passages utiles du cours (par leur « signature »
+  numérique, rangée dans PostgreSQL par pgvector), puis demander au modèle de langage de s'appuyer dessus.
+- **Humain dans la boucle** — aucune question proposée par l'IA n'entre dans un QCM sans décision du
+  formateur.
 
 ---
 
