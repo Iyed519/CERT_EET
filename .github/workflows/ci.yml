@@ -1,7 +1,8 @@
 # INF05 (CI pipeline) — Cert_EET
 # Runs on every push to main and every PR targeting main.
 # Order: install -> generate test keys -> lint -> unit tests + coverage -> integration tests -> upload coverage.
-# Scope for now: apps/api only (backend). apps/web can be added later.
+# Jobs: « API » (lint, unit, e2e, coverage) and, since the Sprint 3 chores,
+# « Web » (TypeScript type check + next lint on apps/web).
 name: CI
 on:
   push:
@@ -115,3 +116,26 @@ jobs:
           name: coverage-api
           path: apps/api/coverage
           if-no-files-found: ignore
+  # Chore Sprint 3 — le frontend est vérifié à chaque PR : vérification des
+  # types (tsc) puis ESLint (next lint). Aucun service, aucun secret.
+  web:
+    name: Web (tsc + next lint)
+    runs-on: ubuntu-latest
+    defaults:
+      run:
+        working-directory: apps/web
+    steps:
+      - name: Checkout the code
+        uses: actions/checkout@v4
+      - name: Set up Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: '20'
+          cache: 'npm'
+          cache-dependency-path: apps/web/package-lock.json
+      - name: Install dependencies (clean, from lockfile)
+        run: npm ci
+      - name: Type check
+        run: npx tsc --noEmit -p tsconfig.json
+      - name: Lint
+        run: npm run lint
