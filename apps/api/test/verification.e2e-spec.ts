@@ -7,6 +7,7 @@ import * as request from 'supertest';
 import * as bcrypt from 'bcryptjs';
 import * as cookieParser from 'cookie-parser';
 import { createHash } from 'crypto';
+import Redis from 'ioredis';
 import { AppModule } from '../src/app.module';
 import { AuditLog } from '../src/database/entities/audit-log.entity';
 import { Formation } from '../src/database/entities/formation.entity';
@@ -148,6 +149,15 @@ describe('Vérification publique (e2e) — US-CERT-04', () => {
     auditLogRepository = moduleRef.get<Repository<AuditLog>>(getRepositoryToken(AuditLog));
     dataSource = moduleRef.get(DataSource, { strict: false });
     jest.spyOn(moduleRef.get(MailService), 'sendCertificatEmisEmail').mockResolvedValue(undefined);
+
+    // US-CERT-05 : la suite parle depuis la boucle locale ; je remets ses
+    // compteurs de limitation de débit à zéro (fenêtre d'une minute).
+    const redis = new Redis({
+      host: process.env.REDIS_HOST,
+      port: Number(process.env.REDIS_PORT ?? 6379),
+    });
+    await redis.del('limite:verification:127.0.0.1', 'limite:verification:::1');
+    redis.disconnect();
 
     await nettoyer();
     const motDePasseHash = await bcrypt.hash('MotDePasseTest123!', 12);

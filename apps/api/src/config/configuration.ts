@@ -89,6 +89,11 @@ export interface MinuterieConfig {
  * `forcePathStyle` : MinIO sert les buckets sous le chemin
  * (http://minio:9000/<bucket>/<clé>), pas en sous-domaine.
  */
+/** US-CERT-05 — protection de la vérification publique. */
+export interface VerificationConfig {
+  limiteParMinute: number;
+}
+
 /** US-CERT-01 — file d'émission des certificats (BullMQ, ADR-04). */
 export interface CertificatsConfig {
   workerActif: boolean;
@@ -113,6 +118,7 @@ export default (): {
   minuterie: MinuterieConfig;
   stockage: StockageConfig;
   certificats: CertificatsConfig;
+  verification: VerificationConfig;
 } => ({
   app: {
     nodeEnv: (process.env.NODE_ENV as AppConfig['nodeEnv']) ?? 'development',
@@ -168,5 +174,8 @@ export default (): {
     workerActif: (process.env.CERTIFICATS_WORKER ?? 'on') !== 'off',
     tentatives: parseInt(process.env.CERTIFICATS_TENTATIVES ?? '3', 10),
     backoffMs: parseInt(process.env.CERTIFICATS_BACKOFF_MS ?? '5000', 10),
+  },
+  verification: {
+    limiteParMinute: parseInt(process.env.VERIFICATION_LIMITE_PAR_MINUTE ?? '20', 10),
   },
 });

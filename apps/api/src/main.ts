@@ -1,6 +1,7 @@
 import { Logger, ValidationPipe } from '@nestjs/common';
 import { ConfigService } from '@nestjs/config';
 import { NestFactory } from '@nestjs/core';
+import { NestExpressApplication } from '@nestjs/platform-express';
 import { DocumentBuilder, SwaggerModule } from '@nestjs/swagger';
 import * as cookieParser from 'cookie-parser';
 import { AppModule } from './app.module';
@@ -15,7 +16,7 @@ import { AppConfig } from './config/configuration';
  */
 async function bootstrap(): Promise<void> {
   const logger = new Logger('Bootstrap');
-  const app = await NestFactory.create(AppModule, { bufferLogs: false });
+  const app = await NestFactory.create<NestExpressApplication>(AppModule, { bufferLogs: false });
   const config = app.get(ConfigService);
   const app_ = config.getOrThrow<AppConfig>('app');
 
@@ -26,6 +27,12 @@ async function bootstrap(): Promise<void> {
   // pour que POST /auth/refresh puisse lire le refresh token déposé en cookie
   // httpOnly au login. Sans ce middleware, req.cookies serait undefined.
   app.use(cookieParser());
+
+  // US-CERT-05 — derrière nginx, l'IP du visiteur vient de X-Forwarded-For :
+  // je ne fais confiance qu'aux proxies des réseaux privés (TRUST_PROXY), sinon
+  // toutes les requêtes auraient l'IP de nginx (limitation de débit commune,
+  // audit faux).
+  app.set('trust proxy', config.getOrThrow<string>('TRUST_PROXY'));
 
   // Validation stricte de toutes les entrées (DTOs).
   app.useGlobalPipes(

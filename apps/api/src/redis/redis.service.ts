@@ -46,6 +46,31 @@ export class RedisService implements OnModuleDestroy {
    * quit() attend que les commandes en cours se terminent avant de couper,
    * contrairement à disconnect() qui coupe net.
    */
+  /**
+   * Compteur à fenêtre fixe (US-CERT-05, limitation de débit) : INCR puis
+   * EXPIRE NX dans une seule transaction — la durée n'est posée qu'à la
+   * création de la clé, elle ne se prolonge pas à chaque requête. Renvoie le
+   * compte et le temps restant de la fenêtre (secondes).
+   */
+  async incrementer(
+    key: string,
+    ttlSeconds: number,
+  ): Promise<{ compte: number; resteSecondes: number }> {
+    const resultats = await this.client
+      .multi()
+      .incr(key)
+      .expire(key, ttlSeconds, 'NX')
+      .ttl(key)
+      .exec();
+    if (!resultats) throw new Error(`Compteur ${key} : transaction annulée.`);
+    for (const [erreur] of resultats) {
+      if (erreur) throw erreur;
+    }
+    const compte = Number(resultats[0][1]);
+    const reste = Number(resultats[2][1]);
+    return { compte, resteSecondes: reste > 0 ? reste : ttlSeconds };
+  }
+
   async onModuleDestroy(): Promise<void> {
     await this.client.quit();
   }

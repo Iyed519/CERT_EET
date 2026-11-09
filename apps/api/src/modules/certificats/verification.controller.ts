@@ -1,7 +1,8 @@
-import { Controller, Get, Param, Req, StreamableFile } from '@nestjs/common';
+import { Controller, Get, Header, Param, Req, StreamableFile, UseGuards } from '@nestjs/common';
 import { ApiOperation, ApiProduces, ApiResponse, ApiTags } from '@nestjs/swagger';
 import { Request } from 'express';
 import { Public } from '../auth/decorators/public.decorator';
+import { LimiteDebitGuard } from './limite-debit.guard';
 import { VerificationPublique, VerificationService } from './verification.service';
 
 /**
@@ -10,14 +11,22 @@ import { VerificationPublique, VerificationService } from './verification.servic
  * la page web lisible par un humain étant `/verifier/:id` (lien du QR code).
  * Pas de ParseUUIDPipe : un identifiant mal formé reçoit la même 404 qu'un
  * identifiant inconnu.
+ *
+ * US-CERT-05 — protection : limitation de débit par IP (LimiteDebitGuard,
+ * 429 + Retry-After), réponses jamais indexées ni mises en cache
+ * (X-Robots-Tag, Cache-Control), aucun référent transmis.
  */
 @ApiTags('verification')
 @Public()
+@UseGuards(LimiteDebitGuard)
 @Controller('verification')
 export class VerificationController {
   constructor(private readonly verificationService: VerificationService) {}
 
   @Get(':certificatId')
+  @Header('Cache-Control', 'no-store')
+  @Header('X-Robots-Tag', 'noindex, nofollow')
+  @Header('Referrer-Policy', 'no-referrer')
   @ApiOperation({
     summary: 'Vérifier un certificat, sans compte (US-CERT-04)',
     description:
@@ -26,6 +35,10 @@ export class VerificationController {
       'formation, organisme, mention, score, date, empreinte.',
   })
   @ApiResponse({ status: 200, description: 'Verdict ; audit CERTIFICAT_VERIFIE.' })
+  @ApiResponse({
+    status: 429,
+    description: 'Trop de vérifications depuis cette adresse IP (Retry-After en secondes).',
+  })
   @ApiResponse({
     status: 404,
     description: 'Identifiant inconnu, mal formé ou certificat pas encore émis (même réponse).',
@@ -38,9 +51,13 @@ export class VerificationController {
   }
 
   @Get(':certificatId/pdf')
+  @Header('Cache-Control', 'no-store')
+  @Header('X-Robots-Tag', 'noindex, nofollow')
+  @Header('Referrer-Policy', 'no-referrer')
   @ApiProduces('application/pdf')
   @ApiOperation({ summary: 'Télécharger le PDF d’un certificat valide (US-CERT-04)' })
   @ApiResponse({ status: 200, description: 'PDF certifié (intégrité revérifiée).' })
+  @ApiResponse({ status: 429, description: 'Trop de vérifications depuis cette adresse IP.' })
   @ApiResponse({
     status: 404,
     description: 'Inconnu, pas encore émis, révoqué ou intégrité compromise (même réponse).',
