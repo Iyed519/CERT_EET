@@ -67,3 +67,34 @@ export function resumeErreur(erreur: unknown): string {
   const ligne = texte.replace(/\s+/g, ' ').trim() || 'Erreur inconnue';
   return ligne.length > 500 ? `${ligne.slice(0, 497)}...` : ligne;
 }
+
+export const MESSAGE_CERTIFICAT_EN_PREPARATION =
+  'Votre certificat est en cours d’émission : il sera téléchargeable dans quelques instants.';
+export const MESSAGE_CERTIFICAT_REVOQUE =
+  'Ce certificat a été révoqué : il n’est plus téléchargeable.';
+
+/**
+ * Téléchargement par son titulaire (US-CERT-03) : seul un certificat ACTIF se
+ * télécharge ; en préparation ou révoqué -> 409 (état).
+ */
+export function verifierTelechargeable(statut: StatutCertificat): void {
+  if (statut === StatutCertificat.REVOQUE) {
+    throw new ConflictException(MESSAGE_CERTIFICAT_REVOQUE);
+  }
+  if (statut !== StatutCertificat.ACTIF) {
+    throw new ConflictException(MESSAGE_CERTIFICAT_EN_PREPARATION);
+  }
+}
+
+/** Nom du fichier téléchargé : « certificat-<titre-sans-accents>.pdf ». */
+export function nomFichierCertificat(titreFormation: string): string {
+  const base = titreFormation
+    .normalize('NFD')
+    .replace(/[\u0300-\u036f]/g, '')
+    .toLowerCase()
+    .replace(/[^a-z0-9]+/g, '-')
+    .replace(/^-+|-+$/g, '')
+    .slice(0, 60)
+    .replace(/-+$/g, '');
+  return `certificat-${base || 'formation'}.pdf`;
+}

@@ -1,4 +1,11 @@
-import { Injectable, Logger, NotFoundException, OnApplicationBootstrap } from '@nestjs/common';
+import {
+  Injectable,
+  Logger,
+  NotFoundException,
+  OnApplicationBootstrap,
+  ServiceUnavailableException,
+} from '@nestjs/common';
+import { Readable } from 'stream';
 import { ConfigService } from '@nestjs/config';
 import { createHash } from 'crypto';
 import { DataSource } from 'typeorm';
@@ -16,10 +23,12 @@ import {
   cleStockageCertificat,
   estAGenerer,
   mentionPour,
+  nomFichierCertificat,
   ORGANISME_EMETTEUR,
   resumeErreur,
   urlVerification,
   verifierRelancable,
+  verifierTelechargeable,
 } from './certificat.regles';
 import { FileCertificatsService } from './file-certificats.service';
 
@@ -37,6 +46,31 @@ export interface CertificatAdminVue {
   nbTentatives: number;
   derniereErreur: string | null;
 }
+
+/** Un certificat, vu par son titulaire (US-CERT-03, liste blanche). */
+export interface MonCertificatVue {
+  id: string;
+  formation: { id: string; titre: string };
+  statut: StatutCertificat;
+  scoreFinal: number;
+  mention: string;
+  organismeEmetteur: string;
+  dateEmission: Date;
+  dateGeneration: Date | null;
+  /** SHA-256 du PDF, une fois émis ; null avant. */
+  empreinteSha256: string | null;
+  /** Lien public de vérification (à partager) ; null tant qu'il n'est pas émis. */
+  urlVerification: string | null;
+}
+
+/** Le PDF prêt à être relayé au navigateur. */
+export interface PdfCertificat {
+  flux: Readable;
+  nomFichier: string;
+  taille: number | null;
+}
+
+export const MESSAGE_CERTIFICAT_INTROUVABLE = 'Certificat introuvable.';
 
 /** Résultat d'une demande d'émission. */
 export interface DemandeEmission {
@@ -274,6 +308,73 @@ export class CertificatsService implements OnApplicationBootstrap {
     await this.file.ajouter(certificatId, rang);
     const [vue] = (await this.lister()).filter((c) => c.id === certificatId);
     return vue;
+  }
+
+  /** Mes certificats (US-CERT-03), plus récents d'abord. */
+  async mesCertificats(apprenantId: string): Promise<MonCertificatVue[]> {
+    const certificats = await this.dataSource.manager.find(Certificat, {
+      where: { apprenantId },
+      relations: { formation: true },
+      order: { dateEmission: 'DESC', id: 'ASC' },
+    });
+    return certificats.map((c) => {
+      const emis = c.statut === StatutCertificat.ACTIF || c.statut === StatutCertificat.REVOQUE;
+      return {
+        id: c.id,
+        formation: { id: c.formationId, titre: c.formation?.titre ?? '' },
+        statut: c.statut,
+        scoreFinal: c.scoreFinal,
+        mention: c.mention,
+        organismeEmetteur: c.organismeEmetteur,
+        dateEmission: c.dateEmission,
+        dateGeneration: emis ? c.dateGeneration : null,
+        empreinteSha256: emis ? c.empreinteSha256 : null,
+        urlVerification: emis ? urlVerification(this.baseUrl(), c.id) : null,
+      };
+    });
+  }
+
+  /**
+   * Le PDF de MON certificat (US-CERT-03), relayé en flux et tracé. Le
+   * certificat d'un autre apprenant répond comme un identifiant inconnu (404,
+   * aucune énumération) ; en préparation ou révoqué -> 409 ; stockage
+   * injoignable -> 503.
+   */
+  async monPdf(
+    apprenantId: string,
+    certificatId: string,
+    contexte: { adresseIp: string | null },
+  ): Promise<PdfCertificat> {
+    const certificat = await this.dataSource.manager.findOne(Certificat, {
+      where: { id: certificatId, apprenantId },
+      relations: { formation: true },
+    });
+    if (!certificat) throw new NotFoundException(MESSAGE_CERTIFICAT_INTROUVABLE);
+    verifierTelechargeable(certificat.statut);
+    let lu: { flux: Readable; taille: number | null };
+    try {
+      lu = await this.stockageService.lire(certificat.cleStockage as string);
+    } catch (erreur) {
+      this.logger.error(
+        `Lecture du certificat ${certificatId} impossible : ${resumeErreur(erreur)}`,
+      );
+      throw new ServiceUnavailableException(
+        'Le stockage des fichiers est momentanément indisponible : réessayez dans quelques instants.',
+      );
+    }
+    await this.auditService.record({
+      action: 'CERTIFICAT_TELECHARGE',
+      acteur: apprenantId,
+      cible: certificatId,
+      adresseIp: contexte.adresseIp,
+      resultat: 'Succès',
+      detailsAvantApres: { empreinteSha256: certificat.empreinteSha256 },
+    });
+    return {
+      flux: lu.flux,
+      nomFichier: nomFichierCertificat(certificat.formation?.titre ?? ''),
+      taille: lu.taille,
+    };
   }
 
   private baseUrl(): string {

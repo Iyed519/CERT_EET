@@ -5,9 +5,11 @@ import {
   cleStockageCertificat,
   estAGenerer,
   mentionPour,
+  nomFichierCertificat,
   resumeErreur,
   urlVerification,
   verifierRelancable,
+  verifierTelechargeable,
 } from './certificat.regles';
 
 /** Règles pures des certificats (US-CERT-01). */
@@ -70,5 +72,24 @@ describe('certificat.regles (US-CERT-01)', () => {
     expect(resumeErreur(new Error('a\n  b'))).toBe('a b');
     expect(resumeErreur('')).toBe('Erreur inconnue');
     expect(resumeErreur('x'.repeat(600))).toHaveLength(500);
+  });
+
+  it('téléchargement (US-CERT-03) : ACTIF seulement ; en préparation ou révoqué -> 409', () => {
+    expect(() => verifierTelechargeable(StatutCertificat.ACTIF)).not.toThrow();
+    expect(() => verifierTelechargeable(StatutCertificat.EN_GENERATION)).toThrow(
+      'en cours d’émission',
+    );
+    expect(() => verifierTelechargeable(StatutCertificat.EN_ATTENTE_GENERATION)).toThrow(
+      ConflictException,
+    );
+    expect(() => verifierTelechargeable(StatutCertificat.REVOQUE)).toThrow('révoqué');
+  });
+
+  it('nom de fichier : sans accents ni caractères spéciaux, borné', () => {
+    expect(nomFichierCertificat('Développement back-end « NestJS »')).toBe(
+      'certificat-developpement-back-end-nestjs.pdf',
+    );
+    expect(nomFichierCertificat('***')).toBe('certificat-formation.pdf');
+    expect(nomFichierCertificat('a'.repeat(100))).toBe(`certificat-${'a'.repeat(60)}.pdf`);
   });
 });

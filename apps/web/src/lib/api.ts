@@ -2377,3 +2377,47 @@ export async function relancerCertificat(certificatId: string): Promise<Certific
   });
   return lireReponseFormation<CertificatAdmin>(response, 'Impossible de relancer la génération.');
 }
+
+/* ============================================================
+ * US-CERT-03 — Mes certificats (apprenant)
+ * ============================================================ */
+
+/** Un de mes certificats (empreinte et lien public une fois émis). */
+export interface MonCertificat {
+  id: string;
+  formation: { id: string; titre: string };
+  statut: StatutCertificat;
+  scoreFinal: number;
+  mention: string;
+  organismeEmetteur: string;
+  dateEmission: string;
+  dateGeneration: string | null;
+  empreinteSha256: string | null;
+  urlVerification: string | null;
+}
+
+/** GET /api/mes-certificats — plus récents d'abord. */
+export async function getMesCertificats(): Promise<MonCertificat[]> {
+  const response = await apiFetch('/api/mes-certificats');
+  return lireReponseFormation<MonCertificat[]>(response, 'Impossible de charger vos certificats.');
+}
+
+/**
+ * GET /api/mes-certificats/:id/pdf — télécharge le PDF (jeton requis : je le
+ * récupère avec apiFetch puis le propose au navigateur).
+ *   - 409 -> en cours d'émission, ou révoqué (message exact du serveur).
+ */
+export async function telechargerMonCertificat(certificatId: string, nom: string): Promise<void> {
+  const response = await apiFetch(`/api/mes-certificats/${certificatId}/pdf`);
+  if (!response.ok) {
+    await lireReponseFormation<never>(response, 'Impossible de télécharger le certificat.');
+  }
+  const url = URL.createObjectURL(await response.blob());
+  const lien = document.createElement('a');
+  lien.href = url;
+  lien.download = nom;
+  document.body.appendChild(lien);
+  lien.click();
+  lien.remove();
+  setTimeout(() => URL.revokeObjectURL(url), 1000);
+}

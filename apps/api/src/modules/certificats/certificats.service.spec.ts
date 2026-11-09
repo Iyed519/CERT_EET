@@ -1,4 +1,10 @@
-import { ConflictException, Logger, NotFoundException } from '@nestjs/common';
+import {
+  ConflictException,
+  Logger,
+  NotFoundException,
+  ServiceUnavailableException,
+} from '@nestjs/common';
+import { Readable } from 'stream';
 import { ConfigService } from '@nestjs/config';
 import { Test, TestingModule } from '@nestjs/testing';
 import { createHash } from 'crypto';
@@ -42,7 +48,7 @@ describe('CertificatsService (US-CERT-01)', () => {
     ),
   };
   const mockFile = { ajouter: jest.fn(), demarrerWorker: jest.fn() };
-  const mockStockage = { deposerTampon: jest.fn(), supprimer: jest.fn() };
+  const mockStockage = { deposerTampon: jest.fn(), supprimer: jest.fn(), lire: jest.fn() };
   const mockMail = { sendCertificatEmisEmail: jest.fn() };
   const mockAudit = { record: jest.fn() };
   const mockConfig = {
@@ -268,6 +274,90 @@ describe('CertificatsService (US-CERT-01)', () => {
         expect.objectContaining({ action: 'CERTIFICAT_RELANCE', acteur: 'adm' }),
       );
       expect(vue.id).toBe('cert-1');
+    });
+  });
+
+  describe('mes certificats (US-CERT-03)', () => {
+    const actif = {
+      ...enAttente(),
+      statut: StatutCertificat.ACTIF,
+      cleStockage: 'certificats/cert-1.pdf',
+      empreinteSha256: SHA,
+      dateGeneration: DATE,
+      formation: { titre: 'Back-end NestJS' },
+    };
+
+    it('liste : empreinte et lien public seulement une fois émis ; jamais la clé', async () => {
+      mockManager.find.mockResolvedValue([
+        actif,
+        { ...enAttente(), id: 'cert-2', formation: { titre: 'DevOps' }, empreinteSha256: null },
+      ]);
+      const liste = await service.mesCertificats('app-1');
+      expect(mockManager.find).toHaveBeenCalledWith(
+        Certificat,
+        expect.objectContaining({ where: { apprenantId: 'app-1' } }),
+      );
+      expect(liste[0]).toEqual({
+        id: 'cert-1',
+        formation: { id: 'f-1', titre: 'Back-end NestJS' },
+        statut: StatutCertificat.ACTIF,
+        scoreFinal: 71.5,
+        mention: 'Bien',
+        organismeEmetteur: 'ESPRIT Entreprise',
+        dateEmission: DATE,
+        dateGeneration: DATE,
+        empreinteSha256: SHA,
+        urlVerification: 'http://localhost:3001/verifier/cert-1',
+      });
+      expect(liste[1]).toMatchObject({ empreinteSha256: null, urlVerification: null });
+      expect(JSON.stringify(liste)).not.toContain('certificats/');
+    });
+
+    it('PDF : seulement le mien (404 sinon), ACTIF, relayé et tracé', async () => {
+      mockManager.findOne.mockResolvedValueOnce(null);
+      await expect(service.monPdf('app-x', 'cert-1', { adresseIp: null })).rejects.toThrow(
+        NotFoundException,
+      );
+      expect(mockManager.findOne).toHaveBeenCalledWith(Certificat, {
+        where: { id: 'cert-1', apprenantId: 'app-x' },
+        relations: { formation: true },
+      });
+
+      mockManager.findOne.mockResolvedValueOnce({
+        ...actif,
+        statut: StatutCertificat.EN_GENERATION,
+      });
+      await expect(service.monPdf('app-1', 'cert-1', { adresseIp: null })).rejects.toThrow(
+        ConflictException,
+      );
+      expect(mockStockage.lire).not.toHaveBeenCalled();
+
+      const flux = Readable.from(['%PDF']);
+      mockManager.findOne.mockResolvedValueOnce(actif);
+      mockStockage.lire.mockResolvedValue({ flux, taille: 4 });
+      await expect(service.monPdf('app-1', 'cert-1', { adresseIp: '1.2.3.4' })).resolves.toEqual({
+        flux,
+        nomFichier: 'certificat-back-end-nestjs.pdf',
+        taille: 4,
+      });
+      expect(mockStockage.lire).toHaveBeenCalledWith('certificats/cert-1.pdf');
+      expect(mockAudit.record).toHaveBeenCalledWith(
+        expect.objectContaining({
+          action: 'CERTIFICAT_TELECHARGE',
+          acteur: 'app-1',
+          cible: 'cert-1',
+        }),
+      );
+    });
+
+    it('PDF : stockage injoignable -> 503, pas d’audit', async () => {
+      mockManager.findOne.mockResolvedValueOnce(actif);
+      mockStockage.lire.mockRejectedValue(new Error('ECONNREFUSED'));
+      jest.spyOn(Logger.prototype, 'error').mockImplementation(() => undefined);
+      await expect(service.monPdf('app-1', 'cert-1', { adresseIp: null })).rejects.toThrow(
+        ServiceUnavailableException,
+      );
+      expect(mockAudit.record).not.toHaveBeenCalled();
     });
   });
 });
