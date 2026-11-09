@@ -1,4 +1,5 @@
 import {
+  Body,
   Controller,
   Get,
   HttpCode,
@@ -14,7 +15,7 @@ import { ApiBearerAuth, ApiOperation, ApiResponse, ApiTags } from '@nestjs/swagg
 import { Role } from '../../database/enums/role.enum';
 import { AuthenticatedRequest } from '../auth/auth.types';
 import { Roles } from '../auth/decorators/roles.decorator';
-import { FiltreCertificatsDto } from './certificats.dto';
+import { FiltreCertificatsDto, RevoquerCertificatDto } from './certificats.dto';
 import { CertificatAdminVue, CertificatsService } from './certificats.service';
 import { EligibiliteService } from './eligibilite.service';
 
@@ -64,6 +65,32 @@ export class CertificatsAdminController {
   ): Promise<CertificatAdminVue> {
     if (!req.user) throw new UnauthorizedException('Non authentifié.');
     return this.certificatsService.relancer(req.user.sub, certificatId, {
+      adresseIp: req.ip ?? null,
+    });
+  }
+
+  @Post('certificats/:certificatId/revoquer')
+  @HttpCode(HttpStatus.OK)
+  @ApiOperation({
+    summary: 'Révoquer un certificat émis — irréversible (US-CERT-06, DS-07)',
+    description:
+      'Double confirmation : case d’irréversibilité et mot de passe de l’administrateur. ' +
+      'Le PDF et l’empreinte sont conservés ; la vérification publique affiche « Révoqué » ' +
+      'immédiatement ; le titulaire est prévenu par email (motif, date).',
+  })
+  @ApiResponse({ status: 200, description: 'Certificat révoqué ; audit CERTIFICAT_REVOQUE.' })
+  @ApiResponse({ status: 400, description: 'Motif, description ou confirmation invalides.' })
+  @ApiResponse({ status: 401, description: 'Non authentifié ou mot de passe invalide.' })
+  @ApiResponse({ status: 403, description: 'Rôle autre qu’administrateur.' })
+  @ApiResponse({ status: 404, description: 'Certificat introuvable.' })
+  @ApiResponse({ status: 409, description: 'Déjà révoqué, ou encore en préparation.' })
+  revoquer(
+    @Param('certificatId', ParseUUIDPipe) certificatId: string,
+    @Body() dto: RevoquerCertificatDto,
+    @Req() req: AuthenticatedRequest,
+  ): Promise<CertificatAdminVue> {
+    if (!req.user) throw new UnauthorizedException('Non authentifié.');
+    return this.certificatsService.revoquer(req.user.sub, certificatId, dto, {
       adresseIp: req.ip ?? null,
     });
   }

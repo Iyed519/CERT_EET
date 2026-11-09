@@ -195,7 +195,12 @@ describe('Vérification publique (e2e) — US-CERT-04', () => {
     cert.b = (await certificats.demanderEmission(ids.b, formationId, 90)).certificatId;
     await attendreActif(cert.a);
     await attendreActif(cert.b);
-    await dataSource.query("UPDATE certificats SET statut = 'REVOQUE' WHERE id = $1", [cert.b]);
+    await dataSource.query(
+      `UPDATE certificats SET statut = 'REVOQUE', date_revocation = now(),
+         motif_revocation = 'ERREUR_ADMIN', description_revocation = 'Révocation de test (e2e).',
+         revoque_par = apprenant_id WHERE id = $1`,
+      [cert.b],
+    );
     const [ligne] = (await dataSource.query(
       `INSERT INTO certificats (apprenant_id, formation_id, score_final, mention, organisme_emetteur,
          date_emission, nb_tentatives, derniere_erreur)
@@ -230,6 +235,7 @@ describe('Vérification publique (e2e) — US-CERT-04', () => {
       scoreFinal: 72,
       dateEmission: expect.any(String),
       empreinteSha256: empreinte,
+      dateRevocation: null,
     });
     const corps = JSON.stringify(res.body);
     expect(corps).not.toContain(EMAIL.a);
@@ -269,7 +275,13 @@ describe('Vérification publique (e2e) — US-CERT-04', () => {
 
   it('révoqué : REVOQUE ; pas de PDF public', async () => {
     const res = await publique(`/${cert.b}`).expect(200);
-    expect(res.body).toMatchObject({ verdict: 'REVOQUE', titulaire: 'Sami Test' });
+    expect(res.body).toMatchObject({
+      verdict: 'REVOQUE',
+      titulaire: 'Sami Test',
+      dateRevocation: expect.any(String),
+    });
+    // US-CERT-06 : le motif et sa description restent internes.
+    expect(JSON.stringify(res.body)).not.toMatch(/ERREUR_ADMIN|Révocation de test/);
     await publique(`/${cert.b}/pdf`).expect(404);
   });
 

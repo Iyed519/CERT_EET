@@ -215,6 +215,7 @@ describe('Mes certificats (e2e) — US-CERT-03', () => {
         dateGeneration: expect.any(String),
         empreinteSha256: expect.stringMatching(/^[0-9a-f]{64}$/),
         urlVerification: `${process.env.APP_BASE_URL}/verifier/${cert.a}`,
+        revocation: null,
       });
       expect(attente).toMatchObject({
         statut: 'EN_ATTENTE_GENERATION',
@@ -275,7 +276,12 @@ describe('Mes certificats (e2e) — US-CERT-03', () => {
       expect(attente.body.message).toBe(
         'Votre certificat est en cours d’émission : il sera téléchargeable dans quelques instants.',
       );
-      await dataSource.query("UPDATE certificats SET statut = 'REVOQUE' WHERE id = $1", [cert.b]);
+      await dataSource.query(
+        `UPDATE certificats SET statut = 'REVOQUE', date_revocation = now(),
+           motif_revocation = 'ERREUR_ADMIN', description_revocation = 'Révocation de test (e2e).',
+           revoque_par = apprenant_id WHERE id = $1`,
+        [cert.b],
+      );
       const revoque = await api(`/mes-certificats/${cert.b}/pdf`, tokens.b).expect(409);
       expect(revoque.body.message).toBe(
         'Ce certificat a été révoqué : il n’est plus téléchargeable.',
@@ -283,6 +289,7 @@ describe('Mes certificats (e2e) — US-CERT-03', () => {
       const liste = await api('/mes-certificats', tokens.b).expect(200);
       expect(liste.body[0]).toMatchObject({
         statut: 'REVOQUE',
+        revocation: { date: expect.any(String), motif: 'ERREUR_ADMIN' },
         empreinteSha256: expect.any(String),
       });
     });

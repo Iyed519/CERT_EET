@@ -305,10 +305,24 @@ describe('Émission asynchrone d’un certificat (e2e) — US-CERT-01', () => {
       ]) {
         await expect(dataSource.query(sql, [certificatId])).rejects.toThrow('immuable');
       }
-      await dataSource.query("UPDATE certificats SET statut = 'REVOQUE' WHERE id = $1", [
-        certificatId,
-      ]);
+      // US-CERT-06 : une révocation porte motif, description, auteur et date.
+      await expect(
+        dataSource.query("UPDATE certificats SET statut = 'REVOQUE' WHERE id = $1", [certificatId]),
+      ).rejects.toThrow('CHK_certificats_revocation');
+      await dataSource.query(
+        `UPDATE certificats SET statut = 'REVOQUE', date_revocation = now(),
+         motif_revocation = 'ERREUR_ADMIN', description_revocation = 'Révocation de test (e2e).',
+         revoque_par = apprenant_id WHERE id = $1`,
+        [certificatId],
+      );
       expect((await ligne(certificatId)).statut).toBe(StatutCertificat.REVOQUE);
+      // Irréversible : plus aucune modification, même du motif.
+      for (const sql of [
+        "UPDATE certificats SET statut = 'ACTIF' WHERE id = $1",
+        "UPDATE certificats SET motif_revocation = 'FRAUDE' WHERE id = $1",
+      ]) {
+        await expect(dataSource.query(sql, [certificatId])).rejects.toThrow('irréversible');
+      }
     });
   });
 

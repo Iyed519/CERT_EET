@@ -1,4 +1,5 @@
 import { ConflictException } from '@nestjs/common';
+import { MotifRevocation } from '../../database/enums/motif-revocation.enum';
 import { StatutCertificat } from '../../database/enums/statut-certificat.enum';
 
 /**
@@ -97,4 +98,25 @@ export function nomFichierCertificat(titreFormation: string): string {
     .slice(0, 60)
     .replace(/-+$/g, '');
   return `certificat-${base || 'formation'}.pdf`;
+}
+
+/** Libellés des motifs de révocation (DS-07), pour l'email et l'interface. */
+export const LIBELLES_MOTIF_REVOCATION: Readonly<Record<MotifRevocation, string>> = {
+  [MotifRevocation.FRAUDE]: 'Fraude avérée',
+  [MotifRevocation.ERREUR_ADMIN]: 'Erreur administrative',
+  [MotifRevocation.DISCIPLINAIRE]: 'Décision disciplinaire',
+  [MotifRevocation.JUDICIAIRE]: 'Décision judiciaire',
+};
+
+export const MESSAGE_DEJA_REVOQUE = 'Ce certificat est déjà révoqué : la révocation est définitive.';
+export const MESSAGE_PAS_REVOCABLE =
+  'Seul un certificat émis (actif) peut être révoqué : celui-ci est encore en préparation.';
+
+/**
+ * Révocation (US-CERT-06, DS-07) : seul un certificat ACTIF se révoque ; déjà
+ * révoqué ou encore en préparation -> 409 (état).
+ */
+export function verifierRevocable(statut: StatutCertificat): void {
+  if (statut === StatutCertificat.REVOQUE) throw new ConflictException(MESSAGE_DEJA_REVOQUE);
+  if (statut !== StatutCertificat.ACTIF) throw new ConflictException(MESSAGE_PAS_REVOCABLE);
 }

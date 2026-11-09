@@ -19,6 +19,7 @@ describe('VerificationService (US-CERT-04)', () => {
   const lire = jest.fn();
   const record = jest.fn();
 
+  const REVOCATION = new Date('2026-11-09T12:00:00Z');
   const certificat = (statut = StatutCertificat.ACTIF): Record<string, unknown> => ({
     id: ID,
     statut,
@@ -31,6 +32,9 @@ describe('VerificationService (US-CERT-04)', () => {
     dateGeneration: DATE,
     cleStockage: `certificats/${ID}.pdf`,
     empreinteSha256: SHA,
+    dateRevocation: statut === StatutCertificat.REVOQUE ? REVOCATION : null,
+    motifRevocation: statut === StatutCertificat.REVOQUE ? 'FRAUDE' : null,
+    descriptionRevocation: statut === StatutCertificat.REVOQUE ? 'Détail interne confidentiel' : null,
   });
 
   beforeEach(async () => {
@@ -64,6 +68,7 @@ describe('VerificationService (US-CERT-04)', () => {
       scoreFinal: 72,
       dateEmission: DATE,
       empreinteSha256: SHA,
+      dateRevocation: null,
     });
     expect(JSON.stringify(v)).not.toMatch(/ines@prive|app-secret|certificats\//);
     expect(record).toHaveBeenCalledWith(
@@ -94,9 +99,11 @@ describe('VerificationService (US-CERT-04)', () => {
     expect(v).toMatchObject({ verdict: 'VALIDE', integrite: 'NON_VERIFIABLE' });
   });
 
-  it('révoqué : REVOQUE', async () => {
+  it('révoqué : REVOQUE avec sa date ; ni motif ni description publiés (US-CERT-06)', async () => {
     findOne.mockResolvedValue(certificat(StatutCertificat.REVOQUE));
-    expect((await service.verifier(ID, { adresseIp: null })).verdict).toBe('REVOQUE');
+    const v = await service.verifier(ID, { adresseIp: null });
+    expect(v).toMatchObject({ verdict: 'REVOQUE', dateRevocation: REVOCATION });
+    expect(JSON.stringify(v)).not.toMatch(/FRAUDE|confidentiel/);
   });
 
   it.each([
