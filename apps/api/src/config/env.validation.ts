@@ -71,6 +71,14 @@ export const envValidationSchema = Joi.object({
   S3_BUCKET_LIVRABLES: Joi.string()
     .pattern(/^[a-z0-9][a-z0-9.-]{1,61}[a-z0-9]$/)
     .default('livrables'),
+
+  // --- Certificats (US-CERT-01, ADR-04) ---
+  // File Bull (BullMQ) sur le Redis existant. Le worker tourne dans le
+  // processus de l'api (CERTIFICATS_WORKER=on) ; « off » le coupe (instance
+  // dédiée à l'HTTP). Tentatives et délai de reprise (exponentiel) réglables.
+  CERTIFICATS_WORKER: Joi.string().valid('on', 'off').default('on'),
+  CERTIFICATS_TENTATIVES: Joi.number().integer().min(1).max(10).default(3),
+  CERTIFICATS_BACKOFF_MS: Joi.number().integer().min(10).max(600000).default(5000),
 })
   // Refuse les clés inconnues seulement en avertissement : on n'échoue pas
   // sur des variables système, mais on valide strictement celles qu'on connaît.

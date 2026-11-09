@@ -15,6 +15,7 @@ import { InscriptionsModule } from './modules/inscriptions/inscriptions.module';
 import { QcmModule } from './modules/qcm/qcm.module';
 import { TentativesModule } from './modules/tentatives/tentatives.module';
 import { AteliersModule } from './modules/ateliers/ateliers.module';
+import { CertificatsModule } from './modules/certificats/certificats.module';
 /**
  * Module racine (AppModule).
  *
@@ -30,7 +31,8 @@ import { AteliersModule } from './modules/ateliers/ateliers.module';
  * l'inscription des apprenants, QcmModule (US-QCM-01) les évaluations,
  * TentativesModule (US-QCM-05) leur passage par l'apprenant, AteliersModule
  * (US-ATEL-01, Sprint 3) les ateliers pratiques. StockageModule (@Global,
- * US-ATEL-04) dépose les livrables sur MinIO / S3 (ADR-07).
+ * US-ATEL-04) dépose les livrables sur MinIO / S3 (ADR-07). CertificatsModule
+ * (US-CERT-01) émet les certificats en asynchrone (BullMQ, ADR-04).
  */
 @Module({
   imports: [
@@ -50,6 +52,7 @@ import { AteliersModule } from './modules/ateliers/ateliers.module';
     QcmModule,
     TentativesModule,
     AteliersModule,
+    CertificatsModule,
   ],
 })
 export class AppModule {}

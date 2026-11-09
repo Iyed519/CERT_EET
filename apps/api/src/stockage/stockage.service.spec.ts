@@ -126,4 +126,29 @@ describe('StockageService (US-ATEL-04)', () => {
       await expect(service.lire('k')).rejects.toThrow('NoSuchKey');
     });
   });
+
+  describe('deposerTampon (US-CERT-01)', () => {
+    it('dépose le contenu en mémoire avec sa taille, son type et son SHA-256', async () => {
+      send.mockResolvedValue({});
+      const contenu = Buffer.from('%PDF-1.7');
+      await service.deposerTampon('certificats/c1.pdf', contenu, 'application/pdf', 'f'.repeat(64));
+      const commande = send.mock.calls[1][0] as PutObjectCommand;
+      expect(commande).toBeInstanceOf(PutObjectCommand);
+      expect(commande.input).toEqual({
+        Bucket: 'livrables',
+        Key: 'certificats/c1.pdf',
+        Body: contenu,
+        ContentLength: 8,
+        ContentType: 'application/pdf',
+        Metadata: { sha256: 'f'.repeat(64) },
+      });
+    });
+
+    it('relance l’erreur du stockage', async () => {
+      send.mockResolvedValueOnce({}).mockRejectedValue(new Error('ECONNREFUSED'));
+      await expect(
+        service.deposerTampon('k', Buffer.from('x'), 'application/pdf', 'a'.repeat(64)),
+      ).rejects.toThrow('ECONNREFUSED');
+    });
+  });
 });

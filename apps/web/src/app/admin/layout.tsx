@@ -5,7 +5,7 @@ import { ReactNode } from 'react';
 
 /**
  * Layout des pages d'administration (US-ROL-01, US-CPT-03, US-AUTH-12,
- * US-FORM-01).
+ * US-FORM-01, US-CERT-01 : suivi de l'émission des certificats).
  *
  * Ajoute une barre d'onglets commune pour naviguer entre les écrans admin
  * (Utilisateurs, Demandes de rôle, Formations, Journal d'audit) sans quitter
@@ -16,6 +16,7 @@ const ONGLETS: Array<[string, string]> = [
   ['/admin/utilisateurs', 'Utilisateurs'],
   ['/admin/role-requests', 'Demandes de rôle'],
   ['/admin/formations', 'Formations'],
+  ['/admin/certificats', 'Certificats'],
   ['/admin/audit', "Journal d'audit"],
 ];
 

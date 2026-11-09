@@ -7,6 +7,7 @@ import type {
   NiveauDifficulte,
   RaisonCorrection,
   StatutAtelier,
+  StatutCertificat,
   StatutInscription,
   StatutLivrable,
   StatutQcm,
@@ -252,3 +253,11 @@ export const nombreFr = (valeur: number): string =>
 /** « Sami Ben Ali », ou l'email à défaut de nom (US-ATEL-06). */
 export const nomApprenantFr = (a: { prenom: string | null; nom: string | null; email: string }): string =>
   [a.prenom, a.nom].filter(Boolean).join(' ') || a.email;
+
+/** Statut d'un certificat, pour l'administrateur (US-CERT-01). */
+export const LIBELLES_STATUT_CERTIFICAT: Record<StatutCertificat, string> = {
+  EN_ATTENTE_GENERATION: 'En attente',
+  EN_GENERATION: 'En génération',
+  ACTIF: 'Émis',
+  REVOQUE: 'Révoqué',
+};

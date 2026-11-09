@@ -657,3 +657,13 @@ textarea.input { resize: vertical; font-family: inherit; line-height: 1.45; }
 .niveau-pastille-2 { background: #fef3e2; color: var(--accent-dark); }
 .niveau-pastille-3 { background: #e7f4ec; color: #2f7d4f; }
 .niveau-pastille-4 { background: var(--primary); color: #fff; }
+
+/* US-CERT-01 — Suivi de l'émission des certificats (administrateur). */
+.certificats-filtres { margin: 0 0 16px; }
+.certificat-ligne .empreinte { display: block; margin-top: 4px; }
+.certificat-ligne .texte-erreur { margin: 4px 0 0; }
+.certificat-EN_ATTENTE_GENERATION { background: #fef3e2; color: var(--accent-dark); }
+.certificat-EN_GENERATION { background: #e8f0fb; color: #1d4f91; }
+.certificat-ACTIF { background: var(--success-soft); color: var(--primary-dark); }
+.certificat-REVOQUE { background: var(--danger-soft); color: #922b21; }
+.alert + .livrables-liste { margin-top: 10px; }
