@@ -98,7 +98,28 @@ ECHEC avec un motif), c'est tracé et le formateur reçoit un email.
   `pg_blocking_pids` du bloqueur.
 
 ## Vérification
-_(complétée après les mutations)_
+- API : lint 0, `tsc`, unitaires **75 suites / 1 097 tests**, migration
+  run + revert + run (26 migrations), e2e **40 suites / 564 tests** (en
+  série ; l'essai Anthropic réel est ignoré sans clé), dont `E2E-IARAG`
+  (17 tests : support réellement déposé et indexé, génération lancée par
+  l'API jusqu'à TERMINEE, 8 passages les plus proches avec celui du thème en
+  premier, passages du seul support ciblé, suggestions conformes et ancrées,
+  non conformes comptées, deux échecs après deux tentatives, échec définitif
+  dès la première, lecture 403 tracé / 404 / 400 / 401, CHECK, unicité,
+  cascade, trois tests de concurrence forcée : deux exécutions simultanées du
+  même travail, génération passée en ECHEC pendant l'attente du verrou,
+  échecs tardifs simultanés sur une génération terminée).
+- Mutations tuées (16 / 16) : modèle d'embeddings, statut EN_COURS au premier
+  et au second verrou, verrou de la première transaction, erreur non
+  récupérable, motif générique, une seule bonne réponse en QCU, limite du
+  nombre demandé, neutralisation des chevrons, limite exacte du prompt,
+  aucune relance du SDK, outil imposé, filtre du support ciblé, tri par
+  distance cosinus, mise en ECHEC seulement si EN_COURS, garde d'accès à la
+  lecture des suggestions.
+- Web : `tsc`, `next lint`. Navigateur 1280 / 390 px (Chromium) : dépôt d'un
+  support, génération de 5 questions (dont propositions non conformes
+  écartées), « Voir les questions » : énoncés, bonnes réponses marquées,
+  explication, confiance, passages ; pas de défilement horizontal.
 
 ## CI
 Voir la PR.
