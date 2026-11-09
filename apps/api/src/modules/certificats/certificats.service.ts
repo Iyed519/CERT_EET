@@ -4,7 +4,9 @@ import {
   NotFoundException,
   OnApplicationBootstrap,
   ServiceUnavailableException,
+  UnauthorizedException,
 } from '@nestjs/common';
+import * as bcrypt from 'bcryptjs';
 import { Readable } from 'stream';
 import { ConfigService } from '@nestjs/config';
 import { createHash } from 'crypto';
@@ -13,6 +15,7 @@ import { MailConfig } from '../../config/configuration';
 import { Certificat } from '../../database/entities/certificat.entity';
 import { Formation } from '../../database/entities/formation.entity';
 import { User } from '../../database/entities/user.entity';
+import { MotifRevocation } from '../../database/enums/motif-revocation.enum';
 import { StatutCertificat } from '../../database/enums/statut-certificat.enum';
 import { MailService } from '../../mail/mail.service';
 import { StockageService } from '../../stockage/stockage.service';
@@ -22,14 +25,17 @@ import {
   arrondiScore,
   cleStockageCertificat,
   estAGenerer,
+  LIBELLES_MOTIF_REVOCATION,
   mentionPour,
   nomFichierCertificat,
   ORGANISME_EMETTEUR,
   resumeErreur,
   urlVerification,
   verifierRelancable,
+  verifierRevocable,
   verifierTelechargeable,
 } from './certificat.regles';
+import { RevoquerCertificatDto } from './certificats.dto';
 import { FileCertificatsService } from './file-certificats.service';
 
 /** Un certificat dans la liste de l'administrateur (liste blanche). */
@@ -45,6 +51,13 @@ export interface CertificatAdminVue {
   empreinteSha256: string | null;
   nbTentatives: number;
   derniereErreur: string | null;
+  /** US-CERT-06 — null tant que le certificat n'est pas révoqué. */
+  revocation: {
+    date: Date;
+    motif: MotifRevocation;
+    description: string;
+    revoquePar: string;
+  } | null;
 }
 
 /** Un certificat, vu par son titulaire (US-CERT-03, liste blanche). */
@@ -61,6 +74,8 @@ export interface MonCertificatVue {
   empreinteSha256: string | null;
   /** Lien public de vérification (à partager) ; null tant qu'il n'est pas émis. */
   urlVerification: string | null;
+  /** US-CERT-06 — date et motif (catégorie) ; null si non révoqué. */
+  revocation: { date: Date; motif: MotifRevocation } | null;
 }
 
 /** Le PDF prêt à être relayé au navigateur. */
@@ -71,6 +86,10 @@ export interface PdfCertificat {
 }
 
 export const MESSAGE_CERTIFICAT_INTROUVABLE = 'Certificat introuvable.';
+
+// Hash bcrypt factice (compte sans mot de passe local) : la comparaison tourne
+// quand même et rend toujours faux — même défense que AdminUsersService.
+const FAUX_HASH_BCRYPT = '$2a$12$invalidplaceholderhashinvalidplaceholderhash123456789';
 
 /** Résultat d'une demande d'émission. */
 export interface DemandeEmission {
@@ -247,8 +266,21 @@ export class CertificatsService implements OnApplicationBootstrap {
 
   /** Liste de l'administrateur (suivi de l'émission), plus récents d'abord. */
   async lister(statut?: StatutCertificat): Promise<CertificatAdminVue[]> {
+    return this.vuesAdmin(statut ? { statut } : {});
+  }
+
+  /** Vue administrateur d'UN certificat (après relance ou révocation). */
+  private async vueAdmin(certificatId: string): Promise<CertificatAdminVue> {
+    const [vue] = await this.vuesAdmin({ id: certificatId });
+    return vue;
+  }
+
+  private async vuesAdmin(where: {
+    statut?: StatutCertificat;
+    id?: string;
+  }): Promise<CertificatAdminVue[]> {
     const certificats = await this.dataSource.manager.find(Certificat, {
-      where: statut ? { statut } : {},
+      where,
       relations: { apprenant: true, formation: true },
       order: { dateEmission: 'DESC', id: 'ASC' },
       take: 200,
@@ -270,6 +302,15 @@ export class CertificatsService implements OnApplicationBootstrap {
       empreinteSha256: c.empreinteSha256,
       nbTentatives: c.nbTentatives,
       derniereErreur: c.derniereErreur,
+      revocation:
+        c.statut === StatutCertificat.REVOQUE
+          ? {
+              date: c.dateRevocation as Date,
+              motif: c.motifRevocation as MotifRevocation,
+              description: c.descriptionRevocation as string,
+              revoquePar: c.revoquePar as string,
+            }
+          : null,
     }));
   }
 
@@ -306,8 +347,107 @@ export class CertificatsService implements OnApplicationBootstrap {
       detailsAvantApres: { rang },
     });
     await this.file.ajouter(certificatId, rang);
-    const [vue] = (await this.lister()).filter((c) => c.id === certificatId);
-    return vue;
+    return this.vueAdmin(certificatId);
+  }
+
+  /**
+   * Révocation d'un certificat (US-CERT-06, DS-07, NF3).
+   *
+   *  1. Réauthentification de l'administrateur (bcrypt, hash factice si compte
+   *     sans mot de passe local) -> 401 et audit d'échec si faux ; AVANT tout
+   *     verrou (bcrypt est lent).
+   *  2. Sous le verrou de la ligne : inconnu -> 404 ; déjà révoqué ou en
+   *     préparation -> 409 ; sinon ACTIF -> REVOQUE avec motif, description,
+   *     auteur et date (horloge de PostgreSQL). Le PDF, la clé et l'empreinte
+   *     sont conservés ; le déclencheur refuse toute modification ultérieure.
+   *  3. Après validation : audit CERTIFICAT_REVOQUE, email au titulaire (au
+   *     mieux). La page publique affiche « Révoqué » immédiatement (elle lit la
+   *     base à chaque vérification).
+   */
+  async revoquer(
+    acteurId: string,
+    certificatId: string,
+    dto: RevoquerCertificatDto,
+    contexte: { adresseIp: string | null },
+  ): Promise<CertificatAdminVue> {
+    const admin = await this.dataSource.manager.findOne(User, {
+      where: { id: acteurId },
+      select: { id: true, motDePasseHash: true },
+    });
+    const motDePasseOk = await bcrypt.compare(
+      dto.motDePasseAdmin,
+      admin?.motDePasseHash ?? FAUX_HASH_BCRYPT,
+    );
+    if (!admin || !motDePasseOk) {
+      await this.auditService.record({
+        action: 'CERTIFICAT_REVOCATION_REFUSEE',
+        acteur: acteurId,
+        cible: certificatId,
+        adresseIp: contexte.adresseIp,
+        resultat: 'Échec',
+        detailsAvantApres: { raison: 'Mot de passe administrateur invalide' },
+      });
+      throw new UnauthorizedException('Mot de passe administrateur invalide.');
+    }
+
+    const revoque = await this.dataSource.transaction(async (manager) => {
+      const certificat = await manager.findOne(Certificat, {
+        where: { id: certificatId },
+        lock: { mode: 'pessimistic_write' },
+      });
+      if (!certificat) throw new NotFoundException(MESSAGE_CERTIFICAT_INTROUVABLE);
+      verifierRevocable(certificat.statut);
+      const [{ maintenant }] = (await manager.query('SELECT now() AS maintenant')) as Array<{
+        maintenant: Date;
+      }>;
+      await manager.update(
+        Certificat,
+        { id: certificatId },
+        {
+          statut: StatutCertificat.REVOQUE,
+          dateRevocation: maintenant,
+          motifRevocation: dto.motif,
+          descriptionRevocation: dto.description,
+          revoquePar: acteurId,
+        },
+      );
+      const apprenant = await manager.findOne(User, {
+        where: { id: certificat.apprenantId },
+        select: { id: true, prenom: true, email: true },
+      });
+      const formation = await manager.findOne(Formation, {
+        where: { id: certificat.formationId },
+        select: { id: true, titre: true },
+      });
+      return { apprenant, titre: formation?.titre ?? '', date: maintenant };
+    });
+
+    await this.auditService.record({
+      action: 'CERTIFICAT_REVOQUE',
+      acteur: acteurId,
+      cible: certificatId,
+      adresseIp: contexte.adresseIp,
+      resultat: 'Succès',
+      detailsAvantApres: {
+        avant: { statut: StatutCertificat.ACTIF },
+        apres: { statut: StatutCertificat.REVOQUE, motif: dto.motif },
+      },
+    });
+    if (revoque.apprenant) {
+      try {
+        await this.mailService.sendCertificatRevoqueEmail(revoque.apprenant.email, {
+          prenom: revoque.apprenant.prenom,
+          titreFormation: revoque.titre,
+          motif: LIBELLES_MOTIF_REVOCATION[dto.motif],
+          dateRevocation: revoque.date,
+        });
+      } catch (erreur) {
+        this.logger.error(
+          `Email de révocation non envoyé (${revoque.apprenant.id}) : ${resumeErreur(erreur)}`,
+        );
+      }
+    }
+    return this.vueAdmin(certificatId);
   }
 
   /** Mes certificats (US-CERT-03), plus récents d'abord. */
@@ -330,6 +470,10 @@ export class CertificatsService implements OnApplicationBootstrap {
         dateGeneration: emis ? c.dateGeneration : null,
         empreinteSha256: emis ? c.empreinteSha256 : null,
         urlVerification: emis ? urlVerification(this.baseUrl(), c.id) : null,
+        revocation:
+          c.statut === StatutCertificat.REVOQUE
+            ? { date: c.dateRevocation as Date, motif: c.motifRevocation as MotifRevocation }
+            : null,
       };
     });
   }

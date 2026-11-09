@@ -32,6 +32,8 @@ export interface VerificationPublique {
   scoreFinal: number;
   dateEmission: Date;
   empreinteSha256: string;
+  /** US-CERT-06 — date de révocation ; le motif n'est jamais publié (DS-07). */
+  dateRevocation: Date | null;
 }
 
 /**
@@ -43,7 +45,7 @@ export interface VerificationPublique {
  *    chaque vérification ; il est comparé à l'empreinte enregistrée à
  *    l'émission. Différent -> INTEGRITE_COMPROMISE ; stockage injoignable ->
  *    intégrité NON_VERIFIABLE (le verdict reste celui du statut).
- *  - Révoqué -> REVOQUE (US-CERT-06 ajoutera la date et le motif public).
+ *  - Révoqué -> REVOQUE avec sa date (US-CERT-06) ; le motif reste interne.
  *  - Chaque vérification est tracée (CERTIFICAT_VERIFIE : verdict, adresse IP,
  *    aucun compte).
  *  - PDF public : seulement d'un certificat valide et intègre.
@@ -88,6 +90,8 @@ export class VerificationService {
       scoreFinal: certificat.scoreFinal,
       dateEmission: certificat.dateGeneration ?? certificat.dateEmission,
       empreinteSha256: certificat.empreinteSha256 as string,
+      dateRevocation:
+        certificat.statut === StatutCertificat.REVOQUE ? certificat.dateRevocation : null,
     };
   }
 

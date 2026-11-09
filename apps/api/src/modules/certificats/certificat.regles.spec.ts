@@ -1,14 +1,17 @@
 import { ConflictException } from '@nestjs/common';
+import { MotifRevocation } from '../../database/enums/motif-revocation.enum';
 import { StatutCertificat } from '../../database/enums/statut-certificat.enum';
 import {
   arrondiScore,
   cleStockageCertificat,
   estAGenerer,
+  LIBELLES_MOTIF_REVOCATION,
   mentionPour,
   nomFichierCertificat,
   resumeErreur,
   urlVerification,
   verifierRelancable,
+  verifierRevocable,
   verifierTelechargeable,
 } from './certificat.regles';
 
@@ -91,5 +94,25 @@ describe('certificat.regles (US-CERT-01)', () => {
     );
     expect(nomFichierCertificat('***')).toBe('certificat-formation.pdf');
     expect(nomFichierCertificat('a'.repeat(100))).toBe(`certificat-${'a'.repeat(60)}.pdf`);
+  });
+
+  describe('révocation (US-CERT-06)', () => {
+    it('seul un certificat ACTIF se révoque ; sinon 409', () => {
+      expect(() => verifierRevocable(StatutCertificat.ACTIF)).not.toThrow();
+      expect(() => verifierRevocable(StatutCertificat.REVOQUE)).toThrow('déjà révoqué');
+      for (const statut of [
+        StatutCertificat.EN_ATTENTE_GENERATION,
+        StatutCertificat.EN_GENERATION,
+      ]) {
+        expect(() => verifierRevocable(statut)).toThrow(ConflictException);
+        expect(() => verifierRevocable(statut)).toThrow('en préparation');
+      }
+    });
+
+    it('un libellé par motif', () => {
+      expect(Object.keys(LIBELLES_MOTIF_REVOCATION).sort()).toEqual(
+        Object.values(MotifRevocation).sort(),
+      );
+    });
   });
 });

@@ -8,6 +8,7 @@ import {
   PrimaryGeneratedColumn,
   UpdateDateColumn,
 } from 'typeorm';
+import { MotifRevocation } from '../enums/motif-revocation.enum';
 import { StatutCertificat } from '../enums/statut-certificat.enum';
 import { Formation } from './formation.entity';
 import { User } from './user.entity';
@@ -28,7 +29,8 @@ const nombre = {
  *  - `cleStockage`, `empreinteSha256` et `dateGeneration` sont fixés quand le
  *    worker a produit le PDF (statut ACTIF ; CHECK en base) ;
  *  - un certificat ACTIF est IMMUABLE (déclencheur de la migration
- *    1787000000000) ; seule la révocation (US-CERT-06) le fera évoluer ;
+ *    1787000000000) ; seule la révocation le fait évoluer, et un certificat
+ *    REVOQUE ne change plus (US-CERT-06, migration 1787100000000) ;
  *  - FK RESTRICT vers l'apprenant et la formation.
  */
 @Index('UQ_certificats_apprenant_formation', ['apprenantId', 'formationId'], { unique: true })
@@ -90,6 +92,23 @@ export class Certificat {
 
   @Column({ name: 'derniere_erreur', type: 'varchar', length: 500, nullable: true })
   derniereErreur: string | null;
+
+  // US-CERT-06 — révocation (CHECK : les quatre si REVOQUE, aucune sinon).
+  @Column({ name: 'date_revocation', type: 'timestamptz', nullable: true })
+  dateRevocation: Date | null;
+
+  @Column({ name: 'motif_revocation', type: 'enum', enum: MotifRevocation, nullable: true })
+  motifRevocation: MotifRevocation | null;
+
+  @Column({ name: 'description_revocation', type: 'text', nullable: true })
+  descriptionRevocation: string | null;
+
+  @Column({ name: 'revoque_par', type: 'uuid', nullable: true })
+  revoquePar: string | null;
+
+  @ManyToOne(() => User, { onDelete: 'RESTRICT' })
+  @JoinColumn({ name: 'revoque_par', foreignKeyConstraintName: 'FK_certificats_revoque_par' })
+  revocateur?: User;
 
   @CreateDateColumn({ name: 'created_at', type: 'timestamptz' })
   createdAt: Date;

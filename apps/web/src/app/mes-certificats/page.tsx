@@ -6,7 +6,7 @@ import {
   MonCertificat,
   telechargerMonCertificat,
 } from '../../lib/api';
-import { jourFr, nombreFr } from '../../lib/format';
+import { jourFr, LIBELLES_MOTIF_REVOCATION, nombreFr } from '../../lib/format';
 
 /** Libellés d'état, côté titulaire. */
 const ETATS: Record<MonCertificat['statut'], string> = {
@@ -142,7 +142,12 @@ export default function MesCertificatsPage(): JSX.Element {
                 <p className="field-hint">Votre certificat est en cours d’émission : il sera disponible dans quelques instants.</p>
               )}
               {c.statut === 'REVOQUE' && (
-                <p className="field-hint texte-erreur">Ce certificat a été révoqué : il n’est plus téléchargeable.</p>
+                <p className="field-hint texte-erreur">
+                  {c.revocation
+                    ? `Révoqué le ${jourFr(c.revocation.date)} — ${LIBELLES_MOTIF_REVOCATION[c.revocation.motif]}. `
+                    : 'Révoqué. '}
+                  Il n’est plus téléchargeable ; pour toute question, contactez ESPRIT Entreprise.
+                </p>
               )}
 
               {c.urlVerification && (

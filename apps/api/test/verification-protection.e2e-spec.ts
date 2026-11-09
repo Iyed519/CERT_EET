@@ -191,6 +191,7 @@ describe('Protection de la vérification publique (e2e) — US-CERT-05', () => {
       [
         'certificatId',
         'dateEmission',
+        'dateRevocation',
         'empreinteSha256',
         'formation',
         'integrite',

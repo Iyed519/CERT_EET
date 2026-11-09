@@ -2359,7 +2359,17 @@ export interface CertificatAdmin {
   empreinteSha256: string | null;
   nbTentatives: number;
   derniereErreur: string | null;
+  /** US-CERT-06 — null tant que le certificat n'est pas révoqué. */
+  revocation: {
+    date: string;
+    motif: MotifRevocation;
+    description: string;
+    revoquePar: string;
+  } | null;
 }
+
+/** Motif d'une révocation (US-CERT-06, DS-07). */
+export type MotifRevocation = 'FRAUDE' | 'ERREUR_ADMIN' | 'DISCIPLINAIRE' | 'JUDICIAIRE';
 
 /** GET /api/admin/certificats — plus récents d'abord, filtre facultatif. */
 export async function getCertificatsAdmin(statut?: StatutCertificat): Promise<CertificatAdmin[]> {
@@ -2378,6 +2388,28 @@ export async function relancerCertificat(certificatId: string): Promise<Certific
   return lireReponseFormation<CertificatAdmin>(response, 'Impossible de relancer la génération.');
 }
 
+/**
+ * POST /api/admin/certificats/:id/revoquer — révocation IRRÉVERSIBLE (US-CERT-06).
+ *   - 401 -> mot de passe administrateur invalide ;
+ *   - 409 -> déjà révoqué, ou encore en préparation.
+ */
+export async function revoquerCertificat(
+  certificatId: string,
+  corps: {
+    motif: MotifRevocation;
+    description: string;
+    confirmationIrreversible: boolean;
+    motDePasseAdmin: string;
+  },
+): Promise<CertificatAdmin> {
+  const response = await apiFetch(`/api/admin/certificats/${certificatId}/revoquer`, {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify(corps),
+  });
+  return lireReponseFormation<CertificatAdmin>(response, 'Impossible de révoquer le certificat.');
+}
+
 /* ============================================================
  * US-CERT-03 — Mes certificats (apprenant)
  * ============================================================ */
@@ -2394,6 +2426,8 @@ export interface MonCertificat {
   dateGeneration: string | null;
   empreinteSha256: string | null;
   urlVerification: string | null;
+  /** US-CERT-06 — date et catégorie du motif ; null si non révoqué. */
+  revocation: { date: string; motif: MotifRevocation } | null;
 }
 
 /** GET /api/mes-certificats — plus récents d'abord. */
@@ -2440,6 +2474,8 @@ export interface VerificationCertificat {
   scoreFinal: number;
   dateEmission: string;
   empreinteSha256: string;
+  /** US-CERT-06 — date de révocation (le motif n'est jamais publié). */
+  dateRevocation: string | null;
 }
 
 /**
