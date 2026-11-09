@@ -36,7 +36,7 @@ describe('EspaceFormationService', () => {
   const mockQcmRepo = { find: jest.fn() };
   const mockTentativeRepo = { find: jest.fn() };
   const mockAtelierRepo = { find: jest.fn(), query: jest.fn() };
-  const mockLivrableRepo = { find: jest.fn() };
+  const mockLivrableRepo = { find: jest.fn(), query: jest.fn() };
   const mockAuditService = { record: jest.fn().mockResolvedValue(undefined) };
 
   const contexte = {
@@ -104,6 +104,36 @@ describe('EspaceFormationService', () => {
   });
 
   describe('monEspace — ateliers publiés (US-ATEL-03)', () => {
+    it('US-ATEL-08 : « Nouveau feedback » pour un livrable NOTÉ jamais consulté', async () => {
+      mockAtelierRepo.find.mockResolvedValue(
+        ['at-1', 'at-2', 'at-3'].map((id) => ({
+          id,
+          moduleId: 'mod-2',
+          titre: id,
+          dateLimite: new Date('2026-11-20T23:59:00Z'),
+          toleranceRetardHeures: 0,
+          typesLivrables: ['zip'],
+        })),
+      );
+      mockLivrableRepo.find.mockResolvedValue([
+        { id: 'l1', atelierId: 'at-1', statut: 'NOTE' },
+        { id: 'l2', atelierId: 'at-2', statut: 'NOTE' },
+        { id: 'l3', atelierId: 'at-3', statut: 'EN_CORRECTION' },
+      ]);
+      mockLivrableRepo.query.mockResolvedValue([{ livrable_id: 'l2' }]);
+
+      const espace = await service.monEspace('appr-1', 'form-1', contexte);
+      expect(mockLivrableRepo.query).toHaveBeenCalledWith(
+        'SELECT livrable_id FROM consultations_feedback WHERE livrable_id = ANY($1)',
+        [['l1', 'l2']],
+      );
+      expect(espace.modules[1].ateliers.map((a) => [a.id, a.nouveauFeedback])).toEqual([
+        ['at-1', true],
+        ['at-2', false],
+        ['at-3', false],
+      ]);
+    });
+
     it('ne demande que les ateliers PUBLIÉS des modules, et les range par module avec l’état du dépôt (horloge PostgreSQL)', async () => {
       mockAtelierRepo.find.mockResolvedValue([
         {
@@ -160,6 +190,7 @@ describe('EspaceFormationService', () => {
         }),
       );
       expect(espace.modules[1].ateliers.map((a) => a.statutMonLivrable)).toEqual(['SOUMIS', null]);
+      expect(espace.modules[1].ateliers.map((a) => a.nouveauFeedback)).toEqual([false, false]);
       // Les ateliers ne changent pas l'avancement du module (pas encore notés).
       expect(espace.modules[2].avancement).toBe('SANS_EVALUATION');
     });

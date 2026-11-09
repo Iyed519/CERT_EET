@@ -277,7 +277,11 @@ export default function MonEspacePage(): JSX.Element {
                               {echeanceAtelierFr(a.etatDepot, a.dateLimite, a.toleranceRetardHeures)}
                             </div>
                           </div>
-                          {a.statutMonLivrable !== null ? (
+                          {a.nouveauFeedback ? (
+                            <span className="statut-badge badge-nouveau-feedback">
+                              Nouveau feedback
+                            </span>
+                          ) : a.statutMonLivrable !== null ? (
                             <span className={`statut-badge livrable-${a.statutMonLivrable}`}>
                               {LIBELLES_LIVRABLE_COURT[a.statutMonLivrable]}
                             </span>

@@ -94,6 +94,8 @@ export interface EspaceFormationVue {
       etatDepot: EtatDepot;
       // US-ATEL-04 — statut de MON livrable (null : rien déposé).
       statutMonLivrable: StatutLivrable | null;
+      // US-ATEL-08 — livrable noté dont je n'ai pas encore ouvert le feedback.
+      nouveauFeedback: boolean;
     }>;
   }>;
 }
@@ -220,6 +222,17 @@ export class EspaceFormationService {
             where: { apprenantId, atelierId: In(ateliers.map((a) => a.id)) },
             select: { id: true, atelierId: true, statut: true },
           });
+    const notes = mesLivrables.filter((l) => l.statut === StatutLivrable.NOTE).map((l) => l.id);
+    const consultes = new Set(
+      notes.length === 0
+        ? []
+        : (
+            (await this.livrableRepository.query(
+              'SELECT livrable_id FROM consultations_feedback WHERE livrable_id = ANY($1)',
+              [notes],
+            )) as Array<{ livrable_id: string }>
+          ).map((c) => c.livrable_id),
+    );
     const maintenantBase = ateliers.length === 0 ? new Date() : await this.maintenantPostgres();
 
     return {
@@ -254,6 +267,10 @@ export class EspaceFormationService {
             typesLivrables: a.typesLivrables,
             etatDepot: etatDepot(a.dateLimite, a.toleranceRetardHeures, maintenantBase),
             statutMonLivrable: mesLivrables.find((l) => l.atelierId === a.id)?.statut ?? null,
+            nouveauFeedback: mesLivrables.some(
+              (l) =>
+                l.atelierId === a.id && l.statut === StatutLivrable.NOTE && !consultes.has(l.id),
+            ),
           })),
       })),
     };

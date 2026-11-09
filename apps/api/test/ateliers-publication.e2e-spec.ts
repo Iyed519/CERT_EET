@@ -427,6 +427,7 @@ describe('Publication d’un atelier (e2e) — US-ATEL-03', () => {
           typesLivrables: ['pdf', 'zip'],
           etatDepot: 'OUVERT',
           statutMonLivrable: null,
+          nouveauFeedback: false,
         },
       ]);
     });
