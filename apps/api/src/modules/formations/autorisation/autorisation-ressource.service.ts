@@ -9,6 +9,7 @@ import { Livrable } from '../../../database/entities/livrable.entity';
 import { ModuleFormation } from '../../../database/entities/module-formation.entity';
 import { Qcm } from '../../../database/entities/qcm.entity';
 import { RessourceModule } from '../../../database/entities/ressource-module.entity';
+import { SuggestionQuestionIa } from '../../../database/entities/suggestion-question-ia.entity';
 import { SupportPedagogique } from '../../../database/entities/support-pedagogique.entity';
 
 /** Type de ressource à partir de laquelle on remonte à la formation. */
@@ -20,7 +21,8 @@ export type TypeRessource =
   | 'livrable'
   | 'support'
   | 'generation'
-  | 'ressource';
+  | 'ressource'
+  | 'suggestion';
 
 /**
  * Lectures dont a besoin l'autorisation par ressource (US-AUTH-16) : retrouver
@@ -49,6 +51,8 @@ export class AutorisationRessourceService {
     private readonly generationRepository: Repository<GenerationIa>,
     @InjectRepository(RessourceModule)
     private readonly ressourceRepository: Repository<RessourceModule>,
+    @InjectRepository(SuggestionQuestionIa)
+    private readonly suggestionRepository: Repository<SuggestionQuestionIa>,
     @InjectRepository(AffectationFormateur)
     private readonly affectationRepository: Repository<AffectationFormateur>,
   ) {}
@@ -59,7 +63,7 @@ export class AutorisationRessourceService {
    * la formation n'est stockée ni sur l'un ni sur l'autre (voir les entités) ;
    * un livrable remonte par son atelier (US-ATEL-06) ; un support pédagogique
    * par son module (US-IA-01) ; une génération IA aussi (US-IA-02), et une ressource de module
-   * (US-FORM-05).
+   * (US-FORM-05) ; une suggestion de question par sa génération (US-IA-04).
    */
   async formationDe(type: TypeRessource, id: string): Promise<string | null> {
     if (type === 'formation') {
@@ -111,6 +115,17 @@ export class AutorisationRessourceService {
         select: { id: true, module: { id: true, formationId: true } },
       });
       return ressource?.module?.formationId ?? null;
+    }
+    if (type === 'suggestion') {
+      const suggestion = await this.suggestionRepository.findOne({
+        where: { id },
+        relations: { generation: { module: true } },
+        select: {
+          id: true,
+          generation: { id: true, module: { id: true, formationId: true } },
+        },
+      });
+      return suggestion?.generation?.module?.formationId ?? null;
     }
     const qcm = await this.qcmRepository.findOne({
       where: { id },

@@ -16,7 +16,8 @@ import { AuthenticatedRequest } from '../../auth/auth.types';
 import { Roles } from '../../auth/decorators/roles.decorator';
 import { FormateurDeLaFormation } from '../../formations/autorisation/formateur-de-la-formation.decorator';
 import { LancerGenerationDto } from './generations.dto';
-import { GenerationsService, GenerationVue, SuggestionVue } from './generations.service';
+import { SuggestionVue } from '../suggestions/suggestion.vue';
+import { GenerationsService, GenerationVue } from './generations.service';
 
 /**
  * Générations de questions par IA (US-IA-02, DS-06 partie 2, UC10 Formateur).

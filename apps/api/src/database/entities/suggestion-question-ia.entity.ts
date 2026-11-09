@@ -20,7 +20,8 @@ const nombre = {
  * table `suggestions_questions_ia`). Partie de sa génération (CASCADE).
  * Validée côté serveur AVANT l'enregistrement (CHECK en base aussi) ; elle
  * naît PROPOSEE et n'entre dans aucun QCM sans décision du formateur
- * (US-IA-04).
+ * (US-IA-04 : décision unique et définitive, garantie en base par
+ * `CHK_suggestions_decision` et le déclencheur `trg_suggestions_transitions`).
  */
 @Entity('suggestions_questions_ia')
 export class SuggestionQuestionIa {
@@ -64,6 +65,23 @@ export class SuggestionQuestionIa {
 
   @Column({ type: 'enum', enum: StatutSuggestion, default: StatutSuggestion.PROPOSEE })
   statut: StatutSuggestion;
+
+  /** Question créée par l'acceptation (US-IA-04) ; NULL si supprimée depuis. */
+  @Column({ name: 'question_id', type: 'uuid', nullable: true })
+  questionId: string | null;
+
+  /** QCM cible de l'acceptation ; NULL si supprimé depuis. */
+  @Column({ name: 'qcm_id', type: 'uuid', nullable: true })
+  qcmId: string | null;
+
+  @Column({ name: 'decide_par', type: 'uuid', nullable: true })
+  decidePar: string | null;
+
+  @Column({ name: 'date_decision', type: 'timestamptz', nullable: true })
+  dateDecision: Date | null;
+
+  @Column({ name: 'motif_rejet', type: 'text', nullable: true })
+  motifRejet: string | null;
 
   @CreateDateColumn({ name: 'created_at', type: 'timestamptz' })
   createdAt: Date;
