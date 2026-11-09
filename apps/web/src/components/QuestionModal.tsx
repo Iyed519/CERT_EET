@@ -35,6 +35,9 @@ const OPTIONS_VRAI_FAUX: OptionSaisie[] = [
  *
  * Le serveur reste juge des règles (≥ 2 options, bonnes réponses…) : son
  * message exact s'affiche dans la modale en cas de refus.
+ *
+ * US-IA-04 : `revision` réutilise la même saisie pour retoucher une
+ * suggestion de l'IA avant de l'accepter (titre, bouton et envoi propres).
  */
 export function QuestionModal({
   qcmId,
@@ -42,12 +45,19 @@ export function QuestionModal({
   verrouille,
   onClose,
   onEnregistree,
+  revision,
 }: {
   qcmId: string;
   question: QuestionQcm | null;
   verrouille: boolean;
   onClose: () => void;
   onEnregistree: () => void;
+  revision?: {
+    titre: string;
+    sousTitre: string;
+    libelleEnvoi: string;
+    envoyer: (corps: QuestionInput) => Promise<void>;
+  };
 }): JSX.Element {
   const creation = question === null;
   const [enonce, setEnonce] = useState(question?.enonce ?? '');
@@ -114,7 +124,9 @@ export function QuestionModal({
       ...(niveau ? { niveauDifficulte: niveau } : {}),
     };
     try {
-      if (creation) {
+      if (revision) {
+        await revision.envoyer(corps);
+      } else if (creation) {
         await addQuestion(qcmId, corps);
       } else {
         await replaceQuestion(qcmId, question.id, corps);
@@ -132,7 +144,10 @@ export function QuestionModal({
     <div className="profil-overlay" role="dialog" aria-modal="true">
       <section className="profil-card modal-wide modal-closable">
         <CroixFermeture onClose={onClose} disabled={enCours} />
-        <h2 className="auth-title">{creation ? 'Nouvelle question' : 'Modifier la question'}</h2>
+        <h2 className="auth-title">
+          {revision ? revision.titre : creation ? 'Nouvelle question' : 'Modifier la question'}
+        </h2>
+        {revision && <p className="auth-subtitle">{revision.sousTitre}</p>}
         {erreur !== null && <p className="alert alert-error">{erreur}</p>}
         {verrouille && (
           <p className="alert alert-info">
@@ -288,7 +303,13 @@ export function QuestionModal({
               Annuler
             </button>
             <button type="submit" className="btn" disabled={enCours}>
-              {enCours ? 'Enregistrement…' : creation ? 'Ajouter' : 'Enregistrer'}
+              {enCours
+                ? 'Enregistrement…'
+                : revision
+                  ? revision.libelleEnvoi
+                  : creation
+                    ? 'Ajouter'
+                    : 'Enregistrer'}
             </button>
           </div>
         </form>

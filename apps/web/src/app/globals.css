@@ -763,9 +763,23 @@ textarea.input { resize: vertical; font-family: inherit; line-height: 1.45; }
 .suggestion-option.correcte { background: var(--success-soft); color: var(--primary-dark); font-weight: 600; }
 .suggestion-marque { flex: 0 0 auto; width: 14px; text-align: center; }
 .suggestion-explication { margin: 8px 0 4px; font-size: 0.84rem; color: #4b5563; font-style: italic; overflow-wrap: anywhere; }
+.suggestions-cible { margin-top: 12px; }
+.suggestions-cible .field { margin-bottom: 4px; }
+.suggestions-compteur { margin: 4px 0 0; }
+.suggestion-actions { display: flex; flex-wrap: wrap; gap: 8px; margin-top: 10px; }
+.suggestion-rejet { margin-top: 10px; display: grid; gap: 6px; }
+.suggestion-rejet .suggestion-actions { margin-top: 2px; justify-content: flex-end; }
+.suggestion-decidee { background: var(--surface); }
+.suggestion-REJETEE .suggestion-enonce, .suggestion-REJETEE .suggestion-options { opacity: 0.55; }
+.suggestion-statut { margin-left: auto; font-size: 0.75rem; font-weight: 600; padding: 2px 8px; border-radius: 999px; }
+.statut-ACCEPTEE, .statut-MODIFIEE { background: var(--success-soft); color: var(--primary-dark); }
+.statut-REJETEE { background: var(--danger-soft); color: #922b21; }
+/* US-IA-04 — origine d'une question dans l'éditeur de QCM. */
+.origine-question { display: inline-block; margin-left: 6px; font-size: 0.72rem; font-weight: 700; padding: 1px 7px; border-radius: 999px; background: #f3e8ff; color: #7e22ce; vertical-align: 1px; }
 @media (max-width: 560px) {
   .suggestion { padding: 12px; }
-  .suggestion-confiance { margin-left: 0; }
+  .suggestion-confiance, .suggestion-statut { margin-left: 0; }
+  .suggestion-actions > .btn-sm { flex: 1 1 auto; }
 }
 
 /* US-FORM-05 — Ressources du cours (liens, vidéos). */

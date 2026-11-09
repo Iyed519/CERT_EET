@@ -312,6 +312,18 @@ export default function EditeurQcmPage(): JSX.Element {
                         <span className="statut-badge type-question">
                           {LIBELLES_TYPE_QUESTION[q.type]}
                         </span>
+                        {q.origine !== 'MANUELLE' && (
+                          <span
+                            className="origine-question"
+                            title={
+                              q.origine === 'IA'
+                                ? 'Proposée par l’IA, acceptée telle quelle'
+                                : 'Proposée par l’IA, modifiée par un formateur'
+                            }
+                          >
+                            {q.origine === 'IA' ? 'IA' : 'IA modifiée'}
+                          </span>
+                        )}
                         <span className="muted-cell">
                           Pondération {q.ponderation}
                           {q.niveauDifficulte ? ` · ${LIBELLES_NIVEAU[q.niveauDifficulte]}` : ''}
