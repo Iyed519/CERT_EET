@@ -87,6 +87,15 @@ export const envValidationSchema = Joi.object({
   // nginx). Valeur Express « trust proxy » : par défaut les réseaux privés et
   // la boucle locale (le conteneur nginx), jamais Internet.
   TRUST_PROXY: Joi.string().default('loopback, uniquelocal'),
+
+  // --- Assistance IA (US-IA-01, ADR-04 / ADR-05) ---
+  // Worker d'indexation des supports dans le processus de l'api (« off » le
+  // coupe), tentatives et délai de reprise. Embeddings : « hachage » (local,
+  // sans réseau) ; d'autres fournisseurs s'ajouteront derrière l'interface.
+  IA_WORKER: Joi.string().valid('on', 'off').default('on'),
+  IA_TENTATIVES: Joi.number().integer().min(1).max(10).default(3),
+  IA_BACKOFF_MS: Joi.number().integer().min(10).max(600000).default(5000),
+  EMBEDDINGS_FOURNISSEUR: Joi.string().valid('hachage').default('hachage'),
 })
   // Refuse les clés inconnues seulement en avertissement : on n'échoue pas
   // sur des variables système, mais on valide strictement celles qu'on connaît.

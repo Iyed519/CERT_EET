@@ -230,4 +230,42 @@ describe('MailService', () => {
       expect(message.text.startsWith('Bonjour,\n')).toBe(true);
     });
   });
+
+  describe('sendSupportIndexationEmail (US-IA-01)', () => {
+    const donnees = {
+      prenom: 'Sami',
+      titreSupport: 'Cours JWT',
+      titreFormation: 'Back-end',
+      formationId: 'f-1',
+      reussi: true,
+      nbSegments: 12,
+    };
+
+    it('annonce le support indexé et mène à la formation', async () => {
+      await service.sendSupportIndexationEmail('sami@cert-eet.local', donnees);
+      const message = dernierMessage();
+      expect(message.subject).toBe('Cert_EET — Support indexé : « Cours JWT »');
+      expect(message.text).toContain('Bonjour Sami,');
+      expect(message.text).toContain('(12 passages)');
+      expect(message.text).toContain('http://localhost:3001/formateur/formations/f-1');
+      expect(message.html).toContain('href="http://localhost:3001/formateur/formations/f-1"');
+    });
+
+    it('donne le motif d’un échec, échappe le HTML, objet sur une ligne', async () => {
+      await service.sendSupportIndexationEmail('sami@cert-eet.local', {
+        ...donnees,
+        prenom: null,
+        reussi: false,
+        titreSupport: '<b>X</b>\r\nBcc: intrus@exemple.tn',
+        motif: 'PDF illisible <ou> endommagé.',
+      });
+      const message = dernierMessage();
+      expect(message.subject).toMatch(/^Cert_EET — Indexation impossible : /);
+      expect(message.subject).not.toMatch(/[\r\n]/);
+      expect(message.text).toContain('Motif : PDF illisible <ou> endommagé.');
+      expect(message.html).not.toContain('<b>X</b>');
+      expect(message.html).toContain('&lt;ou&gt;');
+      expect(message.text.startsWith('Bonjour,\n')).toBe(true);
+    });
+  });
 });

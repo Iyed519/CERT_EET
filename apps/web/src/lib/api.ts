@@ -2506,3 +2506,74 @@ export async function empreinteFichier(fichier: File): Promise<string> {
     .map((o) => o.toString(16).padStart(2, '0'))
     .join('');
 }
+
+/* ============================================================
+ * US-IA-01 — Supports pédagogiques pour l'assistance IA (formateur)
+ * ============================================================ */
+
+export type StatutSupport = 'EN_INDEXATION' | 'INDEXE' | 'ECHEC_INDEXATION';
+
+/** Formats acceptés pour un support (le serveur revérifie le contenu). */
+export const EXTENSIONS_SUPPORT = ['pdf', 'pptx', 'docx', 'txt', 'md'] as const;
+export const TAILLE_MAX_SUPPORT = 20 * 1024 * 1024;
+
+/** Un support d'un module, vu par le formateur. */
+export interface SupportPedagogique {
+  id: string;
+  moduleId: string;
+  titre: string;
+  nomOriginal: string;
+  extension: string;
+  tailleOctets: number;
+  sha256: string;
+  statut: StatutSupport;
+  nbSegments: number | null;
+  nbCaracteres: number | null;
+  modeleEmbeddings: string | null;
+  nbTentatives: number;
+  derniereErreur: string | null;
+  dateDepot: string;
+  dateIndexation: string | null;
+  deposePar: { id: string; prenom: string | null; nom: string | null };
+}
+
+/** GET /api/modules/:id/supports — supports du module, plus récents d'abord. */
+export async function getSupportsDuModule(moduleId: string): Promise<SupportPedagogique[]> {
+  const response = await apiFetch(`/api/modules/${moduleId}/supports`);
+  return lireReponseFormation<SupportPedagogique[]>(
+    response,
+    'Impossible de charger les supports du module.',
+  );
+}
+
+/**
+ * POST /api/modules/:id/supports (multipart) — dépose un support ; réponse
+ * 202 : l'indexation se poursuit en arrière-plan.
+ */
+export async function deposerSupport(
+  moduleId: string,
+  depot: { fichier: File; titre: string },
+): Promise<SupportPedagogique> {
+  const corps = new FormData();
+  corps.append('fichier', depot.fichier, depot.fichier.name);
+  if (depot.titre.trim().length > 0) corps.append('titre', depot.titre.trim());
+  const response = await apiFetch(`/api/modules/${moduleId}/supports`, {
+    method: 'POST',
+    body: corps,
+  });
+  return lireReponseFormation<SupportPedagogique>(response, 'Impossible de déposer le support.');
+}
+
+/** POST /api/supports/:id/reindexer — relance l'indexation d'un support en échec. */
+export async function reindexerSupport(supportId: string): Promise<SupportPedagogique> {
+  const response = await apiFetch(`/api/supports/${supportId}/reindexer`, { method: 'POST' });
+  return lireReponseFormation<SupportPedagogique>(response, 'Impossible de relancer l’indexation.');
+}
+
+/** DELETE /api/supports/:id — supprime le support (fichier, passages, vecteurs). */
+export async function supprimerSupport(supportId: string): Promise<void> {
+  const response = await apiFetch(`/api/supports/${supportId}`, { method: 'DELETE' });
+  if (!response.ok) {
+    await lireReponseFormation<unknown>(response, 'Impossible de supprimer le support.');
+  }
+}

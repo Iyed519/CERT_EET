@@ -16,6 +16,7 @@ import { QcmModule } from './modules/qcm/qcm.module';
 import { TentativesModule } from './modules/tentatives/tentatives.module';
 import { AteliersModule } from './modules/ateliers/ateliers.module';
 import { CertificatsModule } from './modules/certificats/certificats.module';
+import { AssistanceIaModule } from './modules/assistance-ia/assistance-ia.module';
 /**
  * Module racine (AppModule).
  *
@@ -33,6 +34,8 @@ import { CertificatsModule } from './modules/certificats/certificats.module';
  * (US-ATEL-01, Sprint 3) les ateliers pratiques. StockageModule (@Global,
  * US-ATEL-04) dépose les livrables sur MinIO / S3 (ADR-07). CertificatsModule
  * (US-CERT-01) émet les certificats en asynchrone (BullMQ, ADR-04).
+ * AssistanceIaModule (US-IA-01, Sprint 3 bloc B) indexe les supports
+ * pédagogiques pour la génération de questions par IA (RAG, ADR-05).
  */
 @Module({
   imports: [
@@ -53,6 +56,7 @@ import { CertificatsModule } from './modules/certificats/certificats.module';
     TentativesModule,
     AteliersModule,
     CertificatsModule,
+    AssistanceIaModule,
   ],
 })
 export class AppModule {}

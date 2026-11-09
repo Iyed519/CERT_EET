@@ -719,3 +719,20 @@ textarea.input { resize: vertical; font-family: inherit; line-height: 1.45; }
   .verification .btn-lien, .verification-fichier { width: 100%; justify-content: center; }
 }
 .btn-primary-sm.btn-lien { color: #fff; }
+
+/* US-IA-01 — Supports pédagogiques d'un module (assistance IA). */
+.supports-module { margin-top: 12px; padding-top: 10px; border-top: 1px dashed var(--border); }
+.supports-tete { display: flex; align-items: center; justify-content: space-between; gap: 10px; margin-left: 38px; flex-wrap: wrap; }
+.supports-titre { font-size: 0.8rem; font-weight: 700; text-transform: uppercase; letter-spacing: 0.04em; color: var(--muted); }
+.supports-module > .alert { margin: 8px 0 0 38px; }
+.support-ligne .module-corps { min-width: 0; }
+.support-erreur { margin-top: 4px; font-size: 0.82rem; color: #922b21; overflow-wrap: anywhere; }
+.support-actions { display: flex; gap: 8px; }
+.support-EN_INDEXATION { background: #fef3e2; color: var(--accent-dark); }
+.support-INDEXE { background: var(--success-soft); color: var(--primary-dark); }
+.support-ECHEC_INDEXATION { background: var(--danger-soft); color: #922b21; }
+@media (max-width: 560px) {
+  .supports-tete, .supports-module > .alert { margin-left: 0; }
+  .support-ligne .module-corps { flex-basis: 100%; }
+  .support-actions { margin-left: auto; }
+}

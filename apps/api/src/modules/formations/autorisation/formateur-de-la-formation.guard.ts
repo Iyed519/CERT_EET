@@ -24,6 +24,7 @@ const INTROUVABLE: Record<TypeRessource, string> = {
   qcm: 'QCM introuvable.',
   atelier: 'Atelier introuvable.',
   livrable: 'Livrable introuvable.',
+  support: 'Support introuvable.',
 };
 
 /**
@@ -101,6 +102,7 @@ export class FormateurDeLaFormationGuard implements CanActivate {
     if ('moduleId' in source) return ['module', source.moduleId];
     if ('atelierId' in source) return ['atelier', source.atelierId];
     if ('livrableId' in source) return ['livrable', source.livrableId];
+    if ('supportId' in source) return ['support', source.supportId];
     return ['qcm', source.qcmId];
   }
 

@@ -101,6 +101,17 @@ export interface CertificatsConfig {
   backoffMs: number;
 }
 
+/**
+ * US-IA-01 — assistance IA : files BullMQ (indexation des supports) et
+ * fournisseur d'embeddings (ADR-05, interchangeable par configuration).
+ */
+export interface IaConfig {
+  workerActif: boolean;
+  tentatives: number;
+  backoffMs: number;
+  embeddingsFournisseur: 'hachage';
+}
+
 export interface StockageConfig {
   endpoint: string;
   region: string;
@@ -119,6 +130,7 @@ export default (): {
   stockage: StockageConfig;
   certificats: CertificatsConfig;
   verification: VerificationConfig;
+  ia: IaConfig;
 } => ({
   app: {
     nodeEnv: (process.env.NODE_ENV as AppConfig['nodeEnv']) ?? 'development',
@@ -177,5 +189,11 @@ export default (): {
   },
   verification: {
     limiteParMinute: parseInt(process.env.VERIFICATION_LIMITE_PAR_MINUTE ?? '20', 10),
+  },
+  ia: {
+    workerActif: (process.env.IA_WORKER ?? 'on') !== 'off',
+    tentatives: parseInt(process.env.IA_TENTATIVES ?? '3', 10),
+    backoffMs: parseInt(process.env.IA_BACKOFF_MS ?? '5000', 10),
+    embeddingsFournisseur: 'hachage',
   },
 });

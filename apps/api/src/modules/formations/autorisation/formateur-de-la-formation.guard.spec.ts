@@ -191,6 +191,7 @@ describe('FormateurDeLaFormationGuard', () => {
     ['QCM', { qcmId: 'qcmId' }, { qcmId: QCM }, 'QCM introuvable.'],
     ['atelier', { atelierId: 'atelierId' }, { atelierId: QCM }, 'Atelier introuvable.'],
     ['livrable', { livrableId: 'livrableId' }, { livrableId: QCM }, 'Livrable introuvable.'],
+    ['support', { supportId: 'supportId' }, { supportId: QCM }, 'Support introuvable.'],
   ])(
     'refuse en 404 un %s inconnu',
     async (_libelle, s: SourceFormation, params: Record<string, string>, message) => {
@@ -209,6 +210,15 @@ describe('FormateurDeLaFormationGuard', () => {
       guard.canActivate(contexte(utilisateur(Role.FORMATEUR), { livrableId: QCM })),
     ).resolves.toBe(true);
     expect(mockAutorisation.formationDe).toHaveBeenCalledWith('livrable', QCM);
+    expect(mockAutorisation.estAffecte).toHaveBeenCalledWith(FORMATION, 'user-1');
+  });
+
+  it('remonte d’un support pédagogique à sa formation (US-IA-01)', async () => {
+    source({ supportId: 'supportId' });
+    await expect(
+      guard.canActivate(contexte(utilisateur(Role.FORMATEUR), { supportId: QCM })),
+    ).resolves.toBe(true);
+    expect(mockAutorisation.formationDe).toHaveBeenCalledWith('support', QCM);
     expect(mockAutorisation.estAffecte).toHaveBeenCalledWith(FORMATION, 'user-1');
   });
 
