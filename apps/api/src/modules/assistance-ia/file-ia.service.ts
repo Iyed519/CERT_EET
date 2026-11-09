@@ -7,6 +7,14 @@ import { IaConfig, RedisConfig } from '../../config/configuration';
 export const FILE_IA_INDEXATION = 'ia-indexation';
 export const TRAVAIL_INDEXER = 'indexer-support';
 
+/** File et travail de génération (DS-06 : « generer-questions », US-IA-02). */
+export const FILE_IA_GENERATION = 'ia-generation';
+export const TRAVAIL_GENERER = 'generer-questions';
+
+export interface DonneesGeneration {
+  generationId: string;
+}
+
 export interface DonneesIndexation {
   supportId: string;
 }
@@ -34,6 +42,7 @@ export interface TraitementsIndexation {
 export class FileIaService implements OnModuleDestroy {
   private readonly logger = new Logger(FileIaService.name);
   private readonly fileIndexation: Queue<DonneesIndexation>;
+  private readonly fileGeneration: Queue<DonneesGeneration>;
   private workerIndexation: Worker<DonneesIndexation> | null = null;
   private readonly config: IaConfig;
   private readonly connexion: { host: string; port: number; maxRetriesPerRequest: null };
@@ -45,6 +54,36 @@ export class FileIaService implements OnModuleDestroy {
     this.fileIndexation = new Queue<DonneesIndexation>(FILE_IA_INDEXATION, {
       connection: this.connexion,
     });
+    this.fileGeneration = new Queue<DonneesGeneration>(FILE_IA_GENERATION, {
+      connection: this.connexion,
+    });
+  }
+
+  /**
+   * Ajoute le travail de génération (US-IA-02) ; identifiant de travail =
+   * identifiant de la génération : un seul travail par génération. Le worker
+   * qui l'exécute (pipeline RAG) est celui d'US-IA-03.
+   */
+  async ajouterGeneration(generationId: string): Promise<void> {
+    await this.fileGeneration.add(
+      TRAVAIL_GENERER,
+      { generationId },
+      {
+        jobId: generationId,
+        attempts: this.config.tentatives,
+        backoff: { type: 'exponential', delay: this.config.backoffMs },
+        removeOnComplete: 1000,
+        removeOnFail: 1000,
+      },
+    );
+  }
+
+  /** Le travail d'une génération, s'il est encore dans la file (tests, suivi). */
+  async travailGeneration(
+    generationId: string,
+  ): Promise<{ id: string; donnees: DonneesGeneration } | null> {
+    const travail = await this.fileGeneration.getJob(generationId);
+    return travail ? { id: travail.id as string, donnees: travail.data } : null;
   }
 
   /** Ajoute le travail d'indexation ; `suffixe` distingue une relance. */
@@ -97,5 +136,6 @@ export class FileIaService implements OnModuleDestroy {
   async onModuleDestroy(): Promise<void> {
     await this.workerIndexation?.close();
     await this.fileIndexation.close();
+    await this.fileGeneration.close();
   }
 }

@@ -4,15 +4,35 @@ import {
   AdminError,
   deposerSupport,
   EXTENSIONS_SUPPORT,
+  GenerationIa,
+  getGenerationsDuModule,
   getSupportsDuModule,
   reindexerSupport,
   SupportPedagogique,
   supprimerSupport,
   TAILLE_MAX_SUPPORT,
 } from '../lib/api';
-import { dateHeureFr, LIBELLES_STATUT_SUPPORT, tailleFr } from '../lib/format';
+import {
+  dateHeureFr,
+  LIBELLES_NIVEAU_GENERATION,
+  LIBELLES_STATUT_GENERATION,
+  LIBELLES_STATUT_SUPPORT,
+  tailleFr,
+} from '../lib/format';
 import { ConfirmationModal } from './ConfirmationModal';
 import { CroixFermeture } from './CroixFermeture';
+import { GenerationModal } from './GenerationModal';
+
+/** Générations affichées sous les supports (les plus récentes). */
+const GENERATIONS_AFFICHEES = 5;
+
+/** Ligne d'information d'une génération. */
+function detailGeneration(g: GenerationIa): string {
+  const types = g.types.map((t) => (t === 'VRAI_FAUX' ? 'Vrai/Faux' : t)).join(', ');
+  const base = `${g.nbQuestionsDemandees} question${g.nbQuestionsDemandees > 1 ? 's' : ''} · ${types} · ${LIBELLES_NIVEAU_GENERATION[g.niveau]}`;
+  const theme = g.focusThematique ? ` · « ${g.focusThematique} »` : '';
+  return `${base}${theme} · lancée le ${dateHeureFr(g.dateLancement)}`;
+}
 
 /** Rafraîchissement de la liste tant qu'une indexation est en cours (SSE = US-IA-07). */
 const INTERVALLE_SUIVI_MS = 3000;
@@ -41,6 +61,10 @@ function detailSupport(s: SupportPedagogique): string {
  * support est en cours d'indexation. Dépôt (PDF, PPTX, DOCX, TXT, MD,
  * 20 Mo au plus), relance d'une indexation en échec, suppression. Le serveur
  * revérifie tout et son message s'affiche tel quel.
+ *
+ * US-IA-02 — « Générer » sur un support indexé ouvre le paramétrage d'une
+ * génération ; les dernières générations du module s'affichent dessous avec
+ * leur état (la liste se rafraîchit tant qu'une génération est en cours).
  */
 export function SupportsModule({
   moduleId,
@@ -56,10 +80,17 @@ export function SupportsModule({
   const [depot, setDepot] = useState(false);
   const [aSupprimer, setASupprimer] = useState<SupportPedagogique | null>(null);
   const [relanceEnCours, setRelanceEnCours] = useState<string | null>(null);
+  const [generations, setGenerations] = useState<GenerationIa[]>([]);
+  const [aGenerer, setAGenerer] = useState<SupportPedagogique | null>(null);
 
   const charger = useCallback(async (): Promise<void> => {
     try {
-      setSupports(await getSupportsDuModule(moduleId));
+      const [listeSupports, listeGenerations] = await Promise.all([
+        getSupportsDuModule(moduleId),
+        getGenerationsDuModule(moduleId),
+      ]);
+      setSupports(listeSupports);
+      setGenerations(listeGenerations);
       setErreur(null);
     } catch (error) {
       setErreur(error instanceof AdminError ? error.message : 'Impossible de charger les supports.');
@@ -70,7 +101,9 @@ export function SupportsModule({
     void charger();
   }, [charger]);
 
-  const enCours = (supports ?? []).some((s) => s.statut === 'EN_INDEXATION');
+  const enCours =
+    (supports ?? []).some((s) => s.statut === 'EN_INDEXATION') ||
+    generations.some((g) => g.statut === 'EN_COURS');
   useEffect(() => {
     if (!enCours) return;
     const minuterie = window.setInterval(() => void charger(), INTERVALLE_SUIVI_MS);
@@ -121,6 +154,11 @@ export function SupportsModule({
               </span>
               {modifiable && (
                 <div className="support-actions">
+                  {s.statut === 'INDEXE' && (
+                    <button className="btn-sm btn-primary-sm" onClick={() => setAGenerer(s)}>
+                      Générer
+                    </button>
+                  )}
                   {s.statut === 'ECHEC_INDEXATION' && (
                     <button
                       className="btn-sm"
@@ -138,6 +176,48 @@ export function SupportsModule({
             </li>
           ))}
         </ul>
+      )}
+
+      {generations.length > 0 && (
+        <>
+          <div className="supports-tete generations-tete">
+            <span className="supports-titre">Générations de questions</span>
+          </div>
+          <ul className="espace-qcms">
+            {generations.slice(0, GENERATIONS_AFFICHEES).map((g) => (
+              <li key={g.id} className="espace-qcm support-ligne">
+                <div className="module-corps">
+                  <div className="espace-qcm-titre">Génération · {g.support.titre}</div>
+                  <div className="field-hint">{detailGeneration(g)}</div>
+                  {g.statut === 'TERMINEE' && (
+                    <div className="field-hint">
+                      {g.nbSuggestions ?? 0} suggestion{(g.nbSuggestions ?? 0) > 1 ? 's' : ''} à
+                      réviser
+                    </div>
+                  )}
+                  {g.statut === 'ECHEC' && g.derniereErreur && (
+                    <div className="support-erreur">{g.derniereErreur}</div>
+                  )}
+                </div>
+                <span className={`statut-badge generation-${g.statut}`}>
+                  {LIBELLES_STATUT_GENERATION[g.statut]}
+                </span>
+              </li>
+            ))}
+          </ul>
+        </>
+      )}
+
+      {aGenerer && (
+        <GenerationModal
+          moduleId={moduleId}
+          support={aGenerer}
+          onClose={() => setAGenerer(null)}
+          onLancee={() => {
+            setAGenerer(null);
+            void charger();
+          }}
+        />
       )}
 
       {depot && (

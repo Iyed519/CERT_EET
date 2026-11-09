@@ -6,14 +6,17 @@ import type {
   EtatFenetre,
   MotifRevocation,
   NiveauDifficulte,
+  NiveauGeneration,
   RaisonCorrection,
   StatutAtelier,
   StatutCertificat,
+  StatutGeneration,
   StatutInscription,
   StatutLivrable,
   StatutQcm,
   StatutSupport,
   StatutTentative,
+  TypeGenerable,
   TypeQuestion,
 } from './api';
 
@@ -277,4 +280,21 @@ export const LIBELLES_STATUT_SUPPORT: Record<StatutSupport, string> = {
   EN_INDEXATION: 'Indexation…',
   INDEXE: 'Indexé',
   ECHEC_INDEXATION: 'Échec',
+};
+
+/** Libellés FR d'une génération IA (US-IA-02). */
+export const LIBELLES_STATUT_GENERATION: Record<StatutGeneration, string> = {
+  EN_COURS: 'En cours…',
+  TERMINEE: 'Terminée',
+  ECHEC: 'Échec',
+};
+export const LIBELLES_TYPE_GENERABLE: Record<TypeGenerable, string> = {
+  QCU: 'QCU (une réponse)',
+  QCM: 'QCM (plusieurs réponses)',
+  VRAI_FAUX: 'Vrai / Faux',
+};
+export const LIBELLES_NIVEAU_GENERATION: Record<NiveauGeneration, string> = {
+  DEBUTANT: 'Débutant',
+  INTERMEDIAIRE: 'Intermédiaire',
+  AVANCE: 'Avancé',
 };

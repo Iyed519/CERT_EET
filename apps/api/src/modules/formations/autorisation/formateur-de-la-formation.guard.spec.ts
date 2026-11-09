@@ -192,6 +192,12 @@ describe('FormateurDeLaFormationGuard', () => {
     ['atelier', { atelierId: 'atelierId' }, { atelierId: QCM }, 'Atelier introuvable.'],
     ['livrable', { livrableId: 'livrableId' }, { livrableId: QCM }, 'Livrable introuvable.'],
     ['support', { supportId: 'supportId' }, { supportId: QCM }, 'Support introuvable.'],
+    [
+      'génération',
+      { generationId: 'generationId' },
+      { generationId: QCM },
+      'Génération introuvable.',
+    ],
   ])(
     'refuse en 404 un %s inconnu',
     async (_libelle, s: SourceFormation, params: Record<string, string>, message) => {

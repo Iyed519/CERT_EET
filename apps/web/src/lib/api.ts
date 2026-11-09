@@ -2577,3 +2577,60 @@ export async function supprimerSupport(supportId: string): Promise<void> {
     await lireReponseFormation<unknown>(response, 'Impossible de supprimer le support.');
   }
 }
+
+/* ============================================================
+ * US-IA-02 — Lancer une génération de questions par IA (formateur)
+ * ============================================================ */
+
+export type StatutGeneration = 'EN_COURS' | 'TERMINEE' | 'ECHEC';
+export const TYPES_GENERABLES = ['QCU', 'QCM', 'VRAI_FAUX'] as const;
+export type TypeGenerable = (typeof TYPES_GENERABLES)[number];
+export const NIVEAUX_GENERATION = ['DEBUTANT', 'INTERMEDIAIRE', 'AVANCE'] as const;
+export type NiveauGeneration = (typeof NIVEAUX_GENERATION)[number];
+
+/** Une génération, vue par le formateur. */
+export interface GenerationIa {
+  id: string;
+  moduleId: string;
+  support: { id: string; titre: string };
+  formateur: { id: string; prenom: string | null; nom: string | null };
+  nbQuestionsDemandees: number;
+  types: TypeGenerable[];
+  niveau: NiveauGeneration;
+  focusThematique: string | null;
+  statut: StatutGeneration;
+  modeleLlm: string | null;
+  nbSuggestions: number | null;
+  nbInvalides: number | null;
+  nbTentatives: number;
+  derniereErreur: string | null;
+  dateLancement: string;
+  dateFin: string | null;
+}
+
+export interface ParametresGeneration {
+  supportId: string;
+  nbQuestions: number;
+  types: TypeGenerable[];
+  niveau: NiveauGeneration;
+  focusThematique?: string;
+}
+
+/** POST /api/modules/:id/generations — 202, génération EN_COURS. */
+export async function lancerGeneration(
+  moduleId: string,
+  parametres: ParametresGeneration,
+): Promise<GenerationIa> {
+  const response = await apiFetch(`/api/modules/${moduleId}/generations`, {
+    method: 'POST',
+    headers: JSON_HEADERS,
+    body: JSON.stringify(parametres),
+  });
+  return lireReponseFormation<GenerationIa>(response, 'Impossible de lancer la génération.');
+}
+
+/** GET /api/modules/:id/generations — plus récentes d'abord. */
+export async function getGenerationsDuModule(moduleId: string): Promise<GenerationIa[]> {
+  const response = await apiFetch(`/api/modules/${moduleId}/generations`);
+  return lireReponseFormation<GenerationIa[]>(response, 'Impossible de charger les générations.');
+}
