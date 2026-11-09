@@ -158,4 +158,46 @@ describe('MailService', () => {
       expect(subject).not.toMatch(/[\r\n]/);
     });
   });
+
+  describe('sendCorrectionFinaliseeEmail (US-ATEL-07)', () => {
+    const donnees = {
+      prenom: 'Sami',
+      titreAtelier: 'Projet API',
+      titreFormation: 'Back-end',
+      atelierId: 'at-1',
+      score: 71.5,
+    };
+
+    it('donne la note à la française et mène à la fiche de l’atelier', async () => {
+      await service.sendCorrectionFinaliseeEmail('sami@cert-eet.local', donnees);
+      const message = dernierMessage();
+      expect(message.to).toBe('sami@cert-eet.local');
+      expect(message.subject).toBe('Cert_EET — Livrable corrigé : « Projet API »');
+      expect(message.text).toContain('Bonjour Sami,');
+      expect(message.text).toContain('Note obtenue : 71,5 / 100.');
+      expect(message.text).toContain('http://localhost:3001/mes-ateliers/at-1');
+      expect(message.html).toContain('href="http://localhost:3001/mes-ateliers/at-1"');
+      expect(message.html).toContain('71,5 / 100');
+    });
+
+    it('échappe les titres, salue sans prénom, objet sur une ligne', async () => {
+      await service.sendCorrectionFinaliseeEmail('sami@cert-eet.local', {
+        ...donnees,
+        prenom: null,
+        titreAtelier: 'API <script>x</script>\r\nBcc: intrus@exemple.tn',
+      });
+      const message = dernierMessage();
+      expect(message.html).not.toContain('<script>');
+      expect(message.html).toContain('&lt;script&gt;');
+      expect(message.text.startsWith('Bonjour,\n')).toBe(true);
+      expect(message.subject).not.toMatch(/[\r\n]/);
+    });
+
+    it('laisse remonter l’erreur d’envoi', async () => {
+      mockTransporter.sendMail.mockRejectedValue(new Error('ECONNREFUSED'));
+      await expect(
+        service.sendCorrectionFinaliseeEmail('sami@cert-eet.local', donnees),
+      ).rejects.toThrow('ECONNREFUSED');
+    });
+  });
 });

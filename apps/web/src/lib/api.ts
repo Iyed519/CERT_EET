@@ -2168,6 +2168,8 @@ export interface LivrableResume {
   nbFichiers: number;
   /** null tant que la correction n'est pas ouverte. */
   avancement: AvancementCorrection | null;
+  /** US-ATEL-07 — score figé à l'envoi du feedback ; null avant. */
+  scoreFinal: number | null;
 }
 
 /** La note d'un critère (points en % du critère). */
@@ -2190,6 +2192,10 @@ export interface CorrectionLivrable {
   notes: NoteCritere[];
   scoreActuel: number;
   avancement: AvancementCorrection;
+  /** US-ATEL-07 — renseignés une fois le feedback envoyé (immuables). */
+  scoreFinal: number | null;
+  commentaireGeneral: string | null;
+  dateFinalisation: string | null;
 }
 
 /** Le livrable à corriger, sa grille et sa correction. */
@@ -2280,4 +2286,22 @@ export async function telechargerFichierLivrable(
   lien.click();
   lien.remove();
   setTimeout(() => URL.revokeObjectURL(url), 1000);
+}
+
+/**
+ * US-ATEL-07 — POST /api/livrables/:id/correction/finaliser — envoie le
+ * feedback (immuable ensuite) et prévient l'apprenant.
+ *   - 400 -> correction incomplète, commentaire général manquant ;
+ *   - 409 -> correction pas ouverte, déjà envoyée, formation archivée.
+ */
+export async function finaliserCorrection(
+  livrableId: string,
+  commentaireGeneral: string,
+): Promise<LivrableACorriger> {
+  const response = await apiFetch(`/api/livrables/${livrableId}/correction/finaliser`, {
+    method: 'POST',
+    headers: JSON_HEADERS,
+    body: JSON.stringify({ commentaireGeneral }),
+  });
+  return lireReponseFormation<LivrableACorriger>(response, 'Impossible d’envoyer le feedback.');
 }

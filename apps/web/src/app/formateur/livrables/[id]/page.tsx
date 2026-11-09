@@ -1,10 +1,12 @@
 'use client';
 import Link from 'next/link';
+import { ConfirmationModal } from '../../../../components/ConfirmationModal';
 import { useParams } from 'next/navigation';
 import { useCallback, useEffect, useMemo, useState } from 'react';
 import {
   AdminError,
   CritereGrille,
+  finaliserCorrection,
   getLivrableACorriger,
   LivrableACorriger,
   NoteCritere,
@@ -58,6 +60,11 @@ const arrondi = (v: number): number => Math.round(v * 100) / 100;
  * (Σ points × pondération / 100, sur 100) se recalcule en temps réel avec la
  * saisie ; le serveur le confirme à chaque enregistrement.
  * Tant que la correction n'est pas ouverte, la page propose de l'ouvrir.
+ *
+ * US-ATEL-07 — En bas, le commentaire général et « Envoyer le feedback »
+ * (actif quand chaque critère est noté et enregistré) ; une confirmation
+ * rappelle que le feedback devient immuable. Ensuite, la page affiche le
+ * score figé et le commentaire général, en lecture seule.
  */
 export default function CorrectionLivrablePage(): JSX.Element {
   const params = useParams<{ id: string }>();
@@ -69,6 +76,9 @@ export default function CorrectionLivrablePage(): JSX.Element {
   const [etats, setEtats] = useState<Record<string, Etat>>({});
   const [ouverture, setOuverture] = useState(false);
   const [telechargement, setTelechargement] = useState<number | null>(null);
+  const [commentaireGeneral, setCommentaireGeneral] = useState('');
+  const [confirmation, setConfirmation] = useState(false);
+  const [envoye, setEnvoye] = useState(false);
 
   const appliquer = useCallback((l: LivrableACorriger): void => {
     setLivrable(l);
@@ -226,6 +236,14 @@ export default function CorrectionLivrablePage(): JSX.Element {
 
   const avancement = livrable?.correction?.avancement;
   const total = livrable?.criteres.length ?? 0;
+  const nonEnregistres = livrable ? livrable.criteres.filter((c) => modifie(c)).length : 0;
+  const raisonEnvoi = !avancement?.complete
+    ? `Notez chaque critère avant d’envoyer (${avancement?.notes ?? 0}/${total}).`
+    : nonEnregistres > 0
+      ? 'Enregistrez d’abord les critères modifiés.'
+      : commentaireGeneral.trim() === ''
+        ? 'Le commentaire général est obligatoire.'
+        : null;
 
   return (
     <>
@@ -362,7 +380,9 @@ export default function CorrectionLivrablePage(): JSX.Element {
 
           <h2 className="section-title">Grille de notation</h2>
           {!modifiable && livrable.correction && (
-            <p className="alert alert-info">Ce livrable est noté : la correction ne se modifie plus.</p>
+            <p className="alert alert-info">
+              Ce livrable est noté : la correction et le feedback ne se modifient plus.
+            </p>
           )}
           <ol className="criteres">
             {livrable.criteres.map((c) => {
@@ -483,7 +503,83 @@ export default function CorrectionLivrablePage(): JSX.Element {
               );
             })}
           </ol>
+
+          {livrable.correction?.statut === 'TERMINEE' && (
+            <section className="feedback-envoye" aria-labelledby="titre-feedback">
+              {envoye && (
+                <p className="alert alert-success">
+                  Feedback envoyé ✅ L’apprenant a été prévenu par email.
+                </p>
+              )}
+              <div className="feedback-tete">
+                <h2 id="titre-feedback" className="section-title">
+                  Feedback envoyé
+                </h2>
+                <span className="feedback-score">
+                  {nombreFr(livrable.correction.scoreFinal ?? 0)} <small>/ 100</small>
+                </span>
+              </div>
+              <p className="field-hint">
+                Envoyé le{' '}
+                {livrable.correction.dateFinalisation
+                  ? dateHeureFr(livrable.correction.dateFinalisation)
+                  : '—'}{' '}
+                · immuable
+              </p>
+              <p className="texte-libre feedback-commentaire">
+                {livrable.correction.commentaireGeneral}
+              </p>
+            </section>
+          )}
+
+          {modifiable && livrable.correction && (
+            <section className="feedback-saisie" aria-labelledby="titre-envoi">
+              <h2 id="titre-envoi" className="section-title">
+                Commentaire général et envoi
+              </h2>
+              <label className="field">
+                <span className="field-label">Commentaire général (obligatoire)</span>
+                <textarea
+                  className="input depot-commentaire"
+                  rows={4}
+                  maxLength={5000}
+                  value={commentaireGeneral}
+                  onChange={(e) => setCommentaireGeneral(e.target.value)}
+                  placeholder="Points forts, axes de progrès…"
+                />
+              </label>
+              <div className="note-pied feedback-pied">
+                <span className="field-hint">
+                  {raisonEnvoi ??
+                    `Score à envoyer : ${nombreFr(livrable.correction.scoreActuel)} / 100. Le feedback ne se modifie plus ensuite.`}
+                </span>
+                <button
+                  type="button"
+                  className="btn-sm btn-primary-sm"
+                  onClick={() => setConfirmation(true)}
+                  disabled={raisonEnvoi !== null}
+                  title={raisonEnvoi ?? undefined}
+                >
+                  Envoyer le feedback
+                </button>
+              </div>
+            </section>
+          )}
         </>
+      )}
+
+      {confirmation && livrable?.correction && (
+        <ConfirmationModal
+          titre="Envoyer le feedback"
+          message={`${nomApprenantFr(livrable.apprenant)} recevra la note de ${nombreFr(livrable.correction.scoreActuel)} / 100, le détail par critère et votre commentaire général. Une fois envoyé, le feedback ne pourra plus être modifié.`}
+          libelleAction="Envoyer"
+          onConfirmer={async () => {
+            appliquer(await finaliserCorrection(livrable.id, commentaireGeneral));
+            setConfirmation(false);
+            setEnvoye(true);
+          }}
+          onClose={() => setConfirmation(false)}
+        />
       )}
     </>
   );

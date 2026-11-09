@@ -27,8 +27,10 @@ import { User } from './user.entity';
  *  - `dateOuverture` : heure de PostgreSQL à l'ouverture ;
  *  - CASCADE avec le livrable (elle n'existe pas sans lui) ; RESTRICT vers le
  *    correcteur.
- * Le score n'est pas stocké ici tant que la correction est en cours : il se
- * recalcule à partir des notes (US-ATEL-07 le fige à la finalisation).
+ * Le score n'est pas stocké tant que la correction est en cours : il se
+ * recalcule à partir des notes. La finalisation (US-ATEL-07) le fige avec le
+ * commentaire général et la date ; la correction devient alors IMMUABLE
+ * (déclencheurs de la migration 1786800000000).
  */
 @Entity('corrections')
 export class Correction {
@@ -54,6 +56,26 @@ export class Correction {
 
   @Column({ name: 'date_ouverture', type: 'timestamptz' })
   dateOuverture: Date;
+
+  // US-ATEL-07 : renseignés à la finalisation (CHECK : tous ou aucun).
+  @Column({
+    name: 'score_total',
+    type: 'numeric',
+    precision: 5,
+    scale: 2,
+    nullable: true,
+    transformer: {
+      to: (v: number | null) => v,
+      from: (v: string | null) => (v === null ? null : Number(v)),
+    },
+  })
+  scoreTotal: number | null;
+
+  @Column({ name: 'commentaire_general', type: 'text', nullable: true })
+  commentaireGeneral: string | null;
+
+  @Column({ name: 'date_finalisation', type: 'timestamptz', nullable: true })
+  dateFinalisation: Date | null;
 
   @OneToMany(() => NoteCritere, (n) => n.correction)
   notes?: NoteCritere[];

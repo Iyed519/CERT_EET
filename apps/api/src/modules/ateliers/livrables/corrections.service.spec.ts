@@ -15,6 +15,8 @@ import { Livrable } from '../../../database/entities/livrable.entity';
 import { NoteCritere } from '../../../database/entities/note-critere.entity';
 import { StatutCorrection } from '../../../database/enums/statut-correction.enum';
 import { StatutLivrable } from '../../../database/enums/statut-livrable.enum';
+import { User } from '../../../database/entities/user.entity';
+import { MailService } from '../../../mail/mail.service';
 import { StockageService } from '../../../stockage/stockage.service';
 import { AuditService } from '../../audit/audit.service';
 import { FormationsService } from '../../formations/formations.service';
@@ -78,6 +80,7 @@ describe('CorrectionsService (US-ATEL-06)', () => {
   const mockGrilles = { criteresDeLAtelier: jest.fn() };
   const mockFormations = { chargerPourEcriture: jest.fn() };
   const mockStockage = { lire: jest.fn() };
+  const mockMail = { sendCorrectionFinaliseeEmail: jest.fn() };
   const mockAudit = { record: jest.fn() };
 
   /** findOne selon l'entité demandée. */
@@ -97,6 +100,7 @@ describe('CorrectionsService (US-ATEL-06)', () => {
         { provide: GrillesService, useValue: mockGrilles },
         { provide: FormationsService, useValue: mockFormations },
         { provide: StockageService, useValue: mockStockage },
+        { provide: MailService, useValue: mockMail },
         { provide: AuditService, useValue: mockAudit },
       ],
     }).compile();
@@ -393,6 +397,7 @@ describe('CorrectionsService (US-ATEL-06)', () => {
         enRetard: false,
         nbFichiers: 2,
         avancement: null,
+        scoreFinal: null,
       });
       expect(liste[1].avancement).toEqual({ notes: 1, total: 2, complete: false });
     });
@@ -475,6 +480,110 @@ describe('CorrectionsService (US-ATEL-06)', () => {
       const vue = await service.detail('liv-1');
       expect(vue.correction).toBeNull();
       expect(vue.criteres).toHaveLength(2);
+    });
+  });
+
+  // ===================================================================
+  describe('finaliser (US-ATEL-07)', () => {
+    const dto = { commentaireGeneral: '  Bon travail, soignez les tests.  ' };
+    const grille = (nb: number, total: number): Array<{ nb: number; total: number }> => [
+      { nb, total },
+    ];
+    const notes = [
+      { points: 50, ponderation: 60 },
+      { points: 100, ponderation: 40 },
+    ];
+
+    beforeEach(() => {
+      repondre(Livrable, livrable(StatutLivrable.EN_CORRECTION));
+      mockManager.findOneOrFail.mockImplementation(async (entite: unknown) => {
+        if (entite === Correction) return { id: 'cor-1' };
+        if (entite === User) return { id: 'app-1', prenom: 'Sami', email: 's@x.tn' };
+        return {
+          id: 'liv-1',
+          atelier: { titre: 'Projet', module: { formation: { titre: 'Back-end' } } },
+        };
+      });
+      mockManager.query.mockImplementation(async (sql: string) => {
+        if (sql.includes('formation_id')) return [{ formation_id: 'formation-1' }];
+        if (sql.includes('sum(c.ponderation)')) return grille(2, 100);
+        return notes;
+      });
+      mockMail.sendCorrectionFinaliseeEmail.mockResolvedValue(undefined);
+      jest.spyOn(service, 'detail').mockResolvedValue({ id: 'liv-1' } as never);
+    });
+
+    it('fige le score, TERMINEE + NOTE, trace, prévient l’apprenant', async () => {
+      await expect(service.finaliser('form-1', 'liv-1', dto, contexte)).resolves.toEqual({
+        id: 'liv-1',
+      });
+      expect(mockManager.update).toHaveBeenCalledWith(
+        Correction,
+        { id: 'cor-1' },
+        {
+          statut: StatutCorrection.TERMINEE,
+          scoreTotal: 70,
+          commentaireGeneral: 'Bon travail, soignez les tests.',
+          dateFinalisation: MAINTENANT,
+        },
+      );
+      expect(mockManager.update).toHaveBeenCalledWith(
+        Livrable,
+        { id: 'liv-1' },
+        { statut: StatutLivrable.NOTE },
+      );
+      expect(mockAudit.record).toHaveBeenCalledWith(
+        expect.objectContaining({
+          action: 'CORRECTION_FINALISEE',
+          cible: 'liv-1',
+          detailsAvantApres: expect.objectContaining({ score: 70, nbCriteres: 2 }),
+        }),
+      );
+      expect(mockMail.sendCorrectionFinaliseeEmail).toHaveBeenCalledWith('s@x.tn', {
+        prenom: 'Sami',
+        titreAtelier: 'Projet',
+        titreFormation: 'Back-end',
+        atelierId: 'at-1',
+        score: 70,
+      });
+    });
+
+    it('correction incomplète -> 400, rien écrit ni envoyé', async () => {
+      mockManager.query.mockImplementation(async (sql: string) => {
+        if (sql.includes('formation_id')) return [{ formation_id: 'formation-1' }];
+        if (sql.includes('sum(c.ponderation)')) return grille(3, 100);
+        return notes;
+      });
+      await expect(service.finaliser('form-1', 'liv-1', dto, contexte)).rejects.toThrow(
+        'Correction incomplète : 1 critère sur 3 n’est pas noté.',
+      );
+      expect(mockManager.update).not.toHaveBeenCalled();
+      expect(mockMail.sendCorrectionFinaliseeEmail).not.toHaveBeenCalled();
+    });
+
+    it('commentaire général vide -> 400', async () => {
+      await expect(
+        service.finaliser('form-1', 'liv-1', { commentaireGeneral: '   ' }, contexte),
+      ).rejects.toThrow(BadRequestException);
+      expect(mockManager.update).not.toHaveBeenCalled();
+    });
+
+    it('déjà finalisée (NOTE) -> 409, rien écrit', async () => {
+      repondre(Livrable, livrable(StatutLivrable.NOTE));
+      await expect(service.finaliser('form-1', 'liv-1', dto, contexte)).rejects.toThrow(
+        ConflictException,
+      );
+      expect(mockManager.update).not.toHaveBeenCalled();
+      expect(mockAudit.record).not.toHaveBeenCalled();
+    });
+
+    it('échec de l’email : journalisé, la finalisation reste acquise', async () => {
+      mockMail.sendCorrectionFinaliseeEmail.mockRejectedValue(new Error('ECONNREFUSED'));
+      const erreur = jest.spyOn(Logger.prototype, 'error').mockImplementation(() => undefined);
+      await expect(service.finaliser('form-1', 'liv-1', dto, contexte)).resolves.toEqual({
+        id: 'liv-1',
+      });
+      expect(erreur).toHaveBeenCalledWith(expect.stringContaining('ECONNREFUSED'));
     });
   });
 });

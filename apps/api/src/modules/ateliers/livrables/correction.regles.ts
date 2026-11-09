@@ -16,7 +16,11 @@ export const BORNES_NOTE = {
   pointsMax: 100,
   decimales: 2,
   commentaireMax: 2000,
+  commentaireGeneralMax: 5000,
 } as const;
+
+/** Total des pondérations exigé pour finaliser (grille validée). */
+export const TOTAL_PONDERATIONS = 100;
 
 export const MESSAGE_DEJA_EN_CORRECTION =
   'Ce livrable est déjà en correction : reprenez la correction en cours.';
@@ -92,6 +96,45 @@ export function nettoyerCommentaireNote(texte: string | null | undefined): strin
   if (propre.length > BORNES_NOTE.commentaireMax) {
     throw new BadRequestException(
       `Le commentaire d’un critère ne dépasse pas ${BORNES_NOTE.commentaireMax} caractères.`,
+    );
+  }
+  return propre;
+}
+
+/**
+ * Finaliser (US-ATEL-07) : la grille doit totaliser 100 % et CHAQUE critère
+ * être noté ; sinon 400 « correction incomplète » avec ce qui manque.
+ */
+export function verifierComplete(
+  nbNotes: number,
+  nbCriteres: number,
+  totalPonderations: number,
+): void {
+  if (nbCriteres === 0 || totalPonderations !== TOTAL_PONDERATIONS) {
+    throw new BadRequestException(
+      `Correction incomplète : la grille totalise ${totalPonderations} % (doit être ${TOTAL_PONDERATIONS} %).`,
+    );
+  }
+  const manquants = nbCriteres - nbNotes;
+  if (manquants > 0) {
+    throw new BadRequestException(
+      `Correction incomplète : ${manquants} critère${manquants > 1 ? 's' : ''} sur ${nbCriteres} ` +
+        `${manquants > 1 ? 'ne sont pas notés' : 'n’est pas noté'}.`,
+    );
+  }
+}
+
+/** Commentaire général : obligatoire (après rognage), 5 000 caractères au plus. */
+export function nettoyerCommentaireGeneral(texte: string | null | undefined): string {
+  const propre = (texte ?? '').trim();
+  if (propre.length === 0) {
+    throw new BadRequestException(
+      'Le commentaire général est obligatoire pour envoyer le feedback.',
+    );
+  }
+  if (propre.length > BORNES_NOTE.commentaireGeneralMax) {
+    throw new BadRequestException(
+      `Le commentaire général ne dépasse pas ${BORNES_NOTE.commentaireGeneralMax} caractères.`,
     );
   }
   return propre;

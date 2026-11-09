@@ -8,19 +8,23 @@ import { Livrable } from '../../../database/entities/livrable.entity';
 import { NoteCritere } from '../../../database/entities/note-critere.entity';
 import { StatutCorrection } from '../../../database/enums/statut-correction.enum';
 import { StatutLivrable } from '../../../database/enums/statut-livrable.enum';
+import { User } from '../../../database/entities/user.entity';
+import { MailService } from '../../../mail/mail.service';
 import { StockageService } from '../../../stockage/stockage.service';
 import { AuditService } from '../../audit/audit.service';
 import { FormationsService } from '../../formations/formations.service';
 import { AteliersService } from '../ateliers.service';
 import { CritereVue, GrillesService } from '../grille/grilles.service';
 import { MESSAGE_STOCKAGE_INDISPONIBLE } from './livrables.service';
-import { NoterCritereDto } from './correction.dto';
+import { FinaliserCorrectionDto, NoterCritereDto } from './correction.dto';
 import {
   Avancement,
   avancement,
   contribution,
+  nettoyerCommentaireGeneral,
   nettoyerCommentaireNote,
   scorePondere,
+  verifierComplete,
   verifierNotable,
   verifierOuvrable,
   verifierPoints,
@@ -49,6 +53,8 @@ export interface LivrableResumeVue {
   nbFichiers: number;
   /** null tant que la correction n'est pas ouverte. */
   avancement: Avancement | null;
+  /** Score figé à la finalisation (US-ATEL-07) ; null avant. */
+  scoreFinal: number | null;
 }
 
 /** La note d'un critère, avec sa contribution au score. */
@@ -71,6 +77,10 @@ export interface CorrectionVue {
   notes: NoteVue[];
   scoreActuel: number;
   avancement: Avancement;
+  /** US-ATEL-07 : renseignés une fois la correction finalisée (immuables). */
+  scoreFinal: number | null;
+  commentaireGeneral: string | null;
+  dateFinalisation: Date | null;
 }
 
 /** Le livrable à corriger, sa grille et sa correction (liste blanche). */
@@ -131,8 +141,10 @@ export const MESSAGE_FICHIER_INTROUVABLE = 'Fichier introuvable pour ce livrable
  *    (brouillon) ; la réponse donne le score pondéré recalculé.
  *  - Formation archivée : ouvrir et noter -> 409 (règle des écritures).
  *  - Télécharger : relais en flux depuis le stockage, tracé.
+ *  - Finaliser (US-ATEL-07) : correction complète exigée, score figé,
+ *    feedback IMMUABLE (garanti aussi par la base), email à l'apprenant.
  * Chaque écriture est tracée (CORRECTION_OUVERTE, NOTE_CRITERE_ENREGISTREE,
- * LIVRABLE_FICHIER_TELECHARGE) avec son auteur.
+ * CORRECTION_FINALISEE, LIVRABLE_FICHIER_TELECHARGE) avec son auteur.
  */
 @Injectable()
 export class CorrectionsService {
@@ -144,6 +156,7 @@ export class CorrectionsService {
     private readonly grillesService: GrillesService,
     private readonly formationsService: FormationsService,
     private readonly stockageService: StockageService,
+    private readonly mailService: MailService,
     // Writer d'audit UNIQUE (@Global, US-AUTH-12).
     private readonly auditService: AuditService,
   ) {}
@@ -159,13 +172,14 @@ export class CorrectionsService {
     if (livrables.length === 0) return [];
     const nbCriteres = (await this.grillesService.criteresDeLAtelier(atelierId)).length;
     const lignes = (await manager.query(
-      `SELECT c.livrable_id, count(n.id)::int AS notes
+      `SELECT c.livrable_id, count(n.id)::int AS notes, c.score_total::float8 AS score
          FROM corrections c LEFT JOIN notes_criteres n ON n.correction_id = c.id
         WHERE c.livrable_id = ANY($1)
-        GROUP BY c.livrable_id`,
+        GROUP BY c.livrable_id, c.score_total`,
       [livrables.map((l) => l.id)],
-    )) as Array<{ livrable_id: string; notes: number }>;
+    )) as Array<{ livrable_id: string; notes: number; score: number | null }>;
     const notesPar = new Map(lignes.map((l) => [l.livrable_id, l.notes]));
+    const scorePar = new Map(lignes.map((l) => [l.livrable_id, l.score]));
     return livrables.map((l) => ({
       id: l.id,
       apprenant: apprenantVue(l),
@@ -175,6 +189,7 @@ export class CorrectionsService {
       enRetard: l.enRetard,
       nbFichiers: l.fichiers?.length ?? 0,
       avancement: notesPar.has(l.id) ? avancement(notesPar.get(l.id) ?? 0, nbCriteres) : null,
+      scoreFinal: scorePar.get(l.id) ?? null,
     }));
   }
 
@@ -354,6 +369,108 @@ export class CorrectionsService {
   }
 
   /**
+   * Finalise la correction (US-ATEL-07, DS-03 « Finalisation ») : sous le
+   * verrou de la ligne du livrable, EN_CORRECTION exigé (409 sinon : déjà
+   * noté = feedback immuable), grille à 100 % et chaque critère noté (400
+   * « correction incomplète »), commentaire général obligatoire (400). Le
+   * score est figé, la correction passe TERMINEE et le livrable NOTE (heure de
+   * PostgreSQL) ; la base refuse ensuite toute modification. Audit
+   * CORRECTION_FINALISEE, puis email à l'apprenant (au mieux).
+   */
+  async finaliser(
+    acteurId: string,
+    livrableId: string,
+    dto: FinaliserCorrectionDto,
+    contexte: Contexte,
+  ): Promise<LivrableCorrectionVue> {
+    const resultat = await this.dataSource.transaction(async (manager) => {
+      const livrable = await this.verrouiller(manager, livrableId);
+      verifierNotable(livrable.statut);
+      const correction = await manager.findOneOrFail(Correction, {
+        where: { livrableId: livrable.id },
+      });
+      const [grille] = (await manager.query(
+        `SELECT count(c.id)::int AS nb, coalesce(sum(c.ponderation), 0)::int AS total
+           FROM criteres c JOIN grilles g ON g.id = c.grille_id
+          WHERE g.atelier_id = $1`,
+        [livrable.atelierId],
+      )) as Array<{ nb: number; total: number }>;
+      const notes = (await manager.query(
+        `SELECT n.points_pct::float8 AS points, c.ponderation
+           FROM notes_criteres n JOIN criteres c ON c.id = n.critere_id
+          WHERE n.correction_id = $1`,
+        [correction.id],
+      )) as Array<{ points: number; ponderation: number }>;
+      verifierComplete(notes.length, grille.nb, grille.total);
+      const commentaireGeneral = nettoyerCommentaireGeneral(dto.commentaireGeneral);
+      const score = scorePondere(
+        notes.map((n) => ({ pointsPct: Number(n.points), ponderation: n.ponderation })),
+      );
+      const maintenant = await this.ateliersService.maintenant(manager);
+      await manager.update(
+        Correction,
+        { id: correction.id },
+        {
+          statut: StatutCorrection.TERMINEE,
+          scoreTotal: score,
+          commentaireGeneral,
+          dateFinalisation: maintenant,
+        },
+      );
+      await manager.update(Livrable, { id: livrable.id }, { statut: StatutLivrable.NOTE });
+      return { livrable, score, nbCriteres: grille.nb };
+    });
+
+    await this.auditService.record({
+      action: 'CORRECTION_FINALISEE',
+      acteur: acteurId,
+      cible: livrableId,
+      adresseIp: contexte.adresseIp,
+      resultat: 'Succès',
+      detailsAvantApres: {
+        atelierId: resultat.livrable.atelierId,
+        apprenantId: resultat.livrable.apprenantId,
+        score: resultat.score,
+        nbCriteres: resultat.nbCriteres,
+        avant: { statut: StatutLivrable.EN_CORRECTION },
+        apres: { statut: StatutLivrable.NOTE },
+      },
+    });
+    await this.notifierApprenant(resultat.livrable, resultat.score);
+    return this.detail(livrableId);
+  }
+
+  /**
+   * Email « livrable corrigé » à l'apprenant (DS-03 : notifier(apprenant)).
+   * Au mieux : un échec est journalisé, la correction reste finalisée.
+   */
+  private async notifierApprenant(livrable: Livrable, score: number): Promise<void> {
+    try {
+      const manager = this.dataSource.manager;
+      const [apprenant, atelier] = await Promise.all([
+        manager.findOneOrFail(User, {
+          where: { id: livrable.apprenantId },
+          select: { id: true, prenom: true, email: true },
+        }),
+        manager.findOneOrFail(Livrable, {
+          where: { id: livrable.id },
+          relations: { atelier: { module: { formation: true } } },
+        }),
+      ]);
+      await this.mailService.sendCorrectionFinaliseeEmail(apprenant.email, {
+        prenom: apprenant.prenom,
+        titreAtelier: atelier.atelier?.titre ?? '',
+        titreFormation: atelier.atelier?.module.formation.titre ?? '',
+        atelierId: livrable.atelierId,
+        score,
+      });
+    } catch (erreur) {
+      const detail = erreur instanceof Error ? erreur.message : String(erreur);
+      this.logger.error(`Email de correction non envoyé (livrable ${livrable.id}) : ${detail}`);
+    }
+  }
+
+  /**
    * Un fichier du livrable, relayé en flux depuis le stockage (tracé). Un
    * stockage injoignable ou un objet manquant -> 503 (le fichier est connu en
    * base : c'est le stockage qui fait défaut).
@@ -451,6 +568,9 @@ function correctionVue(correction: Correction, criteres: readonly CritereVue[]):
       })),
     ),
     avancement: avancement(notes.length, criteres.length),
+    scoreFinal: correction.scoreTotal ?? null,
+    commentaireGeneral: correction.commentaireGeneral ?? null,
+    dateFinalisation: correction.dateFinalisation ?? null,
   };
 }
 
