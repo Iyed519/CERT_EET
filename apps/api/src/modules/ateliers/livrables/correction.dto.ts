@@ -65,3 +65,18 @@ export class FiltreLivrablesDto {
   })
   statut?: StatutLivrable;
 }
+
+/** Finalisation d'une correction (US-ATEL-07) : le commentaire général est obligatoire. */
+export class FinaliserCorrectionDto {
+  @ApiProperty({
+    description:
+      'Commentaire général adressé à l’apprenant (obligatoire, 5 000 caractères au plus). ' +
+      'Immuable une fois envoyé.',
+    maxLength: BORNES_NOTE.commentaireGeneralMax,
+  })
+  @IsString({ message: 'Le commentaire général doit être un texte.' })
+  @MaxLength(BORNES_NOTE.commentaireGeneralMax, {
+    message: 'Le commentaire général dépasse 5 000 caractères.',
+  })
+  commentaireGeneral: string;
+}

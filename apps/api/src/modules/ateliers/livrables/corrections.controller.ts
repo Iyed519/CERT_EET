@@ -2,10 +2,13 @@ import {
   Body,
   Controller,
   Get,
+  HttpCode,
+  HttpStatus,
   Param,
   ParseIntPipe,
   ParseUUIDPipe,
   Patch,
+  Post,
   Put,
   Query,
   Req,
@@ -17,7 +20,7 @@ import { Role } from '../../../database/enums/role.enum';
 import { AuthenticatedRequest } from '../../auth/auth.types';
 import { Roles } from '../../auth/decorators/roles.decorator';
 import { FormateurDeLaFormation } from '../../formations/autorisation/formateur-de-la-formation.decorator';
-import { FiltreLivrablesDto, NoterCritereDto } from './correction.dto';
+import { FiltreLivrablesDto, FinaliserCorrectionDto, NoterCritereDto } from './correction.dto';
 import {
   CorrectionsService,
   LivrableCorrectionVue,
@@ -30,7 +33,8 @@ const REFUS_403 =
 
 /**
  * Correction des livrables — côté FORMATEUR affecté et ADMINISTRATEUR
- * (US-ATEL-06, DS-03 partie 2, UC5 Formateur).
+ * (US-ATEL-06, DS-03 partie 2, UC5 Formateur) ; finalisation et feedback
+ * immuable (US-ATEL-07).
  *
  * Écart assumé avec DS-03 (`PATCH /corrections/:correctionId/critere`) : la
  * note d'un critère est rangée SOUS LE LIVRABLE, comme l'ouverture, pour que
@@ -153,6 +157,42 @@ export class CorrectionsController {
       dto,
       this.contexte(req),
     );
+  }
+
+  @Post('livrables/:livrableId/correction/finaliser')
+  @HttpCode(HttpStatus.OK)
+  @FormateurDeLaFormation({ livrableId: 'livrableId' })
+  @ApiOperation({
+    summary: 'Finaliser la correction et envoyer le feedback (US-ATEL-07)',
+    description:
+      'Exige une grille à 100 %, chaque critère noté et un commentaire général. Le score est ' +
+      'figé, la correction passe TERMINEE et le livrable NOTE ; le feedback est ensuite ' +
+      'IMMUABLE (refusé aussi par la base). L’apprenant est prévenu par email.',
+  })
+  @ApiResponse({
+    status: 200,
+    description: 'Correction finalisée ; audit CORRECTION_FINALISEE ; email à l’apprenant.',
+  })
+  @ApiResponse({
+    status: 400,
+    description:
+      'Identifiant mal formé, correction incomplète (critères non notés, grille ≠ 100 %), ' +
+      'commentaire général absent ou trop long.',
+  })
+  @ApiResponse({ status: 401, description: 'Non authentifié.' })
+  @ApiResponse({ status: 403, description: REFUS_403 })
+  @ApiResponse({ status: 404, description: 'Livrable introuvable.' })
+  @ApiResponse({
+    status: 409,
+    description:
+      'Correction pas encore ouverte, déjà finalisée (feedback immuable), ou formation archivée.',
+  })
+  finaliser(
+    @Param('livrableId', ParseUUIDPipe) livrableId: string,
+    @Body() dto: FinaliserCorrectionDto,
+    @Req() req: AuthenticatedRequest,
+  ): Promise<LivrableCorrectionVue> {
+    return this.correctionsService.finaliser(this.acteur(req), livrableId, dto, this.contexte(req));
   }
 
   @Get('livrables/:livrableId/fichiers/:ordre')

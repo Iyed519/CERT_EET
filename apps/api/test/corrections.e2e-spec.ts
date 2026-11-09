@@ -381,6 +381,7 @@ describe('Corriger un livrable (e2e) — US-ATEL-06', () => {
         enRetard: false,
         nbFichiers: 2,
         avancement: null,
+        scoreFinal: null,
       });
       expect(JSON.stringify(res.body)).not.toMatch(/cle|motDePasse|livrables\//);
     });

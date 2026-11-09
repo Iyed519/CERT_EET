@@ -9,7 +9,12 @@ import {
   ouvrirCorrection,
   StatutLivrable,
 } from '../lib/api';
-import { dateHeureFr, LIBELLES_LIVRABLE_FORMATEUR, nomApprenantFr } from '../lib/format';
+import {
+  dateHeureFr,
+  LIBELLES_LIVRABLE_FORMATEUR,
+  nomApprenantFr,
+  nombreFr,
+} from '../lib/format';
 
 /** Filtres de la liste (DS-03 : `?statut=SOUMIS`). */
 const FILTRES: Array<{ valeur: StatutLivrable | null; libelle: string }> = [
@@ -24,6 +29,7 @@ const FILTRES: Array<{ valeur: StatutLivrable | null; libelle: string }> = [
  * partie 2). Premier déposé en tête ; « Corriger » ouvre la correction
  * (SOUMIS -> EN_CORRECTION : l'apprenant ne peut plus agir) puis mène à la
  * page de correction ; « Reprendre » y retourne pour une correction en cours.
+ * US-ATEL-07 — un livrable noté affiche son score figé.
  */
 export function LivrablesAtelier({ atelierId }: { atelierId: string }): JSX.Element {
   const router = useRouter();
@@ -107,6 +113,9 @@ export function LivrablesAtelier({ atelierId }: { atelierId: string }): JSX.Elem
                 <span className={`statut-badge livrable-formateur-${l.statut}`}>
                   {LIBELLES_LIVRABLE_FORMATEUR[l.statut]}
                 </span>
+                {l.statut === 'NOTE' && l.scoreFinal !== null && (
+                  <span className="livrable-score">{nombreFr(l.scoreFinal)} / 100</span>
+                )}
                 {l.avancement && l.statut === 'EN_CORRECTION' && (
                   <span className="field-hint">
                     {l.avancement.notes}/{l.avancement.total} critère

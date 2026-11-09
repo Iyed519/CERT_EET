@@ -6,8 +6,10 @@ import {
   MESSAGE_DEJA_EN_CORRECTION,
   MESSAGE_DEJA_NOTE,
   MESSAGE_PAS_OUVERT,
+  nettoyerCommentaireGeneral,
   nettoyerCommentaireNote,
   scorePondere,
+  verifierComplete,
   verifierNotable,
   verifierOuvrable,
   verifierPoints,
@@ -144,6 +146,43 @@ describe('correction.regles (US-ATEL-06)', () => {
       expect(avancement(4, 4)).toEqual({ notes: 4, total: 4, complete: true });
       expect(avancement(3, 4)).toEqual({ notes: 3, total: 4, complete: false });
       expect(avancement(0, 0)).toEqual({ notes: 0, total: 0, complete: false });
+    });
+  });
+
+  describe('verifierComplete (US-ATEL-07)', () => {
+    it('grille à 100 % et chaque critère noté : accepté', () => {
+      expect(() => verifierComplete(4, 4, 100)).not.toThrow();
+    });
+    it('un critère non noté -> 400 au singulier', () => {
+      expect(() => verifierComplete(3, 4, 100)).toThrow(
+        new BadRequestException('Correction incomplète : 1 critère sur 4 n’est pas noté.'),
+      );
+    });
+    it('plusieurs critères non notés -> 400 au pluriel', () => {
+      expect(() => verifierComplete(1, 4, 100)).toThrow(
+        'Correction incomplète : 3 critères sur 4 ne sont pas notés.',
+      );
+    });
+    it('grille ≠ 100 % ou vide -> 400', () => {
+      expect(() => verifierComplete(2, 2, 90)).toThrow(
+        'Correction incomplète : la grille totalise 90 % (doit être 100 %).',
+      );
+      expect(() => verifierComplete(0, 0, 0)).toThrow('la grille totalise 0 %');
+    });
+  });
+
+  describe('nettoyerCommentaireGeneral (US-ATEL-07)', () => {
+    it('obligatoire après rognage', () => {
+      expect(nettoyerCommentaireGeneral('  Bon travail.  ')).toBe('Bon travail.');
+      for (const vide of ['', '   ', null, undefined]) {
+        expect(() => nettoyerCommentaireGeneral(vide)).toThrow(
+          'Le commentaire général est obligatoire pour envoyer le feedback.',
+        );
+      }
+    });
+    it('5 000 caractères au plus', () => {
+      expect(nettoyerCommentaireGeneral('a'.repeat(5000))).toHaveLength(5000);
+      expect(() => nettoyerCommentaireGeneral('a'.repeat(5001))).toThrow(BadRequestException);
     });
   });
 });

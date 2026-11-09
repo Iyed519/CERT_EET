@@ -396,6 +396,98 @@ export class MailService {
     });
     this.logger.log(`Email de livrable soumis envoyé à ${to}`);
   }
+
+  /**
+   * US-ATEL-07 — Email « votre livrable a été corrigé » à l'apprenant, une
+   * fois la correction finalisée (DS-03 : notifier(apprenant, { score,
+   * lienFeedback })). Le lien mène à la fiche de l'atelier, où le feedback
+   * détaillé est consultable (US-ATEL-08). Le score figure dans le message ;
+   * le détail par critère et le commentaire général restent sur la plateforme.
+   */
+  async sendCorrectionFinaliseeEmail(
+    to: string,
+    donnees: {
+      prenom: string | null;
+      titreAtelier: string;
+      titreFormation: string;
+      atelierId: string;
+      score: number;
+    },
+  ): Promise<void> {
+    const { from, appBaseUrl } = this.configService.getOrThrow<MailConfig>('mail');
+    const lien = `${appBaseUrl}/mes-ateliers/${donnees.atelierId}`;
+    const atelier = donnees.titreAtelier.replace(/\s+/g, ' ').trim();
+    const formation = donnees.titreFormation.replace(/\s+/g, ' ').trim();
+    const prenom = donnees.prenom?.trim() ?? '';
+    const salutation = prenom ? `Bonjour ${prenom},` : 'Bonjour,';
+    const score = `${donnees.score.toLocaleString('fr-FR', { maximumFractionDigits: 2 })} / 100`;
+    const text =
+      `${salutation}\n\n` +
+      `Votre livrable pour l'atelier « ${atelier} » (formation « ${formation} ») ` +
+      `a été corrigé. Note obtenue : ${score}.\n\n` +
+      `Consulter le feedback détaillé : ${lien}\n\n` +
+      `— L'équipe Cert_EET`;
+    const html = `<!doctype html>
+<html lang="fr">
+  <body style="margin:0;padding:0;background-color:#f2f4f3;">
+    <table role="presentation" width="100%" cellpadding="0" cellspacing="0" style="background-color:#f2f4f3;font-family:Arial,Helvetica,sans-serif;">
+      <tr>
+        <td align="center" style="padding:28px 12px;">
+          <table role="presentation" width="600" cellpadding="0" cellspacing="0" style="width:600px;max-width:600px;background-color:#ffffff;border-radius:16px;overflow:hidden;box-shadow:0 6px 24px rgba(16,24,40,0.08);">
+            <tr>
+              <td style="background-color:#1e8449;padding:22px 30px;">
+                <table role="presentation" cellpadding="0" cellspacing="0">
+                  <tr>
+                    <td width="36" height="36" align="center" valign="middle" style="background-color:rgba(255,255,255,0.20);border-radius:9px;color:#ffffff;font-size:14px;font-weight:bold;">CE</td>
+                    <td style="padding-left:12px;color:#ffffff;font-size:18px;font-weight:bold;letter-spacing:0.3px;">Cert_EET</td>
+                  </tr>
+                </table>
+              </td>
+            </tr>
+            <tr>
+              <td style="padding:34px 34px 6px 34px;">
+                <h1 style="margin:0 0 12px 0;font-size:22px;line-height:1.3;color:#1b2631;">Votre livrable a été corrigé</h1>
+                <p style="margin:0 0 14px 0;font-size:15px;line-height:1.6;color:#4a5866;">${echapperHtml(salutation)}</p>
+                <p style="margin:0 0 16px 0;font-size:15px;line-height:1.6;color:#4a5866;">
+                  Votre livrable pour l’atelier
+                  <strong style="color:#1b2631;">«&nbsp;${echapperHtml(atelier)}&nbsp;»</strong>
+                  (formation «&nbsp;${echapperHtml(formation)}&nbsp;») a été corrigé.
+                </p>
+                <p style="margin:0 0 22px 0;font-size:15px;line-height:1.6;color:#4a5866;">
+                  Note obtenue : <strong style="color:#1e8449;font-size:18px;">${echapperHtml(score)}</strong>
+                </p>
+                <table role="presentation" cellpadding="0" cellspacing="0" style="margin:6px 0 18px 0;">
+                  <tr>
+                    <td align="center" bgcolor="#1e8449" style="border-radius:10px;">
+                      <a href="${lien}" target="_blank" style="display:inline-block;padding:14px 30px;font-size:15px;font-weight:bold;color:#ffffff;text-decoration:none;border-radius:10px;">Voir le feedback</a>
+                    </td>
+                  </tr>
+                </table>
+              </td>
+            </tr>
+            <tr>
+              <td style="padding:18px 34px 26px 34px;">
+                <p style="margin:0;font-size:12px;line-height:1.5;color:#aab4bd;">
+                  © Cert_EET — Certification numérique vérifiable.<br />
+                  Email envoyé automatiquement, merci de ne pas y répondre.
+                </p>
+              </td>
+            </tr>
+          </table>
+        </td>
+      </tr>
+    </table>
+  </body>
+</html>`;
+    await this.transporter.sendMail({
+      from,
+      to,
+      subject: `Cert_EET — Livrable corrigé : « ${atelier} »`,
+      text,
+      html,
+    });
+    this.logger.log(`Email de correction finalisée envoyé à ${to}`);
+  }
 }
 /**
  * Période d'une formation pour un email : « du JJ/MM/AAAA au JJ/MM/AAAA »,
