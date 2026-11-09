@@ -3,6 +3,7 @@ import { TypeOrmModule } from '@nestjs/typeorm';
 import { Atelier } from '../../database/entities/atelier.entity';
 import { Livrable } from '../../database/entities/livrable.entity';
 import { SupportPedagogique } from '../../database/entities/support-pedagogique.entity';
+import { GenerationIa } from '../../database/entities/generation-ia.entity';
 import { AffectationFormateur } from '../../database/entities/affectation-formateur.entity';
 import { Formation } from '../../database/entities/formation.entity';
 import { Inscription } from '../../database/entities/inscription.entity';
@@ -50,6 +51,7 @@ import { FormationsService } from './formations.service';
       Atelier,
       Livrable,
       SupportPedagogique,
+      GenerationIa,
       AffectationFormateur,
       User,
     ]),

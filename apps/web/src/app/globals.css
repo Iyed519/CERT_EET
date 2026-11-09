@@ -736,3 +736,12 @@ textarea.input { resize: vertical; font-family: inherit; line-height: 1.45; }
   .support-ligne .module-corps { flex-basis: 100%; }
   .support-actions { margin-left: auto; }
 }
+
+/* US-IA-02 — Générations de questions par IA. */
+.generations-tete { margin-top: 12px; }
+.generation-EN_COURS { background: #fef3e2; color: var(--accent-dark); }
+.generation-TERMINEE { background: var(--success-soft); color: var(--primary-dark); }
+.generation-ECHEC { background: var(--danger-soft); color: #922b21; }
+.generation-types { border: 0; padding: 0; margin: 0; display: flex; flex-wrap: wrap; gap: 8px 18px; }
+.generation-types legend { margin-bottom: 6px; padding: 0; }
+.generation-type { display: inline-flex; align-items: center; gap: 6px; font-size: 0.9rem; cursor: pointer; }

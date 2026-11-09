@@ -4,13 +4,21 @@ import { Repository } from 'typeorm';
 import { Atelier } from '../../../database/entities/atelier.entity';
 import { AffectationFormateur } from '../../../database/entities/affectation-formateur.entity';
 import { Formation } from '../../../database/entities/formation.entity';
+import { GenerationIa } from '../../../database/entities/generation-ia.entity';
 import { Livrable } from '../../../database/entities/livrable.entity';
 import { ModuleFormation } from '../../../database/entities/module-formation.entity';
 import { Qcm } from '../../../database/entities/qcm.entity';
 import { SupportPedagogique } from '../../../database/entities/support-pedagogique.entity';
 
 /** Type de ressource à partir de laquelle on remonte à la formation. */
-export type TypeRessource = 'formation' | 'module' | 'qcm' | 'atelier' | 'livrable' | 'support';
+export type TypeRessource =
+  | 'formation'
+  | 'module'
+  | 'qcm'
+  | 'atelier'
+  | 'livrable'
+  | 'support'
+  | 'generation';
 
 /**
  * Lectures dont a besoin l'autorisation par ressource (US-AUTH-16) : retrouver
@@ -35,6 +43,8 @@ export class AutorisationRessourceService {
     private readonly livrableRepository: Repository<Livrable>,
     @InjectRepository(SupportPedagogique)
     private readonly supportRepository: Repository<SupportPedagogique>,
+    @InjectRepository(GenerationIa)
+    private readonly generationRepository: Repository<GenerationIa>,
     @InjectRepository(AffectationFormateur)
     private readonly affectationRepository: Repository<AffectationFormateur>,
   ) {}
@@ -44,7 +54,7 @@ export class AutorisationRessourceService {
    * si la ressource n'existe pas. Un QCM ou un atelier remonte par son module :
    * la formation n'est stockée ni sur l'un ni sur l'autre (voir les entités) ;
    * un livrable remonte par son atelier (US-ATEL-06) ; un support pédagogique
-   * par son module (US-IA-01).
+   * par son module (US-IA-01) ; une génération IA aussi (US-IA-02).
    */
   async formationDe(type: TypeRessource, id: string): Promise<string | null> {
     if (type === 'formation') {
@@ -80,6 +90,14 @@ export class AutorisationRessourceService {
         select: { id: true, module: { id: true, formationId: true } },
       });
       return support?.module?.formationId ?? null;
+    }
+    if (type === 'generation') {
+      const generation = await this.generationRepository.findOne({
+        where: { id },
+        relations: { module: true },
+        select: { id: true, module: { id: true, formationId: true } },
+      });
+      return generation?.module?.formationId ?? null;
     }
     const qcm = await this.qcmRepository.findOne({
       where: { id },

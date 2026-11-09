@@ -25,6 +25,7 @@ const INTROUVABLE: Record<TypeRessource, string> = {
   atelier: 'Atelier introuvable.',
   livrable: 'Livrable introuvable.',
   support: 'Support introuvable.',
+  generation: 'Génération introuvable.',
 };
 
 /**
@@ -103,6 +104,7 @@ export class FormateurDeLaFormationGuard implements CanActivate {
     if ('atelierId' in source) return ['atelier', source.atelierId];
     if ('livrableId' in source) return ['livrable', source.livrableId];
     if ('supportId' in source) return ['support', source.supportId];
+    if ('generationId' in source) return ['generation', source.generationId];
     return ['qcm', source.qcmId];
   }
 

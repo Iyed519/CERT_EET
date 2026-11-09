@@ -96,6 +96,8 @@ export const envValidationSchema = Joi.object({
   IA_TENTATIVES: Joi.number().integer().min(1).max(10).default(3),
   IA_BACKOFF_MS: Joi.number().integer().min(10).max(600000).default(5000),
   EMBEDDINGS_FOURNISSEUR: Joi.string().valid('hachage').default('hachage'),
+  // US-IA-02 : générations par formateur et par heure (fenêtre fixe, Redis).
+  IA_GENERATIONS_PAR_HEURE: Joi.number().integer().min(1).max(1000).default(10),
 })
   // Refuse les clés inconnues seulement en avertissement : on n'échoue pas
   // sur des variables système, mais on valide strictement celles qu'on connaît.

@@ -110,6 +110,8 @@ export interface IaConfig {
   tentatives: number;
   backoffMs: number;
   embeddingsFournisseur: 'hachage';
+  /** US-IA-02 — générations lancées par formateur et par heure (coût borné). */
+  generationsParHeure: number;
 }
 
 export interface StockageConfig {
@@ -195,5 +197,6 @@ export default (): {
     tentatives: parseInt(process.env.IA_TENTATIVES ?? '3', 10),
     backoffMs: parseInt(process.env.IA_BACKOFF_MS ?? '5000', 10),
     embeddingsFournisseur: 'hachage',
+    generationsParHeure: parseInt(process.env.IA_GENERATIONS_PAR_HEURE ?? '10', 10),
   },
 });
