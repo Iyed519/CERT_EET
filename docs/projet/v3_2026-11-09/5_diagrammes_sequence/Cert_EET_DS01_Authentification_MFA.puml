@@ -1,0 +1,294 @@
+@startuml Cert_EET_DS01_Authentification_MFA
+' =====================================================================
+'  Projet    : Cert_EET — Plateforme de Certification Numérique
+'  Diagramme : DS-01 — Authentification + MFA (JWT RS256 + TOTP)
+'  Acteur    : Tout utilisateur authentifiable (Apprenant / Formateur / Admin)
+'  Ref CdC   : F5 (RBAC), F7 (Sécurité) — ADR-08 (JWT RS256 + MFA TOTP + RBAC)
+'  Auteur    : Iyed Omri — PFE ESPRIT Ingénierie Logicielle 2026
+' =====================================================================
+
+!pragma teoz true
+skinparam backgroundColor #FFFFFF
+skinparam shadowing false
+skinparam DefaultFontName "Segoe UI"
+skinparam DefaultFontSize 10
+skinparam sequenceMessageAlign center
+skinparam responseMessageBelowArrow true
+skinparam BoxPadding 12
+skinparam ParticipantPadding 20
+skinparam SequenceGroupBorderThickness 1.2
+skinparam SequenceGroupFontSize 10
+skinparam SequenceGroupBodyBackgroundColor #FAFAFA
+skinparam ArrowThickness 1.2
+skinparam LifeLineBorderThickness 1.0
+
+skinparam participant {
+  BackgroundColor #FFFFFF
+  BorderColor #5D6D7E
+  BorderThickness 1.1
+  FontSize 10
+}
+skinparam actor {
+  BackgroundColor #ECF0F1
+  BorderColor #1B4F72
+  BorderThickness 1.4
+  FontStyle bold
+}
+skinparam database {
+  BackgroundColor #EBF5FB
+  BorderColor #1B4F72
+}
+skinparam collections {
+  BackgroundColor #E8F8F5
+  BorderColor #1E8449
+}
+skinparam boundary {
+  BackgroundColor #FEF9E7
+  BorderColor #B7950B
+}
+skinparam control {
+  BackgroundColor #FAE5D3
+  BorderColor #BA4A00
+}
+
+skinparam note {
+  BackgroundColor #FEF9E7
+  BorderColor #B7950B
+  FontSize 9
+}
+skinparam sequence {
+  ArrowColor #34495E
+  LifeLineBorderColor #7F8C8D
+  LifeLineBackgroundColor #FDFEFE
+  GroupBorderColor #1B4F72
+  GroupHeaderFontColor #1B4F72
+  GroupHeaderFontStyle bold
+  DividerBorderColor #1B4F72
+  DividerBackgroundColor #D6EAF8
+  DividerFontColor #1B4F72
+  DividerFontStyle bold
+  ReferenceBackgroundColor #EBF5FB
+  ReferenceBorderColor #1B4F72
+}
+
+title <size:14><b>Cert_EET — DS-01 : Authentification + MFA</b></size>\n<size:10>JWT RS256 · TOTP · RBAC · ADR-08 · F5/F7</size>
+
+' =====================================================================
+'  PARTICIPANTS
+' =====================================================================
+actor       "Utilisateur\n(Apprenant / Formateur\n/ Admin)" as USR
+boundary    "Frontend\n(Next.js)" as FE
+control     "AuthController\n(NestJS)" as AC
+control     "AuthService\n(NestJS)" as AS
+database    "PostgreSQL\n(Table users)" as DB
+collections "Redis\n(Sessions / Blocklist)" as RD
+control     "JwtService\n(RS256)" as JWT
+
+' =====================================================================
+'  FLUX NOMINAL — Authentification simple (sans MFA)
+' =====================================================================
+== Étape 1 — Saisie des identifiants ==
+
+USR  ->  FE  : Saisit email + mot de passe\nsur la page /login
+FE   ->  AC  : POST /auth/login\n{ email, motDePasse }
+
+AC   ->  AC  : Valide le DTO\n(format email, longueur)
+
+AC   ->  AS  : login(email, motDePasse)
+
+AS   ->  DB  : SELECT * FROM users\nWHERE email = :email
+DB   --> AS  : { id, motDePasseHash, role,\nstatut, mfaActive }
+
+' =====================================================================
+'  Vérification compte
+' =====================================================================
+alt #FFE8E8 Compte inexistant ou statut DESACTIVE / ANONYMISE
+  AS  --> AC  : UnauthorizedException\n"Identifiants invalides"
+  AC  --> FE  : HTTP 401 Unauthorized
+  FE  --> USR : Message d'erreur générique\n(ne révèle pas si le compte existe)
+
+else #E8F8F5 Compte ACTIF trouvé
+  AS   ->  AS  : bcrypt.compare(\n  motDePasse, motDePasseHash\n)
+
+  alt #FFE8E8 Mot de passe incorrect
+    AS  --> AC  : UnauthorizedException
+    AC  --> FE  : HTTP 401 Unauthorized
+    FE  --> USR : "Identifiants invalides"
+    note right of FE
+      Même message qu'un
+      compte inexistant :
+      sécurité par opacité
+    end note
+
+  else #E8F8F5 Mot de passe correct
+    AS   ->  RD  : INCR rate_limit:login:{ip}\n(protection brute-force)
+    RD  --> AS  : Compteur actuel
+
+    AS   ->  AS  : Vérifie mfaActive
+
+    ' =====================================================================
+    '  MFA désactivée → émission directe des tokens
+    ' =====================================================================
+    alt #EBF5FB MFA désactivée (mfaActive = false)
+      AS   ->  JWT : generateTokenPair(\n  { userId, role, email }\n)
+      JWT --> AS  : { accessToken (15 min),\n  refreshToken (7 j) }
+
+      AS   ->  DB  : INSERT INTO sessions\n({ userId, accessToken,\n  refreshToken, ip, userAgent,\n  expiresAt })
+      DB  --> AS  : session créée
+
+      AS   ->  DB  : UPDATE users SET\nderniereConnexion = NOW()
+      AS  --> AC  : { accessToken, refreshToken, role }
+      AC  --> FE  : HTTP 200 OK\n{ accessToken, refreshToken, role }
+      FE   ->  FE  : Stocke accessToken (mémoire)\nStocke refreshToken (httpOnly cookie)
+      FE  --> USR : Redirige vers\nle tableau de bord (rôle)
+
+    ' =====================================================================
+    '  MFA activée → étape de vérification TOTP
+    ' =====================================================================
+    else #FEF9E7 MFA activée (mfaActive = true)
+      AS  --> AC  : { mfaRequired: true,\n  mfaToken temporaire (5 min) }
+      AC  --> FE  : HTTP 200 OK\n{ mfaRequired: true, mfaToken }
+      FE  --> USR : Affiche l'écran\n"Saisir le code MFA"
+    end
+  end
+end
+
+' =====================================================================
+'  ÉTAPE 2 — Vérification TOTP (MFA)
+' =====================================================================
+== Étape 2 — Vérification du code TOTP (si MFA activée) ==
+
+USR  ->  FE  : Saisit le code TOTP\n(6 chiffres, app Google Authenticator)
+FE   ->  AC  : POST /auth/mfa/verify\n{ mfaToken, totpCode }
+
+AC   ->  AS  : verifyMfa(mfaToken, totpCode)
+
+AS   ->  RD  : GET mfa_session:{mfaToken}
+RD  --> AS  : { userId } (ou null si expiré)
+
+alt #FFE8E8 Token MFA expiré ou invalide
+  AS  --> AC  : UnauthorizedException\n"Session MFA expirée"
+  AC  --> FE  : HTTP 401 Unauthorized
+  FE  --> USR : "Délai expiré, veuillez\nrecommencer"
+
+else #E8F8F5 Token MFA valide
+  AS   ->  DB  : SELECT mfaSecret FROM users\nWHERE id = :userId
+  DB  --> AS  : mfaSecret (clé TOTP chiffrée)
+
+  AS   ->  AS  : TOTP.verify(\n  totpCode, mfaSecret, window=1\n)
+
+  alt #FFE8E8 Code TOTP invalide ou fenêtre expirée
+    AS  --> AC  : UnauthorizedException\n"Code invalide"
+    AC  --> FE  : HTTP 401 Unauthorized
+    FE  --> USR : "Code incorrect (reste X tentatives)"
+
+  else #E8F8F5 Code TOTP valide
+    AS   ->  RD  : DEL mfa_session:{mfaToken}\n(usage unique)
+    AS   ->  JWT : generateTokenPair(\n  { userId, role, email }\n)
+    JWT --> AS  : { accessToken, refreshToken }
+
+    AS   ->  DB  : INSERT INTO sessions\n+ UPDATE derniereConnexion
+    AS   ->  DB  : INSERT INTO audit_log\n({ action: "LOGIN_MFA_SUCCESS",\n  userId, ip, timestamp })
+    DB  --> AS  : OK
+
+    AS  --> AC  : { accessToken, refreshToken, role }
+    AC  --> FE  : HTTP 200 OK
+    FE   ->  FE  : Stocke tokens
+    FE  --> USR : Redirige vers\nle tableau de bord
+  end
+end
+
+' =====================================================================
+'  ÉTAPE 3 — Rafraîchissement du token (Refresh)
+' =====================================================================
+== Étape 3 — Refresh automatique du token (transparent pour l'utilisateur) ==
+
+note over FE, AC
+  L'accessToken expire après 15 minutes.
+  Le frontend intercepte les HTTP 401 et lance
+  automatiquement un refresh avant de relancer la requête.
+end note
+
+FE   ->  AC  : POST /auth/refresh\n(refreshToken en httpOnly cookie)
+AC   ->  AS  : refresh(refreshToken)
+
+AS   ->  JWT : verify(refreshToken)
+JWT --> AS  : { userId, role } (ou erreur si expiré)
+
+alt #FFE8E8 refreshToken expiré ou révoqué
+  AS   ->  RD  : SISMEMBER blocklist:refresh\n:{refreshToken}
+  RD  --> AS  : true (token blacklisté)
+  AS  --> AC  : UnauthorizedException
+  AC  --> FE  : HTTP 401 — Session expirée
+  FE  --> USR : Redirige vers /login
+
+else #E8F8F5 refreshToken valide
+  AS   ->  RD  : SISMEMBER blocklist:refresh:{refreshToken}
+  RD  --> AS  : false (token non blacklisté)
+
+  AS   ->  JWT : generateAccessToken({ userId, role })
+  JWT --> AS  : Nouvel accessToken (15 min)
+
+  AS  --> AC  : { accessToken }
+  AC  --> FE  : HTTP 200 OK\n{ accessToken }
+  FE   ->  FE  : Remplace l'ancien accessToken
+  note right of FE
+    Le refreshToken n'est
+    PAS renouvelé ici —
+    durée de vie fixe 7 j.
+  end note
+end
+
+' =====================================================================
+'  ÉTAPE 4 — Déconnexion (Logout)
+' =====================================================================
+== Étape 4 — Déconnexion ==
+
+USR  ->  FE  : Clique sur "Se déconnecter"
+FE   ->  AC  : POST /auth/logout\n(Authorization: Bearer accessToken)
+AC   ->  AS  : logout(userId, accessToken, refreshToken)
+
+AS   ->  RD  : SADD blocklist:access:{accessToken}\n(TTL = durée restante du token)
+AS   ->  RD  : SADD blocklist:refresh:{refreshToken}\n(TTL = 7 jours)
+RD  --> AS  : OK
+
+AS   ->  DB  : UPDATE sessions SET active = false\nWHERE userId = :userId
+AS   ->  DB  : INSERT INTO audit_log\n({ action: "LOGOUT", userId, ip })
+DB  --> AS  : OK
+
+AS  --> AC  : OK
+AC  --> FE  : HTTP 200 OK\n(supprime le cookie refreshToken)
+FE   ->  FE  : Vide le state (accessToken, role)
+FE  --> USR : Redirige vers /login
+
+' =====================================================================
+'  NOTES DE CONCEPTION
+' =====================================================================
+note over AS, DB
+  **Sécurité par opacité (F7)**
+  Tous les messages d'erreur de login
+  utilisent la même formulation :
+  "Identifiants invalides".
+  Ne jamais révéler si le compte existe.
+end note
+
+note over JWT, RD
+  **JWT RS256 (ADR-08)**
+  Clé privée → signature (backend)
+  Clé publique → vérification (services)
+  Access : 15 min · Refresh : 7 j
+  Révocation via Redis blocklist
+end note
+
+' =====================================================================
+'  LÉGENDE
+' =====================================================================
+legend bottom
+  | <b>Couleur de fond</b> | <b>Signification</b> |
+  | <back:#FFE8E8>  rouge  </back> | Chemin d'erreur / échec |
+  | <back:#E8F8F5>  vert   </back> | Chemin nominal / succès |
+  | <back:#EBF5FB>  bleu   </back> | Variante (MFA désactivée) |
+  | <back:#FEF9E7>  jaune  </back> | Variante (MFA activée) |
+endlegend
+
+@enduml

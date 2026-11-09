@@ -1,0 +1,228 @@
+@startuml Cert_EET_DS03_Livrable_Correction
+' =====================================================================
+'  Projet    : Cert_EET
+'  Diagramme : DS-03 — Soumettre + Corriger un livrable
+'  Acteurs   : Apprenant (soumission) + Formateur (correction)
+'  Ref CdC   : F2 (Ateliers pratiques)
+'  Auteur    : Iyed Omri — PFE ESPRIT 2026
+'  Version   : 1.1 — 09/11/2026, alignée sur l'implémentation du Sprint 3
+'              (US-ATEL-04, 06, 07, 08, 09 ; engineering-log/39 à 42, 44).
+'              Changements v1.0 → v1.1 : délai dépassé = 409 (et non 403),
+'              tolérance de retard (dépôt marqué en retard) ; contenu réel
+'              des fichiers contrôlé (signature) ; délai jugé à la
+'              réception (horloge PostgreSQL) ; pas de remplacement
+'              (US-ATEL-05 non livrée : un second dépôt = 409) ;
+'              notifications par email (pas de table notifications) ;
+'              routes de correction sous le livrable ; niveau par rang 1–4
+'              et points en % du critère ; feedback dans `corrections`
+'              (pas de table feedbacks, pas de fichiers annotés) ;
+'              immuabilité garantie aussi par déclencheurs ; éligibilité
+'              évaluée après chaque correction finalisée (US-ATEL-09).
+' =====================================================================
+!pragma teoz true
+skinparam backgroundColor #FFFFFF
+skinparam shadowing false
+skinparam DefaultFontName "Segoe UI"
+skinparam DefaultFontSize 10
+skinparam sequenceMessageAlign center
+skinparam responseMessageBelowArrow true
+skinparam ParticipantPadding 18
+skinparam ArrowThickness 1.2
+skinparam LifeLineBorderThickness 1.0
+skinparam participant {
+  BackgroundColor #FFFFFF
+  BorderColor #5D6D7E
+}
+skinparam actor {
+  BackgroundColor #ECF0F1
+  BorderColor #1B4F72
+  FontStyle bold
+}
+skinparam database {
+  BackgroundColor #EBF5FB
+  BorderColor #1B4F72
+}
+skinparam collections {
+  BackgroundColor #E8F8F5
+  BorderColor #1E8449
+}
+skinparam boundary {
+  BackgroundColor #FEF9E7
+  BorderColor #B7950B
+}
+skinparam control {
+  BackgroundColor #FAE5D3
+  BorderColor #BA4A00
+}
+skinparam note {
+  BackgroundColor #FEF9E7
+  BorderColor #B7950B
+  FontSize 9
+}
+skinparam sequence {
+  ArrowColor #34495E
+  LifeLineBorderColor #7F8C8D
+  LifeLineBackgroundColor #FDFEFE
+  GroupBorderColor #1B4F72
+  GroupHeaderFontColor #1B4F72
+  GroupHeaderFontStyle bold
+  DividerBorderColor #1B4F72
+  DividerBackgroundColor #D6EAF8
+  DividerFontColor #1B4F72
+  DividerFontStyle bold
+}
+
+title <size:14><b>Cert_EET — DS-03 : Soumettre + Corriger un livrable</b></size>\n<size:10>Verrouillage progressif · Grille de notation · Feedback immuable · F2 · v1.1 (Sprint 3)</size>
+
+actor       "Apprenant" as APP
+actor       "Formateur" as FOR
+boundary    "Frontend\n(Next.js)" as FE
+control     "Livrables / Corrections\nControllers (NestJS)" as ATC
+control     "LivrablesService /\nCorrectionsService" as ATS
+control     "StockageService\n(MinIO)" as STO
+database    "PostgreSQL" as DB
+collections "MailService\n(SMTP)" as NOTIF
+
+' =====================================================================
+'  PARTIE 1 — SOUMISSION DU LIVRABLE (Apprenant · US-ATEL-04)
+' =====================================================================
+== Partie 1 — Soumission du livrable (Apprenant · US-ATEL-04) ==
+
+APP  ->  FE  : Ouvre l'atelier depuis « Mon espace »
+FE   ->  ATC : GET /mes-ateliers/:atelierId
+ATC  ->  ATS : inscription EN_COURS / TERMINEE ?\n(sinon 403 tracé ; brouillon = 404)
+ATS --> FE   : énoncé, modalités, grille, état du dépôt\n(OUVERT / EN_RETARD / CLOS), monLivrable
+FE  --> APP  : formulaire de dépôt\n(« dépôt définitif »)
+
+APP  ->  FE  : fichiers + commentaire (≤ 2 000)\n+ liens (≤ 5, http/https)
+FE   ->  ATC : POST /ateliers/:atelierId/livrable\n(multipart, fichiers sur disque)
+ATC  ->  ATS : soumettre(apprenant, atelier, fichiers)
+
+group #FFE8E8 Vérifications avant envoi
+  ATS  ->  DB  : SELECT now()  — délai jugé à la réception
+  ATS  ->  ATS : extension autorisée ? signature réelle ?\ntaille ≤ tailleMaxMo ? nombre ≤ nbMaxFichiers ?
+  alt #FFE8E8 Délai + tolérance dépassés
+    ATS --> FE  : HTTP 409 « Date limite dépassée »
+  else #FFE8E8 Déjà soumis (pas de remplacement)
+    ATS --> FE  : HTTP 409
+  else #FFE8E8 Fichier refusé (format, contenu, taille)
+    ATS --> FE  : HTTP 400 (message précis)
+  end
+end
+
+ATS  ->  ATS : SHA-256 de chaque fichier (en flux)\nhashTracabilite = SHA-256 de la liste triée
+ATS  ->  STO : envoi en flux\nlivrables/{atelier}/{livrable}/…
+alt #FFE8E8 Stockage injoignable
+  ATS --> FE  : HTTP 503 (rien enregistré)
+else #EBF5FB Stocké
+  ATS  ->  DB  : INSERT livrables (version 1, SOUMIS,\ndateSoumission, enRetard, hashTracabilite)\n+ fichiers_livrables — UNIQUE (atelier, apprenant)
+  note right of ATS
+    Deux dépôts simultanés : la contrainte
+    UNIQUE départage, les objets du perdant
+    sont retirés de MinIO.
+  end note
+  ATS  ->  DB  : audit LIVRABLE_SOUMIS
+  ATS  ->> NOTIF : email aux formateurs affectés (au mieux)
+  ATS --> FE  : HTTP 201
+  FE  --> APP : « Livrable soumis » (+ « en retard » le cas échéant)
+end
+
+' =====================================================================
+'  PARTIE 2 — CORRECTION (Formateur · US-ATEL-06)
+' =====================================================================
+== Partie 2 — Ouverture et correction (Formateur · US-ATEL-06) ==
+
+FOR  ->  FE  : Page de l'atelier : liste des livrables
+FE   ->  ATC : GET /ateliers/:atelierId/livrables?statut=
+ATC --> FE   : apprenant, date, retard, statut, score final
+FOR  ->  FE  : « Corriger »
+FE   ->  ATC : PATCH /livrables/:livrableId/ouvrir
+ATC  ->  ATS : garde @FormateurDeLaFormation({ livrableId })
+ATS  ->  DB  : SELECT … FOR UPDATE (ligne du livrable)
+alt #FFE8E8 Pas SOUMIS / formation archivée
+  ATS --> FE  : HTTP 409
+else #E8F8F5 SOUMIS
+  ATS  ->  DB  : UPDATE livrables SET statut = EN_CORRECTION ;\nINSERT corrections (EN_COURS) ;\naudit CORRECTION_OUVERTE
+  note right of ATS
+    Verrouillage : l'apprenant ne peut
+    plus agir sur son livrable.
+  end note
+  ATS --> FE  : HTTP 200 (livrable + grille + notes)
+end
+
+opt Télécharger un fichier du livrable
+  FE   ->  ATC : GET /livrables/:livrableId/fichiers/:ordre
+  ATC  ->  STO : lecture en flux (relayée par l'API)
+  ATC --> FE   : fichier ; audit LIVRABLE_FICHIER_TELECHARGE
+end
+
+== Saisie des notes par critère ==
+
+loop Pour chaque critère de la grille
+  FOR  ->  FE  : niveau atteint (rang 1–4),\npoints dans la plage du niveau (%),\ncommentaire
+  FE   ->  ATC : PUT /livrables/:livrableId/correction/criteres/:critereId
+  ATC  ->  ATS : noterCritere (verrou du livrable)
+  alt #FFE8E8 Pas EN_CORRECTION
+    ATS --> FE  : HTTP 409
+  else #FFE8E8 Points hors plage / critère d'une autre grille
+    ATS --> FE  : HTTP 400
+  else #E8F8F5 Valide
+    ATS  ->  DB  : INSERT … ON CONFLICT UPDATE notes_criteres\n(déclencheur de cohérence : niveau du critère,\npoints dans la plage, critère de la grille) ;\naudit NOTE_CRITERE_ENREGISTREE
+    ATS  ->  ATS : score = Σ (points % × pondération) / 100
+    ATS --> FE  : HTTP 200 (score recalculé)
+  end
+end
+
+' =====================================================================
+'  PARTIE 3 — FINALISATION (US-ATEL-07) ET FEEDBACK (US-ATEL-08)
+' =====================================================================
+== Finalisation de la correction (US-ATEL-07) ==
+
+FOR  ->  FE  : commentaire général (obligatoire)\n→ « Envoyer le feedback »
+FE   ->  ATC : POST /livrables/:livrableId/correction/finaliser\n{ commentaireGeneral }
+ATC  ->  ATS : finaliser (verrou du livrable)
+ATS  ->  ATS : grille à 100 % ? tous les critères notés ?
+alt #FFE8E8 Correction incomplète
+  ATS --> FE  : HTTP 400 « correction incomplète »
+else #E8F8F5 Complète
+  ATS  ->  DB  : UPDATE corrections SET statut = TERMINEE,\nscore_total, commentaire_general,\ndate_finalisation = now()
+  ATS  ->  DB  : UPDATE livrables SET statut = NOTE ;\naudit CORRECTION_FINALISEE
+  note right of ATS
+    Feedback IMMUABLE : API (409) et base
+    (déclencheurs sur corrections, notes
+    et livrable NOTE).
+  end note
+  ATS  ->> NOTIF : email à l'apprenant (au mieux)
+  ATS  ->  ATS : évaluer l'éligibilité (US-ATEL-09)
+  ATS --> FE  : HTTP 200
+  FE  --> FOR : « Feedback envoyé »
+end
+
+== Consultation du feedback (Apprenant · US-ATEL-08) ==
+
+APP  ->  FE  : « Mon espace » : badge « Nouveau feedback »
+FE   ->  ATC : GET /mes-ateliers/:atelierId
+ATC  ->  ATS : monLivrable.feedback (NOTE + TERMINEE exigés)
+ATS  ->  DB  : INSERT consultations_feedback\nON CONFLICT DO NOTHING ;\naudit FEEDBACK_CONSULTE (1re fois)
+ATS --> FE   : note globale, détail par critère,\ncommentaire général, correcteur (nom)
+note right of FE
+  Tant que la correction est en cours :
+  « en cours de correction », aucune
+  note partielle.
+end note
+
+note over ATS, NOTIF
+  **Déclenchement de la certification (US-ATEL-09 → DS-04)**
+  Après chaque correction finalisée et chaque QCM réussi : chaque QCM publié
+  réussi, chaque atelier publié noté ≥ noteMinCertification, formation non
+  archivée, inscription active → demande d'émission, une seule fois
+  (UNIQUE + ON CONFLICT DO NOTHING).
+end note
+
+legend bottom
+  | <b>Couleur</b> | <b>Signification</b> |
+  | <back:#FFE8E8> rouge  </back> | Erreur / refus |
+  | <back:#E8F8F5> vert   </back> | Chemin nominal |
+  | <back:#EBF5FB> bleu   </back> | Dépôt enregistré |
+endlegend
+@enduml

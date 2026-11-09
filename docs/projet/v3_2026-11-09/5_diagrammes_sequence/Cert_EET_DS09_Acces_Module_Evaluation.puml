@@ -1,0 +1,242 @@
+@startuml Cert_EET_DS09_Acces_Module_Evaluation
+' =====================================================================
+'  Projet    : Cert_EET
+'  Diagramme : DS-09 — Accéder à un module et lancer une évaluation
+'  Acteur    : Apprenant
+'  Ref CdC   : F1 (QCM) + F2 (Ateliers) — UC2 + UC4 Apprenant
+'  Ce diagramme est le PONT entre DS-08 (Inscription) et DS-02/DS-03
+'  Version   : 1.1 — 07/11/2026, alignée sur l'implémentation du Sprint 2
+'              (US-INSC-04, US-QCM-05, US-QCM-08 ; engineering-log/26, 30, 33).
+'              Changements v1.0 → v1.1 : une seule lecture « Mon espace »
+'              (modules + QCM publiés + mon avancement) ; lecture SANS effet —
+'              le taux d'avancement est recalculé à la NOTATION (DS-02 ét. 4) ;
+'              démarrage d'un QCM = POST /qcm/:qcmId/tentatives, refus 409 ;
+'              volet ateliers (étape 3B) inchangé, à réaliser au Sprint 4.
+'  Version   : 1.2 — 09/11/2026, Sprint 3 (US-ATEL-03, 04, 08, US-FORM-05,
+'              06, US-ATEL-09 ; engineering-log/38, 39, 42, 44, 51, 52) :
+'              étape 3B réalisée (GET /mes-ateliers/:atelierId, brouillon =
+'              404, pas de remplacement de livrable, feedback dans la fiche) ;
+'              ressources du cours sous chaque module (liens, vidéos
+'              intégrées, fichiers par lien signé de 10 min) ; « Mon espace »
+'              montre aussi l'état de la certification. Les ateliers notés
+'              n'entrent PAS encore dans le taux d'avancement (dette).
+'  Auteur    : Iyed Omri — PFE ESPRIT 2026
+' =====================================================================
+!pragma teoz true
+skinparam backgroundColor #FFFFFF
+skinparam shadowing false
+skinparam DefaultFontName "Segoe UI"
+skinparam DefaultFontSize 10
+skinparam sequenceMessageAlign center
+skinparam responseMessageBelowArrow true
+skinparam ParticipantPadding 18
+skinparam ArrowThickness 1.2
+skinparam LifeLineBorderThickness 1.0
+
+skinparam participant {
+  BackgroundColor #FFFFFF
+  BorderColor #5D6D7E
+}
+skinparam actor {
+  BackgroundColor #ECF0F1
+  BorderColor #1B4F72
+  FontStyle bold
+}
+skinparam database {
+  BackgroundColor #EBF5FB
+  BorderColor #1B4F72
+}
+skinparam boundary {
+  BackgroundColor #FEF9E7
+  BorderColor #B7950B
+}
+skinparam control {
+  BackgroundColor #FAE5D3
+  BorderColor #BA4A00
+}
+skinparam note {
+  BackgroundColor #FEF9E7
+  BorderColor #B7950B
+  FontSize 9
+}
+skinparam sequence {
+  ArrowColor #34495E
+  LifeLineBorderColor #7F8C8D
+  LifeLineBackgroundColor #FDFEFE
+  GroupBorderColor #1B4F72
+  GroupHeaderFontColor #1B4F72
+  GroupHeaderFontStyle bold
+  DividerBorderColor #1B4F72
+  DividerBackgroundColor #D6EAF8
+  DividerFontColor #1B4F72
+  DividerFontStyle bold
+}
+
+title <size:14><b>Cert_EET — DS-09 : Accéder à un Module et Lancer une Évaluation</b></size>\n<size:10>Pont entre DS-08 (Inscription) et DS-02 (QCM) ou DS-03 (Atelier) — v1.2</size>
+
+actor       "Apprenant" as APP
+boundary    "Frontend\n(Next.js)" as FE
+control     "InscriptionsController\n(NestJS)" as FC
+control     "EspaceFormationService" as FS
+control     "TentativesController\n+ services (DS-02)" as QS
+control     "AteliersApprenantService" as AS
+database    "PostgreSQL" as DB
+
+' =====================================================================
+'  ÉTAPE 1 — « Mon espace » dans la formation
+' =====================================================================
+== Étape 1 — « Mon espace » : modules, QCM publiés et mon avancement (US-INSC-04) ==
+
+note over APP, FE
+  Pré-condition : l'apprenant est authentifié (DS-01)
+  et inscrit à la formation (DS-08).
+end note
+
+APP  ->  FE  : « Mes inscriptions » → sa formation
+FE   ->  FC  : GET /formations/:formationId/mon-espace\n(Bearer token)
+
+FC   ->  FS  : getEspace(apprenantId, formationId)
+
+FS   ->  DB  : SELECT inscription\nWHERE apprenantId = :id\nAND formationId = :formationId
+DB  --> FS   : { statut, tauxAvancement, dateEcheance }
+
+alt #FFE8E8 Non inscrit, ou inscription suspendue
+  FS   ->  DB  : INSERT audit_logs\n(ACCES_RESSOURCE_REFUSE)
+  FS  --> FC  : ForbiddenException
+  FC  --> FE  : HTTP 403 Forbidden { message }
+  FE  --> APP : « Vous n'avez pas accès\nà cette formation »
+end
+
+FS   ->  DB  : SELECT modules ORDER BY ordre ;\nQCM PUBLIÉS de ces modules (fenêtre) ;\nMES tentatives sur ces QCM
+DB  --> FS   : modules[], qcm[], tentatives[]
+
+FS   ->  FS  : avancement de chaque QCM pour moi\n(A_FAIRE / EN_COURS / REUSSI / ECHOUE)\net de chaque module
+
+FS  --> FC   : { formation, inscription (tauxAvancement,\n  dateEcheance), modules[ { qcm[ { fenetre,\n  avancement } ] } ] }
+FC  --> FE   : HTTP 200 OK
+FE  --> APP  : « Mon espace » :\n• Progression globale (barre %)\n• Échéance\n• Modules dans l'ordre, avec leurs QCM\n  publiés : fenêtre (à venir / ouverte / fermée)\n  et mon avancement (badge Réussi / Échoué)
+
+note right of FS
+  **Lecture sans effet** : le taux d'avancement
+  n'est PAS recalculé ici ; il l'est à la notation
+  d'une tentative (DS-02 étape 4, US-QCM-08).
+  Aucune question n'est envoyée à ce stade.
+end note
+
+' =====================================================================
+'  ÉTAPE 2 — Ouverture d'un module
+' =====================================================================
+== Étape 2 — Ouverture d'un module ==
+
+note over FE, FS
+  v1.1 : pas de route dédiée — les modules et leurs
+  évaluations arrivent dans la lecture de l'étape 1 ;
+  le frontend les présente module par module.
+  Ressources de module (liens, fichiers) :
+  US-FORM-05 / US-FORM-06 (révision v1.5).
+end note
+
+' =====================================================================
+'  ÉTAPE 3A — Lancer un QCM
+' =====================================================================
+== Étape 3A — L'apprenant choisit de passer un QCM ==
+
+APP  ->  FE  : Clique « Commencer » sur un QCM\ndont la fenêtre est ouverte
+
+FE   ->  QS  : POST /qcm/:qcmId/tentatives
+QS   ->  DB  : QCM, configuration, inscription,\nmes tentatives — sous verrou, SELECT now()
+DB  --> QS   : Données de contrôle
+
+group #EBF5FB Contrôles d'accès QCM (F1 — US-QCM-05)
+  QS   ->  QS  : QCM PUBLIE ?
+  QS   ->  QS  : maintenant dans la fenêtre ?
+  QS   ->  QS  : tentatives restantes > 0 ?
+  QS   ->  QS  : délai entre tentatives respecté ?
+end
+
+alt #FFE8E8 Accès refusé
+  QS  --> FE  : HTTP 409 { raison: hors_fenetre |\ntentatives_epuisees | delai_non_respecte,\nmessage, date de réouverture }\n(403 si l'inscription ne le permet pas)
+  FE  --> APP : Message ciblé + date de réouverture
+
+else #E8F8F5 Accès accordé
+  QS  --> FE  : HTTP 201 Created { id, numero,\n  dateLimite, maintenant }\n(200 si une tentative en cours est reprise)
+  FE  --> APP : Ouvre /tentatives/:id\n→ Voir DS-02 pour le flux complet
+  note right of FE
+    **Suite → DS-02**
+    DS-09 remet le contrôle à DS-02
+    à partir de la création de la
+    TentativeQCM.
+  end note
+end
+
+' =====================================================================
+'  ÉTAPE 3B — Accéder à un Atelier (réalisé au Sprint 3)
+' =====================================================================
+== Étape 3B — L'apprenant ouvre un atelier (US-ATEL-03, 04, 08) ==
+
+APP  ->  FE  : Clique sur un atelier publié\ndans « Mon espace »
+
+FE   ->  AS  : GET /mes-ateliers/:atelierId\n(Bearer token)
+group #EBF5FB Contrôles d'accès Atelier (F2)
+  AS   ->  AS  : inscription EN_COURS ou TERMINEE\n(EspaceFormationService.exigerAccesContenu)
+  AS   ->  DB  : atelier PUBLIE ? grille, mon livrable,\nSELECT now() (état du dépôt)
+end
+
+alt #FFE8E8 Non inscrit / suspendu
+  AS  --> FE  : HTTP 403 (tracé ACCES_RESSOURCE_REFUSE)
+else #FFE8E8 Inconnu ou brouillon
+  AS  --> FE  : HTTP 404 (un brouillon n'est jamais révélé)
+else #E8F8F5 Accès accordé
+  AS  --> FE  : HTTP 200 : énoncé, modalités de dépôt,\ngrille en lecture, dateLimite,\nétat OUVERT / EN_RETARD / CLOS, monLivrable
+  note right of FE
+    L'apprenant VOIT la grille
+    de notation AVANT de soumettre —
+    transparence pédagogique.
+  end note
+
+  alt #EBF5FB Pas encore soumis
+    FE  --> APP : « Déposer mon livrable » (dépôt définitif)\n→ DS-03 (Partie 1)
+  else #FEF9E7 Soumis / en correction
+    FE  --> APP : « En attente de correction »\n(aucune note partielle ; pas de remplacement —\nUS-ATEL-05 non livrée)
+  else #FEF9E7 Noté
+    FE  --> APP : note globale, détail par critère,\ncommentaire général (monLivrable.feedback)\n— 1re ouverture enregistrée (FEEDBACK_CONSULTE)
+  end
+end
+
+== Ressources du cours (US-FORM-05, US-FORM-06) ==
+
+note over APP, DB
+  « Mon espace » liste sous chaque module ses ressources (modules[].ressources) :
+  liens et vidéos YouTube / Vimeo (lecteur intégré youtube-nocookie / dnt),
+  fichiers. Un fichier se lit par POST /ressources/:ressourceId/lien → jeton
+  aléatoire de 10 min (Redis) → GET /ressources/fichiers/:jeton (Range 206 / 416) :
+  vidéo / audio / image dans la page, PDF dans un onglet, le reste téléchargé.
+end note
+
+' =====================================================================
+'  SUIVI DE PROGRESSION
+' =====================================================================
+== Mise à jour de la progression après chaque évaluation ==
+
+note over FS, DB
+  **v1.1 — recalcul à l'écriture, jamais à la lecture.**
+  À la notation d'une tentative (DS-02 étape 4, US-QCM-08),
+  dans la même transaction, sous verrou de l'inscription :
+  tauxAvancement = QCM publiés réussis au moins une fois
+                   / QCM publiés × 100.
+  v1.2 : les ateliers notés n'y entrent pas encore (dette).
+
+  Éligibilité (US-ATEL-09) évaluée après chaque QCM réussi et
+  chaque correction finalisée → DS-04 (émission) ; « Mon espace »
+  affiche { eligible, raison, validees, requises, certificat }.
+end note
+
+legend bottom
+  | <b>Couleur</b> | <b>Signification</b> |
+  | <back:#E8F8F5> vert   </back> | Accès accordé / chemin nominal |
+  | <back:#FFE8E8> rouge  </back> | Accès refusé |
+  | <back:#EBF5FB> bleu   </back> | Contrôles serveur |
+  | <back:#FEF9E7> jaune  </back> | États alternatifs du livrable |
+endlegend
+
+@enduml

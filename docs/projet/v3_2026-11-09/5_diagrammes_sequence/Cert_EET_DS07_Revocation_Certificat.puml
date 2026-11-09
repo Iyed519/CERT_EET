@@ -1,0 +1,128 @@
+@startuml Cert_EET_DS07_Revocation_Certificat
+' =====================================================================
+'  Projet    : Cert_EET
+'  Diagramme : DS-07 — Révoquer un certificat
+'  Acteur    : Administrateur
+'  Ref CdC   : F3 (Certification) — UC6 Administrateur — NF3 (Audit)
+'  Auteur    : Iyed Omri — PFE ESPRIT 2026
+'  Version   : 1.1 — 09/11/2026, alignée sur l'implémentation du Sprint 3
+'              (US-CERT-06 ; engineering-log/48).
+'              Changements v1.0 → v1.1 : route POST
+'              /admin/certificats/:id/revoquer ; double confirmation (case
+'              d'irréversibilité + mot de passe revérifié avant tout
+'              verrou, 401 tracé) ; statut non ACTIF = 409 (DS-07 : 400) ;
+'              motif en liste fermée + description interne ; irréversible
+'              par déclencheur en base ; PDF et empreinte conservés ; page
+'              publique : « Révoqué » + date, jamais le motif ; email sans
+'              la description ; pas de pièces jointes ni d'adresse de
+'              contact dédiée.
+' =====================================================================
+!pragma teoz true
+skinparam backgroundColor #FFFFFF
+skinparam shadowing false
+skinparam DefaultFontName "Segoe UI"
+skinparam DefaultFontSize 10
+skinparam sequenceMessageAlign center
+skinparam responseMessageBelowArrow true
+skinparam ParticipantPadding 18
+skinparam ArrowThickness 1.2
+skinparam LifeLineBorderThickness 1.0
+skinparam participant {
+  BackgroundColor #FFFFFF
+  BorderColor #5D6D7E
+}
+skinparam actor {
+  BackgroundColor #ECF0F1
+  BorderColor #1B4F72
+  FontStyle bold
+}
+skinparam database {
+  BackgroundColor #EBF5FB
+  BorderColor #1B4F72
+}
+skinparam collections {
+  BackgroundColor #E8F8F5
+  BorderColor #1E8449
+}
+skinparam boundary {
+  BackgroundColor #FEF9E7
+  BorderColor #B7950B
+}
+skinparam control {
+  BackgroundColor #FAE5D3
+  BorderColor #BA4A00
+}
+skinparam note {
+  BackgroundColor #FEF9E7
+  BorderColor #B7950B
+  FontSize 9
+}
+skinparam sequence {
+  ArrowColor #34495E
+  LifeLineBorderColor #7F8C8D
+  LifeLineBackgroundColor #FDFEFE
+  GroupBorderColor #1B4F72
+  GroupHeaderFontColor #1B4F72
+  GroupHeaderFontStyle bold
+  DividerBorderColor #1B4F72
+  DividerBackgroundColor #D6EAF8
+  DividerFontColor #1B4F72
+  DividerFontStyle bold
+}
+
+title <size:14><b>Cert_EET — DS-07 : Révoquer un certificat</b></size>\n<size:10>Double confirmation · Irréversible · Audit · F3 · v1.1 (Sprint 3)</size>
+
+actor       "Administrateur" as ADM
+boundary    "/admin/certificats\n(Next.js)" as FE
+control     "CertificatsAdminController" as CC
+control     "CertificatsService" as CS
+database    "PostgreSQL" as DB
+control     "MailService" as NOTIF
+actor       "Apprenant\n(titulaire)" as APP
+
+ADM  ->  FE  : « Révoquer » sur un certificat ACTIF
+FE  --> ADM  : modale : motif (FRAUDE, ERREUR_ADMIN,\nDISCIPLINAIRE, JUDICIAIRE), description\ninterne (10–2 000), case « irréversible »,\nmot de passe
+ADM  ->  FE  : confirme
+FE   ->  CC  : POST /admin/certificats/:id/revoquer\n{ motif, description,\n  confirmationIrreversible: true,\n  motDePasseAdmin }
+alt #FFE8E8 Case non cochée / saisie invalide
+  CC  --> FE  : HTTP 400
+else Saisie valide
+  CC   ->  CS  : revoquer(admin, id, dto)
+  CS   ->  CS  : bcrypt.compare (avant tout verrou ;\nhash factice si pas de mot de passe local)
+  alt #FFE8E8 Mot de passe faux
+    CS   ->  DB  : audit CERTIFICAT_REVOCATION_REFUSEE
+    CS  --> FE   : HTTP 401
+  else Mot de passe vérifié
+    CS   ->  DB  : BEGIN ; SELECT … FOR UPDATE
+    alt #FFE8E8 Inconnu
+      CS --> FE  : HTTP 404
+    else #FFE8E8 Déjà REVOQUE ou encore en préparation
+      CS --> FE  : HTTP 409
+    else #E8F8F5 ACTIF
+      CS   ->  DB  : UPDATE certificats SET statut = REVOQUE,\ndate_revocation = now(), motif_revocation,\ndescription_revocation, revoque_par ; COMMIT
+      note right of DB
+        Déclencheur : ACTIF → REVOQUE est la
+        seule transition, avec ses colonnes ;
+        toute mise à jour d'un REVOQUE est
+        refusée, même en SQL direct.
+        PDF, clé et empreinte conservés.
+      end note
+      CS   ->  DB  : audit CERTIFICAT_REVOQUE (avant / après, motif)
+      CS   ->> NOTIF : email au titulaire : formation, catégorie,\ndate, contact (jamais la description)
+      NOTIF ->> APP : « Votre certificat a été révoqué »
+      CS  --> FE   : HTTP 200 (vue administrateur)
+      FE  --> ADM  : statut « Révoqué » et date
+    end
+  end
+end
+
+note over FE, NOTIF
+  Effet immédiat sur la vérification publique (DS-05) : verdict « Révoqué »
+  et date, sans motif ; « Mes certificats » refuse le téléchargement (409).
+end note
+
+legend bottom
+  | <back:#E8F8F5> vert  </back> | Chemin nominal |
+  | <back:#FFE8E8> rouge </back> | Refus |
+endlegend
+@enduml

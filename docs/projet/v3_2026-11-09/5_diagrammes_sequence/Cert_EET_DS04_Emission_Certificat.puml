@@ -1,0 +1,154 @@
+@startuml Cert_EET_DS04_Emission_Certificat
+' =====================================================================
+'  Projet    : Cert_EET
+'  Diagramme : DS-04 — Émission d'un certificat (pipeline asynchrone)
+'  Acteur    : Système (déclenché par l'éligibilité, US-ATEL-09)
+'  Ref CdC   : F3 (Certification numérique) — ADR-04 — ADR-10
+'  Auteur    : Iyed Omri — PFE ESPRIT 2026
+'  Version   : 1.1 — 09/11/2026, alignée sur l'implémentation du Sprint 3
+'              (US-CERT-01, US-ATEL-09, US-CERT-03 ; engineering-log/43–45).
+'              Changements v1.0 → v1.1 : BullMQ (successeur de Bull) ;
+'              worker dans le processus de l'API (un travail à la fois,
+'              désactivable) ; demande idempotente (UNIQUE apprenant ×
+'              formation + ON CONFLICT DO NOTHING) ; SHA-256 calculé sur le
+'              PDF FINAL et stocké dans `certificats` (pas de table
+'              d'empreintes) ; QR vers /verifier/{id} (UUID v4) ; échec
+'              définitif = ligne remise en attente + relance administrateur
+'              (alerte = audit + liste) ; email (pas de table notifications) ;
+'              ACTIF immuable par déclencheur.
+' =====================================================================
+!pragma teoz true
+skinparam backgroundColor #FFFFFF
+skinparam shadowing false
+skinparam DefaultFontName "Segoe UI"
+skinparam DefaultFontSize 10
+skinparam sequenceMessageAlign center
+skinparam responseMessageBelowArrow true
+skinparam ParticipantPadding 18
+skinparam ArrowThickness 1.2
+skinparam LifeLineBorderThickness 1.0
+skinparam participant {
+  BackgroundColor #FFFFFF
+  BorderColor #5D6D7E
+}
+skinparam actor {
+  BackgroundColor #ECF0F1
+  BorderColor #1B4F72
+  FontStyle bold
+}
+skinparam database {
+  BackgroundColor #EBF5FB
+  BorderColor #1B4F72
+}
+skinparam collections {
+  BackgroundColor #E8F8F5
+  BorderColor #1E8449
+}
+skinparam control {
+  BackgroundColor #FAE5D3
+  BorderColor #BA4A00
+}
+skinparam entity {
+  BackgroundColor #E8DAEF
+  BorderColor #7D3C98
+}
+skinparam note {
+  BackgroundColor #FEF9E7
+  BorderColor #B7950B
+  FontSize 9
+}
+skinparam sequence {
+  ArrowColor #34495E
+  LifeLineBorderColor #7F8C8D
+  LifeLineBackgroundColor #FDFEFE
+  GroupBorderColor #1B4F72
+  GroupHeaderFontColor #1B4F72
+  GroupHeaderFontStyle bold
+  DividerBorderColor #1B4F72
+  DividerBackgroundColor #D6EAF8
+  DividerFontColor #1B4F72
+  DividerFontStyle bold
+}
+
+title <size:14><b>Cert_EET — DS-04 : Émission d'un certificat</b></size>\n<size:10>Pipeline asynchrone BullMQ · PDF + QR + SHA-256 · F3 · v1.1 (Sprint 3)</size>
+
+control     "EligibiliteService\n(US-ATEL-09)" as EL
+control     "CertificatsService\n(requête HTTP)" as CS
+collections "File BullMQ\ncertificats (Redis)" as BQ
+entity      "Worker\n(processus de l'API)" as CW
+control     "PDF (PDFKit)\n+ QR + SHA-256" as PS
+control     "StockageService\n(MinIO)" as STO
+database    "PostgreSQL" as DB
+control     "MailService" as NOTIF
+actor       "Apprenant" as APP
+actor       "Administrateur" as ADM
+
+== Étape 1 — Demande d'émission, dans la requête qui finalise une note ==
+
+note over EL
+  Après une correction finalisée ou un QCM réussi :
+  chaque QCM publié réussi ? chaque atelier publié
+  noté ≥ noteMinCertification ? formation non archivée ?
+  inscription EN_COURS / TERMINEE ?
+end note
+alt #FEF9E7 Non éligible
+  note over EL : raison visible dans « Mon espace »\n(pas d'audit à chaque note)
+else #E8F8F5 Éligible
+  EL   ->  CS  : demanderEmission(apprenant, formation, score)\n— hors de la transaction de l'appelant
+  CS   ->  DB  : INSERT certificats (EN_ATTENTE_GENERATION,\nscore_final, mention)\nON CONFLICT (apprenant, formation) DO NOTHING
+  alt #FEF9E7 Ligne déjà existante
+    note over CS : rien (exactement une fois)
+  else #E8F8F5 Ligne créée
+    CS   ->  DB  : audit CERTIFICAT_DEMANDE
+    CS   ->> BQ  : ajouter(jobId = id du certificat)
+    note right of CS
+      La requête HTTP rend la main tout de
+      suite : elle n'attend jamais le PDF.
+    end note
+  end
+end
+
+== Étape 2 — Génération (worker, un travail à la fois) ==
+
+BQ   ->> CW  : travail(certificatId)
+CW   ->  DB  : SELECT … FOR UPDATE ;\nEN_ATTENTE_GENERATION → EN_GENERATION\n(autre statut : rien — idempotent)
+CW   ->  PS  : PDF en mémoire : titulaire, formation,\nscore, mention, identifiant,\nQR → {APP_BASE_URL}/verifier/{id}
+PS  --> CW   : PDF final
+CW   ->  PS  : SHA-256(PDF final)
+CW   ->  STO : certificats/{id}.pdf
+alt #FFE8E8 Erreur (PDF, stockage, base)
+  CW   ->  STO : retrait de l'objet s'il a été déposé
+  CW   ->  DB  : retour EN_ATTENTE_GENERATION,\nnb_tentatives + 1, derniere_erreur
+  CW  -->> BQ  : échec → nouvelle tentative\n(délai exponentiel, CERTIFICATS_TENTATIVES)
+  opt #FFE8E8 Dernière tentative
+    CW   ->  DB  : audit CERTIFICAT_ECHEC\n(visible dans /admin/certificats)
+  end
+else #E8F8F5 Succès
+  CW   ->  DB  : ACTIF, cle_stockage, empreinte_sha256,\ndate de génération = now() ;\naudit CERTIFICAT_EMIS
+  note right of DB
+    Déclencheur : un certificat ACTIF
+    ne change plus, sauf ACTIF → REVOQUE
+    (DS-07).
+  end note
+  CW   ->> NOTIF : email au titulaire (au mieux),\nlien vers « Mes certificats »
+end
+
+== Étape 3 — Relance administrateur ==
+
+ADM  ->  CS  : GET /admin/certificats?statut=\nPOST /admin/certificats/:id/relancer
+CS   ->  DB  : verrou ; EN_ATTENTE_GENERATION ou bloqué\nEN_GENERATION ? (sinon 409)
+CS   ->> BQ  : nouveau travail ; audit CERTIFICAT_RELANCE
+
+== Étape 4 — Consultation par le titulaire (US-CERT-03) ==
+
+APP  ->  CS  : GET /mes-certificats\nGET /mes-certificats/:id/pdf
+CS   ->  DB  : propriétaire seulement (sinon 404) ;\nen préparation / révoqué → 409
+CS   ->  STO : lecture en flux ; audit CERTIFICAT_TELECHARGE
+CS  --> APP  : PDF, empreinte, lien public de vérification
+
+legend bottom
+  | <back:#E8F8F5> vert  </back> | Chemin nominal |
+  | <back:#FFE8E8> rouge </back> | Échec / reprise |
+  | <back:#FEF9E7> jaune </back> | Sans effet (idempotence, non éligible) |
+endlegend
+@enduml

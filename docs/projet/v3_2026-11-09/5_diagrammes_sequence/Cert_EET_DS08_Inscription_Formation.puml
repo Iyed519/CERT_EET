@@ -1,0 +1,217 @@
+@startuml Cert_EET_DS08_Inscription_Formation
+' =====================================================================
+'  Projet    : Cert_EET
+'  Diagramme : DS-08 — S'inscrire à une formation
+'  Acteurs   : Apprenant (demande) + Administrateur (gestion)
+'  Ref CdC   : F5 (RBAC) — UC4 Administrateur — UC1 Apprenant
+'  Auteur    : Iyed Omri — PFE ESPRIT 2026
+' =====================================================================
+!pragma teoz true
+skinparam backgroundColor #FFFFFF
+skinparam shadowing false
+skinparam DefaultFontName "Segoe UI"
+skinparam DefaultFontSize 10
+skinparam sequenceMessageAlign center
+skinparam responseMessageBelowArrow true
+skinparam ParticipantPadding 18
+skinparam ArrowThickness 1.2
+skinparam LifeLineBorderThickness 1.0
+
+skinparam participant {
+  BackgroundColor #FFFFFF
+  BorderColor #5D6D7E
+}
+skinparam actor {
+  BackgroundColor #ECF0F1
+  BorderColor #1B4F72
+  FontStyle bold
+}
+skinparam database {
+  BackgroundColor #EBF5FB
+  BorderColor #1B4F72
+}
+skinparam collections {
+  BackgroundColor #E8F8F5
+  BorderColor #1E8449
+}
+skinparam boundary {
+  BackgroundColor #FEF9E7
+  BorderColor #B7950B
+}
+skinparam control {
+  BackgroundColor #FAE5D3
+  BorderColor #BA4A00
+}
+skinparam note {
+  BackgroundColor #FEF9E7
+  BorderColor #B7950B
+  FontSize 9
+}
+skinparam sequence {
+  ArrowColor #34495E
+  LifeLineBorderColor #7F8C8D
+  LifeLineBackgroundColor #FDFEFE
+  GroupBorderColor #1B4F72
+  GroupHeaderFontColor #1B4F72
+  GroupHeaderFontStyle bold
+  DividerBorderColor #1B4F72
+  DividerBackgroundColor #D6EAF8
+  DividerFontColor #1B4F72
+  DividerFontStyle bold
+}
+
+title <size:14><b>Cert_EET — DS-08 : S'inscrire à une Formation</b></size>\n<size:10>Catalogue → Demande → Validation Admin → Accès formation · UC1 / UC4</size>
+
+actor       "Apprenant" as APP
+actor       "Administrateur" as ADM
+boundary    "Frontend\n(Next.js)" as FE
+control     "FormationController\n(NestJS)" as FC
+control     "FormationService" as FS
+control     "InscriptionService" as IS
+database    "PostgreSQL" as DB
+collections "NotifService" as NOTIF
+
+' =====================================================================
+'  ÉTAPE 1 — Consultation du catalogue
+' =====================================================================
+== Étape 1 — Consultation du catalogue des formations ==
+
+APP  ->  FE  : Ouvre le catalogue\n"Formations disponibles"
+FE   ->  FC  : GET /formations\n?statut=Ouverte\n(Bearer token apprenant)
+
+FC   ->  FS  : getFormationsDisponibles(\n  apprenantId\n)
+FS   ->  DB  : SELECT formations\nWHERE statut = "Ouverte"\nAND id NOT IN (\n  SELECT formationId\n  FROM inscriptions\n  WHERE apprenantId = :id\n)
+DB  --> FS   : formations[] (non encore inscrit)
+
+FS  --> FC   : formations[]
+FC  --> FE   : HTTP 200 OK
+FE  --> APP  : Affiche le catalogue :\n• Titre, description, durée\n• Formateur(s)\n• Date début/fin\n• Places restantes\n• Prérequis
+
+APP  ->  FE  : Clique sur une formation\npour voir le détail
+FE   ->  FC  : GET /formations/:formationId
+FC   ->  FS  : getFormationDetail(formationId)
+FS   ->  DB  : SELECT formation, modules,\nformateurs, nbInscrits
+DB  --> FS   : Détails complets
+FS  --> FC   : formationDetail
+FC  --> FE   : HTTP 200 OK
+FE  --> APP  : Affiche le détail :\n• Programme (modules)\n• Objectifs et prérequis\n• Évaluations prévues (QCM + ateliers)\n• Condition d'obtention du certificat
+
+' =====================================================================
+'  ÉTAPE 2 — Demande d'inscription
+' =====================================================================
+== Étape 2 — Demande d'inscription ==
+
+APP  ->  FE  : Clique "S'inscrire"
+FE   ->  FC  : POST /formations/:formationId/inscription\n(Bearer token apprenant)
+
+FC   ->  IS  : demanderInscription(\n  apprenantId, formationId\n)
+
+group #FFE8E8 Vérifications préalables
+  IS   ->  DB  : SELECT formation WHERE id = :formationId
+  DB  --> IS   : { statut, capaciteMax, nbInscrits,\n  dateDebut, dateFin }
+
+  alt #FFE8E8 Formation fermée ou archivée
+    IS  --> FC  : ForbiddenException\n"Formation non disponible\nà l'inscription"
+    FC  --> FE  : HTTP 403
+    FE  --> APP : "Cette formation n'est\nplus ouverte aux inscriptions"
+  end
+
+  IS   ->  DB  : SELECT COUNT(*) FROM inscriptions\nWHERE formationId = :id\nAND statut != "Suspendue"
+  DB  --> IS   : nbInscritsActuels
+
+  alt #FFE8E8 Capacité maximale atteinte
+    IS  --> FC  : ForbiddenException\n"Capacité maximale atteinte"
+    FC  --> FE  : HTTP 403
+    FE  --> APP : "Cette formation est\ncomplète"
+  end
+
+  IS   ->  DB  : SELECT * FROM inscriptions\nWHERE apprenantId = :id\nAND formationId = :formationId
+  DB  --> IS   : inscription existante?
+
+  alt #FFE8E8 Déjà inscrit
+    IS  --> FC  : ConflictException\n"Déjà inscrit à cette formation"
+    FC  --> FE  : HTTP 409
+    FE  --> APP : "Vous êtes déjà\ninscrit à cette formation"
+  end
+end
+
+IS   ->  DB  : INSERT INTO inscriptions\n({ apprenantId, formationId,\n  dateInscription: NOW(),\n  dateEcheance: formation.dateFin,\n  statut: "EnCours",\n  tauxAvancement: 0.0 })
+DB  --> IS   : inscriptionId
+
+IS   ->  NOTIF : notifier(administrateur,\n  "Nouvelle inscription",\n  { apprenantId, formationId })
+IS   ->  NOTIF : notifier(formateurs[],\n  "Nouvel apprenant inscrit",\n  { apprenantNom, formationTitre })
+NOTIF  ->  DB  : INSERT INTO notifications x2
+
+IS   ->  DB  : INSERT INTO audit_log\n({ action: "INSCRIPTION_CREEE",\n  apprenantId, formationId })
+DB  --> IS   : OK
+
+IS  --> FC   : { inscription }
+FC  --> FE   : HTTP 201 Created\n{ inscriptionId, statut: "EnCours",\n  dateEcheance }
+FE  --> APP  : "Inscription confirmée !\nVous avez accès à la formation."
+
+note right of FE
+  L'accès est IMMÉDIAT :
+  aucune validation manuelle
+  requise pour une inscription
+  standard (formation ouverte).
+  L'admin peut gérer les
+  inscriptions depuis UC4.
+end note
+
+' =====================================================================
+'  ÉTAPE 3 — Gestion admin (UC4 Administrateur)
+' =====================================================================
+== Étape 3 — Gestion des inscriptions (Administrateur, si besoin) ==
+
+ADM  ->  FE  : Ouvre la gestion\ndes inscriptions (UC4 Admin)
+FE   ->  FC  : GET /admin/formations/:id/inscriptions
+FC   ->  IS  : getInscriptions(formationId)
+IS   ->  DB  : SELECT inscriptions\nJOIN apprenants\nWHERE formationId = :id
+DB  --> IS   : inscriptions[]
+IS  --> FC   : inscriptions[]
+FC  --> FE   : HTTP 200 OK
+FE  --> ADM  : Liste des apprenants inscrits\navec statut et avancement
+
+alt #FEF9E7 Admin suspend une inscription
+  ADM  ->  FE  : Clique "Suspendre"\npour un apprenant
+  FE   ->  FC  : PATCH /admin/inscriptions/:id\n{ statut: "Suspendue" }
+  FC   ->  IS  : updateStatutInscription(\n  inscriptionId, "Suspendue"\n)
+  IS   ->  DB  : UPDATE inscriptions SET\nstatut = "Suspendue"
+  IS   ->  NOTIF : notifier(apprenant,\n  "Votre inscription a été suspendue")
+  DB  --> IS   : OK
+  IS  --> FC   : OK
+  FC  --> FE   : HTTP 200 OK
+  FE  --> ADM  : Inscription suspendue
+
+else #FEF9E7 Admin importe des inscriptions en masse
+  ADM  ->  FE  : Uploade un fichier CSV\n(import en masse)
+  FE   ->  FC  : POST /admin/formations/:id/inscriptions/import\n{ fichierCSV }
+  FC   ->  IS  : importerInscriptions(\n  formationId, csvData\n)
+  loop Pour chaque ligne CSV valide
+    IS   ->  DB  : INSERT INTO inscriptions
+  end
+  IS  --> FC   : { nbImportees, nbEchecs }
+  FC  --> FE   : HTTP 200 OK
+  FE  --> ADM  : "X inscriptions importées"
+end
+
+' =====================================================================
+'  NOTES
+' =====================================================================
+note over IS, DB
+  **Classe d'association Inscription**
+  L'entité Inscription porte les données
+  propres au lien apprenant↔formation :
+  date, échéance, statut, tauxAvancement.
+  C'est elle qui déclenche l'accès
+  aux modules (DS-09).
+end note
+
+legend bottom
+  | <b>Couleur</b> | <b>Signification</b> |
+  | <back:#E8F8F5> vert   </back> | Inscription réussie |
+  | <back:#FFE8E8> rouge  </back> | Refus / erreur de validation |
+  | <back:#FEF9E7> jaune  </back> | Actions admin optionnelles |
+endlegend
+
+@enduml

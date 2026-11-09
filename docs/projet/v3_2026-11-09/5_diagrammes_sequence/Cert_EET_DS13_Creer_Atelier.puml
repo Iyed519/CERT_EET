@@ -1,0 +1,180 @@
+@startuml Cert_EET_DS13_Creer_Atelier
+' =====================================================================
+'  DS-13 — Créer un atelier + définir une grille de notation + publier
+'  Acteur : Formateur · Ref : UC3 + UC4 Formateur · F2
+'  Version : 1.1 — 09/11/2026, alignée sur l'implémentation du Sprint 3
+'            (US-ATEL-01, 02, 03 ; engineering-log/36 à 38).
+'            Changements v1.0 → v1.1 : routes sous le module et sous
+'            l'atelier (la formation se déduit du module) ; garde
+'            d'autorisation par ressource ; date limite passée = 400
+'            (horloge PostgreSQL) ; brouillon modifiable / supprimable ;
+'            grille sous l'atelier, née au premier critère, verrou de la
+'            ligne de l'atelier, 4 niveaux Insuffisant / Acceptable / Bon /
+'            Excellent ; modèles sous /grilles/modeles (copie
+'            indépendante, seule une grille à 100 % devient modèle) ;
+'            publication : grille non validée = 409, pas de date
+'            d'ouverture (publier = ouvrir), atelier et grille figés.
+' =====================================================================
+!pragma teoz true
+skinparam backgroundColor #FFFFFF
+skinparam shadowing false
+skinparam DefaultFontName "Segoe UI"
+skinparam DefaultFontSize 10
+skinparam sequenceMessageAlign center
+skinparam responseMessageBelowArrow true
+skinparam ParticipantPadding 18
+skinparam ArrowThickness 1.2
+skinparam LifeLineBorderThickness 1.0
+skinparam participant {
+  BackgroundColor #FFFFFF
+  BorderColor #5D6D7E
+}
+skinparam actor {
+  BackgroundColor #ECF0F1
+  BorderColor #1B4F72
+  FontStyle bold
+}
+skinparam database {
+  BackgroundColor #EBF5FB
+  BorderColor #1B4F72
+}
+skinparam boundary {
+  BackgroundColor #FEF9E7
+  BorderColor #B7950B
+}
+skinparam control {
+  BackgroundColor #FAE5D3
+  BorderColor #BA4A00
+}
+skinparam note {
+  BackgroundColor #FEF9E7
+  BorderColor #B7950B
+  FontSize 9
+}
+skinparam sequence {
+  ArrowColor #34495E
+  LifeLineBorderColor #7F8C8D
+  LifeLineBackgroundColor #FDFEFE
+  GroupBorderColor #1B4F72
+  GroupHeaderFontColor #1B4F72
+  GroupHeaderFontStyle bold
+  DividerBorderColor #1B4F72
+  DividerBackgroundColor #D6EAF8
+  DividerFontColor #1B4F72
+  DividerFontStyle bold
+}
+
+title <size:14><b>Cert_EET — DS-13 : Créer un Atelier + Grille de Notation</b></size>\n<size:10>UC3 (Atelier) + UC4 (Grille) · Formateur · F2 · v1.1 (Sprint 3)</size>
+
+actor "Formateur" as FOR
+boundary "Frontend\n(Next.js)" as FE
+control "Garde\n@FormateurDeLaFormation" as GA
+control "AteliersController /\nGrillesController" as AC
+control "AteliersService /\nGrillesService" as AS
+database "PostgreSQL" as DB
+
+== Partie 1 — Création de l'atelier (UC3 · US-ATEL-01) ==
+
+FOR -> FE  : « + Atelier » dans un module\nde sa formation
+FE  -> AC  : POST /modules/:moduleId/ateliers\n{ titre, enonce, competencesVisees?,\n  dateLimite, typesLivrables[],\n  tailleMaxMo, nbMaxFichiers,\n  toleranceRetardHeures }
+AC  -> GA  : formateur affecté à la formation\ndu module ? (administrateur : toujours)
+alt #FFE8E8 Non affecté
+  GA  -> DB  : INSERT audit_logs\n(ACCES_RESSOURCE_REFUSE)
+  GA --> FE  : HTTP 403
+else #E8F8F5 Affecté
+  AC  -> AS  : creer(acteur, moduleId, dto)
+  AS  -> DB  : module + formation (404 / 409 archivée)
+  AS  -> DB  : SELECT now()
+  alt #FFE8E8 dateLimite <= now()
+    AS --> FE  : HTTP 400 « La date limite\ndoit être dans le futur. »
+  else #E8F8F5 Saisie valide
+    AS  -> DB  : INSERT ateliers\n(statut BROUILLON) ; audit ATELIER_CREE
+    AS --> FE  : HTTP 201 (fiche)
+    FE --> FOR : Atelier en brouillon\n(modifiable / supprimable)
+  end
+end
+
+note over FE, DB
+  Brouillon : PATCH /ateliers/:atelierId (avant / après tracés) et
+  DELETE /ateliers/:atelierId, sous verrou FOR UPDATE de la ligne ;
+  hors brouillon ou formation archivée → 409.
+end note
+
+== Partie 2 — Grille de notation (UC4 · US-ATEL-02) ==
+
+alt #FEF9E7 Réutiliser un modèle
+  FE  -> AC  : GET /grilles/modeles
+  AC --> FE  : mes modèles (administrateur : tous)
+  FOR -> FE  : choisit un modèle
+  FE  -> AC  : POST /ateliers/:atelierId/grille/copier\n{ modeleId }
+  AC  -> AS  : copier (verrou de l'atelier)
+  AS  -> DB  : remplace la grille par une copie\nindépendante (non validée) ;\naudit GRILLE_MODELE_COPIE
+  AS --> FE  : HTTP 200 (404 : modèle d'un autre)
+else #E8F8F5 Grille nouvelle
+  FE --> FOR : grille vide (GET n'écrit rien)
+end
+
+loop Chaque critère
+  FOR -> FE  : intitulé, description, pondération (%),\n3 bornes intérieures des 4 niveaux\n(Insuffisant / Acceptable / Bon / Excellent)
+  FE  -> AC  : POST /ateliers/:atelierId/grille/criteres
+  AC  -> AS  : ajouterCritere
+  AS  -> DB  : SELECT … FOR UPDATE (ligne de l'atelier)
+  AS  -> AS  : plages contiguës 0–100 % ?\nΣ pondérations <= 100 ? ≤ 20 critères ?
+  alt #FFE8E8 Total > 100 % ou plages invalides
+    AS --> FE  : HTTP 400 (rien écrit)
+  else #E8F8F5 Valide
+    AS  -> DB  : grille créée au 1er critère ;\nINSERT criteres + 4 niveaux_performance ;\nvalidation retirée ; audit
+    AS --> FE  : HTTP 201 (grille, total)
+  end
+end
+
+note over FE, DB
+  PATCH / DELETE …/criteres/:critereId (retirent la validation),
+  PUT …/criteres/ordre (permutation exacte, ne retire pas la validation).
+end note
+
+FOR -> FE  : « Valider la grille »
+FE  -> AC  : POST /ateliers/:atelierId/grille/valider
+AC  -> AS  : valider (verrou de l'atelier)
+alt #FFE8E8 Σ ≠ 100 %
+  AS --> FE  : HTTP 400 « Total des pondérations = X %\n(doit être 100 %). »
+else #E8F8F5 Σ = 100 %
+  AS  -> DB  : UPDATE grilles SET validee = true ;\naudit GRILLE_VALIDEE
+  AS --> FE  : HTTP 200
+end
+
+opt #FEF9E7 Enregistrer comme modèle (grille à 100 %)
+  FE  -> AC  : POST /ateliers/:atelierId/grille/modele { nom }
+  AS  -> DB  : copie indépendante (sans atelier) ;\naudit GRILLE_MODELE_ENREGISTRE
+  AS --> FE  : HTTP 201 (409 : nom déjà pris)
+end
+
+== Partie 3 — Publication (US-ATEL-03) ==
+
+FOR -> FE  : « Publier l'atelier »
+FE  -> AC  : PATCH /ateliers/:atelierId/publier
+AC  -> AS  : publier (garde + verrou de l'atelier)
+AS  -> DB  : atelier, grille, SELECT now()
+alt #FFE8E8 Grille absente / non validée,\ndéjà publié, formation archivée
+  AS --> FE  : HTTP 409
+else #FFE8E8 dateLimite passée
+  AS --> FE  : HTTP 400 (repousser la date)
+else #E8F8F5 Publiable
+  AS  -> DB  : UPDATE ateliers SET statut = PUBLIE ;\naudit ATELIER_PUBLIE
+  AS --> FE  : HTTP 200
+  FE --> FOR : « Atelier publié » — atelier et grille figés
+end
+
+note over FE, DB
+  Côté apprenant inscrit : l'atelier apparaît dans « Mon espace »
+  (GET /formations/:formationId/mon-espace) et s'ouvre sur
+  GET /mes-ateliers/:atelierId (énoncé, modalités, grille en lecture ;
+  brouillon et inconnu = même 404). Pas de date d'ouverture.
+end note
+
+legend bottom
+  | <back:#E8F8F5> vert  </back> | Succès |
+  | <back:#FFE8E8> rouge </back> | Erreur / refus |
+  | <back:#FEF9E7> jaune </back> | Variante (modèle) |
+endlegend
+@enduml
