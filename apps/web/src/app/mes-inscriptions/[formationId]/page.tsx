@@ -355,6 +355,11 @@ function CarteCertification({
       <section className={`carte-certification certification-${certificat.statut}`} aria-live="polite">
         <p className="carte-certification-titre">{etat.titre}</p>
         <p className="field-hint">{etat.texte}</p>
+        {certificat.statut === 'ACTIF' && (
+          <Link className="btn-sm btn-primary-sm btn-lien carte-certification-lien" href="/mes-certificats">
+            Voir mon certificat
+          </Link>
+        )}
       </section>
     );
   }
