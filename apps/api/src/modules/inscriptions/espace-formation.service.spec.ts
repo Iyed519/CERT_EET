@@ -5,6 +5,7 @@ import { Atelier } from '../../database/entities/atelier.entity';
 import { Formation } from '../../database/entities/formation.entity';
 import { Inscription } from '../../database/entities/inscription.entity';
 import { Livrable } from '../../database/entities/livrable.entity';
+import { RessourceModule } from '../../database/entities/ressource-module.entity';
 import { Qcm } from '../../database/entities/qcm.entity';
 import { TentativeQcm } from '../../database/entities/tentative-qcm.entity';
 import { StatutAtelier } from '../../database/enums/statut-atelier.enum';
@@ -38,6 +39,7 @@ describe('EspaceFormationService', () => {
   const mockTentativeRepo = { find: jest.fn() };
   const mockAtelierRepo = { find: jest.fn(), query: jest.fn() };
   const mockLivrableRepo = { find: jest.fn(), query: jest.fn() };
+  const mockRessourceRepo = { find: jest.fn().mockResolvedValue([]) };
   const mockAuditService = { record: jest.fn().mockResolvedValue(undefined) };
   const mockEligibilite = {
     evaluer: jest.fn().mockResolvedValue({
@@ -93,6 +95,7 @@ describe('EspaceFormationService', () => {
         { provide: getRepositoryToken(TentativeQcm), useValue: mockTentativeRepo },
         { provide: getRepositoryToken(Atelier), useValue: mockAtelierRepo },
         { provide: getRepositoryToken(Livrable), useValue: mockLivrableRepo },
+        { provide: getRepositoryToken(RessourceModule), useValue: mockRessourceRepo },
         { provide: AuditService, useValue: mockAuditService },
         { provide: EligibiliteService, useValue: mockEligibilite },
       ],
@@ -242,6 +245,56 @@ describe('EspaceFormationService', () => {
         expect.objectContaining({ action: 'ACCES_RESSOURCE_REFUSE', resultat: 'Échec' }),
       );
       expect(mockFormationRepo.findOneOrFail).not.toHaveBeenCalled();
+    });
+  });
+
+  describe('monEspace — ressources du cours (US-FORM-05)', () => {
+    it('range les ressources par module, dans l’ordre, avec le lecteur vidéo et le domaine', async () => {
+      const espaceSans = await service.monEspace('appr-1', 'form-1', contexte);
+      const [premier, second] = espaceSans.modules;
+      mockRessourceRepo.find.mockResolvedValueOnce([
+        {
+          id: 'r-1',
+          moduleId: premier.id,
+          ordre: 1,
+          nature: 'LIEN',
+          titre: 'Vidéo',
+          description: null,
+          url: 'https://www.youtube.com/watch?v=dQw4w9WgXcQ',
+          plateforme: 'YOUTUBE',
+          videoId: 'dQw4w9WgXcQ',
+          debutSecondes: 90,
+        },
+        {
+          id: 'r-2',
+          moduleId: second.id,
+          ordre: 1,
+          nature: 'LIEN',
+          titre: 'Doc',
+          description: 'Référence',
+          url: 'https://www.rfc-editor.org/rfc/rfc7519',
+          plateforme: 'WEB',
+          videoId: null,
+          debutSecondes: null,
+        },
+      ]);
+      const espace = await service.monEspace('appr-1', 'form-1', contexte);
+      expect(mockRessourceRepo.find).toHaveBeenLastCalledWith({
+        where: { moduleId: expect.anything() },
+        order: { ordre: 'ASC' },
+      });
+      expect(espace.modules[0].ressources).toEqual([
+        expect.objectContaining({
+          id: 'r-1',
+          videoId: 'dQw4w9WgXcQ',
+          debutSecondes: 90,
+          domaine: 'youtube.com',
+        }),
+      ]);
+      expect(espace.modules[1].ressources).toEqual([
+        expect.objectContaining({ id: 'r-2', plateforme: 'WEB', domaine: 'rfc-editor.org' }),
+      ]);
+      expect(espace.modules[0].ressources[0]).not.toHaveProperty('ajoutePar');
     });
   });
 

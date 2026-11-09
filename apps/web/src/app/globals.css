@@ -745,3 +745,21 @@ textarea.input { resize: vertical; font-family: inherit; line-height: 1.45; }
 .generation-types { border: 0; padding: 0; margin: 0; display: flex; flex-wrap: wrap; gap: 8px 18px; }
 .generation-types legend { margin-bottom: 6px; padding: 0; }
 .generation-type { display: inline-flex; align-items: center; gap: 6px; font-size: 0.9rem; cursor: pointer; }
+
+/* US-FORM-05 — Ressources du cours (liens, vidéos). */
+.ressources-apprenant { margin: 10px 0 4px; }
+.ressources-apprenant > .supports-titre { display: block; margin-left: 38px; }
+.ressource-ligne { align-items: flex-start; }
+.ressource-ligne > .btn-sm, .ressource-ligne > .support-actions { align-self: center; }
+.ressource-icone { flex: 0 0 auto; width: 30px; height: 30px; border-radius: 999px; display: grid; place-items: center; background: #eef2f7; color: #475569; margin-top: 1px; }
+.ressource-icone-video { background: var(--danger-soft); color: var(--danger); }
+.ressource-description { margin-top: 4px; font-size: 0.85rem; color: #4a5866; overflow-wrap: anywhere; }
+.ressource-lecteur { flex-basis: 100%; position: relative; width: 100%; aspect-ratio: 16 / 9; border-radius: var(--radius-sm); overflow: hidden; background: #0f1419; margin-top: 4px; }
+.ressource-lecteur iframe { position: absolute; inset: 0; width: 100%; height: 100%; border: 0; }
+.ressources-formateur .support-actions { flex-wrap: wrap; justify-content: flex-end; }
+@media (max-width: 560px) {
+  .ressources-apprenant > .supports-titre { margin-left: 0; }
+  .ressource-ligne .module-corps { flex: 1 1 0; min-width: 0; flex-basis: auto; }
+  .ressource-ligne > .support-actions { flex-basis: 100%; justify-content: flex-start; margin-left: 40px; gap: 6px; }
+  .ressource-ligne .support-actions .btn-sm { margin-left: 0; }
+}

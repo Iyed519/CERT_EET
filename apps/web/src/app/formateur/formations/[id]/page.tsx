@@ -4,6 +4,7 @@ import { useParams, useRouter } from 'next/navigation';
 import { useCallback, useEffect, useState } from 'react';
 import { AtelierModal } from '../../../../components/AtelierModal';
 import { QcmInfosModal } from '../../../../components/QcmInfosModal';
+import { RessourcesFormateur } from '../../../../components/RessourcesCours';
 import { SupportsModule } from '../../../../components/SupportsModule';
 import {
   AdminError,
@@ -57,6 +58,9 @@ const dateFr = (iso: string | null): string => {
  *
  * US-IA-01 — Sous les ateliers : les supports pédagogiques du module pour
  * l'assistance IA (dépôt, état d'indexation, relance, suppression).
+ *
+ * US-FORM-05 — Au-dessus : les ressources du cours (liens, vidéos YouTube /
+ * Vimeo) que les apprenants voient dans « Mon espace ».
  */
 export default function MaFormationPage(): JSX.Element {
   const params = useParams<{ id: string }>();
@@ -243,6 +247,11 @@ export default function MaFormationPage(): JSX.Element {
                       ))}
                     </ul>
                   )}
+                  <RessourcesFormateur
+                    moduleId={m.id}
+                    moduleTitre={m.titre}
+                    modifiable={modifiable}
+                  />
                   <SupportsModule moduleId={m.id} moduleTitre={m.titre} modifiable={modifiable} />
                 </li>
               ))}

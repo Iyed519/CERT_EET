@@ -5,6 +5,7 @@ import { Atelier } from '../../database/entities/atelier.entity';
 import { Formation } from '../../database/entities/formation.entity';
 import { Inscription } from '../../database/entities/inscription.entity';
 import { Livrable } from '../../database/entities/livrable.entity';
+import { RessourceModule } from '../../database/entities/ressource-module.entity';
 import { Qcm } from '../../database/entities/qcm.entity';
 import { TentativeQcm } from '../../database/entities/tentative-qcm.entity';
 import { User } from '../../database/entities/user.entity';
@@ -18,14 +19,24 @@ import { InscriptionsService } from './inscriptions.service';
  *
  * - forFeature : Inscription (écriture) ; User (LECTURE : email et prénom
  *   pour l'email de bienvenue) ; Formation, Qcm, TentativeQcm, Atelier, Livrable
- *   (LECTURE : « mon espace », US-INSC-04, US-ATEL-03 et US-ATEL-04). Pendant l'inscription, la formation est lue
+ *   (LECTURE : « mon espace », US-INSC-04, US-ATEL-03 et US-ATEL-04),
+ *   RessourceModule (LECTURE : ressources du cours, US-FORM-05). Pendant l'inscription, la formation est lue
  *   dans la transaction, via l'EntityManager, avec un verrou.
  * - AuditService (US-AUTH-12) et MailService (US-CPT-05) sont @Global.
  */
 @Module({
   imports: [
     CertificatsModule,
-    TypeOrmModule.forFeature([Inscription, User, Formation, Qcm, TentativeQcm, Atelier, Livrable]),
+    TypeOrmModule.forFeature([
+      Inscription,
+      User,
+      Formation,
+      Qcm,
+      TentativeQcm,
+      Atelier,
+      Livrable,
+      RessourceModule,
+    ]),
   ],
   controllers: [InscriptionsController],
   providers: [InscriptionsService, EspaceFormationService],
