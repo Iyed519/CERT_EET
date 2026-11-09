@@ -100,7 +100,10 @@ describe('certificat.regles (US-CERT-01)', () => {
     it('seul un certificat ACTIF se révoque ; sinon 409', () => {
       expect(() => verifierRevocable(StatutCertificat.ACTIF)).not.toThrow();
       expect(() => verifierRevocable(StatutCertificat.REVOQUE)).toThrow('déjà révoqué');
-      for (const statut of [StatutCertificat.EN_ATTENTE_GENERATION, StatutCertificat.EN_GENERATION]) {
+      for (const statut of [
+        StatutCertificat.EN_ATTENTE_GENERATION,
+        StatutCertificat.EN_GENERATION,
+      ]) {
         expect(() => verifierRevocable(statut)).toThrow(ConflictException);
         expect(() => verifierRevocable(statut)).toThrow('en préparation');
       }

@@ -381,7 +381,8 @@ describe('CertificatsService (US-CERT-01)', () => {
 
     const preparer = (statut: StatutCertificat | null): void => {
       mockManager.findOne.mockImplementation(async (entite: unknown) => {
-        if (entite === User) return { id: 'adm', motDePasseHash: hash, prenom: 'Inès', email: 'ines@x.tn' };
+        if (entite === User)
+          return { id: 'adm', motDePasseHash: hash, prenom: 'Inès', email: 'ines@x.tn' };
         if (entite === Formation) return { id: 'f-1', titre: 'Back-end' };
         return statut === null ? null : { ...enAttente(), statut };
       });
@@ -403,7 +404,12 @@ describe('CertificatsService (US-CERT-01)', () => {
     it('mot de passe faux : 401, audit d’échec, aucune transaction', async () => {
       preparer(StatutCertificat.ACTIF);
       await expect(
-        service.revoquer('adm', 'cert-1', { ...DTO, motDePasseAdmin: 'faux' }, { adresseIp: '1.2.3.4' }),
+        service.revoquer(
+          'adm',
+          'cert-1',
+          { ...DTO, motDePasseAdmin: 'faux' },
+          { adresseIp: '1.2.3.4' },
+        ),
       ).rejects.toThrow(UnauthorizedException);
       expect(mockDataSource.transaction).not.toHaveBeenCalled();
       expect(mockAudit.record).toHaveBeenCalledWith(

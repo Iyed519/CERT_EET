@@ -4,6 +4,7 @@ import type {
   AvancementQcm,
   EtatDepot,
   EtatFenetre,
+  MotifRevocation,
   NiveauDifficulte,
   RaisonCorrection,
   StatutAtelier,
@@ -260,4 +261,12 @@ export const LIBELLES_STATUT_CERTIFICAT: Record<StatutCertificat, string> = {
   EN_GENERATION: 'En génération',
   ACTIF: 'Émis',
   REVOQUE: 'Révoqué',
+};
+
+/** Motif d'une révocation (US-CERT-06) — mêmes libellés que l'email. */
+export const LIBELLES_MOTIF_REVOCATION: Record<MotifRevocation, string> = {
+  FRAUDE: 'Fraude avérée',
+  ERREUR_ADMIN: 'Erreur administrative',
+  DISCIPLINAIRE: 'Décision disciplinaire',
+  JUDICIAIRE: 'Décision judiciaire',
 };

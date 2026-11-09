@@ -103,6 +103,12 @@ export default function VerifierPage(): JSX.Element {
               <dt>Délivré le</dt>
               <dd>{jourFr(resultat.dateEmission)}</dd>
             </div>
+            {resultat.dateRevocation && (
+              <div>
+                <dt>Révoqué le</dt>
+                <dd>{jourFr(resultat.dateRevocation)}</dd>
+              </div>
+            )}
             <div>
               <dt>Résultat</dt>
               <dd>

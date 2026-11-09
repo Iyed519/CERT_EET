@@ -108,7 +108,8 @@ export const LIBELLES_MOTIF_REVOCATION: Readonly<Record<MotifRevocation, string>
   [MotifRevocation.JUDICIAIRE]: 'Décision judiciaire',
 };
 
-export const MESSAGE_DEJA_REVOQUE = 'Ce certificat est déjà révoqué : la révocation est définitive.';
+export const MESSAGE_DEJA_REVOQUE =
+  'Ce certificat est déjà révoqué : la révocation est définitive.';
 export const MESSAGE_PAS_REVOCABLE =
   'Seul un certificat émis (actif) peut être révoqué : celui-ci est encore en préparation.';
 

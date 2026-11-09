@@ -275,9 +275,10 @@ export class CertificatsService implements OnApplicationBootstrap {
     return vue;
   }
 
-  private async vuesAdmin(
-    where: { statut?: StatutCertificat; id?: string },
-  ): Promise<CertificatAdminVue[]> {
+  private async vuesAdmin(where: {
+    statut?: StatutCertificat;
+    id?: string;
+  }): Promise<CertificatAdminVue[]> {
     const certificats = await this.dataSource.manager.find(Certificat, {
       where,
       relations: { apprenant: true, formation: true },

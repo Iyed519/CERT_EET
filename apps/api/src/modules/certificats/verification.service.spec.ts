@@ -34,7 +34,8 @@ describe('VerificationService (US-CERT-04)', () => {
     empreinteSha256: SHA,
     dateRevocation: statut === StatutCertificat.REVOQUE ? REVOCATION : null,
     motifRevocation: statut === StatutCertificat.REVOQUE ? 'FRAUDE' : null,
-    descriptionRevocation: statut === StatutCertificat.REVOQUE ? 'Détail interne confidentiel' : null,
+    descriptionRevocation:
+      statut === StatutCertificat.REVOQUE ? 'Détail interne confidentiel' : null,
   });
 
   beforeEach(async () => {

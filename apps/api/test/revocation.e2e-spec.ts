@@ -272,7 +272,10 @@ describe('Révocation d’un certificat (e2e) — US-CERT-06', () => {
       expect(res.body.message).toBe('Mot de passe administrateur invalide.');
       expect((await ligne(cert.a)).statut).toBe('ACTIF');
       expect(
-        await auditLogRepository.countBy({ action: 'CERTIFICAT_REVOCATION_REFUSEE', cible: cert.a }),
+        await auditLogRepository.countBy({
+          action: 'CERTIFICAT_REVOCATION_REFUSEE',
+          cible: cert.a,
+        }),
       ).toBe(1);
       expect(emailRevocation).not.toHaveBeenCalled();
     });
@@ -340,9 +343,7 @@ describe('Révocation d’un certificat (e2e) — US-CERT-06', () => {
     });
 
     it('effet immédiat : vérification publique « Révoqué » + date, sans motif', async () => {
-      const res = await request(app.getHttpServer())
-        .get(`/api/verification/${cert.a}`)
-        .expect(200);
+      const res = await request(app.getHttpServer()).get(`/api/verification/${cert.a}`).expect(200);
       expect(res.body).toMatchObject({ verdict: 'REVOQUE', dateRevocation: expect.any(String) });
       expect(JSON.stringify(res.body)).not.toMatch(/FRAUDE|Usurpation/);
       await request(app.getHttpServer()).get(`/api/verification/${cert.a}/pdf`).expect(404);
@@ -406,17 +407,13 @@ describe('Révocation d’un certificat (e2e) — US-CERT-06', () => {
         const fin = Date.now() + 15_000;
         for (;;) {
           const [{ n }] = (await dataSource.query(
+            // Le texte de la requête est tronqué par PostgreSQL : je repère
+            // l'alias de l'entité, en tête de la liste des colonnes.
             `SELECT count(*)::int AS n FROM pg_stat_activity
-              WHERE wait_event_type = 'Lock' AND query ILIKE '%certificats%'
-                AND pid <> pg_backend_pid()`,
+              WHERE wait_event_type = 'Lock' AND query LIKE '%"Certificat"."id"%'`,
           )) as Array<{ n: number }>;
           if (n >= 2) break;
-          if (Date.now() > fin) {
-            const activite = await dataSource.query(
-              "SELECT wait_event_type, wait_event, state, left(query, 200) AS q FROM pg_stat_activity WHERE datname = current_database()",
-            );
-            throw new Error(`Les deux révocations n’attendent pas le verrou : ${JSON.stringify(activite)}`);
-          }
+          if (Date.now() > fin) throw new Error('Les deux révocations n’attendent pas le verrou');
           await new Promise((r) => setTimeout(r, 50));
         }
         await bloqueur.commitTransaction();
@@ -427,9 +424,9 @@ describe('Révocation d’un certificat (e2e) — US-CERT-06', () => {
       }
       expect(statuts.sort()).toEqual([200, 409]);
       expect((await ligne(cert.b)).statut).toBe('REVOQUE');
-      expect(await auditLogRepository.countBy({ action: 'CERTIFICAT_REVOQUE', cible: cert.b })).toBe(
-        1,
-      );
+      expect(
+        await auditLogRepository.countBy({ action: 'CERTIFICAT_REVOQUE', cible: cert.b }),
+      ).toBe(1);
       expect(emailRevocation).toHaveBeenCalledTimes(1);
     }, 30_000);
   });

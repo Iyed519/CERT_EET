@@ -90,7 +90,8 @@ export class VerificationService {
       scoreFinal: certificat.scoreFinal,
       dateEmission: certificat.dateGeneration ?? certificat.dateEmission,
       empreinteSha256: certificat.empreinteSha256 as string,
-      dateRevocation: certificat.statut === StatutCertificat.REVOQUE ? certificat.dateRevocation : null,
+      dateRevocation:
+        certificat.statut === StatutCertificat.REVOQUE ? certificat.dateRevocation : null,
     };
   }
 
