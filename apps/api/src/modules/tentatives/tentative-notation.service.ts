@@ -5,6 +5,7 @@ import { Question } from '../../database/entities/question.entity';
 import { Reponse } from '../../database/entities/reponse.entity';
 import { TentativeQcm } from '../../database/entities/tentative-qcm.entity';
 import { StatutTentative } from '../../database/enums/statut-tentative.enum';
+import { EligibiliteService } from '../certificats/eligibilite.service';
 import { AuditService } from '../audit/audit.service';
 import {
   QuestionANoter,
@@ -56,7 +57,9 @@ interface Bilan extends ResultatNotation {
  * Dans la transaction : correction de chaque question du tirage (D3, D4),
  * `estCorrecte` / `pointsObtenus` sur chaque réponse, score et réussite
  * (seuil lu maintenant, D5), passage NOTEE, puis taux d'avancement de
- * l'inscription (D9). Après COMMIT : audit TENTATIVE_NOTEE (D7).
+ * l'inscription (D9). Après COMMIT : audit TENTATIVE_NOTEE (D7), puis, si la
+ * tentative est réussie, évaluation de l'éligibilité à la certification
+ * (US-ATEL-09, au mieux).
  */
 @Injectable()
 export class TentativeNotationService {
@@ -64,6 +67,7 @@ export class TentativeNotationService {
 
   constructor(
     private readonly dataSource: DataSource,
+    private readonly eligibiliteService: EligibiliteService,
     // Writer d'audit UNIQUE (@Global, US-AUTH-12).
     private readonly auditService: AuditService,
   ) {}
@@ -79,6 +83,22 @@ export class TentativeNotationService {
     );
     if (!bilan) return null;
     await this.journaliser(bilan, acteur);
+    // US-ATEL-09 : une tentative réussie peut rendre l'apprenant éligible.
+    if (bilan.estReussie) {
+      const [ligne] = (await this.dataSource.query(
+        `SELECT m.formation_id FROM tentatives_qcm t
+           JOIN qcm q ON q.id = t.qcm_id JOIN modules m ON m.id = q.module_id
+          WHERE t.id = $1`,
+        [bilan.tentativeId],
+      )) as Array<{ formation_id: string }>;
+      if (ligne) {
+        await this.eligibiliteService.declencherSansEchec(
+          bilan.apprenantId,
+          ligne.formation_id,
+          'TENTATIVE_NOTEE',
+        );
+      }
+    }
     return {
       tentativeId: bilan.tentativeId,
       score: bilan.score,

@@ -27,6 +27,7 @@ import { StatutTentative } from '../src/database/enums/statut-tentative.enum';
 import { TypeQuestion } from '../src/database/enums/type-question.enum';
 import { TentativeBalayageService } from '../src/modules/tentatives/tentative-balayage.service';
 import { TentativeNotationService } from '../src/modules/tentatives/tentative-notation.service';
+import { purgerCertificats } from './outils/nettoyage-certificats';
 
 /**
  * Tests d'intégration US-QCM-08 — Notation serveur et tentative figée.
@@ -169,6 +170,8 @@ describe('Notation serveur et tentative figée (e2e) — US-QCM-08', () => {
     }
     await dataSource.getRepository(Qcm).delete({ titre: Like(`${MARQUEUR}%`) });
     await dataSource.getRepository(Question).delete({ enonce: Like(`${MARQUEUR}%`) });
+    // US-ATEL-09 : des apprenants de la suite peuvent être devenus éligibles.
+    await purgerCertificats(dataSource, MARQUEUR);
     await dataSource.getRepository(Formation).delete({ titre: Like(`${MARQUEUR}%`) });
     await purgeAudit([...formations.map((f) => f.id), ...utilisateurIds, ...tentativeIds]);
     await userRepository.delete({ email: In(EMAILS) });

@@ -5,6 +5,7 @@ import { Question } from '../../database/entities/question.entity';
 import { Reponse } from '../../database/entities/reponse.entity';
 import { TentativeQcm } from '../../database/entities/tentative-qcm.entity';
 import { StatutTentative } from '../../database/enums/statut-tentative.enum';
+import { EligibiliteService } from '../certificats/eligibilite.service';
 import { AuditService } from '../audit/audit.service';
 import { TentativeNotationService } from './tentative-notation.service';
 
@@ -25,9 +26,10 @@ describe('TentativeNotationService', () => {
   let tentative: Partial<TentativeQcm> | null;
   let configuration: { scoreMinValidation: number } | null;
   let manager: { findOne: jest.Mock; find: jest.Mock; query: jest.Mock; update: jest.Mock };
-  let dataSource: { transaction: jest.Mock; getRepository: jest.Mock };
+  let dataSource: { transaction: jest.Mock; getRepository: jest.Mock; query: jest.Mock };
   let repository: { find: jest.Mock };
   let auditService: { record: jest.Mock };
+  let eligibilite: { declencherSansEchec: jest.Mock };
 
   beforeEach(async () => {
     tentative = {
@@ -75,14 +77,17 @@ describe('TentativeNotationService', () => {
     dataSource = {
       transaction: jest.fn((travail: (m: typeof manager) => Promise<unknown>) => travail(manager)),
       getRepository: jest.fn().mockReturnValue(repository),
+      query: jest.fn().mockResolvedValue([{ formation_id: 'form-1' }]),
     };
     auditService = { record: jest.fn().mockResolvedValue(undefined) };
+    eligibilite = { declencherSansEchec: jest.fn().mockResolvedValue(undefined) };
 
     const moduleRef = await Test.createTestingModule({
       providers: [
         TentativeNotationService,
         { provide: DataSource, useValue: dataSource },
         { provide: AuditService, useValue: auditService },
+        { provide: EligibiliteService, useValue: eligibilite },
       ],
     }).compile();
     service = moduleRef.get(TentativeNotationService);
@@ -215,5 +220,26 @@ describe('TentativeNotationService', () => {
     );
     expect(notees).toEqual(['t-1', 't-2']);
     expect(auditService.record.mock.calls.map(([e]) => e.acteur)).toEqual([null, null]);
+  });
+
+  describe('éligibilité à la certification (US-ATEL-09)', () => {
+    it('tentative réussie : évalue l’éligibilité de l’apprenant pour sa formation', async () => {
+      configuration = { scoreMinValidation: 20 };
+      const resultat = await service.noter('t-1', 'appr-1');
+      expect(resultat?.estReussie).toBe(true);
+      expect(dataSource.query).toHaveBeenCalledWith(expect.stringContaining('JOIN qcm q'), ['t-1']);
+      expect(eligibilite.declencherSansEchec).toHaveBeenCalledWith(
+        'appr-1',
+        'form-1',
+        'TENTATIVE_NOTEE',
+      );
+    });
+
+    it('tentative échouée : aucune évaluation', async () => {
+      configuration = { scoreMinValidation: 90 };
+      const resultat = await service.noter('t-1', 'appr-1');
+      expect(resultat?.estReussie).toBe(false);
+      expect(eligibilite.declencherSansEchec).not.toHaveBeenCalled();
+    });
   });
 });

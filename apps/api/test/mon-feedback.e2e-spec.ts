@@ -19,6 +19,7 @@ import { Role } from '../src/database/enums/role.enum';
 import { StatutCompte } from '../src/database/enums/statut-compte.enum';
 import { StatutFormation } from '../src/database/enums/statut-formation.enum';
 import { MailService } from '../src/mail/mail.service';
+import { purgerCertificats } from './outils/nettoyage-certificats';
 
 /**
  * Tests d'intégration US-ATEL-08 — Consulter son feedback (UC Apprenant,
@@ -206,6 +207,8 @@ describe('Consulter son feedback (e2e) — US-ATEL-08', () => {
     if (ateliers.length > 0) {
       await atelierRepository.delete({ id: In(ateliers.map((a) => a.id)) });
     }
+    // US-ATEL-09 : des apprenants de la suite peuvent être devenus éligibles.
+    await purgerCertificats(dataSource, MARQUEUR);
     await dataSource.getRepository(Formation).delete({ titre: Like(`${MARQUEUR}%`) });
     await purgeAudit([
       ...formationIds,

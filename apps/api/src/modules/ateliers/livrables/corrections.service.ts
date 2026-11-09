@@ -12,6 +12,7 @@ import { User } from '../../../database/entities/user.entity';
 import { MailService } from '../../../mail/mail.service';
 import { StockageService } from '../../../stockage/stockage.service';
 import { AuditService } from '../../audit/audit.service';
+import { EligibiliteService } from '../../certificats/eligibilite.service';
 import { FormationsService } from '../../formations/formations.service';
 import { AteliersService } from '../ateliers.service';
 import { CritereVue, GrillesService } from '../grille/grilles.service';
@@ -142,7 +143,8 @@ export const MESSAGE_FICHIER_INTROUVABLE = 'Fichier introuvable pour ce livrable
  *  - Formation archivée : ouvrir et noter -> 409 (règle des écritures).
  *  - Télécharger : relais en flux depuis le stockage, tracé.
  *  - Finaliser (US-ATEL-07) : correction complète exigée, score figé,
- *    feedback IMMUABLE (garanti aussi par la base), email à l'apprenant.
+ *    feedback IMMUABLE (garanti aussi par la base), email à l'apprenant, puis
+ *    évaluation de l'éligibilité à la certification (US-ATEL-09).
  * Chaque écriture est tracée (CORRECTION_OUVERTE, NOTE_CRITERE_ENREGISTREE,
  * CORRECTION_FINALISEE, LIVRABLE_FICHIER_TELECHARGE) avec son auteur.
  */
@@ -157,6 +159,7 @@ export class CorrectionsService {
     private readonly formationsService: FormationsService,
     private readonly stockageService: StockageService,
     private readonly mailService: MailService,
+    private readonly eligibiliteService: EligibiliteService,
     // Writer d'audit UNIQUE (@Global, US-AUTH-12).
     private readonly auditService: AuditService,
   ) {}
@@ -437,6 +440,16 @@ export class CorrectionsService {
       },
     });
     await this.notifierApprenant(resultat.livrable, resultat.score);
+    // US-ATEL-09 : la note acquise peut rendre l'apprenant éligible (au mieux).
+    const [{ formation_id: formationId }] = (await this.dataSource.query(
+      'SELECT m.formation_id FROM ateliers a JOIN modules m ON m.id = a.module_id WHERE a.id = $1',
+      [resultat.livrable.atelierId],
+    )) as Array<{ formation_id: string }>;
+    await this.eligibiliteService.declencherSansEchec(
+      resultat.livrable.apprenantId,
+      formationId,
+      'CORRECTION_FINALISEE',
+    );
     return this.detail(livrableId);
   }
 

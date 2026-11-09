@@ -11,11 +11,13 @@ import { TentativeQcm } from '../../database/entities/tentative-qcm.entity';
 import { StatutAtelier } from '../../database/enums/statut-atelier.enum';
 import { StatutFormation } from '../../database/enums/statut-formation.enum';
 import { StatutInscription } from '../../database/enums/statut-inscription.enum';
+import { StatutCertificat } from '../../database/enums/statut-certificat.enum';
 import { StatutLivrable } from '../../database/enums/statut-livrable.enum';
 import { StatutQcm } from '../../database/enums/statut-qcm.enum';
 import { StatutTentative } from '../../database/enums/statut-tentative.enum';
 import { etatDepot, EtatDepot } from '../ateliers/atelier.regles';
 import { AuditService } from '../audit/audit.service';
+import { EligibiliteService } from '../certificats/eligibilite.service';
 
 /** Où en est l'apprenant sur un QCM, d'après SES tentatives. */
 export type AvancementQcm = 'A_FAIRE' | 'EN_COURS' | 'REUSSI' | 'ECHOUE';
@@ -98,6 +100,18 @@ export interface EspaceFormationVue {
       nouveauFeedback: boolean;
     }>;
   }>;
+  /**
+   * US-ATEL-09 — où en est ma certification : évaluations validées / requises,
+   * raison si je ne suis pas encore éligible, et mon certificat s'il a été
+   * demandé (statut seulement).
+   */
+  certification: {
+    eligible: boolean;
+    raison: string | null;
+    validees: number;
+    requises: number;
+    certificat: { id: string; statut: StatutCertificat } | null;
+  };
 }
 
 // Exportés : le démarrage d'une tentative (US-QCM-05) refuse avec les mêmes mots.
@@ -131,6 +145,7 @@ export class EspaceFormationService {
     private readonly livrableRepository: Repository<Livrable>,
     // Writer d'audit UNIQUE (@Global, US-AUTH-12).
     private readonly auditService: AuditService,
+    private readonly eligibiliteService: EligibiliteService,
   ) {}
 
   /**
@@ -234,6 +249,11 @@ export class EspaceFormationService {
           ).map((c) => c.livrable_id),
     );
     const maintenantBase = ateliers.length === 0 ? new Date() : await this.maintenantPostgres();
+    const verdict = await this.eligibiliteService.evaluer(apprenantId, formationId);
+    const [certificat] = (await this.livrableRepository.query(
+      'SELECT id, statut FROM certificats WHERE apprenant_id = $1 AND formation_id = $2',
+      [apprenantId, formationId],
+    )) as Array<{ id: string; statut: StatutCertificat }>;
 
     return {
       formation: {
@@ -273,6 +293,13 @@ export class EspaceFormationService {
             ),
           })),
       })),
+      certification: {
+        eligible: verdict.eligible,
+        raison: verdict.raison,
+        validees: verdict.validees,
+        requises: verdict.requises,
+        certificat: certificat ? { id: certificat.id, statut: certificat.statut } : null,
+      },
     };
   }
 
