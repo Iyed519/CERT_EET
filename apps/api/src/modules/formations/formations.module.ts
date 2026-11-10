@@ -14,6 +14,7 @@ import { ModuleFormation } from '../../database/entities/module-formation.entity
 import { Qcm } from '../../database/entities/qcm.entity';
 import { User } from '../../database/entities/user.entity';
 import { CycleFormationService } from './cycle-formation.service';
+import { FormateurContenuController } from './formateur-contenu.controller';
 import { AdminFormationFormateursController } from './admin-formation-formateurs.controller';
 import { AdminFormationModulesController } from './admin-formation-modules.controller';
 import { AdminFormationsController } from './admin-formations.controller';
@@ -69,6 +70,7 @@ import { FormationsService } from './formations.service';
     AdminFormationFormateursController,
     FormationsController,
     FormateurFormationsController,
+    FormateurContenuController,
   ],
   providers: [
     CycleFormationService,
