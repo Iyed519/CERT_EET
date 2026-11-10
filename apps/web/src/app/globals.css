@@ -896,3 +896,6 @@ textarea.input { resize: vertical; font-family: inherit; line-height: 1.45; }
 .rapport-statut { padding: 3px 10px; border-radius: 999px; font-size: 0.76rem; font-weight: 650; background: #eef1f4; color: #33414f; }
 .rapport-PRET { background: #e3f3e8; color: #1e8449; }
 .rapport-ECHEC { background: #fbe9e7; color: #b03a2e; }
+
+/* US-RPT-02 — Rapports institutionnels. */
+.rapport-periode { display: grid; grid-template-columns: repeat(auto-fit, minmax(150px, 1fr)); gap: 12px; }

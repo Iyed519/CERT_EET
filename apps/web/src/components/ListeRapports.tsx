@@ -14,7 +14,23 @@ const PORTEES: Record<string, string> = {
   GLOBAL: 'Vue globale',
   INDIVIDUEL: 'Un apprenant',
   MODULE: 'Par module',
+  // US-RPT-02 — modèles institutionnels.
+  SYNTHESE: 'Synthèse de la plateforme',
+  FORMATIONS: 'Bilan par formation',
+  CERTIFICATS: 'Registre des certificats',
 };
+
+const jourFr = (j: unknown): string =>
+  typeof j === 'string' ? j.split('-').reverse().join('/') : '';
+
+/** Libellé d'un rapport : portée (session) ou modèle et période (institutionnel). */
+function libelle(r: Rapport): string {
+  const p = r.parametres;
+  if (r.type === 'INSTITUTIONNEL') {
+    return `${PORTEES[String(p.modele)] ?? 'Rapport institutionnel'} · du ${jourFr(p.du)} au ${jourFr(p.au)}`;
+  }
+  return PORTEES[String(p.portee)] ?? r.type;
+}
 
 const taille = (o: number | null): string =>
   o === null ? '' : o < 1024 ? `${o} o` : `${Math.round(o / 102.4) / 10} Ko`;
@@ -71,7 +87,7 @@ export function ListeRapports(props: { formationId?: string; version?: number })
           <li key={r.id} className="rapport-ligne">
             <div className="rapport-infos">
               <strong>
-                {r.format} · {PORTEES[String(r.parametres.portee)] ?? r.type}
+                {r.format} · {libelle(r)}
               </strong>
               {!formationId && r.formation && <span>{r.formation.titre}</span>}
               <span className="rapport-date">
