@@ -202,6 +202,24 @@ describe('LivrablesService (US-ATEL-04)', () => {
     expect(mockManager.insert).not.toHaveBeenCalled();
   });
 
+  it('US-FORM-02 : 409 si la formation est archivée, rien n’est déposé', async () => {
+    mockAtelierRepo.findOne.mockResolvedValue(
+      atelier({
+        module: {
+          id: 'mod-1',
+          formationId: 'formation-1',
+          formation: { id: 'formation-1', titre: 'Back-end', statut: 'ARCHIVEE' },
+        },
+      } as unknown as Partial<Atelier>),
+    );
+    await expect(
+      service.soumettre('appr-1', 'at-1', [ecrire('a.pdf', CONTENU_PDF)], {}, contexte),
+    ).rejects.toThrow(
+      new ConflictException('Cette formation est archivée : son parcours est figé.'),
+    );
+    expect(mockStockage.deposer).not.toHaveBeenCalled();
+  });
+
   it('409 si un livrable existe déjà (le remplacement est US-ATEL-05)', async () => {
     mockLivrableRepo.existsBy.mockResolvedValue(true);
     await expect(

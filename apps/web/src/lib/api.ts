@@ -3278,3 +3278,43 @@ export async function demanderRapportInstitutionnel(demande: {
   });
   return lireReponseFormation<Rapport>(response, 'Impossible de demander le rapport.');
 }
+
+// ---------------------------------------------------------------------------
+// US-FORM-02 — Clôturer / archiver / rouvrir une formation (administrateur).
+// ---------------------------------------------------------------------------
+
+export interface ImpactCycleFormation {
+  statut: StatutFormation;
+  transitionsPossibles: StatutFormation[];
+  inscriptionsEnCours: number;
+  evaluationsEnCours: {
+    tentativesEnCours: number;
+    livrablesACorriger: number;
+    correctionsEnCours: number;
+    certificatsEnEmission: number;
+  };
+  certificatsActifs: number;
+}
+
+/** US-FORM-02 — GET /api/admin/formations/:id/cycle (impact avant changement). */
+export async function getImpactCycleFormation(id: string): Promise<ImpactCycleFormation> {
+  const response = await apiFetch(`/api/admin/formations/${id}/cycle`);
+  return lireReponseFormation<ImpactCycleFormation>(response, 'Impossible de charger l’impact.');
+}
+
+/**
+ * US-FORM-02 — POST /api/admin/formations/:id/statut { statut, confirmer }.
+ * 409 CONFIRMATION_REQUISE si des évaluations sont en cours et `confirmer` absent.
+ */
+export async function changerStatutFormation(
+  id: string,
+  statut: StatutFormation,
+  confirmer: boolean,
+): Promise<FormationVue> {
+  const response = await apiFetch(`/api/admin/formations/${id}/statut`, {
+    method: 'POST',
+    headers: JSON_HEADERS,
+    body: JSON.stringify({ statut, confirmer }),
+  });
+  return lireReponseFormation<FormationVue>(response, 'Impossible de changer le statut.');
+}

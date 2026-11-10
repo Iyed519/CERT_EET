@@ -276,6 +276,24 @@ describe('Démarrage d’une tentative', () => {
       });
     });
 
+    it('US-FORM-02 : formation archivée -> 409, sans transaction', async () => {
+      qcmRepository.findOne.mockResolvedValue(
+        qcmPublie({ module: { formationId: FORMATION_ID, formation: { statut: 'ARCHIVEE' } } }),
+      );
+      await expect(demarrer()).rejects.toThrow(
+        new ConflictException('Cette formation est archivée : son parcours est figé.'),
+      );
+      expect(dataSource.transaction).not.toHaveBeenCalled();
+    });
+
+    it('US-FORM-02 : formation fermée -> le démarrage reste possible pour les inscrits', async () => {
+      qcmRepository.findOne.mockResolvedValue(
+        qcmPublie({ module: { formationId: FORMATION_ID, formation: { statut: 'FERMEE' } } }),
+      );
+      await demarrer().catch(() => undefined);
+      expect(dataSource.transaction).toHaveBeenCalled();
+    });
+
     describe('403 — l’inscription EN_COURS ouvre le démarrage', () => {
       it.each([
         ['absente', null, 'NON_INSCRIT', 'Vous n’êtes pas inscrit à cette formation.'],

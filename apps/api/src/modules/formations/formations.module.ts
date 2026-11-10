@@ -13,6 +13,7 @@ import { Inscription } from '../../database/entities/inscription.entity';
 import { ModuleFormation } from '../../database/entities/module-formation.entity';
 import { Qcm } from '../../database/entities/qcm.entity';
 import { User } from '../../database/entities/user.entity';
+import { CycleFormationService } from './cycle-formation.service';
 import { AdminFormationFormateursController } from './admin-formation-formateurs.controller';
 import { AdminFormationModulesController } from './admin-formation-modules.controller';
 import { AdminFormationsController } from './admin-formations.controller';
@@ -70,6 +71,7 @@ import { FormationsService } from './formations.service';
     FormateurFormationsController,
   ],
   providers: [
+    CycleFormationService,
     FormationsService,
     FormationModulesService,
     FormationFormateursService,

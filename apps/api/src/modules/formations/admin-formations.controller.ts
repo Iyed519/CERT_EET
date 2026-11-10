@@ -1,6 +1,7 @@
 import {
   Body,
   Controller,
+  Get,
   HttpCode,
   HttpStatus,
   Param,
@@ -14,6 +15,8 @@ import { ApiBearerAuth, ApiOperation, ApiResponse, ApiTags } from '@nestjs/swagg
 import { Role } from '../../database/enums/role.enum';
 import { AuthenticatedRequest } from '../auth/auth.types';
 import { Roles } from '../auth/decorators/roles.decorator';
+import { CycleFormationService, ImpactCycle } from './cycle-formation.service';
+import { ChangerStatutFormationDto } from './dto/changer-statut-formation.dto';
 import { CreateFormationDto } from './dto/create-formation.dto';
 import { UpdateFormationDto } from './dto/update-formation.dto';
 import { FormationVue, FormationsService } from './formations.service';
@@ -32,7 +35,59 @@ import { FormationVue, FormationsService } from './formations.service';
 @Roles(Role.ADMINISTRATEUR)
 @Controller('admin/formations')
 export class AdminFormationsController {
-  constructor(private readonly formationsService: FormationsService) {}
+  constructor(
+    private readonly formationsService: FormationsService,
+    private readonly cycleService: CycleFormationService,
+  ) {}
+
+  @Get(':id/cycle')
+  @ApiOperation({
+    summary: 'Impact d’un changement de statut (US-FORM-02, DS-16 P1)',
+    description:
+      'Statut, transitions possibles, inscriptions en cours, évaluations en cours (tentatives, ' +
+      'livrables à corriger, corrections ouvertes, certificats en émission), certificats actifs.',
+  })
+  @ApiResponse({ status: 200, description: 'Impact.' })
+  @ApiResponse({ status: 400, description: 'Identifiant mal formé.' })
+  @ApiResponse({ status: 401, description: 'Non authentifié.' })
+  @ApiResponse({ status: 403, description: 'Rôle insuffisant (non-admin).' })
+  @ApiResponse({ status: 404, description: 'Formation introuvable.' })
+  impact(@Param('id', ParseUUIDPipe) id: string): Promise<ImpactCycle> {
+    return this.cycleService.impact(id);
+  }
+
+  @Post(':id/statut')
+  @HttpCode(HttpStatus.OK)
+  @ApiOperation({
+    summary: 'Clôturer, archiver ou rouvrir une formation (US-FORM-02, DS-16 P1)',
+    description:
+      'OUVERTE -> FERMEE (plus d’inscription) -> ARCHIVEE (parcours figé, définitif) ; ' +
+      'FERMEE -> OUVERTE. Si des évaluations sont en cours, clôturer ou archiver exige ' +
+      '`confirmer: true`. Les certificats émis restent vérifiables.',
+  })
+  @ApiResponse({
+    status: 200,
+    description: 'Statut changé ; audit FORMATION_CLOTUREE / _ARCHIVEE / _ROUVERTE.',
+  })
+  @ApiResponse({ status: 400, description: 'Statut ou confirmation invalide ; champ inconnu.' })
+  @ApiResponse({ status: 401, description: 'Non authentifié.' })
+  @ApiResponse({ status: 403, description: 'Rôle insuffisant (non-admin).' })
+  @ApiResponse({ status: 404, description: 'Formation introuvable.' })
+  @ApiResponse({
+    status: 409,
+    description:
+      'Transition impossible (formation archivée, déjà dans ce statut…) ou CONFIRMATION_REQUISE.',
+  })
+  changerStatut(
+    @Param('id', ParseUUIDPipe) id: string,
+    @Body() dto: ChangerStatutFormationDto,
+    @Req() req: AuthenticatedRequest,
+  ): Promise<FormationVue> {
+    if (!req.user) throw new UnauthorizedException('Non authentifié.');
+    return this.cycleService.changerStatut(req.user.sub, id, dto.statut, dto.confirmer === true, {
+      adresseIp: req.ip ?? null,
+    });
+  }
 
   @Post()
   @HttpCode(HttpStatus.CREATED)
