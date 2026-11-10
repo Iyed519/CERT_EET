@@ -899,3 +899,11 @@ textarea.input { resize: vertical; font-family: inherit; line-height: 1.45; }
 
 /* US-RPT-02 — Rapports institutionnels. */
 .rapport-periode { display: grid; grid-template-columns: repeat(auto-fit, minmax(150px, 1fr)); gap: 12px; }
+
+/* US-FORM-02 — Statut d'une formation (clôturer, archiver, rouvrir). */
+.cycle-impact { list-style: none; margin: 4px 0 14px; padding: 0; display: grid; gap: 6px; }
+.cycle-impact li { display: flex; justify-content: space-between; gap: 12px; font-size: 0.92rem; border-bottom: 1px solid rgba(0, 0, 0, 0.06); padding-bottom: 6px; }
+.cycle-confirmation { display: flex; gap: 8px; align-items: flex-start; margin: 6px 0 12px; font-size: 0.9rem; background: #fef3e2; border: 1px solid #f6dcae; border-radius: 8px; padding: 10px; }
+.cycle-confirmation input { margin-top: 3px; }
+.cycle-actions { display: grid; gap: 12px; }
+.cycle-action { display: grid; gap: 4px; }

@@ -22,6 +22,9 @@ import {
   AdminUser,
   StatutFormation,
   AdminError,
+  getImpactCycleFormation,
+  changerStatutFormation,
+  ImpactCycleFormation,
 } from '../../../lib/api';
 
 /** Libellés FR des statuts (l'enum backend reste la source de vérité). */
@@ -69,6 +72,8 @@ export default function AdminFormationsPage(): JSX.Element {
   const [cibleModules, setCibleModules] = useState<FormationVue | null>(null);
   // Formation dont on gère les formateurs (null = modale fermée).
   const [cibleFormateurs, setCibleFormateurs] = useState<FormationVue | null>(null);
+  // US-FORM-02 — clôturer / archiver / rouvrir.
+  const [cibleStatut, setCibleStatut] = useState<FormationVue | null>(null);
 
   const charger = useCallback(async (): Promise<void> => {
     setChargement(true);
@@ -181,7 +186,7 @@ export default function AdminFormationsPage(): JSX.Element {
                     </td>
                     <td>
                       {f.statut === 'ARCHIVEE' ? (
-                        <span className="muted-cell">Figée</span>
+                        <span className="muted-cell">Figée (archivée)</span>
                       ) : (
                         <div className="row-actions">
                           <button
@@ -213,6 +218,16 @@ export default function AdminFormationsPage(): JSX.Element {
                             }}
                           >
                             Formateurs
+                          </button>
+                          <button
+                            className="btn-sm"
+                            onClick={() => {
+                              setSucces(null);
+                              setErreur(null);
+                              setCibleStatut(f);
+                            }}
+                          >
+                            Statut
                           </button>
                         </div>
                       )}
@@ -273,6 +288,18 @@ export default function AdminFormationsPage(): JSX.Element {
         <FormateursModal
           formation={cibleFormateurs}
           onClose={() => setCibleFormateurs(null)}
+        />
+      )}
+
+      {cibleStatut !== null && (
+        <StatutModal
+          formation={cibleStatut}
+          onClose={() => setCibleStatut(null)}
+          onDone={(message) => {
+            setCibleStatut(null);
+            setSucces(message);
+            void charger();
+          }}
         />
       )}
     </>
@@ -1026,6 +1053,146 @@ function FormateursModal({
             </button>
           </div>
         </form>
+      </section>
+    </div>
+  );
+}
+
+/* ------------------------------------------------------------------ */
+
+const ACTIONS_STATUT: Record<StatutFormation, { libelle: string; effet: string; succes: string }> = {
+  FERMEE: {
+    libelle: 'Clôturer',
+    effet: 'Plus aucune inscription ; les inscrits terminent leur parcours.',
+    succes: 'Formation clôturée.',
+  },
+  ARCHIVEE: {
+    libelle: 'Archiver',
+    effet:
+      'Parcours figé et définitif : plus de modification, de QCM, de dépôt ni de demande de certificat. Les certificats émis restent vérifiables.',
+    succes: 'Formation archivée.',
+  },
+  OUVERTE: {
+    libelle: 'Rouvrir',
+    effet: 'La formation revient au catalogue et accepte de nouveau les inscriptions.',
+    succes: 'Formation rouverte.',
+  },
+};
+
+/**
+ * US-FORM-02 — Modale de changement de statut : impact (inscriptions,
+ * évaluations en cours, certificats), actions possibles, confirmation
+ * explicite exigée quand des évaluations sont en cours.
+ */
+function StatutModal({
+  formation,
+  onClose,
+  onDone,
+}: {
+  formation: FormationVue;
+  onClose: () => void;
+  onDone: (message: string) => void;
+}): JSX.Element {
+  const [impact, setImpact] = useState<ImpactCycleFormation | null>(null);
+  const [erreur, setErreur] = useState<string | null>(null);
+  const [enCours, setEnCours] = useState(false);
+  const [confirme, setConfirme] = useState(false);
+
+  useEffect(() => {
+    getImpactCycleFormation(formation.id)
+      .then(setImpact)
+      .catch((e: unknown) =>
+        setErreur(e instanceof AdminError ? e.message : 'Impossible de charger l’impact.'),
+      );
+  }, [formation.id]);
+
+  const e = impact?.evaluationsEnCours;
+  const nbEnCours = e
+    ? e.tentativesEnCours + e.livrablesACorriger + e.correctionsEnCours + e.certificatsEnEmission
+    : 0;
+
+  async function appliquer(vers: StatutFormation): Promise<void> {
+    setErreur(null);
+    setEnCours(true);
+    try {
+      await changerStatutFormation(formation.id, vers, confirme);
+      onDone(ACTIONS_STATUT[vers].succes);
+    } catch (err: unknown) {
+      setErreur(err instanceof AdminError ? err.message : 'Impossible de changer le statut.');
+    } finally {
+      setEnCours(false);
+    }
+  }
+
+  return (
+    <div className="profil-overlay" role="dialog" aria-modal="true">
+      <section className="profil-card modal-wide modal-closable">
+        <CroixFermeture onClose={onClose} disabled={enCours} />
+        <h1 className="auth-title">Statut de la formation</h1>
+        <p className="auth-subtitle">
+          {formation.titre} — actuellement « {libelleStatut(formation.statut)} ».
+        </p>
+        {erreur !== null && <p className="alert alert-error">{erreur}</p>}
+        {impact === null ? (
+          erreur === null && <p className="page-subtitle">Chargement…</p>
+        ) : (
+          <>
+            <ul className="cycle-impact">
+              <li>
+                <span>Inscriptions en cours</span>
+                <strong>{impact.inscriptionsEnCours}</strong>
+              </li>
+              <li>
+                <span>Tentatives de QCM en cours</span>
+                <strong>{impact.evaluationsEnCours.tentativesEnCours}</strong>
+              </li>
+              <li>
+                <span>Livrables à corriger / corrections ouvertes</span>
+                <strong>
+                  {impact.evaluationsEnCours.livrablesACorriger} /{' '}
+                  {impact.evaluationsEnCours.correctionsEnCours}
+                </strong>
+              </li>
+              <li>
+                <span>Certificats en émission / actifs</span>
+                <strong>
+                  {impact.evaluationsEnCours.certificatsEnEmission} / {impact.certificatsActifs}
+                </strong>
+              </li>
+            </ul>
+            {nbEnCours > 0 && impact.transitionsPossibles.some((t) => t !== 'OUVERTE') && (
+              <label className="cycle-confirmation">
+                <input
+                  type="checkbox"
+                  checked={confirme}
+                  onChange={(ev) => setConfirme(ev.target.checked)}
+                />
+                <span>
+                  {nbEnCours} évaluation{nbEnCours > 1 ? 's sont' : ' est'} en cours : je confirme
+                  le changement de statut.
+                </span>
+              </label>
+            )}
+            <div className="cycle-actions">
+              {impact.transitionsPossibles.map((t) => (
+                <div key={t} className="cycle-action">
+                  <button
+                    type="button"
+                    className={t === 'ARCHIVEE' ? 'btn btn-danger-solid' : 'btn'}
+                    disabled={enCours || (t !== 'OUVERTE' && nbEnCours > 0 && !confirme)}
+                    onClick={() => void appliquer(t)}
+                  >
+                    {ACTIONS_STATUT[t].libelle}
+                  </button>
+                  <span className="field-hint">{ACTIONS_STATUT[t].effet}</span>
+                </div>
+              ))}
+              {impact.transitionsPossibles.length === 0 && (
+                <p className="page-subtitle">Formation archivée : statut définitif.</p>
+              )}
+            </div>
+          </>
+        )}
       </section>
     </div>
   );
