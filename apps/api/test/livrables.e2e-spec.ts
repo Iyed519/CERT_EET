@@ -558,7 +558,7 @@ describe('Soumettre un livrable (e2e) — US-ATEL-04', () => {
         .attach('fichiers', PDF, 'v2.pdf')
         .expect(409);
       expect(res.body.message).toBe(
-        'Vous avez déjà soumis un livrable pour cet atelier : il ne peut plus être remplacé ici.',
+        'Vous avez déjà soumis un livrable pour cet atelier : remplacez-le plutôt (avant la date limite).',
       );
       expect(await livrableRepository.countBy({ apprenantId: ids.apprenant })).toBe(1);
       expect(await objetsDe(ids.apprenant)).toEqual(avant);

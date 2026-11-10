@@ -21,7 +21,14 @@ import { StockageService } from '../../../stockage/stockage.service';
 import { AuditService } from '../../audit/audit.service';
 import { EspaceFormationService } from '../../inscriptions/espace-formation.service';
 import { AteliersService } from '../ateliers.service';
-import { MESSAGE_DEJA_SOUMIS, MESSAGE_DEPOT_CLOS } from './livrable.regles';
+import {
+  MESSAGE_AUCUN_LIVRABLE,
+  MESSAGE_DEJA_SOUMIS,
+  MESSAGE_DEPOT_CLOS,
+  MESSAGE_REMPLACEMENT_CLOS,
+  MESSAGE_REMPLACEMENT_CONCURRENT,
+  MESSAGE_REMPLACEMENT_EN_CORRECTION,
+} from './livrable.regles';
 import { FichierTemporaire, LivrablesService, nomOriginal } from './livrables.service';
 
 /**
@@ -294,5 +301,102 @@ describe('LivrablesService (US-ATEL-04)', () => {
     expect(nomOriginal(Buffer.from('résumé.pdf', 'utf8').toString('latin1'))).toBe('résumé.pdf');
     expect(nomOriginal('rapport.pdf')).toBe('rapport.pdf');
     expect(nomOriginal('café.pdf')).toBe('café.pdf');
+  });
+  // ===================================================================
+  //  US-ATEL-05 — Remplacer son livrable
+  // ===================================================================
+  describe('remplacer (US-ATEL-05)', () => {
+    const verrou = { statut: 'SOUMIS', version: 1 };
+    const manager = mockManager as typeof mockManager & {
+      query: jest.Mock;
+      delete: jest.Mock;
+      update: jest.Mock;
+    };
+
+    beforeEach(() => {
+      manager.query = jest.fn(async (sql: string): Promise<unknown> => {
+        if (sql.includes('FOR UPDATE')) return [verrou];
+        if (sql.includes('fichiers_livrables')) return [{ cle: 'ancienne/1-a.pdf' }];
+        return [];
+      });
+      manager.delete = jest.fn();
+      manager.update = jest.fn();
+      verrou.statut = 'SOUMIS';
+      verrou.version = 1;
+    });
+
+    it('version + 1, hash recalculé, fichiers remplacés ; anciens objets retirés APRÈS ; audit', async () => {
+      const f = ecrire('v2.pdf', CONTENU_PDF);
+      await service.remplacer('appr-1', 'at-1', [f], { commentaire: ' v2 ' }, contexte);
+
+      const [[objets]] = mockStockage.deposer.mock.calls;
+      expect(objets[0].cle).toMatch(
+        /^livrables\/appr-1\/at-1\/liv-1\/v2-[0-9a-f-]{36}\/1-v2\.pdf$/,
+      );
+      expect(manager.query.mock.calls[0][0]).toMatch(/FROM livrables WHERE id = \$1 FOR UPDATE/);
+      expect(manager.delete).toHaveBeenCalledWith(FichierLivrable, { livrableId: 'liv-1' });
+      expect(manager.update).toHaveBeenCalledWith(
+        Livrable,
+        { id: 'liv-1' },
+        expect.objectContaining({
+          version: 2,
+          hashTracabilite: expect.stringMatching(/^[0-9a-f]{64}$/),
+          commentaire: 'v2',
+          dateSoumission: MAINTENANT,
+          enRetard: false,
+        }),
+      );
+      expect(manager.insert).toHaveBeenCalledWith(FichierLivrable, [
+        expect.objectContaining({ livrableId: 'liv-1', ordre: 1, sha256: SHA_PDF }),
+      ]);
+      expect(mockStockage.supprimer).toHaveBeenCalledTimes(1);
+      expect(mockStockage.supprimer).toHaveBeenCalledWith(['ancienne/1-a.pdf']);
+      expect(mockAudit.record).toHaveBeenCalledWith(
+        expect.objectContaining({
+          action: 'LIVRABLE_REMPLACE',
+          cible: 'liv-1',
+          detailsAvantApres: expect.objectContaining({
+            avant: { version: 1, hashTracabilite: SHA_PDF },
+            apres: expect.objectContaining({ version: 2 }),
+          }),
+        }),
+      );
+    });
+
+    it('aucun livrable -> 404, rien n’est envoyé', async () => {
+      mockLivrableRepo.findOne.mockResolvedValue(null);
+      await expect(
+        service.remplacer('appr-1', 'at-1', [ecrire('a.pdf', CONTENU_PDF)], {}, contexte),
+      ).rejects.toThrow(new NotFoundException(MESSAGE_AUCUN_LIVRABLE));
+      expect(mockStockage.deposer).not.toHaveBeenCalled();
+    });
+
+    it('date limite atteinte -> 409 (la tolérance ne vaut pas pour un remplacement)', async () => {
+      mockAteliersService.maintenant.mockResolvedValue(new Date('2026-11-20T23:59:00Z'));
+      await expect(
+        service.remplacer('appr-1', 'at-1', [ecrire('a.pdf', CONTENU_PDF)], {}, contexte),
+      ).rejects.toThrow(new ConflictException(MESSAGE_REMPLACEMENT_CLOS));
+      expect(mockStockage.deposer).not.toHaveBeenCalled();
+    });
+
+    it('passé EN_CORRECTION pendant l’envoi -> 409 sous le verrou, nouveaux objets supprimés', async () => {
+      verrou.statut = 'EN_CORRECTION';
+      await expect(
+        service.remplacer('appr-1', 'at-1', [ecrire('a.pdf', CONTENU_PDF)], {}, contexte),
+      ).rejects.toThrow(new ConflictException(MESSAGE_REMPLACEMENT_EN_CORRECTION));
+      const [[objets]] = mockStockage.deposer.mock.calls;
+      expect(mockStockage.supprimer).toHaveBeenCalledWith([objets[0].cle]);
+      expect(manager.update).not.toHaveBeenCalled();
+      expect(mockAudit.record).not.toHaveBeenCalled();
+    });
+
+    it('version changée entre-temps (remplacement simultané) -> 409, anciens objets gardés', async () => {
+      verrou.version = 2;
+      await expect(
+        service.remplacer('appr-1', 'at-1', [ecrire('a.pdf', CONTENU_PDF)], {}, contexte),
+      ).rejects.toThrow(new ConflictException(MESSAGE_REMPLACEMENT_CONCURRENT));
+      expect(mockStockage.supprimer).not.toHaveBeenCalledWith(['ancienne/1-a.pdf']);
+      expect(manager.delete).not.toHaveBeenCalled();
+    });
   });
 });

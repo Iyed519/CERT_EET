@@ -30,12 +30,15 @@ import { AteliersService } from '../ateliers.service';
 import { SoumettreLivrableDto } from './soumettre-livrable.dto';
 import {
   hashTracabilite,
+  MESSAGE_AUCUN_LIVRABLE,
   MESSAGE_DEJA_SOUMIS,
+  MESSAGE_REMPLACEMENT_CONCURRENT,
   nettoyerCommentaire,
   nomPourStockage,
   normaliserLiens,
   verifierDelaiDepot,
   verifierFichiers,
+  verifierRemplacement,
 } from './livrable.regles';
 
 /** Un fichier tel que multer l'a écrit sur le disque (stockage temporaire). */
@@ -162,35 +165,13 @@ export class LivrablesService {
       throw new ConflictException(MESSAGE_DEJA_SOUMIS);
     }
 
-    const recus = await Promise.all(
-      fichiers.map(async (f) => ({
-        nom: nomOriginal(f.originalname),
-        taille: f.size,
-        entete: await lireEntete(f.path),
-      })),
-    );
-    const extensions = verifierFichiers(recus, atelier);
-    const commentaire = nettoyerCommentaire(dto.commentaire);
-    const liens = normaliserLiens(dto.liens);
-
-    const empreintes = await Promise.all(fichiers.map((f) => sha256Fichier(f.path)));
-    const hash = hashTracabilite(empreintes);
     const livrableId = randomUUID();
-    const objets: ObjetADeposer[] = fichiers.map((f, i) => ({
-      cle: `livrables/${apprenantId}/${atelierId}/${livrableId}/v1/${i + 1}-${nomPourStockage(recus[i].nom)}`,
-      chemin: f.path,
-      taille: f.size,
-      typeContenu: TYPES_CONTENU[extensions[i]] ?? 'application/octet-stream',
-      sha256: empreintes[i],
-    }));
-
-    try {
-      await this.stockageService.deposer(objets);
-    } catch (erreur) {
-      const detail = erreur instanceof Error ? erreur.message : String(erreur);
-      this.logger.error(`Dépôt sur le stockage impossible (atelier ${atelierId}) : ${detail}`);
-      throw new ServiceUnavailableException(MESSAGE_STOCKAGE_INDISPONIBLE);
-    }
+    const { recus, extensions, commentaire, liens, hash, objets } = await this.preparerDepot(
+      `livrables/${apprenantId}/${atelierId}/${livrableId}/v1`,
+      atelier,
+      fichiers,
+      dto,
+    );
     try {
       await this.dataSource.transaction(async (manager) => {
         await manager.insert(Livrable, {
@@ -248,6 +229,181 @@ export class LivrablesService {
 
     await this.notifierFormateurs(apprenantId, atelier, enRetard);
     return (await this.monLivrable(apprenantId, atelierId)) as LivrableVue;
+  }
+
+  /**
+   * US-ATEL-05 — Remplacer son livrable (DS-03 P1, UC4 Apprenant). Mêmes
+   * contrôles d'accès et de fichiers que le dépôt ; en plus :
+   *   - un livrable existe (404 sinon) ;
+   *   - SOUMIS et AVANT la date limite (409 sinon : en correction, noté, clos) ;
+   *   - nouveaux objets envoyés au stockage sous un préfixe propre au dépôt
+   *     (deux remplacements simultanés n'écrivent jamais la même clé) ;
+   *   - en base, sous VERROU de la ligne du livrable : statut et version relus
+   *     (une ouverture de correction ou un autre remplacement a pu passer ->
+   *     409, nouveaux objets supprimés) ; version + 1, hash recalculé, fichiers
+   *     remplacés, date de soumission = maintenant ;
+   *   - APRÈS le COMMIT seulement, les anciens objets sont retirés (au mieux) ;
+   *   - audit LIVRABLE_REMPLACE (versions et hash avant / après).
+   */
+  async remplacer(
+    apprenantId: string,
+    atelierId: string,
+    fichiers: FichierTemporaire[],
+    dto: SoumettreLivrableDto,
+    contexte: ContexteAcces,
+  ): Promise<LivrableVue> {
+    const atelier = await this.atelierRepository.findOne({
+      where: { id: atelierId, statut: StatutAtelier.PUBLIE },
+      relations: { module: { formation: true } },
+    });
+    if (!atelier) {
+      throw new NotFoundException(MESSAGE_ATELIER_INTROUVABLE);
+    }
+    const formation = atelier.module.formation;
+    const inscription = await this.espaceFormationService.exigerAccesContenu(
+      apprenantId,
+      formation.id,
+      contexte,
+    );
+    if (inscription.statut === StatutInscription.TERMINEE) {
+      throw new ForbiddenException(MESSAGE_FORMATION_TERMINEE);
+    }
+    if (formation.statut === StatutFormation.ARCHIVEE) {
+      throw new ConflictException(MESSAGE_FORMATION_ARCHIVEE_PARCOURS);
+    }
+    const actuel = await this.livrableRepository.findOne({
+      where: { atelierId, apprenantId },
+      select: { id: true, version: true, statut: true, hashTracabilite: true },
+    });
+    if (!actuel) {
+      throw new NotFoundException(MESSAGE_AUCUN_LIVRABLE);
+    }
+    const maintenant = await this.ateliersService.maintenant(this.dataSource.manager);
+    verifierRemplacement(actuel.statut, atelier.dateLimite, maintenant);
+
+    const version = actuel.version + 1;
+    const { recus, extensions, commentaire, liens, hash, objets } = await this.preparerDepot(
+      `livrables/${apprenantId}/${atelierId}/${actuel.id}/v${version}-${randomUUID()}`,
+      atelier,
+      fichiers,
+      dto,
+    );
+
+    let anciennesCles: string[] = [];
+    try {
+      await this.dataSource.transaction(async (manager) => {
+        const [ligne] = (await manager.query(
+          `SELECT statut::text AS statut, version FROM livrables WHERE id = $1 FOR UPDATE`,
+          [actuel.id],
+        )) as Array<{ statut: string; version: number }>;
+        verifierRemplacement(ligne.statut, atelier.dateLimite, maintenant);
+        if (ligne.version !== actuel.version) {
+          throw new ConflictException(MESSAGE_REMPLACEMENT_CONCURRENT);
+        }
+        anciennesCles = (
+          (await manager.query(
+            `SELECT cle_stockage AS cle FROM fichiers_livrables WHERE livrable_id = $1`,
+            [actuel.id],
+          )) as Array<{ cle: string }>
+        ).map((f) => f.cle);
+        await manager.delete(FichierLivrable, { livrableId: actuel.id });
+        await manager.update(
+          Livrable,
+          { id: actuel.id },
+          {
+            version,
+            hashTracabilite: hash,
+            commentaire,
+            liens,
+            dateSoumission: maintenant,
+            enRetard: false,
+          },
+        );
+        await manager.insert(
+          FichierLivrable,
+          objets.map((o, i) => ({
+            livrableId: actuel.id,
+            ordre: i + 1,
+            nomOriginal: recus[i].nom,
+            extension: extensions[i],
+            tailleOctets: o.taille,
+            sha256: o.sha256,
+            cleStockage: o.cle,
+          })),
+        );
+      });
+    } catch (erreur) {
+      await this.stockageService.supprimer(objets.map((o) => o.cle));
+      throw erreur;
+    }
+    // L'ancienne version n'est retirée qu'une fois la nouvelle enregistrée.
+    await this.stockageService.supprimer(anciennesCles);
+
+    await this.auditService.record({
+      action: 'LIVRABLE_REMPLACE',
+      acteur: apprenantId,
+      cible: actuel.id,
+      adresseIp: contexte.adresseIp,
+      resultat: 'Succès',
+      detailsAvantApres: {
+        atelierId,
+        formationId: formation.id,
+        avant: { version: actuel.version, hashTracabilite: actuel.hashTracabilite },
+        apres: { version, hashTracabilite: hash },
+        nbFichiers: objets.length,
+        tailleTotaleOctets: objets.reduce((t, o) => t + o.taille, 0),
+      },
+    });
+    return (await this.monLivrable(apprenantId, atelierId)) as LivrableVue;
+  }
+
+  /**
+   * Contrôle des fichiers, du commentaire et des liens (400, rien n'est
+   * enregistré), SHA-256 en flux, hash de traçabilité, puis envoi au stockage
+   * sous `prefixe` (503 si injoignable). Partagé par le dépôt et le remplacement.
+   */
+  private async preparerDepot(
+    prefixe: string,
+    atelier: Atelier,
+    fichiers: FichierTemporaire[],
+    dto: SoumettreLivrableDto,
+  ): Promise<{
+    recus: Array<{ nom: string; taille: number; entete: Buffer }>;
+    extensions: string[];
+    commentaire: string | null;
+    liens: string[];
+    hash: string;
+    objets: ObjetADeposer[];
+  }> {
+    const recus = await Promise.all(
+      fichiers.map(async (f) => ({
+        nom: nomOriginal(f.originalname),
+        taille: f.size,
+        entete: await lireEntete(f.path),
+      })),
+    );
+    const extensions = verifierFichiers(recus, atelier);
+    const commentaire = nettoyerCommentaire(dto.commentaire);
+    const liens = normaliserLiens(dto.liens);
+
+    const empreintes = await Promise.all(fichiers.map((f) => sha256Fichier(f.path)));
+    const hash = hashTracabilite(empreintes);
+    const objets: ObjetADeposer[] = fichiers.map((f, i) => ({
+      cle: `${prefixe}/${i + 1}-${nomPourStockage(recus[i].nom)}`,
+      chemin: f.path,
+      taille: f.size,
+      typeContenu: TYPES_CONTENU[extensions[i]] ?? 'application/octet-stream',
+      sha256: empreintes[i],
+    }));
+
+    try {
+      await this.stockageService.deposer(objets);
+    } catch (erreur) {
+      const detail = erreur instanceof Error ? erreur.message : String(erreur);
+      this.logger.error(`Dépôt sur le stockage impossible (atelier ${atelier.id}) : ${detail}`);
+      throw new ServiceUnavailableException(MESSAGE_STOCKAGE_INDISPONIBLE);
+    }
+    return { recus, extensions, commentaire, liens, hash, objets };
   }
 
   /** Le livrable de l'apprenant pour cet atelier (null s'il n'a rien déposé). */

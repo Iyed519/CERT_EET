@@ -10,6 +10,7 @@ import {
   signatureConforme,
   verifierDelaiDepot,
   verifierFichiers,
+  verifierRemplacement,
 } from './livrable.regles';
 
 /**
@@ -177,6 +178,29 @@ describe('livrable.regles (US-ATEL-04)', () => {
       expect(nomPourStockage('../../etc/passwd')).toBe('etc_passwd');
       expect(nomPourStockage('???')).toBe('fichier');
       expect(nomPourStockage(`${'a'.repeat(150)}.pdf`)).toHaveLength(100);
+    });
+  });
+
+  describe('verifierRemplacement (US-ATEL-05)', () => {
+    const limite = new Date('2026-11-20T12:00:00Z');
+    it('SOUMIS avant la date limite : accepté', () => {
+      expect(() =>
+        verifierRemplacement('SOUMIS', limite, new Date('2026-11-20T11:59:59Z')),
+      ).not.toThrow();
+    });
+    it('à la date limite (exclue) ou après : 409 clos, sans tolérance', () => {
+      expect(() => verifierRemplacement('SOUMIS', limite, limite)).toThrow(
+        /ne peut plus être remplacé/,
+      );
+      expect(() =>
+        verifierRemplacement('SOUMIS', limite, new Date('2026-11-20T13:00:00Z')),
+      ).toThrow(ConflictException);
+    });
+    it('EN_CORRECTION ou NOTE : 409 avec le motif', () => {
+      expect(() => verifierRemplacement('EN_CORRECTION', limite, new Date(0))).toThrow(
+        /en cours de correction/,
+      );
+      expect(() => verifierRemplacement('NOTE', limite, new Date(0))).toThrow(/a été noté/);
     });
   });
 });
