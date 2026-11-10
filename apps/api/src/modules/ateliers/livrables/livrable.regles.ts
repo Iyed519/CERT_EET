@@ -24,7 +24,7 @@ const MO = 1024 * 1024;
 export const MESSAGE_DEPOT_CLOS =
   'La date limite de dépôt est dépassée : cet atelier n’accepte plus de livrable.';
 export const MESSAGE_DEJA_SOUMIS =
-  'Vous avez déjà soumis un livrable pour cet atelier : il ne peut plus être remplacé ici.';
+  'Vous avez déjà soumis un livrable pour cet atelier : remplacez-le plutôt (avant la date limite).';
 
 /**
  * Le dépôt est-il encore ouvert à `maintenant` (heure de PostgreSQL à la
@@ -43,6 +43,36 @@ export function verifierDelaiDepot(
   if (t < limite) return { enRetard: false };
   if (t < limite + toleranceRetardHeures * 3_600_000) return { enRetard: true };
   throw new ConflictException(MESSAGE_DEPOT_CLOS);
+}
+
+// US-ATEL-05 — Remplacer son livrable.
+export const MESSAGE_AUCUN_LIVRABLE =
+  'Vous n’avez pas encore déposé de livrable pour cet atelier : déposez-en un d’abord.';
+export const MESSAGE_REMPLACEMENT_CLOS =
+  'La date limite est passée : votre livrable ne peut plus être remplacé.';
+export const MESSAGE_REMPLACEMENT_EN_CORRECTION =
+  'Votre livrable est en cours de correction : il ne peut plus être remplacé.';
+export const MESSAGE_REMPLACEMENT_NOTE =
+  'Votre livrable a été noté : il ne peut plus être remplacé.';
+export const MESSAGE_REMPLACEMENT_CONCURRENT =
+  'Votre livrable vient d’être modifié par une autre demande : rechargez la page puis réessayez.';
+
+/**
+ * Le livrable peut-il être remplacé à `maintenant` (heure de PostgreSQL) ?
+ * Seulement SOUMIS (ni en correction, ni noté) et AVANT la date limite
+ * (exclue) : la tolérance de retard ne vaut que pour le premier dépôt. 409
+ * sinon (refus d'état ou de temps, convention du projet).
+ */
+export function verifierRemplacement(
+  statut: string,
+  dateLimite: Date | string,
+  maintenant: Date,
+): void {
+  if (statut === 'EN_CORRECTION') throw new ConflictException(MESSAGE_REMPLACEMENT_EN_CORRECTION);
+  if (statut !== 'SOUMIS') throw new ConflictException(MESSAGE_REMPLACEMENT_NOTE);
+  if (maintenant.getTime() >= new Date(dateLimite).getTime()) {
+    throw new ConflictException(MESSAGE_REMPLACEMENT_CLOS);
+  }
 }
 
 /** Un fichier reçu, tel que le service le décrit aux règles. */

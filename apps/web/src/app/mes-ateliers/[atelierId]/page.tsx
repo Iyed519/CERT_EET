@@ -26,6 +26,7 @@ export default function MonAtelierPage(): JSX.Element {
   const [chargement, setChargement] = useState(true);
   const [erreur, setErreur] = useState<string | null>(null);
   const [succes, setSucces] = useState<string | null>(null);
+  const [remplacer, setRemplacer] = useState(false);
 
   useEffect(() => {
     if (!atelierId) return;
@@ -128,8 +129,39 @@ export default function MonAtelierPage(): JSX.Element {
           </section>
 
           {succes !== null && <p className="alert alert-success depot-succes">{succes}</p>}
-          {atelier.monLivrable ? (
-            <MonLivrable livrable={atelier.monLivrable} />
+          {atelier.monLivrable && remplacer ? (
+            <DepotLivrable
+              atelier={atelier}
+              versionActuelle={atelier.monLivrable.version}
+              onAnnuler={() => setRemplacer(false)}
+              onDepose={(livrable) => {
+                setAtelier({ ...atelier, monLivrable: livrable });
+                setRemplacer(false);
+                setSucces(`Livrable remplacé (version ${livrable.version}) ✅`);
+              }}
+            />
+          ) : atelier.monLivrable ? (
+            <>
+              <MonLivrable livrable={atelier.monLivrable} />
+              {/* US-ATEL-05 : remplaçable avant la date limite, tant que SOUMIS. */}
+              {atelier.monLivrable.statut === 'SOUMIS' && atelier.etatDepot === 'OUVERT' && (
+                <div className="depot-remplacer">
+                  <button
+                    type="button"
+                    className="btn-sm"
+                    onClick={() => {
+                      setSucces(null);
+                      setRemplacer(true);
+                    }}
+                  >
+                    Remplacer mon livrable
+                  </button>
+                  <span className="field-hint">
+                    Possible jusqu’à la date limite, tant que la correction n’a pas commencé.
+                  </span>
+                </div>
+              )}
+            </>
           ) : atelier.etatDepot === 'CLOS' ? (
             <p className="alert alert-error depot-succes">
               Le dépôt est clos : vous n’avez pas soumis de livrable pour cet atelier.
