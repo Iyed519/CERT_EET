@@ -3318,3 +3318,73 @@ export async function changerStatutFormation(
   });
   return lireReponseFormation<FormationVue>(response, 'Impossible de changer le statut.');
 }
+
+// ---------------------------------------------------------------------------
+// US-INSC-02 — Gérer les inscriptions d'une formation (administrateur).
+// ---------------------------------------------------------------------------
+
+export interface InscriptionAdmin {
+  id: string;
+  statut: 'EN_COURS' | 'TERMINEE' | 'SUSPENDUE';
+  dateInscription: string;
+  tauxAvancement: number;
+  motifSuspension: string | null;
+  dateSuspension: string | null;
+  apprenant: { id: string; email: string; prenom: string | null; nom: string | null };
+}
+
+export interface RapportImportInscriptions {
+  total: number;
+  bilan: Record<string, number>;
+  lignes: Array<{ ligne: number; email: string; resultat: string; libelle: string }>;
+}
+
+/** US-INSC-02 — GET /api/admin/formations/:id/inscriptions?statut */
+export async function getInscriptionsFormation(
+  formationId: string,
+  statut?: InscriptionAdmin['statut'],
+): Promise<InscriptionAdmin[]> {
+  const qs = statut ? `?statut=${statut}` : '';
+  const response = await apiFetch(`/api/admin/formations/${formationId}/inscriptions${qs}`);
+  return lireReponseFormation<InscriptionAdmin[]>(response, 'Impossible de charger les inscriptions.');
+}
+
+/** US-INSC-02 — POST /api/admin/formations/:id/inscriptions { email } */
+export async function inscrireApprenant(formationId: string, email: string): Promise<InscriptionAdmin> {
+  const response = await apiFetch(`/api/admin/formations/${formationId}/inscriptions`, {
+    method: 'POST',
+    headers: JSON_HEADERS,
+    body: JSON.stringify({ email }),
+  });
+  return lireReponseFormation<InscriptionAdmin>(response, 'Impossible d’inscrire cet apprenant.');
+}
+
+/** US-INSC-02 — POST /api/admin/inscriptions/:id/suspendre { motif } */
+export async function suspendreInscription(id: string, motif: string): Promise<InscriptionAdmin> {
+  const response = await apiFetch(`/api/admin/inscriptions/${id}/suspendre`, {
+    method: 'POST',
+    headers: JSON_HEADERS,
+    body: JSON.stringify({ motif }),
+  });
+  return lireReponseFormation<InscriptionAdmin>(response, 'Impossible de suspendre l’inscription.');
+}
+
+/** US-INSC-02 — POST /api/admin/inscriptions/:id/reactiver */
+export async function reactiverInscription(id: string): Promise<InscriptionAdmin> {
+  const response = await apiFetch(`/api/admin/inscriptions/${id}/reactiver`, { method: 'POST' });
+  return lireReponseFormation<InscriptionAdmin>(response, 'Impossible de réactiver l’inscription.');
+}
+
+/** US-INSC-02 — POST /api/admin/formations/:id/inscriptions/import (multipart, champ « fichier »). */
+export async function importerInscriptions(
+  formationId: string,
+  fichier: File,
+): Promise<RapportImportInscriptions> {
+  const corps = new FormData();
+  corps.append('fichier', fichier);
+  const response = await apiFetch(`/api/admin/formations/${formationId}/inscriptions/import`, {
+    method: 'POST',
+    body: corps,
+  });
+  return lireReponseFormation<RapportImportInscriptions>(response, 'Impossible d’importer le fichier.');
+}

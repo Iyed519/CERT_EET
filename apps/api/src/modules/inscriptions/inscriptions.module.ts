@@ -9,13 +9,16 @@ import { RessourceModule } from '../../database/entities/ressource-module.entity
 import { Qcm } from '../../database/entities/qcm.entity';
 import { TentativeQcm } from '../../database/entities/tentative-qcm.entity';
 import { User } from '../../database/entities/user.entity';
+import { AdminInscriptionsController } from './admin/admin-inscriptions.controller';
+import { AdminInscriptionsService } from './admin/admin-inscriptions.service';
 import { EspaceFormationService } from './espace-formation.service';
 import { InscriptionsController } from './inscriptions.controller';
 import { InscriptionsService } from './inscriptions.service';
 
 /**
- * Module des inscriptions (US-INSC-01, US-INSC-04 ; la désinscription
- * suivra).
+ * Module des inscriptions (US-INSC-01, US-INSC-04 ; US-INSC-02 : gestion
+ * par l'administrateur — liste, ajout, suspension, réactivation, import CSV ;
+ * la désinscription suivra).
  *
  * - forFeature : Inscription (écriture) ; User (LECTURE : email et prénom
  *   pour l'email de bienvenue) ; Formation, Qcm, TentativeQcm, Atelier, Livrable
@@ -38,8 +41,8 @@ import { InscriptionsService } from './inscriptions.service';
       RessourceModule,
     ]),
   ],
-  controllers: [InscriptionsController],
-  providers: [InscriptionsService, EspaceFormationService],
+  controllers: [InscriptionsController, AdminInscriptionsController],
+  providers: [AdminInscriptionsService, InscriptionsService, EspaceFormationService],
   // US-ATEL-03 : la fiche d'un atelier côté apprenant réutilise le contrôle d'accès.
   exports: [EspaceFormationService],
 })
