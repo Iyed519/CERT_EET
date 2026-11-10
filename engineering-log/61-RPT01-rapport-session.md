@@ -75,7 +75,36 @@ par module ».
   3 essais.
 
 ## Vérification
-VERIF
+- API : lint 0 erreur / 0 avertissement, `tsc`, unitaires **89 suites / 1 256 tests**
+  (+ 37 : mise en forme CSV / PDF, contenu des trois portées, règles,
+  service — limite, isolation, 409, 503, prise conditionnelle, reprise,
+  échec définitif, email —, email de fin), migration run + revert + run
+  (**31 migrations**), e2e complet en série **48 suites / 672 tests**
+  (+ 1 ignoré), dont `E2E-RPT01` (12 tests : 401 / 403 apprenant / 404 /
+  400 ; 403 formateur non affecté tracé ; 400 format, portée, champ inconnu,
+  paramètre manquant ou hors portée ; 404 apprenant non inscrit, module d'une
+  autre formation ; CSV global de bout en bout — 202, PRET, BOM, liste
+  blanche, formule neutralisée, SHA-256 et taille du fichier téléchargé,
+  trois traces — ; PDF individuel ; CSV par module, meilleure note ;
+  administrateur ; isolation 404 et listes séparées ; 409, échec définitif
+  tracé, échec tardif sans effet sur un rapport prêt ; concurrence :
+  8 demandes simultanées -> 5 × 202, 3 × 429 ; 4 exécutions simultanées du
+  worker -> un fichier, une trace).
+- Mutations : **17 / 17 tuées** — limite (seuil, verrou, fenêtre), isolation
+  du demandeur, prise conditionnelle, apprenant inscrit, module de la
+  formation, paramètre hors portée, brouillons exclus, meilleure note,
+  formule neutralisée, BOM, audit du téléchargement, échec conditionnel,
+  remise EN_ATTENTE, garde mal configurée, empreinte. Un mutant survit et
+  est équivalent : retirer le contrôle `statut = PRET` au téléchargement
+  (seul un rapport PRET a une clé de stockage, la vérification suivante
+  suffit) ; le contrôle reste, par défense en profondeur. Une variante
+  (clé non vérifiée) est refusée par le typage.
+- Web : `tsc`, `next lint`, `next build`. Navigateur 1280 / 390 px
+  (Chromium, compte formateur de démonstration, formation de démonstration) :
+  bouton « Exporter un rapport » du suivi, page « Rapports de session »
+  (demande CSV globale -> « Prêt » sans recharger, « Télécharger »),
+  « Mes rapports » ; PDF global relu (indicateurs, répartition, tableau des
+  apprenants) ; pas de défilement horizontal.
 
 ## CI
 Voir la PR.
