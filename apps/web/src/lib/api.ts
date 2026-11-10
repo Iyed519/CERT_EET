@@ -3824,3 +3824,45 @@ export async function suivreEnDirect(
     }
   }
 }
+
+/* ============================================================
+ * US-AUTH-08 — Changer son mot de passe (utilisateur connecté)
+ * ============================================================ */
+export class ChangementMotDePasseError extends Error {}
+
+/**
+ * POST /api/auth/change-password. Un 401 « mot de passe actuel incorrect »
+ * (code MOT_DE_PASSE_ACTUEL_INCORRECT) est une erreur MÉTIER : il ne doit pas
+ * déclencher le refresh puis la déconnexion d'apiFetch. On envoie donc d'abord
+ * avec le jeton courant ; seul un autre 401 (jeton expiré) passe par apiFetch,
+ * qui rafraîchit la session et rejoue la requête.
+ */
+export async function changerMotDePasse(
+  motDePasseActuel: string,
+  nouveauMotDePasse: string,
+): Promise<{ message: string; sessionsRevoquees: number }> {
+  const init: RequestInit = {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ motDePasseActuel, nouveauMotDePasse }),
+  };
+  let response = await fetchWithAuth('/api/auth/change-password', init);
+  let data = (await response.json().catch(() => ({}))) as {
+    message?: string | string[];
+    code?: string;
+    sessionsRevoquees?: number;
+  };
+  if (response.status === 401 && data.code !== 'MOT_DE_PASSE_ACTUEL_INCORRECT') {
+    response = await apiFetch('/api/auth/change-password', init);
+    data = (await response.json().catch(() => ({}))) as typeof data;
+  }
+  if (!response.ok) {
+    throw new ChangementMotDePasseError(
+      messageErreur(data) ?? 'Impossible de changer le mot de passe.',
+    );
+  }
+  return {
+    message: messageErreur(data) ?? 'Mot de passe modifié.',
+    sessionsRevoquees: data.sessionsRevoquees ?? 0,
+  };
+}

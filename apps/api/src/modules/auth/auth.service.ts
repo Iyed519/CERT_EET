@@ -2,6 +2,7 @@ import {
   BadRequestException,
   ConflictException,
   Injectable,
+  Logger,
   UnauthorizedException,
 } from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
@@ -21,10 +22,11 @@ import { Role } from '../../database/enums/role.enum';
 import { LoginDto } from './dto/login.dto';
 import { RegisterDto } from './dto/register.dto';
 import { CompleteProfileDto } from './dto/complete-profile.dto';
+import { ChangerMotDePasseDto } from './dto/changer-mot-de-passe.dto';
 import { NiveauEtudes } from '../../database/enums/niveau-etudes.enum';
 import { DomaineEtudes } from '../../database/entities/domaine-etudes.entity';
 import { Etablissement } from '../../database/entities/etablissement.entity';
-import { OauthProfile } from './auth.types';
+import { AccessTokenPayload, OauthProfile } from './auth.types';
 import { JwtConfig } from '../../config/configuration';
 import { RedisService } from '../../redis/redis.service';
 import { MailService } from '../../mail/mail.service';
@@ -50,6 +52,11 @@ const MFA_ISSUER = 'Cert_EET';
 const MFA_SETUP_TTL_SECONDS = 10 * 60;
 // US-AUTH-02 : durée de vie du défi MFA à la connexion (5 min).
 const MFA_SESSION_TTL_SECONDS = 5 * 60;
+// US-AUTH-08 : codes stables dans le corps des refus, pour que le frontend
+// distingue « mot de passe actuel incorrect » (401 métier) d'une session
+// expirée (401 qui déclenche un refresh).
+export const CODE_MOT_DE_PASSE_ACTUEL_INCORRECT = 'MOT_DE_PASSE_ACTUEL_INCORRECT';
+export const CODE_SANS_MOT_DE_PASSE_LOCAL = 'SANS_MOT_DE_PASSE_LOCAL';
 /** Donnees d'enrolement MFA renvoyees par /auth/mfa/setup (US-AUTH-09). */
 export interface MfaSetupResult {
   otpauthUrl: string;
@@ -85,6 +92,7 @@ export interface ProfilResult {
 }
 @Injectable()
 export class AuthService {
+  private readonly logger = new Logger(AuthService.name);
   private readonly jwtConfig: JwtConfig;
   constructor(
     @InjectRepository(User)
@@ -454,20 +462,141 @@ export class AuthService {
   }
   /**
    * US-AUTH-11 — Invalide IMMÉDIATEMENT toutes les sessions actives d'un
-   * utilisateur (ex. après un changement de rôle, US-ROL-01) :
+   * utilisateur (changement de rôle US-ROL-01, désactivation US-CPT-03,
+   * changement de mot de passe US-AUTH-08) :
    *   1. toutes ses sessions refresh -> active=false (plus de refresh) ;
-   *   2. marqueur Redis "sessions-valid-after = maintenant" -> le JwtAuthGuard
-   *      refuse tout access token émis avant cet instant.
+   *   2. chacun de ces refresh tokens sur la denylist Redis (US-AUTH-08 :
+   *      révocation visible aussi côté Redis, TTL = durée restante) ;
+   *   3. marqueur Redis "sessions-valid-after = maintenant" (en MILLISECONDES
+   *      depuis US-AUTH-08) -> le JwtAuthGuard refuse tout access token émis
+   *      avant cet instant, même dans la même seconde.
    * TTL du marqueur = durée de vie d'un access token (au-delà ils sont expirés).
+   * Renvoie le nombre de sessions refresh fermées.
    */
-  async invalidateUserSessions(userId: string): Promise<void> {
+  async invalidateUserSessions(userId: string): Promise<number> {
+    const actives = await this.refreshTokenRepository.find({
+      where: { userId, active: true },
+    });
     await this.refreshTokenRepository.update({ userId, active: true }, { active: false });
-    const nowSeconds = Math.floor(Date.now() / 1000);
+    for (const jeton of actives) {
+      const ttlSeconds = Math.max(
+        1,
+        Math.ceil((jeton.dateExpiration.getTime() - Date.now()) / 1000),
+      );
+      await this.redisService.set(refreshDenylistKey(jeton.tokenHash), '1', ttlSeconds);
+    }
     await this.redisService.set(
       sessionsValidAfterKey(userId),
-      String(nowSeconds),
+      String(Date.now()),
       this.jwtConfig.accessTokenExpiresIn,
     );
+    return actives.length;
+  }
+  /**
+   * US-AUTH-08 — Changer son mot de passe (utilisateur connecté, DS-10 P2).
+   *
+   *   1. nouveau identique à l'actuel -> 400 (rien n'est lu en base) ;
+   *   2. hachage du nouveau (bcrypt, cost 12) AVANT de prendre le verrou ;
+   *   3. transaction : ligne de l'utilisateur verrouillée (FOR UPDATE) — deux
+   *      changements simultanés avec le même ancien mot de passe sont
+   *      sérialisés, le second compare contre le NOUVEAU hash et échoue ;
+   *   4. compte sans mot de passe local (connexion sociale) -> 409 ;
+   *   5. ancien mot de passe faux -> 401 (code stable), audit MDP_CHANGE Échec ;
+   *   6. mise à jour du hash ; après COMMIT : révocation de TOUTES les sessions
+   *      (base + Redis), jeton d'accès courant sur la denylist, audit
+   *      MDP_CHANGE, email de notification (non bloquant).
+   */
+  async changerMotDePasse(
+    claims: Pick<AccessTokenPayload, 'sub' | 'jti' | 'exp'>,
+    dto: ChangerMotDePasseDto,
+    context: { adresseIp: string | null },
+  ): Promise<{ sessionsRevoquees: number }> {
+    if (dto.nouveauMotDePasse === dto.motDePasseActuel) {
+      throw new BadRequestException(
+        "Le nouveau mot de passe doit être différent de l'actuel.",
+      );
+    }
+    const nouveauHash = await bcrypt.hash(dto.nouveauMotDePasse, 12);
+    const issue = await this.userRepository.manager.transaction(async (em) => {
+      const lignes = (await em.query(
+        `SELECT id, email, prenom, statut, mot_de_passe_hash
+           FROM users WHERE id = $1 FOR UPDATE`,
+        [claims.sub],
+      )) as Array<{
+        id: string;
+        email: string;
+        prenom: string | null;
+        statut: StatutCompte;
+        mot_de_passe_hash: string | null;
+      }>;
+      const ligne = lignes[0];
+      if (!ligne || ligne.statut !== StatutCompte.ACTIF) {
+        return { type: 'inconnu' as const };
+      }
+      if (!ligne.mot_de_passe_hash) {
+        return { type: 'sans-mot-de-passe' as const };
+      }
+      const ok = await bcrypt.compare(dto.motDePasseActuel, ligne.mot_de_passe_hash);
+      if (!ok) {
+        return { type: 'incorrect' as const };
+      }
+      await em.query(
+        `UPDATE users SET mot_de_passe_hash = $2, updated_at = now() WHERE id = $1`,
+        [ligne.id, nouveauHash],
+      );
+      return { type: 'ok' as const, email: ligne.email, prenom: ligne.prenom };
+    });
+    if (issue.type === 'inconnu') {
+      throw new UnauthorizedException('Non authentifié.');
+    }
+    if (issue.type === 'sans-mot-de-passe') {
+      throw new ConflictException({
+        statusCode: 409,
+        code: CODE_SANS_MOT_DE_PASSE_LOCAL,
+        message:
+          "Ce compte n'a pas de mot de passe local (connexion Google ou GitHub). Utilisez « Mot de passe oublié ? » pour en définir un.",
+      });
+    }
+    if (issue.type === 'incorrect') {
+      await this.auditService.record({
+        action: 'MDP_CHANGE',
+        acteur: claims.sub,
+        adresseIp: context.adresseIp,
+        resultat: 'Échec',
+        detailsAvantApres: { motif: 'Mot de passe actuel incorrect' },
+      });
+      throw new UnauthorizedException({
+        statusCode: 401,
+        code: CODE_MOT_DE_PASSE_ACTUEL_INCORRECT,
+        message: 'Mot de passe actuel incorrect.',
+      });
+    }
+    const sessionsRevoquees = await this.invalidateUserSessions(claims.sub);
+    // Le jeton qui a servi à la requête est aussi révoqué nommément (en plus
+    // du marqueur) : rien ne reste exploitable, même à la milliseconde près.
+    const ttl = this.remainingSeconds(claims.exp);
+    if (ttl > 0) {
+      await this.redisService.set(accessDenylistKey(claims.jti), '1', ttl);
+    }
+    await this.auditService.record({
+      action: 'MDP_CHANGE',
+      acteur: claims.sub,
+      adresseIp: context.adresseIp,
+      resultat: 'Succès',
+      detailsAvantApres: { sessionsRevoquees },
+    });
+    try {
+      await this.mailService.sendMotDePasseModifieEmail(issue.email, {
+        prenom: issue.prenom,
+      });
+    } catch (erreur) {
+      // Le mot de passe est déjà changé et les sessions fermées : un relais
+      // SMTP en panne ne doit pas faire croire à un échec.
+      this.logger.error(
+        `Email de changement de mot de passe non envoyé (${claims.sub}) : ${String(erreur)}`,
+      );
+    }
+    return { sessionsRevoquees };
   }
   /**
    * US-AUTH-15 — Profil courant (incl. profil_complet). Alimente /auth/me : le
@@ -695,6 +824,9 @@ export class AuthService {
         role: user.role,
         jti: crypto.randomUUID(),
         sid: familleId,
+        // US-AUTH-08 : instant d'émission en millisecondes, comparé au
+        // marqueur d'invalidation (iat n'a qu'une précision à la seconde).
+        tms: Date.now(),
       },
       {
         privateKey: this.getPrivateKey(),

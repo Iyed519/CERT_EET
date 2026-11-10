@@ -22,6 +22,7 @@ import { VerifyEmailDto } from './dto/verify-email.dto';
 import { CompleteProfileDto } from './dto/complete-profile.dto';
 import { MfaCodeDto } from './dto/mfa-code.dto';
 import { MfaVerifyDto } from './dto/mfa-verify.dto';
+import { ChangerMotDePasseDto } from './dto/changer-mot-de-passe.dto';
 import { JwtConfig, MailConfig } from '../../config/configuration';
 import { Public } from './decorators/public.decorator';
 import { AuthenticatedRequest, OauthProfile } from './auth.types';
@@ -350,6 +351,40 @@ export class AuthController {
       adresseIp: req.ip ?? null,
     });
     return { message: 'Double authentification desactivee.' };
+  }
+
+  /**
+   * US-AUTH-08 — Changer son mot de passe (route PROTÉGÉE). Exige le mot de
+   * passe actuel ; en cas de succès, TOUTES les sessions de l'utilisateur sont
+   * révoquées (celle-ci comprise) et le cookie refresh est effacé : le
+   * frontend renvoie vers la connexion.
+   */
+  @ApiBearerAuth('access-token')
+  @Post('change-password')
+  @HttpCode(HttpStatus.OK)
+  @ApiOperation({ summary: 'Changer son mot de passe (US-AUTH-08)' })
+  @ApiResponse({ status: 200, description: 'Mot de passe changé ; toutes les sessions sont déconnectées.' })
+  @ApiResponse({ status: 400, description: 'Nouveau mot de passe non conforme ou identique.' })
+  @ApiResponse({ status: 401, description: 'Mot de passe actuel incorrect, ou non authentifié.' })
+  @ApiResponse({ status: 409, description: 'Compte sans mot de passe local (connexion sociale).' })
+  async changerMotDePasse(
+    @Body() dto: ChangerMotDePasseDto,
+    @Req() req: AuthenticatedRequest,
+    @Res({ passthrough: true }) res: Response,
+  ): Promise<{ message: string; sessionsRevoquees: number }> {
+    const user = req.user;
+    if (!user) {
+      throw new UnauthorizedException('Non authentifié.');
+    }
+    const { sessionsRevoquees } = await this.authService.changerMotDePasse(user, dto, {
+      adresseIp: req.ip ?? null,
+    });
+    res.clearCookie('refreshToken', { path: '/api/auth' });
+    return {
+      message:
+        'Mot de passe modifié. Toutes vos sessions ont été déconnectées : reconnectez-vous avec votre nouveau mot de passe.',
+      sessionsRevoquees,
+    };
   }
 
   /**

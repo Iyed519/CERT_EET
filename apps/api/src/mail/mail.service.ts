@@ -1201,6 +1201,51 @@ export class MailService {
     });
     this.logger.log(`Email de désinscription envoyé à ${to}`);
   }
+
+  /**
+   * US-AUTH-08 — Prévient le titulaire que son mot de passe vient d'être
+   * changé et que toutes ses sessions ont été fermées. Aucun lien d'action :
+   * si ce n'est pas lui, il passe par « Mot de passe oublié » ou contacte un
+   * administrateur. L'erreur d'envoi remonte : l'appelant la rend non
+   * bloquante (le changement est déjà enregistré).
+   */
+  async sendMotDePasseModifieEmail(
+    to: string,
+    donnees: { prenom: string | null },
+  ): Promise<void> {
+    const { from, appBaseUrl } =
+      this.configService.getOrThrow<MailConfig>('mail');
+    const prenom = donnees.prenom?.trim() ?? '';
+    const salutation = prenom ? `Bonjour ${prenom},` : 'Bonjour,';
+    const text =
+      `${salutation}\n\n` +
+      `Le mot de passe de votre compte Cert_EET vient d'être modifié. ` +
+      `Par sécurité, toutes vos sessions ont été déconnectées : reconnectez-vous ` +
+      `avec votre nouveau mot de passe.\n\n` +
+      `Si vous n'êtes pas à l'origine de ce changement, réinitialisez ` +
+      `immédiatement votre mot de passe (« Mot de passe oublié ? » sur la page ` +
+      `de connexion) et prévenez un administrateur.\n\n` +
+      `Se connecter : ${appBaseUrl}/login\n\n` +
+      `— L'équipe Cert_EET`;
+    const html = gabaritEmail({
+      titre: 'Votre mot de passe a été modifié',
+      paragraphesHtml: [
+        echapperHtml(salutation),
+        "Le mot de passe de votre compte Cert_EET vient d'être modifié. Par sécurité, <strong style=\"color:#1b2631;\">toutes vos sessions ont été déconnectées</strong> : reconnectez-vous avec votre nouveau mot de passe.",
+      ],
+      bouton: { libelle: 'Se connecter', lien: `${appBaseUrl}/login` },
+      piedHtml:
+        "Vous n'êtes pas à l'origine de ce changement&nbsp;? Réinitialisez immédiatement votre mot de passe («&nbsp;Mot de passe oublié&nbsp;?&nbsp;» sur la page de connexion) et prévenez un administrateur.",
+    });
+    await this.transporter.sendMail({
+      from,
+      to,
+      subject: 'Cert_EET — Votre mot de passe a été modifié',
+      text,
+      html,
+    });
+    this.logger.log(`Email de changement de mot de passe envoyé à ${to}`);
+  }
 }
 /**
  * Période d'une formation pour un email : « du JJ/MM/AAAA au JJ/MM/AAAA »,
@@ -1230,4 +1275,83 @@ function echapperHtml(valeur: string): string {
     .replace(/>/g, '&gt;')
     .replace(/"/g, '&quot;')
     .replace(/'/g, '&#39;');
+}
+
+/**
+ * Gabarit commun des emails ajoutés depuis US-AUTH-08 : mêmes couleurs et même
+ * structure « table-based » que les emails existants (styles inline). Les
+ * paragraphes sont du HTML déjà échappé par l'appelant.
+ */
+function gabaritEmail(contenu: {
+  titre: string;
+  paragraphesHtml: string[];
+  bouton?: { libelle: string; lien: string };
+  mentionHtml?: string;
+  piedHtml: string;
+}): string {
+  const paragraphes = contenu.paragraphesHtml
+    .map(
+      (p) =>
+        `                <p style="margin:0 0 14px 0;font-size:15px;line-height:1.6;color:#4a5866;">${p}</p>`,
+    )
+    .join('\n');
+  const bouton = contenu.bouton
+    ? `
+                <table role="presentation" cellpadding="0" cellspacing="0" style="margin:6px 0 18px 0;">
+                  <tr>
+                    <td align="center" bgcolor="#1e8449" style="border-radius:10px;">
+                      <a href="${contenu.bouton.lien}" target="_blank" style="display:inline-block;padding:14px 30px;font-size:15px;font-weight:bold;color:#ffffff;text-decoration:none;border-radius:10px;">${contenu.bouton.libelle}</a>
+                    </td>
+                  </tr>
+                </table>
+                <p style="margin:0 0 6px 0;font-size:13px;line-height:1.5;color:#8a97a3;">
+                  Si le bouton ne fonctionne pas, copiez-collez ce lien dans votre navigateur&nbsp;:
+                </p>
+                <p style="margin:0 0 20px 0;font-size:13px;line-height:1.5;word-break:break-all;">
+                  <a href="${contenu.bouton.lien}" target="_blank" style="color:#1e8449;text-decoration:underline;">${contenu.bouton.lien}</a>
+                </p>`
+    : '';
+  const mention = contenu.mentionHtml
+    ? `
+                <p style="margin:0 0 18px 0;font-size:13px;line-height:1.5;color:#8a97a3;">${contenu.mentionHtml}</p>`
+    : '';
+  return `<!doctype html>
+<html lang="fr">
+  <body style="margin:0;padding:0;background-color:#f2f4f3;">
+    <table role="presentation" width="100%" cellpadding="0" cellspacing="0" style="background-color:#f2f4f3;font-family:Arial,Helvetica,sans-serif;">
+      <tr>
+        <td align="center" style="padding:28px 12px;">
+          <table role="presentation" width="600" cellpadding="0" cellspacing="0" style="width:600px;max-width:600px;background-color:#ffffff;border-radius:16px;overflow:hidden;box-shadow:0 6px 24px rgba(16,24,40,0.08);">
+            <tr>
+              <td style="background-color:#1e8449;padding:22px 30px;">
+                <table role="presentation" cellpadding="0" cellspacing="0">
+                  <tr>
+                    <td width="36" height="36" align="center" valign="middle" style="background-color:rgba(255,255,255,0.20);border-radius:9px;color:#ffffff;font-size:14px;font-weight:bold;">CE</td>
+                    <td style="padding-left:12px;color:#ffffff;font-size:18px;font-weight:bold;letter-spacing:0.3px;">Cert_EET</td>
+                  </tr>
+                </table>
+              </td>
+            </tr>
+            <tr>
+              <td style="padding:34px 34px 6px 34px;">
+                <h1 style="margin:0 0 12px 0;font-size:22px;line-height:1.3;color:#1b2631;">${contenu.titre}</h1>
+${paragraphes}${bouton}${mention}
+                <hr style="border:none;border-top:1px solid #ece7df;margin:8px 0 16px 0;" />
+                <p style="margin:0;font-size:13px;line-height:1.5;color:#8a97a3;">${contenu.piedHtml}</p>
+              </td>
+            </tr>
+            <tr>
+              <td style="padding:18px 34px 26px 34px;">
+                <p style="margin:0;font-size:12px;line-height:1.5;color:#aab4bd;">
+                  © Cert_EET — Certification numérique vérifiable.<br />
+                  Email envoyé automatiquement, merci de ne pas y répondre.
+                </p>
+              </td>
+            </tr>
+          </table>
+        </td>
+      </tr>
+    </table>
+  </body>
+</html>`;
 }

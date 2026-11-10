@@ -1357,3 +1357,8 @@ h1, h2, h3 { color: var(--ink); }
   .catalogue-recherche { flex-basis: 100%; }
   .bandeau-cta { padding: 22px; }
 }
+
+/* ===== Sécurité du compte (US-AUTH-08) ===== */
+.securite-bloc { max-width: 560px; margin: 0 0 22px; padding: 18px; border: 1px solid var(--border); border-radius: var(--radius-sm); background: var(--surface); }
+.securite-bloc .section-title { margin-top: 0; }
+.securite-bloc .page-subtitle { margin: 0 0 14px; }

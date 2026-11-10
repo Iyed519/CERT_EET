@@ -1,5 +1,5 @@
 'use client';
-import { useState, FormEvent } from 'react';
+import { useEffect, useState, FormEvent } from 'react';
 import { useRouter } from 'next/navigation';
 import {
   loginRequest,
@@ -19,6 +19,18 @@ export default function LoginPage(): JSX.Element {
   // US-AUTH-02 : 2e étape. mfaToken != null => on affiche l'écran code.
   const [mfaToken, setMfaToken] = useState<string | null>(null);
   const [code, setCode] = useState('');
+  // US-AUTH-08 : retour après un changement de mot de passe (toutes les
+  // sessions ont été fermées). Lu dans l'URL au montage, sans useSearchParams
+  // (qui imposerait une frontière Suspense au build).
+  const [info, setInfo] = useState<string | null>(null);
+  useEffect(() => {
+    const params = new URLSearchParams(window.location.search);
+    if (params.get('motdepasse') === 'modifie') {
+      setInfo(
+        'Votre mot de passe a été modifié et toutes vos sessions ont été déconnectées. Connectez-vous avec le nouveau mot de passe.',
+      );
+    }
+  }, []);
 
   async function handleSubmit(event: FormEvent<HTMLFormElement>): Promise<void> {
     event.preventDefault();
@@ -152,6 +164,7 @@ export default function LoginPage(): JSX.Element {
         <p className="auth-subtitle">
           Connectez-vous pour accéder à votre espace Cert_EET.
         </p>
+        {info !== null && <p className="alert alert-success">{info}</p>}
         <form className="form" onSubmit={handleSubmit}>
           <div className="field">
             <label className="field-label" htmlFor="email">Adresse e-mail</label>

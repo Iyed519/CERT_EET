@@ -74,7 +74,7 @@ export class JwtAuthGuard implements CanActivate {
     const validAfter = await this.redisService.get(
       sessionsValidAfterKey(payload.sub),
     );
-    if (validAfter && payload.iat < Number(validAfter)) {
+    if (validAfter && emisAvantMarqueur(payload, Number(validAfter))) {
       throw new UnauthorizedException('Session invalide ou expirée.');
     }
 
@@ -89,4 +89,19 @@ export class JwtAuthGuard implements CanActivate {
     }
     return null;
   }
+}
+
+/**
+ * US-AUTH-08 — Le jeton a-t-il été émis avant le marqueur d'invalidation ?
+ * Comparaison en millisecondes : le marqueur est écrit en millisecondes (un
+ * marqueur plus ancien, en secondes, est reconnu à sa taille) et l'instant
+ * d'émission vient du claim `tms` (ou de `iat` pour les jetons plus anciens).
+ */
+export function emisAvantMarqueur(
+  payload: Pick<AccessTokenPayload, 'iat' | 'tms'>,
+  marqueur: number,
+): boolean {
+  const marqueurMs = marqueur < 1e12 ? marqueur * 1000 : marqueur;
+  const emisMs = payload.tms ?? payload.iat * 1000;
+  return emisMs < marqueurMs;
 }
