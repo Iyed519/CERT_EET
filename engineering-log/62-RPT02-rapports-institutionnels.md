@@ -58,7 +58,30 @@ Statut, liste et fichier : routes d'US-RPT-01 (`/api/rapports…`), demandeur se
   valide est `ERREUR_ADMIN`. Corrigé dans le jeu de données de la suite.
 
 ## Vérification
-VERIF
+- API : lint 0 erreur / 0 avertissement, `tsc`, unitaires **90 suites / 1 267 tests**
+  (+ 11 : contenu des trois modèles en CSV et PDF, période résolue et
+  conservée, 400 sans insertion, limite partagée, génération selon le type),
+  aucune migration (**31**), e2e complet en série **49 suites / 679 tests**
+  (+ 1 ignoré), dont `E2E-RPT02` (7 tests : 401 / 403 formateur et apprenant ;
+  400 modèle, format, date mal formée, date inexistante, début > fin (message
+  exact), > 366 jours, champ inconnu, sans insertion ; bilan par formation aux
+  comptes exacts sur février 2004 — borne de minuit à l'heure de Tunis,
+  tentative abandonnée exclue, révocation de mars exclue — ; registre des
+  certificats avec consultations publiques ; synthèse PDF et période vide ;
+  isolation entre administrateurs ; concurrence : 8 demandes simultanées ->
+  5 × 202, 3 × 429). La suite a été renforcée après l'e2e complet (voir
+  « Mutations ») et relancée seule : 7 / 7.
+- Mutations : **12 / 12 tuées** (dont 2 après renfort du jeu de données :
+  tentative abandonnée dans la période, certificat révoqué après la période) —
+  période non validée, type, fuseau de la borne de fin, statut NOTEE,
+  révocations et inscriptions hors période, action des consultations, registre
+  hors période, garde ADMINISTRATEUR, taux de réussite, période de la
+  synthèse, limite commune.
+- Web : `tsc`, `next lint`, `next build`. Navigateur 1280 / 390 px
+  (Chromium, compte administrateur de démonstration) : onglet « Rapports »,
+  demande d'un bilan par formation -> « En cours » puis « Prêt » sans
+  recharger, libellé et période dans « Mes rapports » ; PDF de synthèse relu ;
+  pas de défilement horizontal.
 
 ## CI
 Voir la PR.
