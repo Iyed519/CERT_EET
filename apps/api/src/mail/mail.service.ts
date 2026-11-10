@@ -1051,6 +1051,70 @@ export class MailService {
     });
     this.logger.log(`Email de statut d’inscription envoyé à ${to}`);
   }
+
+  /**
+   * US-INSC-03 — Email au formateur affecté quand un apprenant se désinscrit
+   * (DS-11 P1 : « notifier les formateurs »). Erreur remontée : l'appelant la
+   * rend non bloquante.
+   */
+  async sendDesinscriptionFormateurEmail(
+    to: string,
+    donnees: { prenomFormateur: string | null; nomApprenant: string; titreFormation: string },
+  ): Promise<void> {
+    const { from, appBaseUrl } = this.configService.getOrThrow<MailConfig>('mail');
+    const lien = `${appBaseUrl}/formateur/formations`;
+    const formation = donnees.titreFormation.replace(/\s+/g, ' ').trim();
+    const apprenant = donnees.nomApprenant.replace(/\s+/g, ' ').trim();
+    const prenom = donnees.prenomFormateur?.trim() ?? '';
+    const salutation = prenom ? `Bonjour ${prenom},` : 'Bonjour,';
+    const phrase = `${apprenant} s’est désinscrit(e) de la formation « ${formation} ». Son inscription est suspendue ; ses résultats restent consultables dans le suivi.`;
+    const text = `${salutation}\n\n${phrase}\n\nMes formations : ${lien}\n\n— L'équipe Cert_EET`;
+    const html = `<!doctype html>
+<html lang="fr">
+  <body style="margin:0;padding:0;background-color:#f2f4f3;">
+    <table role="presentation" width="100%" cellpadding="0" cellspacing="0" style="background-color:#f2f4f3;font-family:Arial,Helvetica,sans-serif;">
+      <tr>
+        <td align="center" style="padding:28px 12px;">
+          <table role="presentation" width="600" cellpadding="0" cellspacing="0" style="width:600px;max-width:600px;background-color:#ffffff;border-radius:16px;overflow:hidden;">
+            <tr>
+              <td style="background-color:#1e8449;padding:22px 30px;color:#ffffff;font-size:18px;font-weight:bold;">Cert_EET</td>
+            </tr>
+            <tr>
+              <td style="padding:34px 34px 6px 34px;">
+                <h1 style="margin:0 0 12px 0;font-size:22px;line-height:1.3;color:#1b2631;">Désinscription d’un apprenant</h1>
+                <p style="margin:0 0 14px 0;font-size:15px;line-height:1.6;color:#4a5866;">${echapperHtml(salutation)}</p>
+                <p style="margin:0 0 22px 0;font-size:15px;line-height:1.6;color:#4a5866;">${echapperHtml(phrase)}</p>
+                <table role="presentation" cellpadding="0" cellspacing="0" style="margin:6px 0 18px 0;">
+                  <tr>
+                    <td align="center" bgcolor="#1e8449" style="border-radius:10px;">
+                      <a href="${lien}" target="_blank" style="display:inline-block;padding:14px 30px;font-size:15px;font-weight:bold;color:#ffffff;text-decoration:none;border-radius:10px;">Mes formations</a>
+                    </td>
+                  </tr>
+                </table>
+              </td>
+            </tr>
+            <tr>
+              <td style="padding:18px 34px 26px 34px;">
+                <p style="margin:0;font-size:12px;line-height:1.5;color:#aab4bd;">
+                  © Cert_EET — Email envoyé automatiquement, merci de ne pas y répondre.
+                </p>
+              </td>
+            </tr>
+          </table>
+        </td>
+      </tr>
+    </table>
+  </body>
+</html>`;
+    await this.transporter.sendMail({
+      from,
+      to,
+      subject: `Cert_EET — Désinscription : « ${formation} »`,
+      text,
+      html,
+    });
+    this.logger.log(`Email de désinscription envoyé à ${to}`);
+  }
 }
 /**
  * Période d'une formation pour un email : « du JJ/MM/AAAA au JJ/MM/AAAA »,

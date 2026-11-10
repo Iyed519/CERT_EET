@@ -1,4 +1,5 @@
 import {
+  Body,
   Controller,
   Get,
   HttpCode,
@@ -13,6 +14,11 @@ import { ApiBearerAuth, ApiOperation, ApiResponse, ApiTags } from '@nestjs/swagg
 import { Role } from '../../database/enums/role.enum';
 import { AccessTokenPayload, AuthenticatedRequest } from '../auth/auth.types';
 import { Roles } from '../auth/decorators/roles.decorator';
+import { ConfirmerDesinscriptionDto } from './desinscription/desinscription.dto';
+import {
+  ConsequencesDesinscription,
+  DesinscriptionService,
+} from './desinscription/desinscription.service';
 import { EspaceFormationService, EspaceFormationVue } from './espace-formation.service';
 import { InscriptionsService, InscriptionVue } from './inscriptions.service';
 
@@ -38,7 +44,51 @@ export class InscriptionsController {
   constructor(
     private readonly inscriptionsService: InscriptionsService,
     private readonly espaceFormationService: EspaceFormationService,
+    private readonly desinscriptionService: DesinscriptionService,
   ) {}
+
+  @Get('formations/:formationId/desinscription')
+  @ApiOperation({ summary: 'Conséquences d’une désinscription, avant confirmation (US-INSC-03)' })
+  @ApiResponse({
+    status: 200,
+    description: 'Conséquences (accès retiré, évaluations en cours, certificats conservés).',
+  })
+  @ApiResponse({ status: 400, description: 'Identifiant mal formé.' })
+  @ApiResponse({ status: 401, description: 'Non authentifié.' })
+  @ApiResponse({ status: 403, description: 'Rôle autre qu’apprenant.' })
+  @ApiResponse({ status: 404, description: 'Inscription introuvable pour cet utilisateur.' })
+  consequencesDesinscription(
+    @Param('formationId', ParseUUIDPipe) formationId: string,
+    @Req() req: AuthenticatedRequest,
+  ): Promise<ConsequencesDesinscription> {
+    const apprenant = this.exigerUtilisateur(req);
+    return this.desinscriptionService.consequences(apprenant.sub, formationId);
+  }
+
+  @Post('formations/:formationId/desinscription')
+  @HttpCode(HttpStatus.OK)
+  @ApiOperation({
+    summary: 'Me désinscrire d’une formation (US-INSC-03, DS-11 P1)',
+    description:
+      'Inscription SUSPENDUE (jamais supprimée) ; accès retiré ; certificats conservés ; ' +
+      'formateurs notifiés. Seul un administrateur peut réactiver.',
+  })
+  @ApiResponse({ status: 200, description: 'SUSPENDUE ; audit INSCRIPTION_DESINSCRITE.' })
+  @ApiResponse({ status: 400, description: 'Confirmation absente ou fausse ; champ inconnu.' })
+  @ApiResponse({ status: 401, description: 'Non authentifié.' })
+  @ApiResponse({ status: 403, description: 'Rôle autre qu’apprenant.' })
+  @ApiResponse({ status: 404, description: 'Inscription introuvable pour cet utilisateur.' })
+  @ApiResponse({ status: 409, description: 'Inscription déjà suspendue ou terminée.' })
+  desinscrire(
+    @Param('formationId', ParseUUIDPipe) formationId: string,
+    @Body() _dto: ConfirmerDesinscriptionDto,
+    @Req() req: AuthenticatedRequest,
+  ): Promise<{ statut: 'SUSPENDUE'; formation: { id: string; titre: string } }> {
+    const apprenant = this.exigerUtilisateur(req);
+    return this.desinscriptionService.desinscrire(apprenant.sub, formationId, {
+      adresseIp: req.ip ?? null,
+    });
+  }
 
   @Post('formations/:formationId/inscriptions')
   @HttpCode(HttpStatus.CREATED)
