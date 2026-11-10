@@ -7,7 +7,7 @@ import { StatutCertificat } from '../../database/enums/statut-certificat.enum';
  */
 
 /** Verdict publié au visiteur. */
-export type VerdictPublic = 'VALIDE' | 'REVOQUE' | 'INTEGRITE_COMPROMISE';
+export type VerdictPublic = 'VALIDE' | 'REVOQUE' | 'EXPIRE' | 'INTEGRITE_COMPROMISE';
 
 /** Intégrité du PDF stocké, recalculée à chaque vérification (DS-05). */
 export type Integrite = 'VERIFIEE' | 'COMPROMISE' | 'NON_VERIFIABLE';
@@ -23,16 +23,23 @@ export function identifiantPlausible(id: string): boolean {
 }
 
 /**
- * Seul un certificat ÉMIS (ACTIF ou REVOQUE) existe publiquement ; un
- * certificat en préparation répond « inconnu », comme un identifiant inventé.
+ * Seul un certificat ÉMIS (ACTIF, REVOQUE ou EXPIRE — US-CERT-07) existe
+ * publiquement ; un certificat en préparation répond « inconnu », comme un
+ * identifiant inventé.
  */
 export function estPublic(statut: StatutCertificat): boolean {
-  return statut === StatutCertificat.ACTIF || statut === StatutCertificat.REVOQUE;
+  return (
+    statut === StatutCertificat.ACTIF ||
+    statut === StatutCertificat.REVOQUE ||
+    statut === StatutCertificat.EXPIRE
+  );
 }
 
 /** Verdict à partir du statut et de l'intégrité recalculée. */
 export function verdict(statut: StatutCertificat, integrite: Integrite): VerdictPublic {
   if (statut === StatutCertificat.REVOQUE) return 'REVOQUE';
+  // US-CERT-07 : un certificat expiré reste authentique, mais n'est plus valide.
+  if (statut === StatutCertificat.EXPIRE) return 'EXPIRE';
   return integrite === 'COMPROMISE' ? 'INTEGRITE_COMPROMISE' : 'VALIDE';
 }
 

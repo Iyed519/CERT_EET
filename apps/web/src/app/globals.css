@@ -668,6 +668,7 @@ textarea.input { resize: vertical; font-family: inherit; line-height: 1.45; }
 .certificat-EN_GENERATION { background: #e8f0fb; color: #1d4f91; }
 .certificat-ACTIF { background: var(--success-soft); color: var(--primary-dark); }
 .certificat-REVOQUE { background: var(--danger-soft); color: #922b21; }
+.certificat-EXPIRE { background: #eef2f7; color: #475569; }
 .alert + .livrables-liste { margin-top: 10px; }
 
 /* US-ATEL-09 — Carte « Certification » de « Mon espace ». */
@@ -698,6 +699,9 @@ textarea.input { resize: vertical; font-family: inherit; line-height: 1.45; }
 .verification-carte { padding: 22px; border: 2px solid var(--border); border-radius: var(--radius); background: var(--surface); box-shadow: var(--shadow-sm); }
 .verdict-VALIDE { border-color: var(--primary); }
 .verdict-REVOQUE, .verdict-INTEGRITE_COMPROMISE { border-color: var(--danger); }
+.verdict-EXPIRE { border-color: #94a3b8; }
+.verdict-EXPIRE .verification-pastille { background: #94a3b8; }
+.verdict-EXPIRE .verification-titre { color: #475569; }
 .verification-verdict { display: flex; gap: 14px; align-items: flex-start; margin-bottom: 18px; }
 .verification-pastille { flex: 0 0 44px; height: 44px; display: grid; place-items: center; border-radius: 50%; font-size: 1.4rem; font-weight: 800; color: #fff; background: var(--primary); }
 .verdict-REVOQUE .verification-pastille, .verdict-INTEGRITE_COMPROMISE .verification-pastille { background: var(--danger); }

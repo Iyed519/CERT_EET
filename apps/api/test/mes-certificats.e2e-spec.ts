@@ -216,6 +216,7 @@ describe('Mes certificats (e2e) — US-CERT-03', () => {
         empreinteSha256: expect.stringMatching(/^[0-9a-f]{64}$/),
         urlVerification: `${process.env.APP_BASE_URL}/verifier/${cert.a}`,
         revocation: null,
+        dateExpiration: null,
       });
       expect(attente).toMatchObject({
         statut: 'EN_ATTENTE_GENERATION',

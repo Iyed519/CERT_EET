@@ -339,6 +339,10 @@ const ETAT_CERTIFICAT: Record<StatutCertificat, { titre: string; texte: string }
     titre: 'Certificat révoqué',
     texte: 'Ce certificat a été révoqué par l’administration.',
   },
+  EXPIRE: {
+    titre: 'Certificat expiré',
+    texte: 'La durée de validité de ce certificat est écoulée : il reste téléchargeable mais n’est plus valide.',
+  },
 };
 
 /**

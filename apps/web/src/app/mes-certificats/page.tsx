@@ -14,6 +14,7 @@ const ETATS: Record<MonCertificat['statut'], string> = {
   EN_GENERATION: 'En préparation',
   ACTIF: 'Délivré',
   REVOQUE: 'Révoqué',
+  EXPIRE: 'Expiré',
 };
 
 /** Nom proposé au navigateur (le serveur envoie le même). */
@@ -118,12 +119,14 @@ export default function MesCertificatsPage(): JSX.Element {
                   <p className="field-hint">
                     {c.organismeEmetteur} · {nombreFr(c.scoreFinal)} / 100 · mention {c.mention}
                     {c.dateGeneration ? ` · délivré le ${jourFr(c.dateGeneration)}` : ''}
+                    {c.dateExpiration && c.statut === 'EXPIRE' ? ` · expiré le ${jourFr(c.dateExpiration)}` : ''}
+                    {c.dateExpiration && c.statut === 'ACTIF' ? ` · valable jusqu’au ${jourFr(c.dateExpiration)}` : ''}
                   </p>
                 </div>
                 <span className={`statut-badge certificat-${c.statut}`}>{ETATS[c.statut]}</span>
               </div>
 
-              {c.statut === 'ACTIF' && (
+              {(c.statut === 'ACTIF' || c.statut === 'EXPIRE') && (
                 <div className="certificat-carte-actions">
                   <button
                     type="button"

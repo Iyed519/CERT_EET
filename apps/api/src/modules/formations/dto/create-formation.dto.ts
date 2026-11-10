@@ -115,4 +115,17 @@ export class CreateFormationDto {
   @IsString({ message: 'Le modèle de certificat doit être un texte.' })
   @MaxLength(255, { message: 'Le modèle de certificat ne peut excéder 255 caractères.' })
   modeleCertificat?: string;
+
+  @ApiPropertyOptional({
+    example: 24,
+    minimum: 1,
+    maximum: 120,
+    nullable: true,
+    description: 'US-CERT-07 : validité des certificats, en mois ; vide = sans expiration.',
+  })
+  @IsOptional()
+  @IsInt({ message: 'La durée de validité doit être un nombre entier de mois.' })
+  @Min(1, { message: 'La durée de validité doit être comprise entre 1 et 120 mois.' })
+  @Max(120, { message: 'La durée de validité doit être comprise entre 1 et 120 mois.' })
+  dureeValiditeMois?: number | null;
 }

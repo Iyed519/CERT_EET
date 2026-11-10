@@ -34,6 +34,8 @@ export interface VerificationPublique {
   empreinteSha256: string;
   /** US-CERT-06 — date de révocation ; le motif n'est jamais publié (DS-07). */
   dateRevocation: Date | null;
+  /** US-CERT-07 — fin de validité (passée si EXPIRE) ; null = sans expiration. */
+  dateExpiration: Date | null;
 }
 
 /**
@@ -92,6 +94,7 @@ export class VerificationService {
       empreinteSha256: certificat.empreinteSha256 as string,
       dateRevocation:
         certificat.statut === StatutCertificat.REVOQUE ? certificat.dateRevocation : null,
+      dateExpiration: certificat.dateExpiration,
     };
   }
 

@@ -18,6 +18,10 @@ const VERDICTS: Record<VerdictCertificat, { titre: string; texte: string }> = {
     titre: 'Certificat révoqué',
     texte: 'Ce certificat a été révoqué par l’organisme émetteur : il ne doit plus être considéré comme valide.',
   },
+  EXPIRE: {
+    titre: 'Certificat expiré',
+    texte: 'Ce certificat est authentique, mais sa durée de validité est écoulée : il n’est plus valide aujourd’hui.',
+  },
   INTEGRITE_COMPROMISE: {
     titre: 'Intégrité compromise',
     texte: 'Le document conservé ne correspond plus à son empreinte d’origine : ce certificat a peut-être été falsifié.',
@@ -103,6 +107,12 @@ export default function VerifierPage(): JSX.Element {
               <dt>Délivré le</dt>
               <dd>{jourFr(resultat.dateEmission)}</dd>
             </div>
+            {resultat.dateExpiration && (
+              <div>
+                <dt>{resultat.verdict === 'EXPIRE' ? 'Expiré le' : 'Valable jusqu’au'}</dt>
+                <dd>{jourFr(resultat.dateExpiration)}</dd>
+              </div>
+            )}
             {resultat.dateRevocation && (
               <div>
                 <dt>Révoqué le</dt>

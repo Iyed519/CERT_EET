@@ -432,6 +432,7 @@ describe('Tableau de bord global (e2e) — US-DASH-01', () => {
         'ACTIF',
         'EN_ATTENTE_GENERATION',
         'EN_GENERATION',
+        'EXPIRE',
         'REVOQUE',
       ]);
       expect(t.certificats.parStatut.ACTIF).toBeGreaterThanOrEqual(1);

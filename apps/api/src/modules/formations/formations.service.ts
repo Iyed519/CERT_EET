@@ -32,6 +32,8 @@ export interface FormationVue {
   statut: StatutFormation;
   noteMinCertification: number;
   modeleCertificat: string | null;
+  /** US-CERT-07 — validité des certificats (mois) ; null = sans expiration. */
+  dureeValiditeMois: number | null;
   createdAt: Date;
   updatedAt: Date;
 }
@@ -95,6 +97,7 @@ const CHAMPS_MODIFIABLES = [
   'capaciteMax',
   'noteMinCertification',
   'modeleCertificat',
+  'dureeValiditeMois',
 ] as const;
 
 /** Champs qui ne peuvent pas être vidés (NOT NULL en base). */
@@ -129,6 +132,7 @@ export function versFormationVue(formation: Formation): FormationVue {
     statut: formation.statut,
     noteMinCertification: formation.noteMinCertification,
     modeleCertificat: formation.modeleCertificat,
+    dureeValiditeMois: formation.dureeValiditeMois,
     createdAt: formation.createdAt,
     updatedAt: formation.updatedAt,
   };
@@ -179,6 +183,7 @@ export class FormationsService {
       capaciteMax: dto.capaciteMax,
       noteMinCertification: dto.noteMinCertification,
       modeleCertificat: dto.modeleCertificat ?? null,
+      dureeValiditeMois: dto.dureeValiditeMois ?? null,
       statut: StatutFormation.OUVERTE,
     });
     const enregistree = await this.formationRepository.save(formation);

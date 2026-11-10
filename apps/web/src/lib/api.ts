@@ -882,6 +882,8 @@ export interface FormationVue {
   statut: StatutFormation;
   noteMinCertification: number;
   modeleCertificat: string | null;
+  /** US-CERT-07 — validité des certificats (mois) ; null = sans expiration. */
+  dureeValiditeMois: number | null;
   createdAt: string;
   updatedAt: string;
 }
@@ -938,6 +940,7 @@ export interface FormationInput {
   capaciteMax: number;
   noteMinCertification: number;
   modeleCertificat?: string;
+  dureeValiditeMois?: number;
 }
 
 /** Corps de modification : champs facultatifs ; `null` vide un champ optionnel. */
@@ -2432,7 +2435,12 @@ export async function finaliserCorrection(
  * US-CERT-01 — Émission asynchrone des certificats (suivi administrateur)
  * ============================================================ */
 
-export type StatutCertificat = 'EN_ATTENTE_GENERATION' | 'EN_GENERATION' | 'ACTIF' | 'REVOQUE';
+export type StatutCertificat =
+  | 'EN_ATTENTE_GENERATION'
+  | 'EN_GENERATION'
+  | 'ACTIF'
+  | 'REVOQUE'
+  | 'EXPIRE';
 
 /** Un certificat dans la liste de l'administrateur. */
 export interface CertificatAdmin {
@@ -2556,6 +2564,8 @@ export interface MonCertificat {
   urlVerification: string | null;
   /** US-CERT-06 — date et catégorie du motif ; null si non révoqué. */
   revocation: { date: string; motif: MotifRevocation } | null;
+  /** US-CERT-07 — fin de validité ; null = sans expiration. */
+  dateExpiration: string | null;
 }
 
 /** GET /api/mes-certificats — plus récents d'abord. */
@@ -2588,7 +2598,7 @@ export async function telechargerMonCertificat(certificatId: string, nom: string
  * US-CERT-04 — Vérification publique (SANS compte : fetch simple)
  * ============================================================ */
 
-export type VerdictCertificat = 'VALIDE' | 'REVOQUE' | 'INTEGRITE_COMPROMISE';
+export type VerdictCertificat = 'VALIDE' | 'REVOQUE' | 'EXPIRE' | 'INTEGRITE_COMPROMISE';
 
 /** Ce que la vérification publique révèle (minimisation, DS-05). */
 export interface VerificationCertificat {
@@ -2604,6 +2614,8 @@ export interface VerificationCertificat {
   empreinteSha256: string;
   /** US-CERT-06 — date de révocation (le motif n'est jamais publié). */
   dateRevocation: string | null;
+  /** US-CERT-07 — fin de validité ; null = sans expiration. */
+  dateExpiration: string | null;
 }
 
 /**
