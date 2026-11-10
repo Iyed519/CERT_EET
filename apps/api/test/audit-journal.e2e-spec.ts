@@ -57,7 +57,7 @@ describe('Journal d audit (e2e) — US-AUDIT-01', () => {
     return res.body.accessToken as string;
   };
 
-  const lister = (qs: string, token = tokenAdmin) =>
+  const lister = (qs: string, token = tokenAdmin): request.Test =>
     request(app.getHttpServer())
       .get(`/api/admin/audit-logs?${qs}`)
       .set('Authorization', `Bearer ${token}`);
@@ -68,7 +68,7 @@ describe('Journal d audit (e2e) — US-AUDIT-01', () => {
     cible: string,
     resultat: string,
     horodatage: string,
-  ) =>
+  ): Promise<unknown> =>
     dataSource.query(
       `INSERT INTO audit_logs (user_id, action, cible, resultat, horodatage)
        VALUES ($1, $2, $3, $4, $5)`,

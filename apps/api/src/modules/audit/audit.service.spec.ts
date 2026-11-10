@@ -274,7 +274,7 @@ const VUE = {
 };
 
 /** Faux query builder chaînable (clone() renvoie le même objet). */
-function fauxQb(lignes: unknown[], total: number) {
+function fauxQb(lignes: unknown[], total: number): Record<string, jest.Mock> {
   const qb: Record<string, jest.Mock> = {};
   for (const m of [
     'leftJoin',
