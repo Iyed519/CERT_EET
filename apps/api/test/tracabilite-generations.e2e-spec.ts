@@ -331,6 +331,9 @@ describe('Traçabilité des générations IA (e2e) — US-IA-05', () => {
       expect(await ids1(`formateurId=${ids.f2}`)).toEqual([ids.g2]);
       expect(await ids1(`formationId=${ids.fA}`)).toEqual([ids.g1]);
       expect(await ids1(`${periode}&statut=ECHEC`)).toEqual([ids.g2]);
+      // Bornes de la période : du (inclus) puis au (inclus).
+      expect(await ids1('du=2005-03-05T00:00:00Z&au=2005-03-31T23:59:59Z')).toEqual([ids.g1]);
+      expect(await ids1('du=2005-03-01T00:00:00Z&au=2005-03-05T00:00:00Z')).toEqual([ids.g2]);
       const page2 = await api(
         'get',
         `/admin/generations-ia?${periode}&limite=1&page=2`,
