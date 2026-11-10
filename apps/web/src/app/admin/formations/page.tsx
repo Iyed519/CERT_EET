@@ -1,4 +1,5 @@
 'use client';
+import Link from 'next/link';
 import { useCallback, useEffect, useState, FormEvent } from 'react';
 import { CroixFermeture } from '../../../components/CroixFermeture';
 import {
@@ -229,6 +230,9 @@ export default function AdminFormationsPage(): JSX.Element {
                           >
                             Statut
                           </button>
+                          <Link className="btn-sm" href={`/admin/formations/${f.id}/inscriptions`}>
+                            Inscriptions
+                          </Link>
                         </div>
                       )}
                     </td>
