@@ -8,6 +8,7 @@ import { LimiteDebitGuard } from './limite-debit.guard';
 import { SupervisionCertificatsService } from './supervision-certificats.service';
 import { VerificationController } from './verification.controller';
 import { VerificationService } from './verification.service';
+import { ExpirationCertificatsService } from './expiration-certificats.service';
 import { RepriseCertificatsService } from './reprise-certificats.service';
 
 /**
@@ -32,6 +33,7 @@ import { RepriseCertificatsService } from './reprise-certificats.service';
     LimiteDebitGuard,
     SupervisionCertificatsService,
     RepriseCertificatsService,
+    ExpirationCertificatsService,
   ],
   exports: [CertificatsService, EligibiliteService],
 })

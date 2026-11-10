@@ -94,6 +94,10 @@ export class Certificat {
   derniereErreur: string | null;
 
   // US-CERT-06 — révocation (CHECK : les quatre si REVOQUE, aucune sinon).
+  /** US-CERT-07 — Fin de validité (durée de la formation à l'émission) ; null = sans expiration. */
+  @Column({ name: 'date_expiration', type: 'timestamptz', nullable: true })
+  dateExpiration: Date | null;
+
   /** US-CERT-02 — Échec définitif (tentatives épuisées) ; effacé par une relance ou un succès. */
   @Column({ name: 'echec_definitif_le', type: 'timestamptz', nullable: true })
   echecDefinitifLe: Date | null;

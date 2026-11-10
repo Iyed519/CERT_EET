@@ -21,7 +21,7 @@ describe('ContenuPedagogiqueDto (US-FORM-04)', () => {
   });
 
   it('refuse chaque réglage institutionnel, même à null, avec un message nommant le champ', async () => {
-    expect(CHAMPS_INSTITUTIONNELS).toHaveLength(8);
+    expect(CHAMPS_INSTITUTIONNELS).toHaveLength(9); // + dureeValiditeMois (US-CERT-07)
     for (const champ of CHAMPS_INSTITUTIONNELS) {
       for (const valeur of ['x', 10, null]) {
         expect(await erreurs({ [champ]: valeur })).toContain(messageChampInstitutionnel(champ));

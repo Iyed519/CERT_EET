@@ -75,14 +75,15 @@ export const MESSAGE_CERTIFICAT_REVOQUE =
   'Ce certificat a été révoqué : il n’est plus téléchargeable.';
 
 /**
- * Téléchargement par son titulaire (US-CERT-03) : seul un certificat ACTIF se
- * télécharge ; en préparation ou révoqué -> 409 (état).
+ * Téléchargement par son titulaire (US-CERT-03) : un certificat ACTIF — ou
+ * EXPIRE (US-CERT-07 : le document reste authentique, sa vérification publique
+ * dit « Expiré ») — se télécharge ; en préparation ou révoqué -> 409 (état).
  */
 export function verifierTelechargeable(statut: StatutCertificat): void {
   if (statut === StatutCertificat.REVOQUE) {
     throw new ConflictException(MESSAGE_CERTIFICAT_REVOQUE);
   }
-  if (statut !== StatutCertificat.ACTIF) {
+  if (statut !== StatutCertificat.ACTIF && statut !== StatutCertificat.EXPIRE) {
     throw new ConflictException(MESSAGE_CERTIFICAT_EN_PREPARATION);
   }
 }
@@ -136,3 +137,19 @@ export const REPRISE_CERTIFICATS = { bloqueApresMinutes: 15, intervalleMinutes: 
 
 export const MESSAGE_REPRISE_AUTOMATIQUE =
   'Génération interrompue (worker arrêté) : reprise automatique.';
+
+// ---------------------------------------------------------------------
+//  US-CERT-07 — Expiration
+// ---------------------------------------------------------------------
+
+/** Balayage d'expiration : toutes les heures (une expiration au plus une heure en retard). */
+export const EXPIRATION_CERTIFICATS = { intervalleMinutes: 60 } as const;
+
+/** Émis (PDF, empreinte, lien public) : ACTIF, REVOQUE ou EXPIRE. */
+export function estEmis(statut: StatutCertificat): boolean {
+  return (
+    statut === StatutCertificat.ACTIF ||
+    statut === StatutCertificat.REVOQUE ||
+    statut === StatutCertificat.EXPIRE
+  );
+}

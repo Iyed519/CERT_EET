@@ -87,6 +87,10 @@ export class Formation {
   @OneToMany(() => ModuleFormation, (module) => module.formation)
   modules: ModuleFormation[];
 
+  /** US-CERT-07 — Validité des certificats (mois) ; null = sans expiration. */
+  @Column({ name: 'duree_validite_mois', type: 'int', nullable: true })
+  dureeValiditeMois: number | null;
+
   @CreateDateColumn({ name: 'created_at', type: 'timestamptz' })
   createdAt: Date;
 

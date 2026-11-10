@@ -11,6 +11,7 @@ export const CHAMPS_INSTITUTIONNELS = [
   'capaciteMax',
   'noteMinCertification',
   'modeleCertificat',
+  'dureeValiditeMois',
   'statut',
 ] as const;
 
@@ -51,5 +52,6 @@ export class ContenuPedagogiqueDto extends PickType(UpdateFormationDto, [
   @ChampInstitutionnel() capaciteMax?: never;
   @ChampInstitutionnel() noteMinCertification?: never;
   @ChampInstitutionnel() modeleCertificat?: never;
+  @ChampInstitutionnel() dureeValiditeMois?: never;
   @ChampInstitutionnel() statut?: never;
 }

@@ -38,6 +38,7 @@ import {
   verifierTelechargeable,
   MESSAGE_REPRISE_AUTOMATIQUE,
   REPRISE_CERTIFICATS,
+  estEmis,
 } from './certificat.regles';
 import { RevoquerCertificatDto } from './certificats.dto';
 import { FileCertificatsService } from './file-certificats.service';
@@ -57,6 +58,8 @@ export interface CertificatAdminVue {
   derniereErreur: string | null;
   /** US-CERT-02 — échec définitif (tentatives épuisées), null sinon. */
   echecDefinitifLe: Date | null;
+  /** US-CERT-07 — fin de validité ; null = sans expiration. */
+  dateExpiration: Date | null;
   /** US-CERT-06 — null tant que le certificat n'est pas révoqué. */
   revocation: {
     date: Date;
@@ -82,6 +85,8 @@ export interface MonCertificatVue {
   urlVerification: string | null;
   /** US-CERT-06 — date et motif (catégorie) ; null si non révoqué. */
   revocation: { date: Date; motif: MotifRevocation } | null;
+  /** US-CERT-07 — fin de validité ; null = sans expiration. */
+  dateExpiration: Date | null;
 }
 
 /** Le PDF prêt à être relayé au navigateur. */
@@ -155,8 +160,12 @@ export class CertificatsService implements OnApplicationBootstrap {
     const score = arrondiScore(scoreFinal);
     const lignes = (await manager.query(
       `INSERT INTO certificats
-         (apprenant_id, formation_id, score_final, mention, organisme_emetteur, date_emission)
-       VALUES ($1, $2, $3, $4, $5, now())
+         (apprenant_id, formation_id, score_final, mention, organisme_emetteur, date_emission,
+          date_expiration)
+       SELECT $1, f.id, $3, $4, $5, now(),
+              CASE WHEN f.duree_validite_mois IS NULL THEN NULL
+                   ELSE now() + make_interval(months => f.duree_validite_mois) END
+         FROM formations f WHERE f.id = $2
        ON CONFLICT ON CONSTRAINT "UQ_certificats_apprenant_formation" DO NOTHING
        RETURNING id`,
       [apprenantId, formationId, score, mentionPour(score), ORGANISME_EMETTEUR],
@@ -417,6 +426,7 @@ export class CertificatsService implements OnApplicationBootstrap {
       nbTentatives: c.nbTentatives,
       derniereErreur: c.derniereErreur,
       echecDefinitifLe: c.echecDefinitifLe,
+      dateExpiration: c.dateExpiration,
       revocation:
         c.statut === StatutCertificat.REVOQUE
           ? {
@@ -573,7 +583,7 @@ export class CertificatsService implements OnApplicationBootstrap {
       order: { dateEmission: 'DESC', id: 'ASC' },
     });
     return certificats.map((c) => {
-      const emis = c.statut === StatutCertificat.ACTIF || c.statut === StatutCertificat.REVOQUE;
+      const emis = estEmis(c.statut);
       return {
         id: c.id,
         formation: { id: c.formationId, titre: c.formation?.titre ?? '' },
@@ -589,8 +599,45 @@ export class CertificatsService implements OnApplicationBootstrap {
           c.statut === StatutCertificat.REVOQUE
             ? { date: c.dateRevocation as Date, motif: c.motifRevocation as MotifRevocation }
             : null,
+        dateExpiration: c.dateExpiration,
       };
     });
+  }
+
+  /**
+   * US-CERT-07 — Expiration : les certificats ACTIFS dont la date
+   * d'expiration est atteinte passent EXPIRE (UPDATE conditionnel : deux
+   * balayages simultanés n'expirent pas deux fois le même), audit
+   * CERTIFICAT_EXPIRE. Le PDF et l'empreinte sont conservés ; la vérification
+   * publique affiche « Expiré ». Renvoie les identifiants expirés.
+   */
+  async expirerEchus(): Promise<string[]> {
+    const [lignes] = (await this.dataSource.query(
+      `UPDATE certificats SET statut = 'EXPIRE'
+        WHERE statut = 'ACTIF' AND date_expiration IS NOT NULL AND date_expiration <= now()
+        RETURNING id, apprenant_id AS "apprenantId", formation_id AS "formationId",
+                  date_expiration AS "dateExpiration"`,
+    )) as [
+      Array<{ id: string; apprenantId: string; formationId: string; dateExpiration: Date }>,
+      number,
+    ];
+    for (const l of lignes) {
+      await this.auditService.record({
+        action: 'CERTIFICAT_EXPIRE',
+        acteur: null,
+        cible: l.id,
+        adresseIp: null,
+        resultat: 'Succès',
+        detailsAvantApres: {
+          avant: { statut: 'ACTIF' },
+          apres: { statut: 'EXPIRE' },
+          apprenantId: l.apprenantId,
+          formationId: l.formationId,
+          dateExpiration: l.dateExpiration,
+        },
+      });
+    }
+    return lignes.map((l) => l.id);
   }
 
   /**
