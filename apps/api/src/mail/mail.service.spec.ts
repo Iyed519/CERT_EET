@@ -303,6 +303,51 @@ describe('MailService', () => {
     });
   });
 
+  describe('sendStatutInscriptionEmail (US-INSC-02)', () => {
+    it('suspension : motif repris, lien vers « Mes inscriptions »', async () => {
+      await service.sendStatutInscriptionEmail('amel@cert-eet.local', {
+        prenom: 'Amel',
+        titreFormation: 'Back-end',
+        suspendue: true,
+        motif: 'Absences <répétées>',
+      });
+      const message = dernierMessage();
+      expect(message.subject).toBe('Cert_EET — Inscription suspendue : « Back-end »');
+      expect(message.text).toContain('Motif : Absences <répétées>');
+      expect(message.html).not.toContain('<répétées>');
+      expect(message.html).toContain('href="http://localhost:3001/mes-inscriptions"');
+    });
+
+    it('réactivation : sans motif', async () => {
+      await service.sendStatutInscriptionEmail('amel@cert-eet.local', {
+        prenom: null,
+        titreFormation: 'Back-end',
+        suspendue: false,
+        motif: 'ignoré',
+      });
+      const message = dernierMessage();
+      expect(message.subject).toBe('Cert_EET — Inscription réactivée : « Back-end »');
+      expect(message.text).not.toContain('Motif');
+      expect(message.text).toContain('Bonjour,');
+    });
+  });
+
+  describe('sendDesinscriptionFormateurEmail (US-INSC-03)', () => {
+    it('prévient le formateur, objet sur une ligne, HTML échappé', async () => {
+      await service.sendDesinscriptionFormateurEmail('sami@cert-eet.local', {
+        prenomFormateur: 'Sami',
+        nomApprenant: 'Amel <b>Ben Ali</b>',
+        titreFormation: 'Back-end\r\nBcc: x@y.tn',
+      });
+      const message = dernierMessage();
+      expect(message.subject).toMatch(/^Cert_EET — Désinscription : /);
+      expect(message.subject).not.toMatch(/[\r\n]/);
+      expect(message.text).toContain('Bonjour Sami,');
+      expect(message.html).not.toContain('<b>Ben Ali</b>');
+      expect(message.html).toContain('href="http://localhost:3001/formateur/formations"');
+    });
+  });
+
   describe('sendRapportPretEmail (US-RPT-01)', () => {
     it('annonce le rapport prêt et mène à « Mes rapports », sans pièce jointe', async () => {
       await service.sendRapportPretEmail('sami@cert-eet.local', {

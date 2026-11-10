@@ -928,3 +928,6 @@ textarea.input { resize: vertical; font-family: inherit; line-height: 1.45; }
 .inscr-rapport .inscr-ko { color: #8a5a00; }
 .inscr-ligne { color: var(--muted); }
 @media (max-width: 480px) { .inscr-rapport li { grid-template-columns: 1fr; gap: 0; } }
+
+/* US-INSC-03 — Conséquences d'une désinscription. */
+.desinscription-consequences { margin: 4px 0 14px; padding-left: 20px; display: grid; gap: 6px; font-size: 0.92rem; color: #33414f; }

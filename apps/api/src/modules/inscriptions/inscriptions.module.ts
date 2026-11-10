@@ -11,6 +11,7 @@ import { TentativeQcm } from '../../database/entities/tentative-qcm.entity';
 import { User } from '../../database/entities/user.entity';
 import { AdminInscriptionsController } from './admin/admin-inscriptions.controller';
 import { AdminInscriptionsService } from './admin/admin-inscriptions.service';
+import { DesinscriptionService } from './desinscription/desinscription.service';
 import { EspaceFormationService } from './espace-formation.service';
 import { InscriptionsController } from './inscriptions.controller';
 import { InscriptionsService } from './inscriptions.service';
@@ -18,7 +19,7 @@ import { InscriptionsService } from './inscriptions.service';
 /**
  * Module des inscriptions (US-INSC-01, US-INSC-04 ; US-INSC-02 : gestion
  * par l'administrateur — liste, ajout, suspension, réactivation, import CSV ;
- * la désinscription suivra).
+ * US-INSC-03 : désinscription par l'apprenant).
  *
  * - forFeature : Inscription (écriture) ; User (LECTURE : email et prénom
  *   pour l'email de bienvenue) ; Formation, Qcm, TentativeQcm, Atelier, Livrable
@@ -42,7 +43,12 @@ import { InscriptionsService } from './inscriptions.service';
     ]),
   ],
   controllers: [InscriptionsController, AdminInscriptionsController],
-  providers: [AdminInscriptionsService, InscriptionsService, EspaceFormationService],
+  providers: [
+    AdminInscriptionsService,
+    DesinscriptionService,
+    InscriptionsService,
+    EspaceFormationService,
+  ],
   // US-ATEL-03 : la fiche d'un atelier côté apprenant réutilise le contrôle d'accès.
   exports: [EspaceFormationService],
 })

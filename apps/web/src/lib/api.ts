@@ -3388,3 +3388,39 @@ export async function importerInscriptions(
   });
   return lireReponseFormation<RapportImportInscriptions>(response, 'Impossible d’importer le fichier.');
 }
+
+// ---------------------------------------------------------------------------
+// US-INSC-03 — Se désinscrire (apprenant).
+// ---------------------------------------------------------------------------
+
+export interface ConsequencesDesinscription {
+  formation: { id: string; titre: string };
+  statut: string;
+  possible: boolean;
+  tauxAvancement: number;
+  tentativesEnCours: number;
+  livrablesEnAttente: number;
+  certificatsConserves: number;
+  consequences: string[];
+}
+
+/** US-INSC-03 — GET /api/formations/:id/desinscription (conséquences avant confirmation). */
+export async function getConsequencesDesinscription(
+  formationId: string,
+): Promise<ConsequencesDesinscription> {
+  const response = await apiFetch(`/api/formations/${formationId}/desinscription`);
+  return lireReponseFormation<ConsequencesDesinscription>(
+    response,
+    'Impossible de charger les conséquences.',
+  );
+}
+
+/** US-INSC-03 — POST /api/formations/:id/desinscription { confirmer: true } */
+export async function seDesinscrire(formationId: string): Promise<void> {
+  const response = await apiFetch(`/api/formations/${formationId}/desinscription`, {
+    method: 'POST',
+    headers: JSON_HEADERS,
+    body: JSON.stringify({ confirmer: true }),
+  });
+  await lireReponseFormation<unknown>(response, 'Impossible de vous désinscrire.');
+}
