@@ -288,6 +288,13 @@ export default function EditeurQcmPage(): JSX.Element {
           )}
 
           <div className="section-tete">
+            <h2 className="section-title">Tentatives</h2>
+            <Link className="btn-sm" href={`/formateur/qcm/${qcm.id}/tentatives`}>
+              Voir l’historique
+            </Link>
+          </div>
+
+          <div className="section-tete">
             <h2 className="section-title">Questions</h2>
             <div className="section-actions">
               <button

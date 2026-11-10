@@ -129,8 +129,11 @@ export class TentativeCorrectionService {
     };
   }
 
-  /** Questions du tirage, bonnes options et réponses notées, assemblées en liste blanche. */
-  private async lireCorrection(
+  /**
+   * Questions du tirage, bonnes options et réponses notées, assemblées en liste blanche.
+   * Aussi lu par l'historique côté formateur (US-QCM-11), qui voit toujours le corrigé.
+   */
+  async lireCorrection(
     manager: EntityManager,
     tentativeId: string,
     plan: QuestionTiree[],

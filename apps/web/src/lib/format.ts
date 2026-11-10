@@ -379,3 +379,11 @@ export function faitsAlerteFr(critere: string, d: Record<string, unknown>): stri
       return '';
   }
 }
+
+/** Durée effective d'une tentative : « 4 min 05 s », « 35 s » ; « — » si inconnue (US-QCM-11). */
+export const dureeSecondesFr = (secondes: number | null): string => {
+  if (secondes === null) return '—';
+  const min = Math.floor(secondes / 60);
+  const s = secondes % 60;
+  return min === 0 ? `${s} s` : `${min} min ${String(s).padStart(2, '0')} s`;
+};
