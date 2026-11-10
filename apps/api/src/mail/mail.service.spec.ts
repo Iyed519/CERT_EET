@@ -408,4 +408,18 @@ describe('MailService', () => {
       expect(message.text).toContain('<b>X</b> Y — F : note en forte baisse');
     });
   });
+
+  describe('sendMotDePasseModifieEmail (US-AUTH-08)', () => {
+    it('prévient le titulaire, échappe le prénom et mène à la connexion', async () => {
+      await service.sendMotDePasseModifieEmail('u@cert-eet.local', { prenom: '<i>Iyed</i>' });
+      const message = dernierMessage();
+      expect(message.to).toBe('u@cert-eet.local');
+      expect(message.subject).toBe('Cert_EET — Votre mot de passe a été modifié');
+      expect(message.text).toContain('toutes vos sessions ont été déconnectées');
+      expect(message.text).toContain('http://localhost:3001/login');
+      expect(message.html).toContain('href="http://localhost:3001/login"');
+      expect(message.html).not.toContain('<i>Iyed</i>');
+      expect(message.html).toContain('&lt;i&gt;Iyed&lt;/i&gt;');
+    });
+  });
 });

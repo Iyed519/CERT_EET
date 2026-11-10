@@ -10,10 +10,12 @@ import {
   ProfilError,
 } from '../../lib/api';
 import { useAuth } from '../../contexts/AuthContext';
+import ChangementMotDePasse from '../../components/ChangementMotDePasse';
 
 /**
- * US-AUTH-09 — Réglages de sécurité : activer / désactiver la double
- * authentification (MFA/TOTP). Self-service, tout utilisateur connecté.
+ * Réglages de sécurité du compte (self-service, tout utilisateur connecté) :
+ * changer son mot de passe (US-AUTH-08) et activer / désactiver la double
+ * authentification (MFA/TOTP, US-AUTH-09).
  */
 export default function SecuritePage(): JSX.Element {
   const { user } = useAuth();
@@ -121,137 +123,54 @@ export default function SecuritePage(): JSX.Element {
         <div>
           <h1 className="page-title">Sécurité</h1>
           <p className="page-subtitle">
-            Protégez votre compte avec la double authentification (TOTP), via une
-            application type Google Authenticator (US-AUTH-09).
+            Gérez votre mot de passe et la double authentification de votre
+            compte.
           </p>
         </div>
       </div>
 
-      {succes !== null && <p className="alert alert-success">{succes}</p>}
-      {erreur !== null && <p className="alert alert-error">{erreur}</p>}
+      <ChangementMotDePasse />
 
-      {chargement ? (
-        <p className="page-subtitle">Chargement…</p>
-      ) : mfaActive ? (
-        <div style={{ maxWidth: 520 }}>
-          <p className="alert alert-success">
-            La double authentification est <strong>activée</strong> sur votre
-            compte.
-          </p>
-          {!desactivation ? (
-            <button
-              className="btn-sm btn-danger"
-              type="button"
-              onClick={() => {
-                setDesactivation(true);
-                setCode('');
-                setErreur(null);
-                setSucces(null);
-              }}
-            >
-              Désactiver la double authentification
-            </button>
-          ) : (
-            <form className="form" onSubmit={confirmerDesactivation}>
-              <div className="field">
-                <label className="field-label" htmlFor="code-off">
-                  Code de vérification
-                </label>
-                <input
-                  id="code-off"
-                  className="input"
-                  type="text"
-                  inputMode="numeric"
-                  autoComplete="one-time-code"
-                  pattern="[0-9]{6}"
-                  maxLength={6}
-                  placeholder="123456"
-                  required
-                  value={code}
-                  onChange={(e) => setCode(e.target.value.replace(/\D/g, ''))}
-                  disabled={enCours}
-                />
-                <span className="field-hint">
-                  Saisissez un code de votre application pour confirmer la
-                  désactivation.
-                </span>
-              </div>
-              <div className="modal-actions">
-                <button
-                  className="btn-sm btn-ghost"
-                  type="button"
-                  onClick={() => {
-                    setDesactivation(false);
-                    setCode('');
-                  }}
-                  disabled={enCours}
-                >
-                  Annuler
-                </button>
-                <button
-                  className="btn btn-danger-solid"
-                  type="submit"
-                  disabled={enCours || code.length !== 6}
-                >
-                  {enCours ? 'Désactivation…' : 'Confirmer la désactivation'}
-                </button>
-              </div>
-            </form>
-          )}
-        </div>
-      ) : (
-        <div style={{ maxWidth: 520 }}>
-          {!setupData ? (
-            <>
-              <p className="page-subtitle">
-                La double authentification n’est pas activée.
-              </p>
+      <section className="securite-bloc" aria-labelledby="titre-mfa">
+        <h2 className="section-title" id="titre-mfa">
+          Double authentification
+        </h2>
+        <p className="page-subtitle">
+          Protégez votre compte avec un code à usage unique (TOTP), via une
+          application type Google Authenticator.
+        </p>
+        {succes !== null && <p className="alert alert-success">{succes}</p>}
+        {erreur !== null && <p className="alert alert-error">{erreur}</p>}
+
+        {chargement ? (
+          <p className="page-subtitle">Chargement…</p>
+        ) : mfaActive ? (
+          <div style={{ maxWidth: 520 }}>
+            <p className="alert alert-success">
+              La double authentification est <strong>activée</strong> sur votre
+              compte.
+            </p>
+            {!desactivation ? (
               <button
-                className="btn"
+                className="btn-sm btn-danger"
                 type="button"
-                onClick={demarrerActivation}
-                disabled={enCours}
-              >
-                {enCours ? 'Préparation…' : 'Activer la double authentification'}
-              </button>
-            </>
-          ) : (
-            <>
-              <p className="page-subtitle">
-                1. Scannez ce QR code dans votre application d’authentification
-                (Google Authenticator, Authy…).
-              </p>
-              {/* eslint-disable-next-line @next/next/no-img-element */}
-              <img
-                src={setupData.qrDataUrl}
-                alt="QR code d'activation de la double authentification"
-                width={200}
-                height={200}
-                style={{
-                  border: '1px solid var(--border)',
-                  borderRadius: 'var(--radius-sm)',
-                  background: '#fff',
-                  padding: 8,
+                onClick={() => {
+                  setDesactivation(true);
+                  setCode('');
+                  setErreur(null);
+                  setSucces(null);
                 }}
-              />
-              <p
-                className="field-hint"
-                style={{ wordBreak: 'break-all', marginTop: 8 }}
               >
-                Clé manuelle :{' '}
-                <span className="mono">{extraireSecret(setupData.otpauthUrl)}</span>
-              </p>
-              <form
-                className="form"
-                onSubmit={confirmerActivation}
-                style={{ marginTop: 12 }}
-              >
+                Désactiver la double authentification
+              </button>
+            ) : (
+              <form className="form" onSubmit={confirmerDesactivation}>
                 <div className="field">
-                  <label className="field-label" htmlFor="code-on">
-                    2. Code de vérification
+                  <label className="field-label" htmlFor="code-off">
+                    Code de vérification
                   </label>
                   <input
-                    id="code-on"
+                    id="code-off"
                     className="input"
                     type="text"
                     inputMode="numeric"
@@ -260,18 +179,21 @@ export default function SecuritePage(): JSX.Element {
                     maxLength={6}
                     placeholder="123456"
                     required
-                    autoFocus
                     value={code}
                     onChange={(e) => setCode(e.target.value.replace(/\D/g, ''))}
                     disabled={enCours}
                   />
+                  <span className="field-hint">
+                    Saisissez un code de votre application pour confirmer la
+                    désactivation.
+                  </span>
                 </div>
                 <div className="modal-actions">
                   <button
                     className="btn-sm btn-ghost"
                     type="button"
                     onClick={() => {
-                      setSetupData(null);
+                      setDesactivation(false);
                       setCode('');
                     }}
                     disabled={enCours}
@@ -279,18 +201,109 @@ export default function SecuritePage(): JSX.Element {
                     Annuler
                   </button>
                   <button
-                    className="btn"
+                    className="btn btn-danger-solid"
                     type="submit"
                     disabled={enCours || code.length !== 6}
                   >
-                    {enCours ? 'Activation…' : 'Activer'}
+                    {enCours ? 'Désactivation…' : 'Confirmer la désactivation'}
                   </button>
                 </div>
               </form>
-            </>
-          )}
-        </div>
-      )}
+            )}
+          </div>
+        ) : (
+          <div style={{ maxWidth: 520 }}>
+            {!setupData ? (
+              <>
+                <p className="page-subtitle">
+                  La double authentification n’est pas activée.
+                </p>
+                <button
+                  className="btn"
+                  type="button"
+                  onClick={demarrerActivation}
+                  disabled={enCours}
+                >
+                  {enCours ? 'Préparation…' : 'Activer la double authentification'}
+                </button>
+              </>
+            ) : (
+              <>
+                <p className="page-subtitle">
+                  1. Scannez ce QR code dans votre application d’authentification
+                  (Google Authenticator, Authy…).
+                </p>
+                {/* eslint-disable-next-line @next/next/no-img-element */}
+                <img
+                  src={setupData.qrDataUrl}
+                  alt="QR code d'activation de la double authentification"
+                  width={200}
+                  height={200}
+                  style={{
+                    border: '1px solid var(--border)',
+                    borderRadius: 'var(--radius-sm)',
+                    background: '#fff',
+                    padding: 8,
+                  }}
+                />
+                <p
+                  className="field-hint"
+                  style={{ wordBreak: 'break-all', marginTop: 8 }}
+                >
+                  Clé manuelle :{' '}
+                  <span className="mono">{extraireSecret(setupData.otpauthUrl)}</span>
+                </p>
+                <form
+                  className="form"
+                  onSubmit={confirmerActivation}
+                  style={{ marginTop: 12 }}
+                >
+                  <div className="field">
+                    <label className="field-label" htmlFor="code-on">
+                      2. Code de vérification
+                    </label>
+                    <input
+                      id="code-on"
+                      className="input"
+                      type="text"
+                      inputMode="numeric"
+                      autoComplete="one-time-code"
+                      pattern="[0-9]{6}"
+                      maxLength={6}
+                      placeholder="123456"
+                      required
+                      autoFocus
+                      value={code}
+                      onChange={(e) => setCode(e.target.value.replace(/\D/g, ''))}
+                      disabled={enCours}
+                    />
+                  </div>
+                  <div className="modal-actions">
+                    <button
+                      className="btn-sm btn-ghost"
+                      type="button"
+                      onClick={() => {
+                        setSetupData(null);
+                        setCode('');
+                      }}
+                      disabled={enCours}
+                    >
+                      Annuler
+                    </button>
+                    <button
+                      className="btn"
+                      type="submit"
+                      disabled={enCours || code.length !== 6}
+                    >
+                      {enCours ? 'Activation…' : 'Activer'}
+                    </button>
+                  </div>
+                </form>
+              </>
+            )}
+          </div>
+        )}
+      </section>
     </>
   );
 }

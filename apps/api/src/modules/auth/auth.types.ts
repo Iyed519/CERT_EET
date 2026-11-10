@@ -10,6 +10,9 @@ export interface AccessTokenPayload {
   // à travers les rotations, terminée à la déconnexion. Absent des jetons émis
   // avant US-QCM-10 : leur `jti` tient alors lieu de session.
   sid?: string;
+  // US-AUTH-08 — instant d'émission en millisecondes (absent des jetons plus
+  // anciens : `iat` × 1000 en tient lieu).
+  tms?: number;
   iat: number;
   exp: number;
 }
