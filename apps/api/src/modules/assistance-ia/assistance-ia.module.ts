@@ -16,6 +16,8 @@ import { RevisionSuggestionsController } from './suggestions/revision-suggestion
 import { RevisionSuggestionsService } from './suggestions/revision-suggestions.service';
 import { SupportsController } from './supports/supports.controller';
 import { SupportsService } from './supports/supports.service';
+import { TracabiliteGenerationsController } from './tracabilite/tracabilite-generations.controller';
+import { TracabiliteGenerationsService } from './tracabilite/tracabilite-generations.service';
 
 /**
  * Assistance IA aux formateurs (E6, F4 ; DS-06, AC-04, ADR-04 / ADR-05).
@@ -52,12 +54,18 @@ import { SupportsService } from './supports/supports.service';
       SuggestionQuestionIa,
     ]),
   ],
-  controllers: [SupportsController, GenerationsController, RevisionSuggestionsController],
+  controllers: [
+    SupportsController,
+    GenerationsController,
+    RevisionSuggestionsController,
+    TracabiliteGenerationsController,
+  ],
   providers: [
     SupportsService,
     GenerationsService,
     PipelineRagService,
     RevisionSuggestionsService,
+    TracabiliteGenerationsService,
     FileIaService,
     embeddingsProvider,
     llmProvider,
