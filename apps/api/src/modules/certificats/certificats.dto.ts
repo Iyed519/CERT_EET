@@ -3,6 +3,7 @@ import { Transform } from 'class-transformer';
 import {
   Equals,
   IsEnum,
+  IsIn,
   IsNotEmpty,
   IsOptional,
   IsString,
@@ -31,6 +32,14 @@ export class FiltreCertificatsDto {
   @IsString({ message: 'La recherche doit être un texte.' })
   @MaxLength(255, { message: 'La recherche ne peut pas dépasser 255 caractères.' })
   recherche?: string;
+
+  @ApiPropertyOptional({
+    enum: ['true'],
+    description: 'US-CERT-02 : seulement les certificats en échec définitif.',
+  })
+  @IsOptional()
+  @IsIn(['true'], { message: 'enEchec ne peut valoir que « true ».' })
+  enEchec?: string;
 }
 
 /**

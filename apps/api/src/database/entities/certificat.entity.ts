@@ -94,6 +94,14 @@ export class Certificat {
   derniereErreur: string | null;
 
   // US-CERT-06 — révocation (CHECK : les quatre si REVOQUE, aucune sinon).
+  /** US-CERT-02 — Échec définitif (tentatives épuisées) ; effacé par une relance ou un succès. */
+  @Column({ name: 'echec_definitif_le', type: 'timestamptz', nullable: true })
+  echecDefinitifLe: Date | null;
+
+  /** US-CERT-02 — Passage en EN_GENERATION (reprise d'un certificat bloqué). */
+  @Column({ name: 'debut_generation', type: 'timestamptz', nullable: true })
+  debutGeneration: Date | null;
+
   @Column({ name: 'date_revocation', type: 'timestamptz', nullable: true })
   dateRevocation: Date | null;
 

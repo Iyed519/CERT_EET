@@ -671,6 +671,92 @@ export class MailService {
   }
 
   /**
+   * US-CERT-02 — Alerte à l'administrateur : la génération d'un certificat a
+   * échoué définitivement (tentatives épuisées). Le certificat reste en
+   * attente ; le lien mène à la supervision, filtrée sur les échecs, où il
+   * peut être relancé.
+   */
+  async sendCertificatEchecEmail(
+    to: string,
+    donnees: {
+      prenom: string | null;
+      certificatId: string;
+      nomApprenant: string;
+      titreFormation: string;
+      nbTentatives: number;
+      erreur: string;
+    },
+  ): Promise<void> {
+    const { from, appBaseUrl } = this.configService.getOrThrow<MailConfig>('mail');
+    const formation = donnees.titreFormation.replace(/\s+/g, ' ').trim();
+    const apprenant = donnees.nomApprenant.replace(/\s+/g, ' ').trim();
+    const prenom = donnees.prenom?.trim() ?? '';
+    const salutation = prenom ? `Bonjour ${prenom},` : 'Bonjour,';
+    const lien = `${appBaseUrl}/admin/certificats?enEchec=true`;
+    const text =
+      `${salutation}\n\n` +
+      `La génération du certificat de ${apprenant} pour la formation « ${formation} » a échoué ` +
+      `après ${donnees.nbTentatives} tentative(s).\n` +
+      `Dernière erreur : ${donnees.erreur}\n\n` +
+      `Le certificat reste en attente : aucun document partiel n'a été publié. ` +
+      `Vous pouvez le relancer depuis la supervision des certificats.\n\n` +
+      `Supervision : ${lien}\n\n` +
+      `— L'équipe Cert_EET`;
+    const html = `<!doctype html>
+<html lang="fr">
+  <body style="margin:0;padding:0;background-color:#f2f4f3;">
+    <table role="presentation" width="100%" cellpadding="0" cellspacing="0" style="background-color:#f2f4f3;font-family:Arial,Helvetica,sans-serif;">
+      <tr>
+        <td align="center" style="padding:28px 12px;">
+          <table role="presentation" width="600" cellpadding="0" cellspacing="0" style="width:600px;max-width:600px;background-color:#ffffff;border-radius:16px;overflow:hidden;box-shadow:0 6px 24px rgba(16,24,40,0.08);">
+            <tr>
+              <td style="background-color:#1e8449;padding:22px 30px;color:#ffffff;font-size:18px;font-weight:bold;">Cert_EET</td>
+            </tr>
+            <tr>
+              <td style="padding:34px 34px 6px 34px;">
+                <h1 style="margin:0 0 12px 0;font-size:22px;line-height:1.3;color:#1b2631;">Échec de génération d’un certificat</h1>
+                <p style="margin:0 0 14px 0;font-size:15px;line-height:1.6;color:#4a5866;">${echapperHtml(salutation)}</p>
+                <p style="margin:0 0 14px 0;font-size:15px;line-height:1.6;color:#4a5866;">
+                  La génération du certificat de <strong style="color:#1b2631;">${echapperHtml(apprenant)}</strong>
+                  pour la formation <strong style="color:#1b2631;">«&nbsp;${echapperHtml(formation)}&nbsp;»</strong>
+                  a échoué après ${donnees.nbTentatives} tentative(s).
+                </p>
+                <p style="margin:0 0 14px 0;font-size:14px;line-height:1.6;color:#922b21;">Dernière erreur : ${echapperHtml(donnees.erreur)}</p>
+                <p style="margin:0 0 20px 0;font-size:15px;line-height:1.6;color:#4a5866;">
+                  Le certificat reste en attente : aucun document partiel n’a été publié.
+                  Vous pouvez le relancer depuis la supervision des certificats.
+                </p>
+                <table role="presentation" cellpadding="0" cellspacing="0" style="margin:6px 0 18px 0;">
+                  <tr>
+                    <td align="center" bgcolor="#1e8449" style="border-radius:10px;">
+                      <a href="${lien}" target="_blank" style="display:inline-block;padding:14px 30px;font-size:15px;font-weight:bold;color:#ffffff;text-decoration:none;border-radius:10px;">Voir la supervision</a>
+                    </td>
+                  </tr>
+                </table>
+              </td>
+            </tr>
+            <tr>
+              <td style="padding:18px 34px 26px 34px;">
+                <p style="margin:0;font-size:12px;line-height:1.5;color:#aab4bd;">Email envoyé automatiquement, merci de ne pas y répondre.</p>
+              </td>
+            </tr>
+          </table>
+        </td>
+      </tr>
+    </table>
+  </body>
+</html>`;
+    await this.transporter.sendMail({
+      from,
+      to,
+      subject: `Cert_EET — Échec de génération d’un certificat : « ${formation} »`,
+      text,
+      html,
+    });
+    this.logger.log(`Alerte d'échec de certificat envoyée à ${to}`);
+  }
+
+  /**
    * US-IA-01 — Email au formateur à la fin de l'indexation d'un support
    * (DS-06 : notifier(formateurId, « Support indexé et prêt à l'utilisation »)).
    * En cas d'échec, le motif (en français, sans détail technique) est donné ;

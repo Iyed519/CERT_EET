@@ -150,7 +150,11 @@ describe('CertificatsService (US-CERT-01)', () => {
       expect(mockManager.update).toHaveBeenCalledWith(
         Certificat,
         { id: 'cert-1' },
-        { statut: StatutCertificat.EN_GENERATION, nbTentatives: 1 },
+        {
+          statut: StatutCertificat.EN_GENERATION,
+          nbTentatives: 1,
+          debutGeneration: expect.any(Function),
+        },
       );
       expect(genererPdfCertificat).toHaveBeenCalledWith({
         certificatId: 'cert-1',
@@ -169,7 +173,7 @@ describe('CertificatsService (US-CERT-01)', () => {
         SHA,
       );
       expect(mockDataSource.query).toHaveBeenCalledWith(
-        expect.stringContaining("SET statut = 'ACTIF'"),
+        expect.stringContaining('derniere_erreur = NULL, echec_definitif_le = NULL'),
         ['cert-1', 'certificats/cert-1.pdf', SHA],
       );
       expect(mockAudit.record).toHaveBeenCalledWith(
@@ -234,16 +238,92 @@ describe('CertificatsService (US-CERT-01)', () => {
     });
   });
 
-  it('échec définitif : audit CERTIFICAT_ECHEC', async () => {
-    await service.echecDefinitif('cert-1', new Error('trois fois'));
-    expect(mockAudit.record).toHaveBeenCalledWith(
-      expect.objectContaining({
-        action: 'CERTIFICAT_ECHEC',
-        cible: 'cert-1',
-        resultat: 'Échec',
-        detailsAvantApres: { erreur: 'trois fois' },
-      }),
-    );
+  describe('échec définitif et reprise (US-CERT-02)', () => {
+    const mailEchec = jest.fn();
+    beforeEach(() => {
+      Object.assign(mockMail, { sendCertificatEchecEmail: mailEchec });
+      mailEchec.mockReset();
+    });
+
+    it('premier échec définitif : daté sous condition, audit avec alerte, email à chaque admin actif', async () => {
+      mockDataSource.query
+        .mockResolvedValueOnce([[{ id: 'cert-1', nbTentatives: 3 }], 1])
+        .mockResolvedValueOnce([{ formation: 'Back-end', apprenant: 'Inès Gharbi' }]);
+      mockManager.find.mockResolvedValueOnce([
+        { id: 'a1', email: 'a1@x.tn', prenom: 'Amel' },
+        { id: 'a2', email: 'a2@x.tn', prenom: null },
+      ]);
+      await service.echecDefinitif('cert-1', new Error('trois fois'));
+      const [sql, params] = mockDataSource.query.mock.calls[0];
+      expect(sql).toContain('SET echec_definitif_le = now()');
+      expect(sql).toContain("statut = 'EN_ATTENTE_GENERATION' AND echec_definitif_le IS NULL");
+      expect(params).toEqual(['cert-1']);
+      expect(mockManager.find).toHaveBeenCalledWith(
+        expect.anything(),
+        expect.objectContaining({ where: { role: 'ADMINISTRATEUR', statut: 'ACTIF' } }),
+      );
+      expect(mockAudit.record).toHaveBeenCalledWith(
+        expect.objectContaining({
+          action: 'CERTIFICAT_ECHEC',
+          cible: 'cert-1',
+          resultat: 'Échec',
+          detailsAvantApres: { erreur: 'trois fois', alerte: true },
+        }),
+      );
+      expect(mailEchec).toHaveBeenCalledTimes(2);
+      expect(mailEchec).toHaveBeenCalledWith('a1@x.tn', {
+        prenom: 'Amel',
+        certificatId: 'cert-1',
+        nomApprenant: 'Inès Gharbi',
+        titreFormation: 'Back-end',
+        nbTentatives: 3,
+        erreur: 'trois fois',
+      });
+    });
+
+    it('déjà signalé : tracé, sans nouvelle alerte ; un email en échec n’arrête rien', async () => {
+      mockDataSource.query.mockResolvedValueOnce([[], 0]);
+      await service.echecDefinitif('cert-1', new Error('encore'));
+      expect(mailEchec).not.toHaveBeenCalled();
+      expect(mockAudit.record).toHaveBeenCalledWith(
+        expect.objectContaining({ detailsAvantApres: { erreur: 'encore', alerte: false } }),
+      );
+
+      mockDataSource.query
+        .mockResolvedValueOnce([[{ id: 'cert-1', nbTentatives: 3 }], 1])
+        .mockResolvedValueOnce([{ formation: 'B', apprenant: 'X' }]);
+      mockManager.find.mockResolvedValueOnce([
+        { id: 'a1', email: 'a1@x.tn', prenom: null },
+        { id: 'a2', email: 'a2@x.tn', prenom: null },
+      ]);
+      mailEchec.mockRejectedValueOnce(new Error('SMTP'));
+      jest.spyOn(Logger.prototype, 'error').mockImplementation(() => undefined);
+      await expect(service.echecDefinitif('cert-1', new Error('x'))).resolves.toBeUndefined();
+      expect(mailEchec).toHaveBeenCalledTimes(2);
+    });
+
+    it('reprise : bloqués remis en attente sous condition, tracés, renvoyés dans la file', async () => {
+      mockDataSource.query.mockResolvedValueOnce([
+        [
+          { id: 'c1', nbTentatives: 1 },
+          { id: 'c2', nbTentatives: 2 },
+        ],
+        2,
+      ]);
+      await expect(service.reprendreBloques()).resolves.toEqual(['c1', 'c2']);
+      const [sql, params] = mockDataSource.query.mock.calls[0];
+      expect(sql).toContain("SET statut = 'EN_ATTENTE_GENERATION'");
+      expect(sql).toContain("WHERE statut = 'EN_GENERATION'");
+      expect(sql).toContain(
+        'COALESCE(debut_generation, updated_at) <= now() - make_interval(mins => $2)',
+      );
+      expect(params[1]).toBe(15);
+      expect(mockFile.ajouter).toHaveBeenCalledWith('c1', 2);
+      expect(mockFile.ajouter).toHaveBeenCalledWith('c2', 3);
+      expect(mockAudit.record).toHaveBeenCalledWith(
+        expect.objectContaining({ action: 'CERTIFICAT_REPRIS', cible: 'c2' }),
+      );
+    });
   });
 
   describe('relancer', () => {
@@ -270,7 +350,7 @@ describe('CertificatsService (US-CERT-01)', () => {
       expect(mockManager.update).toHaveBeenCalledWith(
         Certificat,
         { id: 'cert-1' },
-        { statut: StatutCertificat.EN_ATTENTE_GENERATION },
+        { statut: StatutCertificat.EN_ATTENTE_GENERATION, echecDefinitifLe: null },
       );
       expect(mockFile.ajouter).toHaveBeenCalledWith('cert-1', 4);
       expect(mockAudit.record).toHaveBeenCalledWith(

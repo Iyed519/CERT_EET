@@ -2447,6 +2447,8 @@ export interface CertificatAdmin {
   empreinteSha256: string | null;
   nbTentatives: number;
   derniereErreur: string | null;
+  /** US-CERT-02 — échec définitif (tentatives épuisées), null sinon. */
+  echecDefinitifLe: string | null;
   /** US-CERT-06 — null tant que le certificat n'est pas révoqué. */
   revocation: {
     date: string;
@@ -2486,10 +2488,12 @@ export type MotifRevocation = 'FRAUDE' | 'ERREUR_ADMIN' | 'DISCIPLINAIRE' | 'JUD
 export async function getCertificatsAdmin(
   statut?: StatutCertificat,
   recherche?: string,
+  enEchec = false,
 ): Promise<CertificatAdmin[]> {
   const params = new URLSearchParams();
   if (statut) params.set('statut', statut);
   if (recherche) params.set('recherche', recherche);
+  if (enEchec) params.set('enEchec', 'true');
   const qs = params.toString();
   const response = await apiFetch(`/api/admin/certificats${qs ? `?${qs}` : ''}`);
   return lireReponseFormation<CertificatAdmin[]>(response, 'Impossible de charger les certificats.');

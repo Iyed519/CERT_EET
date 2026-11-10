@@ -8,6 +8,7 @@ import { LimiteDebitGuard } from './limite-debit.guard';
 import { SupervisionCertificatsService } from './supervision-certificats.service';
 import { VerificationController } from './verification.controller';
 import { VerificationService } from './verification.service';
+import { RepriseCertificatsService } from './reprise-certificats.service';
 
 /**
  * Certificats (F3 ; US-CERT-01 émission asynchrone ; US-CERT-03 « Mes
@@ -30,6 +31,7 @@ import { VerificationService } from './verification.service';
     VerificationService,
     LimiteDebitGuard,
     SupervisionCertificatsService,
+    RepriseCertificatsService,
   ],
   exports: [CertificatsService, EligibiliteService],
 })

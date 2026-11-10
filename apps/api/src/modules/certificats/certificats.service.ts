@@ -10,12 +10,14 @@ import * as bcrypt from 'bcryptjs';
 import { Readable } from 'stream';
 import { ConfigService } from '@nestjs/config';
 import { createHash } from 'crypto';
-import { DataSource, FindOptionsWhere, ILike } from 'typeorm';
+import { DataSource, FindOperator, FindOptionsWhere, ILike, IsNull, Not } from 'typeorm';
 import { MailConfig } from '../../config/configuration';
 import { Certificat } from '../../database/entities/certificat.entity';
 import { Formation } from '../../database/entities/formation.entity';
 import { User } from '../../database/entities/user.entity';
 import { MotifRevocation } from '../../database/enums/motif-revocation.enum';
+import { Role } from '../../database/enums/role.enum';
+import { StatutCompte } from '../../database/enums/statut-compte.enum';
 import { StatutCertificat } from '../../database/enums/statut-certificat.enum';
 import { MailService } from '../../mail/mail.service';
 import { StockageService } from '../../stockage/stockage.service';
@@ -34,6 +36,8 @@ import {
   verifierRelancable,
   verifierRevocable,
   verifierTelechargeable,
+  MESSAGE_REPRISE_AUTOMATIQUE,
+  REPRISE_CERTIFICATS,
 } from './certificat.regles';
 import { RevoquerCertificatDto } from './certificats.dto';
 import { FileCertificatsService } from './file-certificats.service';
@@ -51,6 +55,8 @@ export interface CertificatAdminVue {
   empreinteSha256: string | null;
   nbTentatives: number;
   derniereErreur: string | null;
+  /** US-CERT-02 — échec définitif (tentatives épuisées), null sinon. */
+  echecDefinitifLe: Date | null;
   /** US-CERT-06 — null tant que le certificat n'est pas révoqué. */
   revocation: {
     date: Date;
@@ -186,7 +192,11 @@ export class CertificatsService implements OnApplicationBootstrap {
       await manager.update(
         Certificat,
         { id: certificatId },
-        { statut: StatutCertificat.EN_GENERATION, nbTentatives: certificat.nbTentatives + 1 },
+        {
+          statut: StatutCertificat.EN_GENERATION,
+          nbTentatives: certificat.nbTentatives + 1,
+          debutGeneration: () => 'now()',
+        },
       );
       return certificat;
     });
@@ -223,7 +233,7 @@ export class CertificatsService implements OnApplicationBootstrap {
       await this.dataSource.query(
         `UPDATE certificats
             SET statut = 'ACTIF', cle_stockage = $2, empreinte_sha256 = $3,
-                date_generation = now(), derniere_erreur = NULL
+                date_generation = now(), derniere_erreur = NULL, echec_definitif_le = NULL
           WHERE id = $1 AND statut = 'EN_GENERATION'`,
         [certificatId, cle, empreinte],
       );
@@ -252,16 +262,98 @@ export class CertificatsService implements OnApplicationBootstrap {
     }
   }
 
-  /** Tentatives épuisées : tracé ; la ligne reste en attente de relance. */
+  /**
+   * Tentatives épuisées (US-CERT-02) : la ligne reste EN_ATTENTE_GENERATION
+   * (aucun certificat partiel : `generer` a déjà retiré l'objet déposé) ;
+   * l'échec définitif est daté UNE fois (UPDATE conditionnel) et chaque
+   * administrateur actif est alerté par email à ce moment-là seulement ;
+   * audit CERTIFICAT_ECHEC (avec `alerte`) à chaque échec définitif.
+   */
   async echecDefinitif(certificatId: string, erreur: unknown): Promise<void> {
+    const message = resumeErreur(erreur);
+    const [lignes] = (await this.dataSource.query(
+      `UPDATE certificats SET echec_definitif_le = now()
+        WHERE id = $1 AND statut = 'EN_ATTENTE_GENERATION' AND echec_definitif_le IS NULL
+        RETURNING id, nb_tentatives AS "nbTentatives"`,
+      [certificatId],
+    )) as [Array<{ id: string; nbTentatives: number }>, number];
+    const premier = lignes.length > 0;
     await this.auditService.record({
       action: 'CERTIFICAT_ECHEC',
       acteur: null,
       cible: certificatId,
       adresseIp: null,
       resultat: 'Échec',
-      detailsAvantApres: { erreur: resumeErreur(erreur) },
+      detailsAvantApres: { erreur: message, alerte: premier },
     });
+    if (premier) await this.alerterAdministrateurs(certificatId, lignes[0].nbTentatives, message);
+  }
+
+  /**
+   * Reprise (US-CERT-02) des certificats restés EN_GENERATION trop longtemps
+   * (worker arrêté en cours de route) : remis en attente sous UPDATE
+   * conditionnel (deux balayages simultanés ne reprennent pas le même),
+   * audit CERTIFICAT_REPRIS, renvoyés dans la file. Renvoie leurs identifiants.
+   */
+  async reprendreBloques(): Promise<string[]> {
+    const [lignes] = (await this.dataSource.query(
+      `UPDATE certificats
+          SET statut = 'EN_ATTENTE_GENERATION', derniere_erreur = $1
+        WHERE statut = 'EN_GENERATION'
+          AND COALESCE(debut_generation, updated_at) <= now() - make_interval(mins => $2)
+        RETURNING id, nb_tentatives AS "nbTentatives"`,
+      [MESSAGE_REPRISE_AUTOMATIQUE, REPRISE_CERTIFICATS.bloqueApresMinutes],
+    )) as [Array<{ id: string; nbTentatives: number }>, number];
+    for (const l of lignes) {
+      await this.auditService.record({
+        action: 'CERTIFICAT_REPRIS',
+        acteur: null,
+        cible: l.id,
+        adresseIp: null,
+        resultat: 'Succès',
+        detailsAvantApres: { rang: l.nbTentatives + 1 },
+      });
+      await this.file.ajouter(l.id, l.nbTentatives + 1);
+    }
+    return lignes.map((l) => l.id);
+  }
+
+  /** Email à chaque administrateur actif (au mieux : un échec d'envoi est journalisé). */
+  private async alerterAdministrateurs(
+    certificatId: string,
+    nbTentatives: number,
+    erreur: string,
+  ): Promise<void> {
+    try {
+      const [admins, [contexte]] = await Promise.all([
+        this.dataSource.manager.find(User, {
+          where: { role: Role.ADMINISTRATEUR, statut: StatutCompte.ACTIF },
+          select: { id: true, email: true, prenom: true },
+        }),
+        this.dataSource.query(
+          `SELECT f.titre AS formation, COALESCE(NULLIF(concat_ws(' ', u.prenom, u.nom), ''), u.email) AS apprenant
+             FROM certificats c JOIN formations f ON f.id = c.formation_id JOIN users u ON u.id = c.apprenant_id
+            WHERE c.id = $1`,
+          [certificatId],
+        ) as Promise<Array<{ formation: string; apprenant: string }>>,
+      ]);
+      for (const a of admins) {
+        try {
+          await this.mailService.sendCertificatEchecEmail(a.email, {
+            prenom: a.prenom,
+            certificatId,
+            nomApprenant: contexte?.apprenant ?? '',
+            titreFormation: contexte?.formation ?? '',
+            nbTentatives,
+            erreur,
+          });
+        } catch (e) {
+          this.logger.error(`Alerte d'échec non envoyée (${a.id}) : ${String(e)}`);
+        }
+      }
+    } catch (e) {
+      this.logger.error(`Alerte d'échec impossible (${certificatId}) : ${String(e)}`);
+    }
   }
 
   /**
@@ -269,8 +361,15 @@ export class CertificatsService implements OnApplicationBootstrap {
    * US-DASH-02 : recherche facultative (titulaire — email, prénom, nom —,
    * titre de la formation, « contient » sans casse ; ou identifiant exact).
    */
-  async lister(statut?: StatutCertificat, recherche?: string): Promise<CertificatAdminVue[]> {
-    return this.vuesAdmin(statut ? { statut } : {}, recherche);
+  async lister(
+    statut?: StatutCertificat,
+    recherche?: string,
+    enEchec = false,
+  ): Promise<CertificatAdminVue[]> {
+    return this.vuesAdmin(
+      { ...(statut ? { statut } : {}), ...(enEchec ? { echecDefinitifLe: Not(IsNull()) } : {}) },
+      recherche,
+    );
   }
 
   /** Vue administrateur d'UN certificat (après relance ou révocation). */
@@ -290,6 +389,7 @@ export class CertificatsService implements OnApplicationBootstrap {
     where: {
       statut?: StatutCertificat;
       id?: string;
+      echecDefinitifLe?: FindOperator<Date>;
     },
     recherche?: string,
   ): Promise<CertificatAdminVue[]> {
@@ -316,6 +416,7 @@ export class CertificatsService implements OnApplicationBootstrap {
       empreinteSha256: c.empreinteSha256,
       nbTentatives: c.nbTentatives,
       derniereErreur: c.derniereErreur,
+      echecDefinitifLe: c.echecDefinitifLe,
       revocation:
         c.statut === StatutCertificat.REVOQUE
           ? {
@@ -348,7 +449,7 @@ export class CertificatsService implements OnApplicationBootstrap {
       await manager.update(
         Certificat,
         { id: certificatId },
-        { statut: StatutCertificat.EN_ATTENTE_GENERATION },
+        { statut: StatutCertificat.EN_ATTENTE_GENERATION, echecDefinitifLe: null },
       );
       return certificat.nbTentatives + 1;
     });
@@ -568,7 +669,7 @@ const FORMAT_UUID = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{1
  * de statut.
  */
 export function criteresRecherche(
-  base: { statut?: StatutCertificat; id?: string },
+  base: { statut?: StatutCertificat; id?: string; echecDefinitifLe?: FindOperator<Date> },
   recherche: string,
 ): FindOptionsWhere<Certificat>[] {
   const saisie = recherche.trim();

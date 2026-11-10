@@ -121,3 +121,18 @@ export function verifierRevocable(statut: StatutCertificat): void {
   if (statut === StatutCertificat.REVOQUE) throw new ConflictException(MESSAGE_DEJA_REVOQUE);
   if (statut !== StatutCertificat.ACTIF) throw new ConflictException(MESSAGE_PAS_REVOCABLE);
 }
+
+// ---------------------------------------------------------------------
+//  US-CERT-02 — Échecs de génération
+// ---------------------------------------------------------------------
+
+/**
+ * Un certificat resté EN_GENERATION au-delà de ce délai est considéré comme
+ * bloqué (worker arrêté en cours de route) : la reprise le remet en attente
+ * et le renvoie dans la file. Largement au-dessus d'une génération normale
+ * (quelques secondes, trois tentatives espacées de 5 / 10 / 20 s).
+ */
+export const REPRISE_CERTIFICATS = { bloqueApresMinutes: 15, intervalleMinutes: 5 } as const;
+
+export const MESSAGE_REPRISE_AUTOMATIQUE =
+  'Génération interrompue (worker arrêté) : reprise automatique.';

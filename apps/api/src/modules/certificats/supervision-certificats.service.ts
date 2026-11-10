@@ -64,8 +64,16 @@ export class SupervisionCertificatsService {
     private readonly certificatsService: CertificatsService,
   ) {}
 
-  async lister(statut?: StatutCertificat, recherche?: string): Promise<CertificatSupervisionVue[]> {
-    const vues = await this.certificatsService.lister(statut, recherche?.trim() || undefined);
+  async lister(
+    statut?: StatutCertificat,
+    recherche?: string,
+    enEchec = false,
+  ): Promise<CertificatSupervisionVue[]> {
+    const vues = await this.certificatsService.lister(
+      statut,
+      recherche?.trim() || undefined,
+      enEchec,
+    );
     return this.enrichir(vues);
   }
 
