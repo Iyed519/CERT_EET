@@ -16,6 +16,8 @@ import { RevisionSuggestionsController } from './suggestions/revision-suggestion
 import { RevisionSuggestionsService } from './suggestions/revision-suggestions.service';
 import { SupportsController } from './supports/supports.controller';
 import { SupportsService } from './supports/supports.service';
+import { SuiviTempsReelController } from './suivi/suivi-temps-reel.controller';
+import { SuiviTempsReelService } from './suivi/suivi-temps-reel.service';
 import { TracabiliteGenerationsController } from './tracabilite/tracabilite-generations.controller';
 import { TracabiliteGenerationsService } from './tracabilite/tracabilite-generations.service';
 
@@ -59,6 +61,7 @@ import { TracabiliteGenerationsService } from './tracabilite/tracabilite-generat
     GenerationsController,
     RevisionSuggestionsController,
     TracabiliteGenerationsController,
+    SuiviTempsReelController,
   ],
   providers: [
     SupportsService,
@@ -66,6 +69,7 @@ import { TracabiliteGenerationsService } from './tracabilite/tracabilite-generat
     PipelineRagService,
     RevisionSuggestionsService,
     TracabiliteGenerationsService,
+    SuiviTempsReelService,
     FileIaService,
     embeddingsProvider,
     llmProvider,

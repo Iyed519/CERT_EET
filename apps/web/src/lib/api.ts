@@ -3755,3 +3755,59 @@ export async function getGenerationIa(id: string): Promise<DetailGenerationTrace
     'Impossible de charger cette génération.',
   );
 }
+
+// ===================================================================
+//  US-IA-07 — Suivi en temps réel (SSE) de l'indexation et de la génération
+// ===================================================================
+
+/** Un état reçu en direct (même contenu que la fiche REST, en liste blanche). */
+export interface EtatSuivi {
+  nature: 'support' | 'generation';
+  id: string;
+  statut: string;
+  nbTentatives: number;
+  derniereErreur: string | null;
+  resultat: number | null;
+  final: boolean;
+}
+
+/**
+ * Ouvre le flux SSE `chemin` (avec le jeton, via fetch : EventSource ne sait
+ * pas envoyer d'en-tête) et appelle `surEtat` à chaque événement « etat ».
+ * Se termine à la fermeture du flux (état final, durée maximale, coupure) ou
+ * quand `signal` est annulé. Le fichier appelant garde l'API REST en repli.
+ */
+export async function suivreEnDirect(
+  chemin: string,
+  surEtat: (etat: EtatSuivi) => void,
+  signal: AbortSignal,
+): Promise<void> {
+  const response = await apiFetch(chemin, { headers: { Accept: 'text/event-stream' }, signal });
+  if (!response.ok || !response.body) return;
+  const lecteur = response.body.getReader();
+  const decodeur = new TextDecoder();
+  let tampon = '';
+  for (;;) {
+    const { value, done } = await lecteur.read();
+    if (done) return;
+    tampon += decodeur.decode(value, { stream: true });
+    let fin = tampon.indexOf('\n\n');
+    while (fin >= 0) {
+      const bloc = tampon.slice(0, fin);
+      tampon = tampon.slice(fin + 2);
+      const donnees = bloc
+        .split('\n')
+        .filter((l) => l.startsWith('data:'))
+        .map((l) => l.slice(5).trim())
+        .join('\n');
+      if (donnees) {
+        try {
+          surEtat(JSON.parse(donnees) as EtatSuivi);
+        } catch {
+          // Bloc incomplet ou illisible : ignoré, le repli REST rattrapera.
+        }
+      }
+      fin = tampon.indexOf('\n\n');
+    }
+  }
+}

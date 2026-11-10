@@ -11,6 +11,7 @@ import {
   SupportPedagogique,
   supprimerSupport,
   TAILLE_MAX_SUPPORT,
+  suivreEnDirect,
 } from '../lib/api';
 import {
   dateHeureFr,
@@ -111,6 +112,54 @@ export function SupportsModule({
     const minuterie = window.setInterval(() => void charger(), INTERVALLE_SUIVI_MS);
     return () => window.clearInterval(minuterie);
   }, [enCours, charger]);
+
+  // US-IA-07 : avancement en direct (SSE) des traitements en cours ; le
+  // rafraîchissement périodique ci-dessus reste le repli (coupure, proxy).
+  const enCoursIds = [
+    ...(supports ?? []).filter((s) => s.statut === 'EN_INDEXATION').map((s) => `supports/${s.id}`),
+    ...generations.filter((g) => g.statut === 'EN_COURS').map((g) => `generations/${g.id}`),
+  ].join(',');
+  useEffect(() => {
+    if (enCoursIds === '') return;
+    const annulation = new AbortController();
+    for (const chemin of enCoursIds.split(',')) {
+      void suivreEnDirect(
+        `/api/${chemin}/evenements`,
+        (etat) => {
+          if (etat.nature === 'support') {
+            setSupports((liste) =>
+              (liste ?? []).map((s) =>
+                s.id === etat.id
+                  ? {
+                      ...s,
+                      statut: etat.statut as SupportPedagogique['statut'],
+                      nbTentatives: etat.nbTentatives,
+                      derniereErreur: etat.derniereErreur,
+                    }
+                  : s,
+              ),
+            );
+          } else {
+            setGenerations((liste) =>
+              liste.map((g) =>
+                g.id === etat.id
+                  ? {
+                      ...g,
+                      statut: etat.statut as GenerationIa['statut'],
+                      nbTentatives: etat.nbTentatives,
+                      derniereErreur: etat.derniereErreur,
+                    }
+                  : g,
+              ),
+            );
+          }
+          if (etat.final) void charger();
+        },
+        annulation.signal,
+      ).catch(() => undefined);
+    }
+    return () => annulation.abort();
+  }, [enCoursIds, charger]);
 
   const relancer = async (s: SupportPedagogique): Promise<void> => {
     setRelanceEnCours(s.id);
