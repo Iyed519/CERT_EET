@@ -225,7 +225,7 @@ describe('AuditService', () => {
 
       await expect(service.actions()).resolves.toEqual(['LOGIN', 'ROLE_CHANGE']);
       expect(mockAuditLogRepository.query).toHaveBeenCalledWith(
-        'SELECT DISTINCT action FROM audit_logs ORDER BY action COLLATE "C"',
+        'SELECT DISTINCT action COLLATE "C" AS action FROM audit_logs ORDER BY 1',
       );
     });
   });

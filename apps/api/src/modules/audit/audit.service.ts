@@ -169,7 +169,7 @@ export class AuditService {
    */
   async actions(): Promise<string[]> {
     const lignes = (await this.auditLogRepository.query(
-      'SELECT DISTINCT action FROM audit_logs ORDER BY action COLLATE "C"',
+      'SELECT DISTINCT action COLLATE "C" AS action FROM audit_logs ORDER BY 1',
     )) as Array<{ action: string }>;
     return lignes.map((l) => l.action);
   }

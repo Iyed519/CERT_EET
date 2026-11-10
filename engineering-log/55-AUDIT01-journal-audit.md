@@ -74,7 +74,7 @@ le refaire (D1).
 - Deuxième CI rouge : la liste des actions était triée par le classement de
   la base ; en CI (en_US) « CERTIFICATION_DECLENCHEE » passe après
   « CERTIFICAT_EMIS » (le « _ » est ignoré), en local (C.UTF-8) avant.
-  Tri imposé en octets : `ORDER BY action COLLATE "C"`.
+  Tri imposé en octets : `SELECT DISTINCT action COLLATE "C" … ORDER BY 1` (un premier essai, `ORDER BY action COLLATE "C"`, est refusé par PostgreSQL avec DISTINCT : 500, vu par l’e2e local).
 
 ## Vérification
 - API : lint 0 erreur / 0 avertissement, `tsc`, unitaires **77 suites / 1 135 tests**,
