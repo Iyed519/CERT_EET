@@ -2241,6 +2241,25 @@ export async function soumettreLivrable(
   return lireReponseFormation<LivrableApprenant>(response, 'Impossible de soumettre le livrable.');
 }
 
+/**
+ * US-ATEL-05 — PUT /api/ateliers/:id/livrable : remplace mon livrable (avant
+ * la date limite, tant qu'il n'est pas en correction) ; version + 1.
+ */
+export async function remplacerLivrable(
+  atelierId: string,
+  depot: { fichiers: File[]; commentaire: string; liens: string[] },
+): Promise<LivrableApprenant> {
+  const corps = new FormData();
+  for (const f of depot.fichiers) corps.append('fichiers', f, f.name);
+  if (depot.commentaire.trim().length > 0) corps.append('commentaire', depot.commentaire);
+  for (const lien of depot.liens) corps.append('liens', lien);
+  const response = await apiFetch(`/api/ateliers/${atelierId}/livrable`, {
+    method: 'PUT',
+    body: corps,
+  });
+  return lireReponseFormation<LivrableApprenant>(response, 'Impossible de remplacer le livrable.');
+}
+
 /* ============================================================
  * US-ATEL-06 — Corriger un livrable critère par critère (formateur)
  * ============================================================ */

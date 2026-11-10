@@ -1,6 +1,11 @@
 'use client';
 import { useRef, useState } from 'react';
-import { AtelierApprenant, LivrableApprenant, soumettreLivrable } from '../lib/api';
+import {
+  AtelierApprenant,
+  LivrableApprenant,
+  remplacerLivrable,
+  soumettreLivrable,
+} from '../lib/api';
 import { tailleFr } from '../lib/format';
 import { ConfirmationModal } from './ConfirmationModal';
 
@@ -19,15 +24,23 @@ function extensionDe(nom: string): string {
  * Fichiers (extensions, taille et nombre de l'atelier), commentaire libre et
  * liens externes. Les contrôles d'ici évitent un envoi inutile ; le serveur
  * revérifie tout (y compris le contenu réel des fichiers) et son message
- * s'affiche tel quel. Une confirmation rappelle que le dépôt est définitif.
+ * s'affiche tel quel. Une confirmation récapitule l'envoi.
+ *
+ * US-ATEL-05 — `versionActuelle` renseignée : même formulaire, en mode
+ * remplacement (PUT) ; la nouvelle version remplace l'ancienne.
  */
 export function DepotLivrable({
   atelier,
   onDepose,
+  versionActuelle,
+  onAnnuler,
 }: {
   atelier: AtelierApprenant;
   onDepose: (livrable: LivrableApprenant) => void;
+  versionActuelle?: number;
+  onAnnuler?: () => void;
 }): JSX.Element {
+  const remplacement = versionActuelle !== undefined;
   const champFichiers = useRef<HTMLInputElement>(null);
   const [fichiers, setFichiers] = useState<File[]>([]);
   const [commentaire, setCommentaire] = useState('');
@@ -75,7 +88,7 @@ export function DepotLivrable({
   return (
     <section className="depot" aria-labelledby="titre-depot">
       <h2 id="titre-depot" className="section-title">
-        Déposer mon livrable
+        {remplacement ? `Remplacer mon livrable (version ${versionActuelle})` : 'Déposer mon livrable'}
       </h2>
       {atelier.etatDepot === 'EN_RETARD' && (
         <p className="alert alert-info">
@@ -169,8 +182,15 @@ export function DepotLivrable({
 
       <div className="depot-pied">
         <span className="field-hint">
-          Un seul dépôt par atelier : vérifiez vos fichiers avant de soumettre.
+          {remplacement
+            ? 'Les nouveaux fichiers remplacent tous les anciens.'
+            : 'Vous pourrez le remplacer jusqu’à la date limite, tant que la correction n’a pas commencé.'}
         </span>
+        {onAnnuler && (
+          <button type="button" className="btn-sm" onClick={onAnnuler}>
+            Annuler
+          </button>
+        )}
         <button
           type="button"
           className="btn"
@@ -181,19 +201,20 @@ export function DepotLivrable({
             setConfirmer(true);
           }}
         >
-          Soumettre le livrable
+          {remplacement ? 'Remplacer le livrable' : 'Soumettre le livrable'}
         </button>
       </div>
 
       {confirmer && (
         <ConfirmationModal
-          titre="Soumettre le livrable"
+          titre={remplacement ? 'Remplacer le livrable' : 'Soumettre le livrable'}
           message={`${fichiers.length} fichier${fichiers.length > 1 ? 's' : ''} (${tailleFr(
             fichiers.reduce((t, f) => t + f.size, 0),
-          )})${liensRemplis.length > 0 ? ` et ${liensRemplis.length} lien${liensRemplis.length > 1 ? 's' : ''}` : ''} ${fichiers.length + liensRemplis.length > 1 ? 'seront envoyés' : 'sera envoyé'} au formateur. Le dépôt est définitif : il ne pourra pas être remplacé.`}
-          libelleAction="Soumettre"
+          )})${liensRemplis.length > 0 ? ` et ${liensRemplis.length} lien${liensRemplis.length > 1 ? 's' : ''}` : ''} ${fichiers.length + liensRemplis.length > 1 ? 'seront envoyés' : 'sera envoyé'} au formateur.${remplacement ? ` Ils remplaceront la version ${versionActuelle}, qui sera supprimée.` : ''}`}
+          libelleAction={remplacement ? 'Remplacer' : 'Soumettre'}
           onConfirmer={async () => {
-            const livrable = await soumettreLivrable(atelier.id, {
+            const envoi = remplacement ? remplacerLivrable : soumettreLivrable;
+            const livrable = await envoi(atelier.id, {
               fichiers,
               commentaire,
               liens: liensRemplis,
