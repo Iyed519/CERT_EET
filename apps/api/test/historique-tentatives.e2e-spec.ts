@@ -90,7 +90,12 @@ describe('Historique des tentatives (e2e) — US-QCM-11', () => {
         .expect(201)
         .then((r) => r.body)) as { id: string }
     ).id;
-  const repondre = (cle: string, tentativeId: string, questionId: string, optionIds: string[]) =>
+  const repondre = (
+    cle: string,
+    tentativeId: string,
+    questionId: string,
+    optionIds: string[],
+  ): request.Test =>
     appel('put', `/tentatives/${tentativeId}/reponses/${questionId}`, tokens[cle], {
       optionIds,
     }).expect(200);
