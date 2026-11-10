@@ -265,12 +265,14 @@ export const LIBELLES_STATUT_CERTIFICAT: Record<StatutCertificat, string> = {
   EN_GENERATION: 'En génération',
   ACTIF: 'Émis',
   REVOQUE: 'Révoqué',
+  EXPIRE: 'Expiré',
 };
 
 /** US-DASH-02 — Verdict d'une vérification publique. */
 export const LIBELLES_VERDICT: Record<string, string> = {
   VALIDE: 'Valide',
   REVOQUE: 'Révoqué',
+  EXPIRE: 'Expiré',
   INTEGRITE_COMPROMISE: 'Intégrité compromise',
 };
 
@@ -284,6 +286,8 @@ export const LIBELLES_ACTION_CERTIFICAT: Record<string, string> = {
   CERTIFICAT_TELECHARGE: 'PDF téléchargé par le titulaire',
   CERTIFICAT_REVOCATION_REFUSEE: 'Révocation refusée (mot de passe)',
   CERTIFICAT_REVOQUE: 'Certificat révoqué',
+  CERTIFICAT_EXPIRE: 'Certificat expiré',
+  CERTIFICAT_REPRIS: 'Génération reprise automatiquement',
 };
 
 /** US-DASH-02 — « 3 consultations publiques », « aucune consultation ». */

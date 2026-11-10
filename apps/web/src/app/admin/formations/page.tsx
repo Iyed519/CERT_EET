@@ -324,6 +324,7 @@ interface Saisie {
   capaciteMax: string;
   noteMinCertification: string;
   modeleCertificat: string;
+  dureeValiditeMois: string;
 }
 
 const saisieInitiale = (f: FormationVue | null): Saisie => ({
@@ -337,6 +338,7 @@ const saisieInitiale = (f: FormationVue | null): Saisie => ({
   capaciteMax: f ? String(f.capaciteMax) : '',
   noteMinCertification: f ? String(f.noteMinCertification) : '',
   modeleCertificat: f?.modeleCertificat ?? '',
+  dureeValiditeMois: f?.dureeValiditeMois != null ? String(f.dureeValiditeMois) : '',
 });
 
 /** Champ texte facultatif : vide -> absent (création) ou null (modification). */
@@ -357,6 +359,7 @@ const versCreation = (s: Saisie): FormationInput => ({
   capaciteMax: Number(s.capaciteMax),
   noteMinCertification: Number(s.noteMinCertification),
   modeleCertificat: texteOuVide(s.modeleCertificat),
+  dureeValiditeMois: s.dureeValiditeMois.trim() === '' ? undefined : Number(s.dureeValiditeMois),
 });
 
 /**
@@ -384,6 +387,7 @@ const versModification = (s: Saisie, f: FormationVue): FormationPatch => {
       'capaciteMax',
       'noteMinCertification',
       'modeleCertificat',
+      'dureeValiditeMois',
     ] as Array<keyof FormationInput>
   ).forEach(comparer);
   return patch as FormationPatch;
@@ -490,6 +494,23 @@ function FormationModal({
                 step={0.01}
                 value={saisie.noteMinCertification}
                 onChange={champ('noteMinCertification')}
+                disabled={enCours}
+              />
+            </div>
+            <div className="field">
+              <label className="field-label" htmlFor="f-validite">
+                Validité des certificats (mois)
+              </label>
+              <input
+                id="f-validite"
+                className="input"
+                type="number"
+                min={1}
+                max={120}
+                step={1}
+                placeholder="Sans expiration"
+                value={saisie.dureeValiditeMois}
+                onChange={champ('dureeValiditeMois')}
                 disabled={enCours}
               />
             </div>
