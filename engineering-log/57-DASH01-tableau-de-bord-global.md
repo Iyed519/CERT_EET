@@ -75,7 +75,29 @@ vérifiés par écart (+1).
   désormais une fois pour toutes (`app.listen(0)`).
 
 ## Vérification
-VERIF
+- API : lint 0 erreur / 0 avertissement, `tsc`, unitaires **80 suites / 1 163 tests**
+  (+ 21 : règles de période, service), aucune migration (28), e2e complet en
+  série **44 suites / 633 tests** (+ 1 ignoré : essai Anthropic réel sans
+  clé), dont `E2E-DASH01` (10 tests : 401 / 403 formateur et apprenant ; 400
+  date inexistante, mal formée, période inversée, 367 jours, paramètre
+  inconnu ; 366 jours acceptés ; défaut 30 jours finissant aujourd'hui à
+  Tunis ; période vide à zéro ; mars 2003 exact sur chaque bloc ; bornes à
+  23 h 30 UTC ; série quotidienne et activité récente sans adresse IP ;
+  répartitions cohérentes ; alertes +1 ; concurrence : 8 lectures
+  simultanées identiques, aucune trace écrite). Suite relancée 10 fois de
+  suite : stable.
+- Mutations tuées **17 / 17** (14 au premier passage, 3 après renfort des
+  données) : fin de période exclusive, fuseau des bornes et de la série,
+  connexions sur `derniere_connexion`, réussite `est_reussie`, moyenne
+  bornée à la période, « émis » = généré, révocation sur `date_revocation`,
+  action des consultations, résultat des connexions, certificat bloqué,
+  comptes anonymisés, alertes à zéro masquées, 366 jours, période inversée,
+  date normalisée, `du` dans le futur.
+- Web : `tsc`, `next lint`, `next build`. Navigateur 1280 / 390 px
+  (Chromium, compte administrateur de démonstration) : onglet « Tableau de
+  bord » actif, six cartes, histogramme quotidien, activité récente,
+  « Aucune alerte système » ; pas de défilement horizontal de la page ;
+  aucune erreur de rendu.
 
 ## CI
 Voir la PR.
