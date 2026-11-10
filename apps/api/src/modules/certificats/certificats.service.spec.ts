@@ -117,7 +117,7 @@ describe('CertificatsService (US-CERT-01)', () => {
       });
       expect(mockManager.query).toHaveBeenCalledWith(
         expect.stringContaining(
-          'ON CONFLICT ON CONSTRAINT "UQ_certificats_apprenant_formation" DO NOTHING',
+          'ON CONFLICT (apprenant_id, formation_id) WHERE remplace_certificat_id IS NULL DO NOTHING',
         ),
         ['app-1', 'f-1', 71.46, 'Bien', 'ESPRIT Entreprise'],
       );

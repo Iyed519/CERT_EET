@@ -1,5 +1,6 @@
 'use client';
 import { FormEvent, useCallback, useEffect, useState } from 'react';
+import { ConfirmationModal } from '../../../components/ConfirmationModal';
 import {
   AdminError,
   CertificatAdmin,
@@ -7,6 +8,7 @@ import {
   getCertificatsAdmin,
   getFicheCertificat,
   MotifRevocation,
+  reemettreCertificat,
   relancerCertificat,
   revoquerCertificat,
   StatutCertificat,
@@ -93,6 +95,9 @@ export default function CertificatsAdminPage(): JSX.Element {
     const minuterie = setInterval(() => void charger(), 3000);
     return () => clearInterval(minuterie);
   }, [enCours, charger]);
+
+  /** US-CERT-08 — réémission d'un certificat révoqué pour erreur (après confirmation). */
+  const [aReemettre, setAReemettre] = useState<CertificatAdmin | null>(null);
 
   const relancer = async (c: CertificatAdmin): Promise<void> => {
     setErreur(null);
@@ -212,6 +217,12 @@ export default function CertificatsAdminPage(): JSX.Element {
                       {c.consultations.derniere ? ` · dernière le ${dateHeureFr(c.consultations.derniere)}` : ''}
                     </p>
                   )}
+                  {c.remplaceCertificatId && (
+                    <p className="field-hint">Réémission d’un certificat révoqué pour erreur.</p>
+                  )}
+                  {c.remplacePar && (
+                    <p className="field-hint">Réémis : un nouveau certificat le remplace.</p>
+                  )}
                   {c.revocation && (
                     <p className="field-hint texte-erreur">
                       Révoqué le {dateHeureFr(c.revocation.date)} ·{' '}
@@ -247,6 +258,21 @@ export default function CertificatsAdminPage(): JSX.Element {
                       {relance === c.id ? 'Relance…' : 'Relancer'}
                     </button>
                   )}
+                  {c.statut === 'REVOQUE' &&
+                    c.revocation?.motif === 'ERREUR_ADMIN' &&
+                    c.remplacePar === null && (
+                      <button
+                        type="button"
+                        className="btn-sm btn-primary-sm"
+                        onClick={() => {
+                          setErreur(null);
+                          setSucces(null);
+                          setAReemettre(c);
+                        }}
+                      >
+                        Réémettre
+                      </button>
+                    )}
                   {c.statut === 'ACTIF' && (
                     <button
                       type="button"
@@ -268,6 +294,21 @@ export default function CertificatsAdminPage(): JSX.Element {
       )}
 
       {ficheId && <FicheModal certificatId={ficheId} onClose={() => setFicheId(null)} />}
+
+      {aReemettre && (
+        <ConfirmationModal
+          titre="Réémettre le certificat"
+          message={`Un nouveau certificat sera émis pour ${nomApprenantFr(aReemettre.apprenant)} (« ${aReemettre.formation.titre} », ${nombreFr(aReemettre.scoreFinal)} / 100). Le certificat révoqué reste conservé et sa vérification publique renverra vers le nouveau.`}
+          libelleAction="Réémettre"
+          onClose={() => setAReemettre(null)}
+          onConfirmer={async () => {
+            await reemettreCertificat(aReemettre.id);
+            setAReemettre(null);
+            setSucces('Nouveau certificat en cours d’émission ✅');
+            await charger();
+          }}
+        />
+      )}
 
       {aRevoquer && (
         <RevocationModal

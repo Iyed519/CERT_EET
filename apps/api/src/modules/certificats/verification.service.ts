@@ -36,6 +36,8 @@ export interface VerificationPublique {
   dateRevocation: Date | null;
   /** US-CERT-07 — fin de validité (passée si EXPIRE) ; null = sans expiration. */
   dateExpiration: Date | null;
+  /** US-CERT-08 — certificat réémis qui remplace celui-ci (révoqué pour erreur) ; null sinon. */
+  remplacePar: string | null;
 }
 
 /**
@@ -95,6 +97,7 @@ export class VerificationService {
       dateRevocation:
         certificat.statut === StatutCertificat.REVOQUE ? certificat.dateRevocation : null,
       dateExpiration: certificat.dateExpiration,
+      remplacePar: await this.remplacant(certificat.id),
     };
   }
 
@@ -112,6 +115,16 @@ export class VerificationService {
       throw new NotFoundException(MESSAGE_INCONNU);
     }
     return { contenu, nomFichier: nomFichierCertificat(certificat.formation?.titre ?? '') };
+  }
+
+  /** Réémission publique du certificat (seulement si elle est déjà émise). */
+  private async remplacant(certificatId: string): Promise<string | null> {
+    const [l] = (await this.dataSource.query(
+      `SELECT id FROM certificats
+        WHERE remplace_certificat_id = $1 AND statut::text IN ('ACTIF', 'REVOQUE', 'EXPIRE')`,
+      [certificatId],
+    )) as Array<{ id: string }>;
+    return l?.id ?? null;
   }
 
   private async chargerPublic(certificatId: string): Promise<Certificat> {

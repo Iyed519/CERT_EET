@@ -198,6 +198,7 @@ describe('Protection de la vérification publique (e2e) — US-CERT-05', () => {
         'integrite',
         'mention',
         'organismeEmetteur',
+        'remplacePar',
         'scoreFinal',
         'titulaire',
         'verdict',

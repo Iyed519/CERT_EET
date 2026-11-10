@@ -237,6 +237,7 @@ describe('Vérification publique (e2e) — US-CERT-04', () => {
       empreinteSha256: empreinte,
       dateRevocation: null,
       dateExpiration: null,
+      remplacePar: null,
     });
     const corps = JSON.stringify(res.body);
     expect(corps).not.toContain(EMAIL.a);

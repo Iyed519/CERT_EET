@@ -1,4 +1,5 @@
 'use client';
+import Link from 'next/link';
 import { useParams } from 'next/navigation';
 import { useEffect, useState } from 'react';
 import {
@@ -87,6 +88,15 @@ export default function VerifierPage(): JSX.Element {
             <div>
               <h1 className="verification-titre">{VERDICTS[resultat.verdict].titre}</h1>
               <p className="verification-texte">{VERDICTS[resultat.verdict].texte}</p>
+              {resultat.remplacePar && (
+                <p className="verification-texte">
+                  Un nouveau certificat a été émis pour remplacer celui-ci :{' '}
+                  <Link className="table-link" href={`/verifier/${resultat.remplacePar}`}>
+                    vérifier le certificat en vigueur
+                  </Link>
+                  .
+                </p>
+              )}
             </div>
           </div>
 
