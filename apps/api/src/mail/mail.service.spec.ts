@@ -302,4 +302,35 @@ describe('MailService', () => {
       expect(message.text).toContain('Motif : Délai <dépassé>.');
     });
   });
+
+  describe('sendAlertesDecrochageEmail (US-SUIVI-02)', () => {
+    it('récapitule les alertes et mène à la page des alertes', async () => {
+      await service.sendAlertesDecrochageEmail('sami@cert-eet.local', {
+        prenom: 'Sami',
+        alertes: [
+          { apprenant: 'Amel Abidi', formation: 'Back-end', critere: 'INACTIVITE' },
+          { apprenant: 'Bilel', formation: 'Back-end', critere: 'ECHECS_QCM' },
+        ],
+      });
+      const message = dernierMessage();
+      expect(message.subject).toBe('Cert_EET — 2 nouvelles alertes de décrochage');
+      expect(message.text).toContain('Bonjour Sami,');
+      expect(message.text).toContain(
+        '- Amel Abidi — Back-end : aucune connexion depuis plus de 7 jours',
+      );
+      expect(message.text).toContain('- Bilel — Back-end : deux échecs consécutifs au QCM');
+      expect(message.html).toContain('href="http://localhost:3001/formateur/alertes"');
+    });
+
+    it('une alerte : singulier ; échappe le HTML ; noms sur une ligne', async () => {
+      await service.sendAlertesDecrochageEmail('sami@cert-eet.local', {
+        prenom: null,
+        alertes: [{ apprenant: '<b>X</b>\r\nY', formation: 'F', critere: 'SCORE_EN_CHUTE' }],
+      });
+      const message = dernierMessage();
+      expect(message.subject).toBe('Cert_EET — 1 nouvelle alerte de décrochage');
+      expect(message.html).not.toContain('<b>X</b>');
+      expect(message.text).toContain('<b>X</b> Y — F : note en forte baisse');
+    });
+  });
 });

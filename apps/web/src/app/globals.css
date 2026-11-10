@@ -863,3 +863,15 @@ textarea.input { resize: vertical; font-family: inherit; line-height: 1.45; }
 .histo-col { flex: 1 1 0; height: 100%; display: flex; flex-direction: column; justify-content: flex-end; align-items: center; min-width: 0; }
 .histo-barre { width: 100%; min-height: 1px; background: #2f7d68; border-radius: 2px 2px 0 0; }
 .histo-etiquette { font-size: 0.68rem; color: var(--muted, #5b6b66); }
+
+/* US-SUIVI-02 — Alertes de décrochage. */
+.alertes-lien { display: inline-flex; align-items: center; gap: 6px; text-decoration: none; }
+.badge-compteur { display: inline-block; min-width: 20px; padding: 0 6px; border-radius: 999px; background: #b3261e; color: #fff; font-size: 0.75rem; font-weight: 700; text-align: center; }
+.badge-alerte { display: inline-block; margin: 4px 4px 0 0; padding: 1px 8px; border-radius: 999px; background: #fdf1dc; color: #8a5a00; font-size: 0.75rem; font-weight: 600; }
+.alertes-liste { list-style: none; padding: 0; margin: 14px 0; display: grid; gap: 10px; }
+.alerte-carte { background: #fff; border: 1px solid rgba(0, 0, 0, 0.08); border-left: 4px solid #b9770e; border-radius: 10px; padding: 12px 14px; min-width: 0; }
+.alerte-carte.alerte-TRAITEE { border-left-color: #2f7d68; opacity: 0.85; }
+.alerte-tete { display: flex; justify-content: space-between; gap: 10px; flex-wrap: wrap; align-items: center; }
+.alerte-date { font-size: 0.8rem; color: var(--muted, #5b6b66); }
+.alerte-qui, .alerte-faits, .alerte-suggestion { margin: 6px 0 0; overflow-wrap: anywhere; }
+.alerte-suggestion { font-size: 0.88rem; color: var(--muted, #5b6b66); }

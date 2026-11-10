@@ -14,6 +14,8 @@ import {
   dateHeureFr,
   dureeFr,
   jourFr,
+  faitsAlerteFr,
+  LIBELLES_CRITERE_ALERTE,
   LIBELLES_INSCRIPTION,
   LIBELLES_LIVRABLE_FORMATEUR,
   LIBELLES_STATUT_CERTIFICAT,
@@ -146,6 +148,12 @@ export default function SuiviFormationPage(): JSX.Element {
                   <strong className={k.inactifs > 0 ? 'tdb-echec' : undefined}>{k.inactifs}</strong>
                 </li>
                 <li>
+                  <span>Alertes de décrochage ouvertes</span>
+                  <strong>
+                    <Link href="/formateur/alertes">{k.alertesOuvertes}</Link>
+                  </strong>
+                </li>
+                <li>
                   <span>Terminés / suspendus</span>
                   <strong>
                     {k.termines} / {k.suspendus}
@@ -247,7 +255,12 @@ export default function SuiviFormationPage(): JSX.Element {
                             {LIBELLES_INSCRIPTION[a.statutInscription]}
                             {a.certificat === 'ACTIF' && ' · certifié'}
                           </small>
-                          {a.risque.inactif && (
+                          {a.alertes.map((c) => (
+                            <span key={c} className="badge-alerte">
+                              {LIBELLES_CRITERE_ALERTE[c] ?? c}
+                            </span>
+                          ))}
+                          {a.risque.inactif && !a.alertes.includes('INACTIVITE') && (
                             <span className="badge-risque" title="Aucune connexion depuis plus de 7 jours">
                               Inactif · {a.risque.joursSansConnexion} j
                             </span>
@@ -378,6 +391,25 @@ function FicheModal({
                     </span>
                     <span>
                       {l.note !== null ? `${nombreFr(l.note)} / 100` : '—'} · {jourFr(l.dateSoumission)}
+                    </span>
+                  </li>
+                ))}
+              </ul>
+            )}
+
+            <h2 className="fiche-titre">Alertes de décrochage ({fiche.alertes.length})</h2>
+            {fiche.alertes.length === 0 ? (
+              <p className="kpi-sous">Aucune alerte.</p>
+            ) : (
+              <ul className="fiche-liste">
+                {fiche.alertes.map((al) => (
+                  <li key={al.id}>
+                    <span>
+                      <strong>{LIBELLES_CRITERE_ALERTE[al.critere] ?? al.critere}</strong> ·{' '}
+                      {faitsAlerteFr(al.critere, al.donnees)}
+                    </span>
+                    <span>
+                      {al.statut === 'OUVERTE' ? 'Ouverte' : 'Traitée'} · {jourFr(al.dateCreation)}
                     </span>
                   </li>
                 ))}

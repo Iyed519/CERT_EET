@@ -349,3 +349,33 @@ export const LIBELLES_STATUT_INSCRIPTION_COURT: Record<string, string> = {
   TERMINEE: 'Terminées',
   SUSPENDUE: 'Suspendues',
 };
+
+/** US-SUIVI-02 — Critère d'une alerte de décrochage. */
+export const LIBELLES_CRITERE_ALERTE: Record<string, string> = {
+  INACTIVITE: 'Inactivité',
+  ECHECS_QCM: 'Échecs QCM consécutifs',
+  LIVRABLE_EN_RETARD: 'Livrable en retard',
+  SCORE_EN_CHUTE: 'Note en chute',
+};
+
+/** US-SUIVI-02 — Les faits d'une alerte, en une phrase. */
+export function faitsAlerteFr(critere: string, d: Record<string, unknown>): string {
+  switch (critere) {
+    case 'INACTIVITE':
+      return `Aucune connexion depuis ${String(d.joursSansConnexion)} jours.`;
+    case 'ECHECS_QCM': {
+      const t = (d.tentatives as Array<{ titre: string; note: number }> | undefined) ?? [];
+      return `Deux échecs : ${t.map((x) => `${x.titre} (${x.note} / 100)`).join(', ')}.`;
+    }
+    case 'LIVRABLE_EN_RETARD': {
+      const a = (d.ateliers as Array<{ titre: string }> | undefined) ?? [];
+      return `Non rendu plus de 48 h après la date limite : ${a.map((x) => x.titre).join(', ')}.`;
+    }
+    case 'SCORE_EN_CHUTE': {
+      const der = d.derniere as { titre: string; note: number } | undefined;
+      return `Dernière note ${der ? `${der.note} / 100 (${der.titre})` : ''}, contre ${String(d.moyennePrecedentes)} de moyenne auparavant.`;
+    }
+    default:
+      return '';
+  }
+}
