@@ -43,7 +43,12 @@ import { InscriptionsService } from './inscriptions.service';
     ]),
   ],
   controllers: [InscriptionsController, AdminInscriptionsController],
-  providers: [AdminInscriptionsService, DesinscriptionService, InscriptionsService, EspaceFormationService],
+  providers: [
+    AdminInscriptionsService,
+    DesinscriptionService,
+    InscriptionsService,
+    EspaceFormationService,
+  ],
   // US-ATEL-03 : la fiche d'un atelier côté apprenant réutilise le contrôle d'accès.
   exports: [EspaceFormationService],
 })
