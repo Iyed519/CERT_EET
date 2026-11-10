@@ -105,6 +105,13 @@ export interface AlertesConfig {
   email: boolean;
 }
 
+/** US-RPT-01 — file de génération des rapports exportés (BullMQ, ADR-04). */
+export interface RapportsConfig {
+  workerActif: boolean;
+  tentatives: number;
+  backoffMs: number;
+}
+
 /** US-CERT-01 — file d'émission des certificats (BullMQ, ADR-04). */
 export interface CertificatsConfig {
   workerActif: boolean;
@@ -158,6 +165,7 @@ export default (): {
   stockage: StockageConfig;
   certificats: CertificatsConfig;
   alertes: AlertesConfig;
+  rapports: RapportsConfig;
   verification: VerificationConfig;
   ia: IaConfig;
   ressources: RessourcesConfig;
@@ -217,6 +225,11 @@ export default (): {
     workerActif: (process.env.CERTIFICATS_WORKER ?? 'on') !== 'off',
     tentatives: parseInt(process.env.CERTIFICATS_TENTATIVES ?? '3', 10),
     backoffMs: parseInt(process.env.CERTIFICATS_BACKOFF_MS ?? '5000', 10),
+  },
+  rapports: {
+    workerActif: (process.env.RAPPORTS_WORKER ?? 'on') !== 'off',
+    tentatives: parseInt(process.env.RAPPORTS_TENTATIVES ?? '3', 10),
+    backoffMs: parseInt(process.env.RAPPORTS_BACKOFF_MS ?? '2000', 10),
   },
   alertes: {
     balayageActif: process.env.ALERTES_BALAYAGE_ACTIF !== 'false',

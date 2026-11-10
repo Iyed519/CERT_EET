@@ -19,6 +19,7 @@ import { CertificatsModule } from './modules/certificats/certificats.module';
 import { AssistanceIaModule } from './modules/assistance-ia/assistance-ia.module';
 import { RessourcesModule } from './modules/ressources/ressources.module';
 import { PilotageModule } from './modules/pilotage/pilotage.module';
+import { RapportsModule } from './modules/rapports/rapports.module';
 /**
  * Module racine (AppModule).
  *
@@ -40,6 +41,7 @@ import { PilotageModule } from './modules/pilotage/pilotage.module';
  * pédagogiques pour la génération de questions par IA (RAG, ADR-05).
  * RessourcesModule (US-FORM-05) : liens et vidéos de cours des modules.
  * PilotageModule (US-DASH-01, Sprint 4) : tableaux de bord agrégés.
+ * RapportsModule (US-RPT-01) : rapports exportés, générés par une file BullMQ.
  */
 @Module({
   imports: [
@@ -63,6 +65,7 @@ import { PilotageModule } from './modules/pilotage/pilotage.module';
     AssistanceIaModule,
     RessourcesModule,
     PilotageModule,
+    RapportsModule,
   ],
 })
 export class AppModule {}
