@@ -65,7 +65,23 @@ certificat. US-DASH-02 ajoute le compteur, la recherche et la fiche (D1).
   rendu unique (« Trabelsi-Dashdeux »).
 
 ## Vérification
-VERIF
+- API : lint 0 erreur / 0 avertissement, `tsc`, unitaires **78 suites / 1 142 tests**,
+  migration run (28 migrations, aucune nouvelle), e2e complet en série
+  **43 suites / 623 tests** (+ 1 ignoré : essai Anthropic réel sans clé),
+  dont `E2E-DASH02` (11 tests : 401 / 403 formateur et apprenant sur la liste
+  et la fiche, 400 statut inconnu, recherche > 255 et identifiant mal formé,
+  404 inconnu, colonnes et compteur à zéro, filtre de statut, recherche par
+  email, nom, titre, identifiant, jokers neutralisés, fiche : empreinte,
+  consultations valides / refusées sans adresse IP, historique ordonné sans
+  les vérifications, relance et révocation portant le compteur, concurrence :
+  8 vérifications publiques simultanées -> compteur = 8).
+- Mutations tuées : 10 / 10 sur le service de supervision et la recherche
+  (une 11ᵉ refusée par le typage ; deux mutants d'abord non compilés,
+  réécrits, voir « Incidents »).
+- Web : `tsc`, `next lint`. Navigateur 1280 / 390 px (Chromium, compte
+  administrateur de démonstration) : recherche, ligne « N consultations
+  publiques · dernière le … », modale « Fiche » (empreinte, consultations avec
+  verdict, historique libellé) ; pas de défilement horizontal de la page.
 
 ## CI
 Voir la PR.
