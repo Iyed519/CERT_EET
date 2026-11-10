@@ -5,6 +5,7 @@ import { CertificatsService } from './certificats.service';
 import { EligibiliteService } from './eligibilite.service';
 import { FileCertificatsService } from './file-certificats.service';
 import { LimiteDebitGuard } from './limite-debit.guard';
+import { SupervisionCertificatsService } from './supervision-certificats.service';
 import { VerificationController } from './verification.controller';
 import { VerificationService } from './verification.service';
 
@@ -17,7 +18,8 @@ import { VerificationService } from './verification.service';
  * empreinte SHA-256, QR code vers la vérification publique (ADR-10), dépôt
  * sur MinIO via StockageService (@Global). US-ATEL-09 : EligibiliteService
  * (exporté) évalue l'éligibilité après chaque note (ateliers, QCM) et demande
- * l'émission une seule fois.
+ * l'émission une seule fois. US-DASH-02 : SupervisionCertificatsService
+ * (liste avec consultations publiques, fiche détaillée), lecture seule.
  */
 @Module({
   controllers: [CertificatsAdminController, CertificatsApprenantController, VerificationController],
@@ -27,6 +29,7 @@ import { VerificationService } from './verification.service';
     EligibiliteService,
     VerificationService,
     LimiteDebitGuard,
+    SupervisionCertificatsService,
   ],
   exports: [CertificatsService, EligibiliteService],
 })

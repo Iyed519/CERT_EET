@@ -267,6 +267,31 @@ export const LIBELLES_STATUT_CERTIFICAT: Record<StatutCertificat, string> = {
   REVOQUE: 'Révoqué',
 };
 
+/** US-DASH-02 — Verdict d'une vérification publique. */
+export const LIBELLES_VERDICT: Record<string, string> = {
+  VALIDE: 'Valide',
+  REVOQUE: 'Révoqué',
+  INTEGRITE_COMPROMISE: 'Intégrité compromise',
+};
+
+/** US-DASH-02 — Actions d'audit du cycle de vie d'un certificat. */
+export const LIBELLES_ACTION_CERTIFICAT: Record<string, string> = {
+  CERTIFICAT_DEMANDE: 'Émission demandée',
+  CERTIFICATION_DECLENCHEE: 'Certification déclenchée',
+  CERTIFICAT_EMIS: 'Certificat émis',
+  CERTIFICAT_ECHEC: 'Échec de génération',
+  CERTIFICAT_RELANCE: 'Génération relancée',
+  CERTIFICAT_TELECHARGE: 'PDF téléchargé par le titulaire',
+  CERTIFICAT_REVOCATION_REFUSEE: 'Révocation refusée (mot de passe)',
+  CERTIFICAT_REVOQUE: 'Certificat révoqué',
+};
+
+/** US-DASH-02 — « 3 consultations publiques », « aucune consultation ». */
+export const consultationsFr = (total: number): string =>
+  total === 0
+    ? 'Aucune consultation publique'
+    : `${total} consultation${total > 1 ? 's' : ''} publique${total > 1 ? 's' : ''}`;
+
 /** Motif d'une révocation (US-CERT-06) — mêmes libellés que l'email. */
 export const LIBELLES_MOTIF_REVOCATION: Record<MotifRevocation, string> = {
   FRAUDE: 'Fraude avérée',

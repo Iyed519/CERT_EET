@@ -10,7 +10,7 @@ import * as bcrypt from 'bcryptjs';
 import { Readable } from 'stream';
 import { ConfigService } from '@nestjs/config';
 import { createHash } from 'crypto';
-import { DataSource } from 'typeorm';
+import { DataSource, FindOptionsWhere, ILike } from 'typeorm';
 import { MailConfig } from '../../config/configuration';
 import { Certificat } from '../../database/entities/certificat.entity';
 import { Formation } from '../../database/entities/formation.entity';
@@ -19,7 +19,7 @@ import { MotifRevocation } from '../../database/enums/motif-revocation.enum';
 import { StatutCertificat } from '../../database/enums/statut-certificat.enum';
 import { MailService } from '../../mail/mail.service';
 import { StockageService } from '../../stockage/stockage.service';
-import { AuditService } from '../audit/audit.service';
+import { AuditService, echapperLike } from '../audit/audit.service';
 import { genererPdfCertificat } from './certificat-pdf';
 import {
   arrondiScore,
@@ -264,9 +264,13 @@ export class CertificatsService implements OnApplicationBootstrap {
     });
   }
 
-  /** Liste de l'administrateur (suivi de l'émission), plus récents d'abord. */
-  async lister(statut?: StatutCertificat): Promise<CertificatAdminVue[]> {
-    return this.vuesAdmin(statut ? { statut } : {});
+  /**
+   * Liste de l'administrateur (suivi de l'émission), plus récents d'abord.
+   * US-DASH-02 : recherche facultative (titulaire — email, prénom, nom —,
+   * titre de la formation, « contient » sans casse ; ou identifiant exact).
+   */
+  async lister(statut?: StatutCertificat, recherche?: string): Promise<CertificatAdminVue[]> {
+    return this.vuesAdmin(statut ? { statut } : {}, recherche);
   }
 
   /** Vue administrateur d'UN certificat (après relance ou révocation). */
@@ -275,12 +279,22 @@ export class CertificatsService implements OnApplicationBootstrap {
     return vue;
   }
 
-  private async vuesAdmin(where: {
-    statut?: StatutCertificat;
-    id?: string;
-  }): Promise<CertificatAdminVue[]> {
+  /** US-DASH-02 — Vue administrateur d'un certificat, 404 s'il n'existe pas. */
+  async vueAdminOu404(certificatId: string): Promise<CertificatAdminVue> {
+    const [vue] = await this.vuesAdmin({ id: certificatId });
+    if (!vue) throw new NotFoundException(MESSAGE_CERTIFICAT_INTROUVABLE);
+    return vue;
+  }
+
+  private async vuesAdmin(
+    where: {
+      statut?: StatutCertificat;
+      id?: string;
+    },
+    recherche?: string,
+  ): Promise<CertificatAdminVue[]> {
     const certificats = await this.dataSource.manager.find(Certificat, {
-      where,
+      where: recherche ? criteresRecherche(where, recherche) : where,
       relations: { apprenant: true, formation: true },
       order: { dateEmission: 'DESC', id: 'ASC' },
       take: 200,
@@ -543,4 +557,28 @@ export class CertificatsService implements OnApplicationBootstrap {
       );
     }
   }
+}
+
+const FORMAT_UUID = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
+
+/**
+ * US-DASH-02 — Critères « OU » de la recherche : email, prénom ou nom du
+ * titulaire, titre de la formation (contient, sans casse, jokers LIKE
+ * neutralisés), ou identifiant exact du certificat ; chacun combiné au filtre
+ * de statut.
+ */
+export function criteresRecherche(
+  base: { statut?: StatutCertificat; id?: string },
+  recherche: string,
+): FindOptionsWhere<Certificat>[] {
+  const saisie = recherche.trim();
+  const motif = ILike(`%${echapperLike(saisie)}%`);
+  const criteres: FindOptionsWhere<Certificat>[] = [
+    { ...base, apprenant: { email: motif } },
+    { ...base, apprenant: { prenom: motif } },
+    { ...base, apprenant: { nom: motif } },
+    { ...base, formation: { titre: motif } },
+  ];
+  if (FORMAT_UUID.test(saisie)) criteres.push({ ...base, id: saisie });
+  return criteres;
 }

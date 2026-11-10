@@ -16,8 +16,13 @@ import { Role } from '../../database/enums/role.enum';
 import { AuthenticatedRequest } from '../auth/auth.types';
 import { Roles } from '../auth/decorators/roles.decorator';
 import { FiltreCertificatsDto, RevoquerCertificatDto } from './certificats.dto';
-import { CertificatAdminVue, CertificatsService } from './certificats.service';
+import { CertificatsService } from './certificats.service';
 import { EligibiliteService } from './eligibilite.service';
+import {
+  CertificatSupervisionVue,
+  FicheCertificat,
+  SupervisionCertificatsService,
+} from './supervision-certificats.service';
 
 /**
  * Suivi de l'émission des certificats — ADMINISTRATEUR (US-CERT-01, DS-04
@@ -33,19 +38,43 @@ export class CertificatsAdminController {
   constructor(
     private readonly certificatsService: CertificatsService,
     private readonly eligibiliteService: EligibiliteService,
+    private readonly supervisionService: SupervisionCertificatsService,
   ) {}
 
   @Get('certificats')
   @ApiOperation({
-    summary: 'Lister les certificats et l’état de leur émission (US-CERT-01)',
-    description: 'Plus récents d’abord, 200 au plus ; filtre facultatif `statut`.',
+    summary: 'Superviser les certificats (US-CERT-01, US-DASH-02)',
+    description:
+      'Plus récents d’abord, 200 au plus ; filtres facultatifs `statut` et `recherche` ' +
+      '(titulaire, formation, identifiant). Chaque certificat porte son nombre de ' +
+      'consultations publiques (journal d’audit CERTIFICAT_VERIFIE).',
   })
-  @ApiResponse({ status: 200, description: 'Certificats (statut, tentatives, dernière erreur).' })
-  @ApiResponse({ status: 400, description: 'Statut inconnu.' })
+  @ApiResponse({
+    status: 200,
+    description: 'Certificats (titulaire, formation, score, statut, consultations, émission).',
+  })
+  @ApiResponse({ status: 400, description: 'Statut inconnu ou recherche trop longue.' })
   @ApiResponse({ status: 401, description: 'Non authentifié.' })
   @ApiResponse({ status: 403, description: 'Rôle autre qu’administrateur.' })
-  lister(@Query() filtre: FiltreCertificatsDto): Promise<CertificatAdminVue[]> {
-    return this.certificatsService.lister(filtre.statut);
+  lister(@Query() filtre: FiltreCertificatsDto): Promise<CertificatSupervisionVue[]> {
+    return this.supervisionService.lister(filtre.statut, filtre.recherche);
+  }
+
+  @Get('certificats/:certificatId')
+  @ApiOperation({
+    summary: 'Fiche détaillée d’un certificat (US-DASH-02, DS-16 P3)',
+    description:
+      'Certificat (empreinte SHA-256 comprise), consultations publiques (total, valides, ' +
+      'refusées, 20 dernières : date et verdict, sans adresse IP) et historique des ' +
+      'actions d’audit visant le certificat. Lecture seule.',
+  })
+  @ApiResponse({ status: 200, description: 'Fiche.' })
+  @ApiResponse({ status: 400, description: 'Identifiant mal formé.' })
+  @ApiResponse({ status: 401, description: 'Non authentifié.' })
+  @ApiResponse({ status: 403, description: 'Rôle autre qu’administrateur.' })
+  @ApiResponse({ status: 404, description: 'Certificat introuvable.' })
+  fiche(@Param('certificatId', ParseUUIDPipe) certificatId: string): Promise<FicheCertificat> {
+    return this.supervisionService.fiche(certificatId);
   }
 
   @Post('certificats/:certificatId/relancer')
@@ -59,14 +88,15 @@ export class CertificatsAdminController {
   @ApiResponse({ status: 403, description: 'Rôle autre qu’administrateur.' })
   @ApiResponse({ status: 404, description: 'Certificat introuvable.' })
   @ApiResponse({ status: 409, description: 'Certificat déjà actif ou révoqué.' })
-  relancer(
+  async relancer(
     @Param('certificatId', ParseUUIDPipe) certificatId: string,
     @Req() req: AuthenticatedRequest,
-  ): Promise<CertificatAdminVue> {
+  ): Promise<CertificatSupervisionVue> {
     if (!req.user) throw new UnauthorizedException('Non authentifié.');
-    return this.certificatsService.relancer(req.user.sub, certificatId, {
+    const vue = await this.certificatsService.relancer(req.user.sub, certificatId, {
       adresseIp: req.ip ?? null,
     });
+    return this.supervisionService.enrichirUne(vue);
   }
 
   @Post('certificats/:certificatId/revoquer')
@@ -84,15 +114,16 @@ export class CertificatsAdminController {
   @ApiResponse({ status: 403, description: 'Rôle autre qu’administrateur.' })
   @ApiResponse({ status: 404, description: 'Certificat introuvable.' })
   @ApiResponse({ status: 409, description: 'Déjà révoqué, ou encore en préparation.' })
-  revoquer(
+  async revoquer(
     @Param('certificatId', ParseUUIDPipe) certificatId: string,
     @Body() dto: RevoquerCertificatDto,
     @Req() req: AuthenticatedRequest,
-  ): Promise<CertificatAdminVue> {
+  ): Promise<CertificatSupervisionVue> {
     if (!req.user) throw new UnauthorizedException('Non authentifié.');
-    return this.certificatsService.revoquer(req.user.sub, certificatId, dto, {
+    const vue = await this.certificatsService.revoquer(req.user.sub, certificatId, dto, {
       adresseIp: req.ip ?? null,
     });
+    return this.supervisionService.enrichirUne(vue);
   }
 
   @Post('formations/:formationId/certification/evaluer')

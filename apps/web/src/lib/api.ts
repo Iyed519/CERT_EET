@@ -2435,15 +2435,51 @@ export interface CertificatAdmin {
     description: string;
     revoquePar: string;
   } | null;
+  /** US-DASH-02 — vérifications publiques (journal d'audit). */
+  consultations: { total: number; derniere: string | null };
+}
+
+/** US-DASH-02 — Un événement de l'historique d'un certificat. */
+export interface EvenementCertificat {
+  horodatage: string;
+  action: string;
+  resultat: string | null;
+  acteur: { id: string; email: string; prenom: string | null; nom: string | null } | null;
+  details: Record<string, unknown> | null;
+}
+
+/** US-DASH-02 — Fiche détaillée d'un certificat (administrateur). */
+export interface FicheCertificat {
+  certificat: CertificatAdmin;
+  consultations: { total: number; valides: number; refusees: number; derniere: string | null };
+  /** 20 dernières vérifications publiques : date et verdict (pas d'adresse IP). */
+  consultationsRecentes: Array<{ horodatage: string; verdict: string | null }>;
+  historique: EvenementCertificat[];
 }
 
 /** Motif d'une révocation (US-CERT-06, DS-07). */
 export type MotifRevocation = 'FRAUDE' | 'ERREUR_ADMIN' | 'DISCIPLINAIRE' | 'JUDICIAIRE';
 
-/** GET /api/admin/certificats — plus récents d'abord, filtre facultatif. */
-export async function getCertificatsAdmin(statut?: StatutCertificat): Promise<CertificatAdmin[]> {
-  const response = await apiFetch(`/api/admin/certificats${statut ? `?statut=${statut}` : ''}`);
+/**
+ * GET /api/admin/certificats — plus récents d'abord ; filtres facultatifs
+ * `statut` et (US-DASH-02) `recherche` : titulaire, formation, identifiant.
+ */
+export async function getCertificatsAdmin(
+  statut?: StatutCertificat,
+  recherche?: string,
+): Promise<CertificatAdmin[]> {
+  const params = new URLSearchParams();
+  if (statut) params.set('statut', statut);
+  if (recherche) params.set('recherche', recherche);
+  const qs = params.toString();
+  const response = await apiFetch(`/api/admin/certificats${qs ? `?${qs}` : ''}`);
   return lireReponseFormation<CertificatAdmin[]>(response, 'Impossible de charger les certificats.');
+}
+
+/** US-DASH-02 — GET /api/admin/certificats/:id : fiche détaillée (404 inconnu). */
+export async function getFicheCertificat(certificatId: string): Promise<FicheCertificat> {
+  const response = await apiFetch(`/api/admin/certificats/${certificatId}`);
+  return lireReponseFormation<FicheCertificat>(response, 'Impossible de charger la fiche du certificat.');
 }
 
 /**
