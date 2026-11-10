@@ -2,19 +2,16 @@ import type { Metadata } from 'next';
 import './globals.css';
 import { AuthProvider } from '../contexts/AuthContext';
 import { ProfilGate } from '../components/ProfilGate';
-import { AdminNav } from '../components/AdminNav';
-import { ApprenantNav } from '../components/ApprenantNav';
-import { FormateurNav } from '../components/FormateurNav';
-import { RoleRequestNav } from '../components/RoleRequestNav';
-import { SecuriteNav } from '../components/SecuriteNav';
+import { SiteHeader } from '../components/SiteHeader';
 export const metadata: Metadata = {
   title: 'Cert_EET — Certification numérique vérifiable',
   description:
     'Plateforme de certification et de micro-certification numérique vérifiable.',
 };
 /**
- * Layout racine (App Router). Coquille : en-tête de marque + zone de contenu.
- * AuthProvider enveloppe toute l'application (US-AUTH-01).
+ * Layout racine (App Router). Coquille : en-tête commun (navigation par rôle,
+ * menu de compte), zone de contenu et pied de page. AuthProvider enveloppe
+ * toute l'application (US-AUTH-01).
  */
 export default function RootLayout({
   children,
@@ -25,16 +22,16 @@ export default function RootLayout({
     <html lang="fr">
       <body>
         <AuthProvider>
-          <header className="site-header">
-            <span className="brand-badge">CE</span>
-            <span className="brand-name">Cert_EET</span>
-            <AdminNav />
-            <ApprenantNav />
-            <FormateurNav />
-            <RoleRequestNav />
-            <SecuriteNav />
-          </header>
+          <SiteHeader />
           <main className="site-main">{children}</main>
+          <footer className="site-footer">
+            <div className="site-footer-inner">
+              <span className="site-footer-marque">
+                <span className="brand-badge brand-badge-sm">CE</span> Cert_EET — ESPRIT Entreprise
+              </span>
+              <span>Certifications numériques vérifiables · données hébergées en Tunisie</span>
+            </div>
+          </footer>
           <ProfilGate />
         </AuthProvider>
       </body>

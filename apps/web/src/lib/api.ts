@@ -174,6 +174,19 @@ async function doRefresh(): Promise<string | null> {
   return session.accessToken;
 }
 
+/**
+ * Restauration discrète de la session au chargement d'une page (en-tête) :
+ * même refresh partagé qu'apiFetch (un seul appel réseau à la fois), mais un
+ * échec ne redirige PAS vers /login — un visiteur anonyme reste sur la page.
+ */
+export async function restaurerSession(): Promise<boolean> {
+  try {
+    return (await refreshSession()) !== null;
+  } catch {
+    return false;
+  }
+}
+
 /** Session morte : on efface tout et on renvoie vers /login. */
 function forceLogout(): void {
   currentAccessToken = null;
