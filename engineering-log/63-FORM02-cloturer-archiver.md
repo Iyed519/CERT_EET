@@ -62,7 +62,32 @@ excluait volontairement le statut (« autre story »).
   suivants en cascade. Cas retiré, comportement documenté (D9).
 
 ## Vérification
-VERIF
+- API : lint 0 erreur / 0 avertissement, `tsc`, unitaires **92 suites / 1 281 tests**
+  (+ 14 : transitions, messages, actions d'audit, confirmation par type
+  d'évaluation ; service — impact, 404, UPDATE conditionnel, 409, 409
+  `CONFIRMATION_REQUISE` puis confirmée, réouverture, course perdue ;
+  démarrage de QCM et dépôt refusés dans une formation archivée, démarrage
+  possible dans une formation fermée), aucune migration (**31**), e2e complet
+  en série **50 suites / 689 tests** (+ 1 ignoré), dont `E2E-FORM02`
+  (10 tests : 401 / 403 formateur / 404 / 400 ; 400 statut, champ inconnu,
+  corps vide ; impact ; OUVERTE -> ARCHIVEE refusée ; clôture, inscription
+  refusée, réouverture, tracées ; `CONFIRMATION_REQUISE` avec le détail puis
+  confirmation tracée ; archivage, définitif, modification refusée ;
+  démarrage de QCM refusé ; certificat toujours VALIDE à la vérification
+  publique ; concurrence : 8 clôtures simultanées -> 1 succès, 7 × 409, une
+  trace). Après l'ajout d'une tentative déjà notée au jeu de données (voir
+  « Mutations »), la suite relancée seule : 10 / 10.
+- Mutations : **12 / 12 tuées** — transitions (archivage direct, archive non
+  définitive, réouverture), confirmation (jamais exigée, exigée pour rouvrir —
+  variante compilable, la première ne compilait pas), total sans les livrables,
+  UPDATE sans condition (tué par l'unitaire ; la fenêtre de course est trop
+  courte pour l'e2e), statut des tentatives ignoré (tué après ajout d'une
+  tentative NOTEE), action d'audit, démarrage et dépôt dans une formation
+  archivée, rôle formateur admis.
+- Web : `tsc`, `next lint`, `next build`. Navigateur 1280 / 390 px
+  (Chromium, compte administrateur de démonstration) : bouton « Statut »,
+  impact, case de confirmation (1 livrable à corriger) qui conditionne
+  « Clôturer », effet de chaque action ; pas de défilement horizontal.
 
 ## CI
 Voir la PR.

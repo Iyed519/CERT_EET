@@ -190,6 +190,14 @@ describe('Cycle de vie d’une formation (e2e) — US-FORM-02', () => {
        VALUES ($1, 30, now() - interval '1 day', now() + interval '10 days', 3, 0, 'DIFFERE', 60, 10)`,
       [ids.q],
     );
+    // Tentative déjà notée : n'est pas une évaluation « en cours ».
+    await sql(
+      `INSERT INTO tentatives_qcm (apprenant_id, qcm_id, date_debut, date_limite, date_fin,
+         duree_effective, score, est_reussie, statut)
+       VALUES ($1, $2, now() - interval '2 hours', now() - interval '90 minutes',
+         now() - interval '100 minutes', 1200, 72, true, 'NOTEE')`,
+      [ids.b, ids.q],
+    );
     ids.cert = await un(
       `INSERT INTO certificats (apprenant_id, formation_id, statut, score_final, mention, organisme_emetteur,
          date_emission, date_generation, cle_stockage, empreinte_sha256)
