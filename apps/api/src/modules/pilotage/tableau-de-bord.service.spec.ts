@@ -67,7 +67,7 @@ describe('TableauDeBordService (US-DASH-01)', () => {
       },
     });
     expect(t.certificats).toEqual({
-      parStatut: { EN_ATTENTE_GENERATION: 0, EN_GENERATION: 0, ACTIF: 0, REVOQUE: 0 },
+      parStatut: { EN_ATTENTE_GENERATION: 0, EN_GENERATION: 0, ACTIF: 0, REVOQUE: 0, EXPIRE: 0 },
       emis: 0,
       revoques: 0,
       consultations: 0,
