@@ -71,6 +71,10 @@ le refaire (D1).
   types de retour manquaient dans les tests (avertissements lus comme
   bénins en local). Corrigé ; je lis désormais le code de sortie du lint,
   pas seulement le nombre d'erreurs.
+- Deuxième CI rouge : la liste des actions était triée par le classement de
+  la base ; en CI (en_US) « CERTIFICATION_DECLENCHEE » passe après
+  « CERTIFICAT_EMIS » (le « _ » est ignoré), en local (C.UTF-8) avant.
+  Tri imposé en octets : `ORDER BY action COLLATE "C"`.
 
 ## Vérification
 - API : lint 0 erreur / 0 avertissement, `tsc`, unitaires **77 suites / 1 135 tests**,

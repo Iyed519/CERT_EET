@@ -162,10 +162,14 @@ export class AuditService {
     return lignes.map(versVue);
   }
 
-  /** US-AUDIT-01 — Types d'action présents dans le journal (liste des filtres). */
+  /**
+   * US-AUDIT-01 — Types d'action présents dans le journal (liste des filtres).
+   * Tri en octets (`COLLATE "C"`) : le même quel que soit le classement de la
+   * base (en_US ignore « _ », C non).
+   */
   async actions(): Promise<string[]> {
     const lignes = (await this.auditLogRepository.query(
-      'SELECT DISTINCT action FROM audit_logs ORDER BY action',
+      'SELECT DISTINCT action FROM audit_logs ORDER BY action COLLATE "C"',
     )) as Array<{ action: string }>;
     return lignes.map((l) => l.action);
   }
