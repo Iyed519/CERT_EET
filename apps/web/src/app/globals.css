@@ -850,3 +850,16 @@ textarea.input { resize: vertical; font-family: inherit; line-height: 1.45; }
 .tdb-barre-connexions { width: 100%; background: #2f7d68; border-radius: 2px 2px 0 0; }
 .tdb-axe { display: flex; justify-content: space-between; font-size: 0.78rem; color: var(--muted, #5b6b66); margin: 4px 0 0; }
 .tdb-echec { color: #b3261e; font-weight: 600; }
+
+/* US-SUIVI-01 — Suivi pédagogique d'une formation. */
+.suivi-lien { margin: 6px 0 14px; }
+.suivi-filtres { align-items: flex-end; margin-bottom: 10px; }
+.suivi-table td { vertical-align: top; }
+.suivi-table small { color: var(--muted, #5b6b66); }
+.badge-risque { display: inline-block; margin-top: 4px; padding: 1px 8px; border-radius: 999px; background: #fde8e7; color: #b3261e; font-size: 0.75rem; font-weight: 600; }
+.jauge { display: block; width: 90px; height: 6px; background: #e3ece9; border-radius: 3px; margin-bottom: 4px; overflow: hidden; }
+.jauge span { display: block; height: 100%; background: #2f7d68; }
+.histo { display: flex; align-items: flex-end; gap: 3px; height: 90px; margin-top: 10px; }
+.histo-col { flex: 1 1 0; height: 100%; display: flex; flex-direction: column; justify-content: flex-end; align-items: center; min-width: 0; }
+.histo-barre { width: 100%; min-height: 1px; background: #2f7d68; border-radius: 2px 2px 0 0; }
+.histo-etiquette { font-size: 0.68rem; color: var(--muted, #5b6b66); }

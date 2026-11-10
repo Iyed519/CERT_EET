@@ -3007,3 +3007,102 @@ export async function getTableauDeBordGlobal(
     'Impossible de charger le tableau de bord.',
   );
 }
+
+// ---------------------------------------------------------------------------
+// US-SUIVI-01 — Suivi pédagogique d'une formation (formateur affecté).
+// ---------------------------------------------------------------------------
+
+export interface ApprenantSuivi {
+  id: string;
+  prenom: string | null;
+  nom: string | null;
+  email: string;
+  statutInscription: StatutInscription;
+  dateInscription: string;
+  derniereConnexion: string | null;
+  derniereActivite: string | null;
+  avancement: number;
+  qcm: { reussis: number; passes: number; total: number; scoreMoyen: number | null };
+  ateliers: {
+    rendus: number;
+    notes: number;
+    total: number;
+    noteMoyenne: number | null;
+    enRetard: number;
+    nonRendus: number;
+  };
+  moyenne: number | null;
+  certificat: StatutCertificat | null;
+  risque: { inactif: boolean; joursSansConnexion: number };
+}
+
+export interface SuiviFormation {
+  formation: { id: string; titre: string; statut: StatutFormation };
+  kpis: {
+    inscrits: number;
+    actifs: number;
+    inactifs: number;
+    termines: number;
+    suspendus: number;
+    tauxCompletion: number;
+    scoreMoyenQcm: number | null;
+    noteMoyenneAteliers: number | null;
+    certifies: number;
+    qcmPublies: number;
+    ateliersPublies: number;
+  };
+  histogramme: Array<{ tranche: string; min: number; max: number; effectif: number }>;
+  apprenants: ApprenantSuivi[];
+}
+
+export interface FicheApprenantSuivi {
+  apprenant: ApprenantSuivi;
+  tentatives: Array<{
+    id: string;
+    qcmId: string;
+    qcmTitre: string;
+    dateDebut: string;
+    dateFin: string | null;
+    dureeEffective: number | null;
+    score: number | null;
+    reussie: boolean | null;
+    statut: StatutTentative;
+  }>;
+  livrables: Array<{
+    id: string;
+    atelierId: string;
+    atelierTitre: string;
+    version: number;
+    dateSoumission: string;
+    enRetard: boolean;
+    statut: StatutLivrable;
+    note: number | null;
+  }>;
+  certificat: {
+    id: string;
+    statut: StatutCertificat;
+    scoreFinal: number;
+    dateGeneration: string | null;
+  } | null;
+  chronologie: Array<{ date: string; type: string; libelle: string }>;
+}
+
+/** US-SUIVI-01 — GET /api/formateur/formations/:id/suivi (403 si non affecté). */
+export async function getSuiviFormation(formationId: string): Promise<SuiviFormation> {
+  const response = await apiFetch(`/api/formateur/formations/${formationId}/suivi`);
+  return lireReponseFormation<SuiviFormation>(response, 'Impossible de charger le suivi.');
+}
+
+/** US-SUIVI-01 — GET /api/formateur/formations/:id/apprenants/:apprenantId. */
+export async function getFicheApprenantSuivi(
+  formationId: string,
+  apprenantId: string,
+): Promise<FicheApprenantSuivi> {
+  const response = await apiFetch(
+    `/api/formateur/formations/${formationId}/apprenants/${apprenantId}`,
+  );
+  return lireReponseFormation<FicheApprenantSuivi>(
+    response,
+    'Impossible de charger la fiche de l’apprenant.',
+  );
+}

@@ -56,6 +56,8 @@ const dateFr = (iso: string | null): string => {
  * US-ATEL-01 — Sous les QCM : les ateliers du module (statut, date limite,
  * types de livrables, lien vers la fiche) et un bouton « Nouvel atelier ».
  *
+ * US-SUIVI-01 — Lien vers le suivi pédagogique (tableau de bord de la formation).
+ *
  * US-IA-01 — Sous les ateliers : les supports pédagogiques du module pour
  * l'assistance IA (dépôt, état d'indexation, relance, suppression).
  *
@@ -134,6 +136,12 @@ export default function MaFormationPage(): JSX.Element {
               {LIBELLES[formation.statut]}
             </span>
           </div>
+
+          <p className="suivi-lien">
+            <Link className="btn btn-sm" href={`/formateur/formations/${id}/suivi`}>
+              Suivi pédagogique des apprenants
+            </Link>
+          </p>
 
           {NOTES[formation.statut] !== null && (
             <p className="alert alert-info">{NOTES[formation.statut]}</p>
