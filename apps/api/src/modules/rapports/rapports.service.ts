@@ -1,0 +1,465 @@
+import {
+  BadRequestException,
+  ConflictException,
+  HttpException,
+  HttpStatus,
+  Injectable,
+  Logger,
+  NotFoundException,
+  OnApplicationBootstrap,
+  ServiceUnavailableException,
+} from '@nestjs/common';
+import { createHash } from 'crypto';
+import { Readable } from 'stream';
+import { DataSource } from 'typeorm';
+import { FormatRapport, StatutRapport, TypeRapport } from '../../database/enums/rapport.enum';
+import { MailService } from '../../mail/mail.service';
+import { StockageService } from '../../stockage/stockage.service';
+import { AuditService } from '../audit/audit.service';
+import { SuiviFormationService } from '../pilotage/suivi-formation.service';
+import { FileRapportsService } from './file-rapports.service';
+import {
+  ContenuSession,
+  DonneesModule,
+  EvaluationModule,
+  PorteeRapport,
+  csvSession,
+  nomFichier,
+  pdfSession,
+} from './rapport-session';
+import {
+  InscritModule,
+  NoteEvaluation,
+  assemblerModule,
+  cleStockageRapport,
+  limiteAtteinte,
+  typeMime,
+} from './rapports.regles';
+
+export const MESSAGE_RAPPORT_INTROUVABLE = 'Rapport introuvable.';
+export const MESSAGE_RAPPORT_NON_PRET =
+  'Ce rapport n’est pas encore prêt (ou sa génération a échoué).';
+export const MESSAGE_LIMITE_RAPPORTS =
+  'Trop de demandes de rapports : au plus 5 par minute. Réessayez dans un instant.';
+export const MESSAGE_STOCKAGE_INDISPONIBLE =
+  'Le stockage des fichiers est momentanément indisponible : réessayez dans quelques instants.';
+
+/** Paramètres d'un rapport de session, conservés en `jsonb`. */
+export interface ParametresSession {
+  portee: PorteeRapport;
+  apprenantId?: string;
+  moduleId?: string;
+}
+
+/** Un rapport tel que le voit son demandeur. */
+export interface RapportVue {
+  id: string;
+  type: TypeRapport;
+  format: FormatRapport;
+  statut: StatutRapport;
+  parametres: Record<string, unknown>;
+  formation: { id: string; titre: string } | null;
+  nomFichier: string | null;
+  tailleOctets: number | null;
+  empreinteSha256: string | null;
+  derniereErreur: string | null;
+  dateDemande: Date;
+  dateFin: Date | null;
+}
+
+interface LigneRapport {
+  id: string;
+  type: TypeRapport;
+  format: FormatRapport;
+  statut: StatutRapport;
+  parametres: Record<string, unknown>;
+  formation_id: string | null;
+  titre: string | null;
+  nom_fichier: string | null;
+  taille_octets: number | null;
+  empreinte_sha256: string | null;
+  derniere_erreur: string | null;
+  date_demande: Date;
+  date_fin: Date | null;
+  demandeur_id: string;
+  cle_stockage: string | null;
+}
+
+const SELECT_RAPPORT = `
+  SELECT r.id, r.type::text AS type, r.format::text AS format, r.statut::text AS statut,
+         r.parametres, r.formation_id, f.titre, r.nom_fichier, r.taille_octets,
+         r.empreinte_sha256, r.derniere_erreur, r.date_demande, r.date_fin,
+         r.demandeur_id, r.cle_stockage
+    FROM rapports r LEFT JOIN formations f ON f.id = r.formation_id`;
+
+/**
+ * US-RPT-01 — Rapports de session exportés (DS-14 P3).
+ *
+ * - Demande : contrôle des paramètres (apprenant inscrit, module de la
+ *   formation), limite de 5 demandes par minute et par demandeur (verrou
+ *   consultatif : des demandes simultanées ne la dépassent pas), insertion
+ *   EN_ATTENTE, travail ajouté à la file, audit RAPPORT_DEMANDE -> 202.
+ * - Génération (worker) : prise EN_ATTENTE -> EN_COURS par un UPDATE
+ *   conditionnel (un seul worker par rapport), contenu PUR (CSV / PDF),
+ *   dépôt dans le stockage, PRET + empreinte, audit RAPPORT_GENERE, email.
+ * - Téléchargement : demandeur SEUL (un autre reçoit 404, comme pour un
+ *   rapport inconnu), rapport PRET (409 sinon), audit RAPPORT_TELECHARGE.
+ */
+@Injectable()
+export class RapportsService implements OnApplicationBootstrap {
+  private readonly logger = new Logger(RapportsService.name);
+
+  constructor(
+    private readonly dataSource: DataSource,
+    private readonly file: FileRapportsService,
+    private readonly stockageService: StockageService,
+    private readonly suiviService: SuiviFormationService,
+    private readonly auditService: AuditService,
+    private readonly mailService: MailService,
+  ) {}
+
+  onApplicationBootstrap(): void {
+    this.file.demarrerWorker({
+      generer: (id) => this.generer(id),
+      echecDefinitif: (id, erreur) => this.echecDefinitif(id, erreur),
+    });
+  }
+
+  /** Demande d'un rapport de session (formateur affecté ou administrateur). */
+  async demanderSession(
+    demandeurId: string,
+    formationId: string,
+    demande: { format: FormatRapport } & ParametresSession,
+    contexte: { adresseIp: string | null } = { adresseIp: null },
+  ): Promise<RapportVue> {
+    const parametres = await this.verifierParametres(formationId, demande);
+    const id = await this.dataSource.transaction(async (m) => {
+      await m.query(`SELECT pg_advisory_xact_lock(hashtext('rapports:' || $1))`, [demandeurId]);
+      const [{ n }] = (await m.query(
+        `SELECT count(*)::int AS n FROM rapports
+          WHERE demandeur_id = $1 AND date_demande > now() - interval '1 minute'`,
+        [demandeurId],
+      )) as Array<{ n: number }>;
+      if (limiteAtteinte(n)) {
+        throw new HttpException(MESSAGE_LIMITE_RAPPORTS, HttpStatus.TOO_MANY_REQUESTS);
+      }
+      const [ligne] = (await m.query(
+        `INSERT INTO rapports (type, format, demandeur_id, formation_id, parametres)
+         VALUES ('SESSION', $1::rapports_format_enum, $2, $3, $4::jsonb)
+         RETURNING id`,
+        [demande.format, demandeurId, formationId, JSON.stringify(parametres)],
+      )) as Array<{ id: string }>;
+      return ligne.id;
+    });
+    await this.file.ajouter(id);
+    await this.auditService.record({
+      action: 'RAPPORT_DEMANDE',
+      acteur: demandeurId,
+      cible: id,
+      adresseIp: contexte.adresseIp,
+      resultat: 'Succès',
+      detailsAvantApres: {
+        type: TypeRapport.SESSION,
+        format: demande.format,
+        formationId,
+        ...parametres,
+      },
+    });
+    return this.monRapport(demandeurId, id);
+  }
+
+  /** « Mes rapports » : les 50 plus récents du demandeur. */
+  async mesRapports(demandeurId: string, formationId?: string): Promise<RapportVue[]> {
+    const lignes = (await this.dataSource.query(
+      `${SELECT_RAPPORT}
+        WHERE r.demandeur_id = $1 AND ($2::uuid IS NULL OR r.formation_id = $2)
+        ORDER BY r.date_demande DESC, r.id
+        LIMIT 50`,
+      [demandeurId, formationId ?? null],
+    )) as LigneRapport[];
+    return lignes.map(vue);
+  }
+
+  /** Un rapport du demandeur ; 404 s'il est inconnu ou d'un autre. */
+  async monRapport(demandeurId: string, rapportId: string): Promise<RapportVue> {
+    return vue(await this.ligneDuDemandeur(demandeurId, rapportId));
+  }
+
+  /** Le fichier d'un rapport PRET, en flux, pour son seul demandeur. */
+  async fichier(
+    demandeurId: string,
+    rapportId: string,
+    contexte: { adresseIp: string | null } = { adresseIp: null },
+  ): Promise<{ flux: Readable; taille: number | null; nomFichier: string; type: string }> {
+    const l = await this.ligneDuDemandeur(demandeurId, rapportId);
+    if (l.statut !== StatutRapport.PRET || !l.cle_stockage || !l.nom_fichier) {
+      throw new ConflictException(MESSAGE_RAPPORT_NON_PRET);
+    }
+    let objet;
+    try {
+      objet = await this.stockageService.lire(l.cle_stockage);
+    } catch (erreur) {
+      const detail = erreur instanceof Error ? erreur.message : String(erreur);
+      this.logger.error(`Lecture du rapport ${rapportId} impossible : ${detail}`);
+      throw new ServiceUnavailableException(MESSAGE_STOCKAGE_INDISPONIBLE);
+    }
+    await this.auditService.record({
+      action: 'RAPPORT_TELECHARGE',
+      acteur: demandeurId,
+      cible: rapportId,
+      adresseIp: contexte.adresseIp,
+      resultat: 'Succès',
+      detailsAvantApres: null,
+    });
+    return {
+      flux: objet.flux,
+      taille: objet.taille,
+      nomFichier: l.nom_fichier,
+      type: typeMime(l.format),
+    };
+  }
+
+  /**
+   * Worker : produit le fichier d'un rapport. Prise EN_ATTENTE -> EN_COURS
+   * par un UPDATE conditionnel : deux exécutions simultanées -> une seule
+   * produit le fichier. Une erreur remet le rapport EN_ATTENTE (reprise par
+   * BullMQ) puis est relancée.
+   */
+  async generer(rapportId: string, maintenant: Date = new Date()): Promise<void> {
+    const [prises] = (await this.dataSource.query(
+      `UPDATE rapports SET statut = 'EN_COURS', nb_tentatives = nb_tentatives + 1
+        WHERE id = $1 AND statut = 'EN_ATTENTE'
+      RETURNING format::text AS format, demandeur_id, formation_id, parametres`,
+      [rapportId],
+    )) as [
+      Array<{
+        format: FormatRapport;
+        demandeur_id: string;
+        formation_id: string;
+        parametres: ParametresSession;
+      }>,
+      number,
+    ];
+    const ligne = prises[0];
+    if (!ligne) return;
+
+    let produit: { titre: string; nom: string; taille: number; empreinte: string };
+    try {
+      produit = await this.produire(rapportId, ligne, maintenant);
+    } catch (erreur) {
+      const detail = (erreur instanceof Error ? erreur.message : String(erreur)).slice(0, 1000);
+      await this.dataSource.query(
+        `UPDATE rapports SET statut = 'EN_ATTENTE', derniere_erreur = $2
+          WHERE id = $1 AND statut = 'EN_COURS'`,
+        [rapportId, detail],
+      );
+      throw erreur;
+    }
+    await this.auditService.record({
+      action: 'RAPPORT_GENERE',
+      acteur: null,
+      cible: rapportId,
+      adresseIp: null,
+      resultat: 'Succès',
+      detailsAvantApres: { tailleOctets: produit.taille, empreinteSha256: produit.empreinte },
+    });
+    await this.notifier(ligne.demandeur_id, produit.titre, produit.nom, true);
+  }
+
+  /** Contenu, fichier, dépôt, puis PRET (dans cet ordre). */
+  private async produire(
+    rapportId: string,
+    ligne: { format: FormatRapport; formation_id: string; parametres: ParametresSession },
+    maintenant: Date,
+  ): Promise<{ titre: string; nom: string; taille: number; empreinte: string }> {
+    const contenu = await this.contenu(ligne.formation_id, ligne.parametres);
+    const titre =
+      contenu.portee === 'GLOBAL' ? contenu.suivi.formation.titre : contenu.formation.titre;
+    const nom = nomFichier(titre, ligne.parametres.portee, ligne.format, maintenant);
+    const tampon =
+      ligne.format === FormatRapport.PDF
+        ? await pdfSession(contenu, maintenant)
+        : Buffer.from(csvSession(contenu), 'utf8');
+    const empreinte = createHash('sha256').update(tampon).digest('hex');
+    const cle = cleStockageRapport(rapportId, nom);
+    await this.stockageService.deposerTampon(cle, tampon, typeMime(ligne.format), empreinte);
+    await this.dataSource.query(
+      `UPDATE rapports
+          SET statut = 'PRET', nom_fichier = $2, cle_stockage = $3, taille_octets = $4,
+              empreinte_sha256 = $5, date_fin = now(), derniere_erreur = NULL
+        WHERE id = $1 AND statut = 'EN_COURS'`,
+      [rapportId, nom, cle, tampon.length, empreinte],
+    );
+    return { titre, nom, taille: tampon.length, empreinte };
+  }
+
+  /** Après le dernier essai : ECHEC, erreur conservée, audit, email. */
+  async echecDefinitif(rapportId: string, erreur: unknown): Promise<void> {
+    const detail = (erreur instanceof Error ? erreur.message : String(erreur)).slice(0, 1000);
+    const [lignes] = (await this.dataSource.query(
+      `UPDATE rapports SET statut = 'ECHEC', derniere_erreur = $2, date_fin = now()
+        WHERE id = $1 AND statut IN ('EN_ATTENTE', 'EN_COURS')
+      RETURNING demandeur_id, formation_id`,
+      [rapportId, detail],
+    )) as [Array<{ demandeur_id: string; formation_id: string | null }>, number];
+    const l = lignes[0];
+    if (!l) return;
+    await this.auditService.record({
+      action: 'RAPPORT_ECHEC',
+      acteur: null,
+      cible: rapportId,
+      adresseIp: null,
+      resultat: 'Échec',
+      detailsAvantApres: { erreur: detail },
+    });
+    const [f] = (await this.dataSource.query(`SELECT titre FROM formations WHERE id = $1`, [
+      l.formation_id,
+    ])) as Array<{ titre: string }>;
+    await this.notifier(l.demandeur_id, f?.titre ?? 'formation', null, false);
+  }
+
+  /** Contrôle des paramètres d'un rapport de session (400 / 404). */
+  private async verifierParametres(
+    formationId: string,
+    d: ParametresSession,
+  ): Promise<ParametresSession> {
+    if (d.portee !== 'INDIVIDUEL' && d.apprenantId !== undefined) {
+      throw new BadRequestException('apprenantId n’est accepté que pour la portée INDIVIDUEL.');
+    }
+    if (d.portee !== 'MODULE' && d.moduleId !== undefined) {
+      throw new BadRequestException('moduleId n’est accepté que pour la portée MODULE.');
+    }
+    if (d.portee === 'INDIVIDUEL') {
+      const [i] = (await this.dataSource.query(
+        `SELECT 1 FROM inscriptions WHERE formation_id = $1 AND apprenant_id = $2`,
+        [formationId, d.apprenantId],
+      )) as unknown[];
+      if (!i) throw new NotFoundException('Apprenant non inscrit à cette formation.');
+      return { portee: 'INDIVIDUEL', apprenantId: d.apprenantId };
+    }
+    if (d.portee === 'MODULE') {
+      const [mod] = (await this.dataSource.query(
+        `SELECT 1 FROM modules WHERE id = $1 AND formation_id = $2`,
+        [d.moduleId, formationId],
+      )) as unknown[];
+      if (!mod) throw new NotFoundException('Module introuvable dans cette formation.');
+      return { portee: 'MODULE', moduleId: d.moduleId };
+    }
+    return { portee: 'GLOBAL' };
+  }
+
+  /** Données du rapport, relues au moment de la génération. */
+  private async contenu(formationId: string, p: ParametresSession): Promise<ContenuSession> {
+    if (p.portee === 'GLOBAL') {
+      return { portee: 'GLOBAL', suivi: await this.suiviService.suivi(formationId) };
+    }
+    const [formation] = (await this.dataSource.query(`SELECT titre FROM formations WHERE id = $1`, [
+      formationId,
+    ])) as Array<{ titre: string }>;
+    if (!formation) throw new NotFoundException('Formation introuvable.');
+    if (p.portee === 'INDIVIDUEL') {
+      return {
+        portee: 'INDIVIDUEL',
+        formation,
+        fiche: await this.suiviService.fiche(formationId, p.apprenantId as string),
+      };
+    }
+    return {
+      portee: 'MODULE',
+      formation,
+      donnees: await this.donneesModule(formationId, p.moduleId as string),
+    };
+  }
+
+  private async donneesModule(formationId: string, moduleId: string): Promise<DonneesModule> {
+    const [module] = (await this.dataSource.query(
+      `SELECT id, titre, ordre FROM modules WHERE id = $1 AND formation_id = $2`,
+      [moduleId, formationId],
+    )) as Array<{ id: string; titre: string; ordre: number }>;
+    if (!module) throw new NotFoundException('Module introuvable dans cette formation.');
+    const [evaluations, inscrits, notes] = await Promise.all([
+      this.dataSource.query(
+        `SELECT e.id, e.type, e.titre
+           FROM (SELECT id, 'QCM' AS type, titre FROM qcm WHERE module_id = $1 AND statut = 'PUBLIE'
+                 UNION ALL
+                 SELECT id, 'ATELIER' AS type, titre FROM ateliers
+                  WHERE module_id = $1 AND statut = 'PUBLIE') e
+          ORDER BY e.type DESC, e.titre COLLATE "C", e.id`,
+        [moduleId],
+      ) as Promise<EvaluationModule[]>,
+      this.dataSource.query(
+        `SELECT u.id, u.prenom, u.nom, u.email, i.statut::text AS statut
+           FROM inscriptions i JOIN users u ON u.id = i.apprenant_id
+          WHERE i.formation_id = $1
+          ORDER BY u.nom COLLATE "C" NULLS LAST, u.prenom COLLATE "C" NULLS LAST, u.email COLLATE "C"`,
+        [formationId],
+      ) as Promise<InscritModule[]>,
+      this.dataSource.query(
+        `SELECT t.apprenant_id AS "apprenantId", t.qcm_id AS "evaluationId", max(t.score)::float AS note
+           FROM tentatives_qcm t JOIN qcm q ON q.id = t.qcm_id
+          WHERE q.module_id = $1 AND q.statut = 'PUBLIE' AND t.statut = 'NOTEE' AND t.score IS NOT NULL
+          GROUP BY 1, 2
+         UNION ALL
+         SELECT l.apprenant_id, l.atelier_id, max(c.score_total)::float
+           FROM livrables l
+           JOIN ateliers a ON a.id = l.atelier_id
+           JOIN corrections c ON c.livrable_id = l.id AND c.statut = 'TERMINEE'
+          WHERE a.module_id = $1 AND a.statut = 'PUBLIE'
+          GROUP BY 1, 2`,
+        [moduleId],
+      ) as Promise<NoteEvaluation[]>,
+    ]);
+    return assemblerModule(module, evaluations, inscrits, notes);
+  }
+
+  private async ligneDuDemandeur(demandeurId: string, rapportId: string): Promise<LigneRapport> {
+    const [l] = (await this.dataSource.query(`${SELECT_RAPPORT} WHERE r.id = $1`, [
+      rapportId,
+    ])) as LigneRapport[];
+    if (!l || l.demandeur_id !== demandeurId) {
+      throw new NotFoundException(MESSAGE_RAPPORT_INTROUVABLE);
+    }
+    return l;
+  }
+
+  /** Email de fin au demandeur ; un échec d'envoi est journalisé, jamais bloquant. */
+  private async notifier(
+    demandeurId: string,
+    titreFormation: string,
+    nom: string | null,
+    reussi: boolean,
+  ): Promise<void> {
+    try {
+      const [u] = (await this.dataSource.query(`SELECT email, prenom FROM users WHERE id = $1`, [
+        demandeurId,
+      ])) as Array<{ email: string; prenom: string | null }>;
+      if (!u) return;
+      await this.mailService.sendRapportPretEmail(u.email, {
+        prenom: u.prenom,
+        titreFormation,
+        nomFichier: nom,
+        reussi,
+      });
+    } catch (erreur) {
+      const detail = erreur instanceof Error ? erreur.message : String(erreur);
+      this.logger.error(`Email de rapport non envoyé (${demandeurId}) : ${detail}`);
+    }
+  }
+}
+
+function vue(l: LigneRapport): RapportVue {
+  return {
+    id: l.id,
+    type: l.type,
+    format: l.format,
+    statut: l.statut,
+    parametres: l.parametres,
+    formation: l.formation_id ? { id: l.formation_id, titre: l.titre ?? '' } : null,
+    nomFichier: l.nom_fichier,
+    tailleOctets: l.taille_octets,
+    empreinteSha256: l.empreinte_sha256,
+    derniereErreur: l.derniere_erreur,
+    dateDemande: l.date_demande,
+    dateFin: l.date_fin,
+  };
+}

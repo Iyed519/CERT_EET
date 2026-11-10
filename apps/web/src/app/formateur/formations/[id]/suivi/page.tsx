@@ -132,6 +132,9 @@ export default function SuiviFormationPage(): JSX.Element {
                 {k.ateliersPublies > 1 ? 's' : ''} publiés
               </p>
             </div>
+            <Link className="btn btn-sm" href={`/formateur/formations/${id}/rapports`}>
+              Exporter un rapport
+            </Link>
           </div>
 
           <section className="tdb-grille" aria-label="Indicateurs">

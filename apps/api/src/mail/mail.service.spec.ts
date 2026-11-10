@@ -303,6 +303,36 @@ describe('MailService', () => {
     });
   });
 
+  describe('sendRapportPretEmail (US-RPT-01)', () => {
+    it('annonce le rapport prêt et mène à « Mes rapports », sans pièce jointe', async () => {
+      await service.sendRapportPretEmail('sami@cert-eet.local', {
+        prenom: 'Sami',
+        titreFormation: 'Back-end',
+        nomFichier: 'rapport-back-end-global-2026-11-10.csv',
+        reussi: true,
+      });
+      const message = dernierMessage();
+      expect(message.subject).toBe('Cert_EET — Rapport prêt : « Back-end »');
+      expect(message.text).toContain('rapport-back-end-global-2026-11-10.csv');
+      expect(message.html).toContain('href="http://localhost:3001/rapports"');
+      expect(Object.keys(message)).not.toContain('attachments');
+    });
+
+    it('échec : objet sur une ligne, HTML échappé', async () => {
+      await service.sendRapportPretEmail('sami@cert-eet.local', {
+        prenom: null,
+        titreFormation: '<b>F</b>\r\nBcc: x@y.tn',
+        nomFichier: null,
+        reussi: false,
+      });
+      const message = dernierMessage();
+      expect(message.subject).toMatch(/^Cert_EET — Rapport non généré : /);
+      expect(message.subject).not.toMatch(/[\r\n]/);
+      expect(message.html).not.toContain('<b>F</b>');
+      expect(message.text).toContain('Bonjour,');
+    });
+  });
+
   describe('sendAlertesDecrochageEmail (US-SUIVI-02)', () => {
     it('récapitule les alertes et mène à la page des alertes', async () => {
       await service.sendAlertesDecrochageEmail('sami@cert-eet.local', {

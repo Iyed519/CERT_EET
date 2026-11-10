@@ -79,6 +79,10 @@ export const envValidationSchema = Joi.object({
   CERTIFICATS_WORKER: Joi.string().valid('on', 'off').default('on'),
   CERTIFICATS_TENTATIVES: Joi.number().integer().min(1).max(10).default(3),
   CERTIFICATS_BACKOFF_MS: Joi.number().integer().min(10).max(600000).default(5000),
+  // US-RPT-01 — génération des rapports exportés (file BullMQ, worker dans l'api).
+  RAPPORTS_WORKER: Joi.string().valid('on', 'off').default('on'),
+  RAPPORTS_TENTATIVES: Joi.number().integer().min(1).max(10).default(3),
+  RAPPORTS_BACKOFF_MS: Joi.number().integer().min(10).max(600000).default(2000),
   // US-SUIVI-02 — alertes de décrochage : balayage planifié, email aux formateurs.
   ALERTES_BALAYAGE_ACTIF: Joi.boolean().default(true),
   ALERTES_INTERVALLE_MINUTES: Joi.number().integer().min(5).max(1440).default(60),

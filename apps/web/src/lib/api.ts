@@ -3195,3 +3195,65 @@ export async function rouvrirAlerte(alerteId: string, motif: string): Promise<Al
   });
   return lireReponseFormation<AlerteDetail>(response, 'Impossible de rouvrir l’alerte.');
 }
+
+// ---------------------------------------------------------------------------
+// US-RPT-01 — Rapports de session exportés (CSV / PDF, génération asynchrone).
+// ---------------------------------------------------------------------------
+
+export type FormatRapport = 'CSV' | 'PDF';
+export type PorteeRapport = 'GLOBAL' | 'INDIVIDUEL' | 'MODULE';
+export type StatutRapport = 'EN_ATTENTE' | 'EN_COURS' | 'PRET' | 'ECHEC';
+
+export interface Rapport {
+  id: string;
+  type: 'SESSION' | 'INSTITUTIONNEL';
+  format: FormatRapport;
+  statut: StatutRapport;
+  parametres: { portee?: PorteeRapport; apprenantId?: string; moduleId?: string } & Record<
+    string,
+    unknown
+  >;
+  formation: { id: string; titre: string } | null;
+  nomFichier: string | null;
+  tailleOctets: number | null;
+  empreinteSha256: string | null;
+  derniereErreur: string | null;
+  dateDemande: string;
+  dateFin: string | null;
+}
+
+/** US-RPT-01 — POST /api/formateur/formations/:id/rapports (202 ; 429 au-delà de 5 / min). */
+export async function demanderRapportSession(
+  formationId: string,
+  demande: { format: FormatRapport; portee: PorteeRapport; apprenantId?: string; moduleId?: string },
+): Promise<Rapport> {
+  const response = await apiFetch(`/api/formateur/formations/${formationId}/rapports`, {
+    method: 'POST',
+    headers: JSON_HEADERS,
+    body: JSON.stringify(demande),
+  });
+  return lireReponseFormation<Rapport>(response, 'Impossible de demander le rapport.');
+}
+
+/** US-RPT-01 — GET /api/rapports?formationId (mes rapports, 50 plus récents). */
+export async function getMesRapports(formationId?: string): Promise<Rapport[]> {
+  const qs = formationId ? `?formationId=${encodeURIComponent(formationId)}` : '';
+  const response = await apiFetch(`/api/rapports${qs}`);
+  return lireReponseFormation<Rapport[]>(response, 'Impossible de charger vos rapports.');
+}
+
+/** US-RPT-01 — GET /api/rapports/:id/fichier (demandeur seul ; 409 si pas prêt). */
+export async function telechargerRapport(rapport: Rapport): Promise<void> {
+  const response = await apiFetch(`/api/rapports/${rapport.id}/fichier`);
+  if (!response.ok) {
+    await lireReponseFormation<never>(response, 'Impossible de télécharger le rapport.');
+  }
+  const url = URL.createObjectURL(await response.blob());
+  const lien = document.createElement('a');
+  lien.href = url;
+  lien.download = rapport.nomFichier ?? `rapport.${rapport.format.toLowerCase()}`;
+  document.body.appendChild(lien);
+  lien.click();
+  lien.remove();
+  setTimeout(() => URL.revokeObjectURL(url), 1000);
+}
