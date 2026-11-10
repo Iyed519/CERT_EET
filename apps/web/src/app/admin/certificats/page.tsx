@@ -3,16 +3,21 @@ import { FormEvent, useCallback, useEffect, useState } from 'react';
 import {
   AdminError,
   CertificatAdmin,
+  FicheCertificat,
   getCertificatsAdmin,
+  getFicheCertificat,
   MotifRevocation,
   relancerCertificat,
   revoquerCertificat,
   StatutCertificat,
 } from '../../../lib/api';
 import {
+  consultationsFr,
   dateHeureFr,
+  LIBELLES_ACTION_CERTIFICAT,
   LIBELLES_MOTIF_REVOCATION,
   LIBELLES_STATUT_CERTIFICAT,
+  LIBELLES_VERDICT,
   nomApprenantFr,
   nombreFr,
 } from '../../../lib/format';
@@ -38,6 +43,10 @@ const FILTRES: Array<{ valeur: StatutCertificat | null; libelle: string }> = [
  * US-CERT-06 — « Révoquer » (certificat émis) ouvre une modale : motif,
  * description interne, case d'irréversibilité et mot de passe (DS-07). Un
  * certificat révoqué affiche la date, le motif et la description.
+ *
+ * US-DASH-02 — Supervision : recherche (titulaire, formation, identifiant),
+ * nombre de consultations publiques par certificat, et « Fiche » : empreinte,
+ * consultations (valides / refusées, dernières), historique du certificat.
  */
 export default function CertificatsAdminPage(): JSX.Element {
   const [filtre, setFiltre] = useState<StatutCertificat | null>(null);
@@ -47,14 +56,24 @@ export default function CertificatsAdminPage(): JSX.Element {
   const [relance, setRelance] = useState<string | null>(null);
   // Certificat en cours de révocation (null = modale fermée).
   const [aRevoquer, setARevoquer] = useState<CertificatAdmin | null>(null);
+  // US-DASH-02 : recherche saisie / appliquée, fiche ouverte.
+  const [saisie, setSaisie] = useState('');
+  const [recherche, setRecherche] = useState('');
+  const [ficheId, setFicheId] = useState<string | null>(null);
 
   const charger = useCallback(async (): Promise<void> => {
     try {
-      setListe(await getCertificatsAdmin(filtre ?? undefined));
+      setListe(await getCertificatsAdmin(filtre ?? undefined, recherche || undefined));
     } catch (error) {
       setErreur(error instanceof AdminError ? error.message : 'Impossible de charger les certificats.');
     }
-  }, [filtre]);
+  }, [filtre, recherche]);
+
+  const rechercher = (e: FormEvent<HTMLFormElement>): void => {
+    e.preventDefault();
+    setErreur(null);
+    setRecherche(saisie.trim());
+  };
 
   useEffect(() => {
     void charger();
@@ -113,6 +132,39 @@ export default function CertificatsAdminPage(): JSX.Element {
         ))}
       </div>
 
+      <form className="filters certificats-recherche" onSubmit={rechercher} role="search">
+        <div className="field">
+          <label className="field-label" htmlFor="recherche-certificat">
+            Rechercher
+          </label>
+          <input
+            id="recherche-certificat"
+            className="input"
+            value={saisie}
+            maxLength={255}
+            onChange={(e) => setSaisie(e.target.value)}
+            placeholder="Titulaire, email, formation ou identifiant"
+          />
+        </div>
+        <div className="filters-actions">
+          <button type="submit" className="btn-sm">
+            Rechercher
+          </button>
+          {recherche !== '' && (
+            <button
+              type="button"
+              className="btn-sm btn-ghost"
+              onClick={() => {
+                setSaisie('');
+                setRecherche('');
+              }}
+            >
+              Effacer
+            </button>
+          )}
+        </div>
+      </form>
+
       {erreur !== null && <p className="alert alert-error">{erreur}</p>}
       {succes !== null && <p className="alert alert-success">{succes}</p>}
 
@@ -138,6 +190,12 @@ export default function CertificatsAdminPage(): JSX.Element {
                       {c.empreinteSha256}
                     </code>
                   )}
+                  {(c.statut === 'ACTIF' || c.statut === 'REVOQUE') && (
+                    <p className="field-hint consultations-ligne">
+                      {consultationsFr(c.consultations.total)}
+                      {c.consultations.derniere ? ` · dernière le ${dateHeureFr(c.consultations.derniere)}` : ''}
+                    </p>
+                  )}
                   {c.revocation && (
                     <p className="field-hint texte-erreur">
                       Révoqué le {dateHeureFr(c.revocation.date)} ·{' '}
@@ -154,6 +212,9 @@ export default function CertificatsAdminPage(): JSX.Element {
                   <span className={`statut-badge certificat-${c.statut}`}>
                     {LIBELLES_STATUT_CERTIFICAT[c.statut]}
                   </span>
+                  <button type="button" className="btn-sm" onClick={() => setFicheId(c.id)}>
+                    Fiche
+                  </button>
                   {relancable && (
                     <button
                       type="button"
@@ -184,6 +245,8 @@ export default function CertificatsAdminPage(): JSX.Element {
         </ul>
       )}
 
+      {ficheId && <FicheModal certificatId={ficheId} onClose={() => setFicheId(null)} />}
+
       {aRevoquer && (
         <RevocationModal
           certificat={aRevoquer}
@@ -200,6 +263,115 @@ export default function CertificatsAdminPage(): JSX.Element {
 }
 
 const MOTIFS = Object.keys(LIBELLES_MOTIF_REVOCATION) as MotifRevocation[];
+
+/** Nom lisible d'un acteur d'audit (prénom nom, sinon email). */
+function nomActeur(a: { email: string; prenom: string | null; nom: string | null }): string {
+  return [a.prenom, a.nom].filter(Boolean).join(' ').trim() || a.email;
+}
+
+/**
+ * US-DASH-02 — Fiche d'un certificat (DS-16 P3), en lecture seule :
+ * identité, empreinte SHA-256, consultations publiques (valides / refusées,
+ * 20 dernières avec leur verdict) et historique des actions du journal
+ * d'audit visant ce certificat (demande, émission, relances, révocation…).
+ */
+function FicheModal({ certificatId, onClose }: { certificatId: string; onClose: () => void }): JSX.Element {
+  const [fiche, setFiche] = useState<FicheCertificat | null>(null);
+  const [erreur, setErreur] = useState<string | null>(null);
+
+  useEffect(() => {
+    getFicheCertificat(certificatId)
+      .then(setFiche)
+      .catch((error: unknown) =>
+        setErreur(error instanceof AdminError ? error.message : 'Impossible de charger la fiche du certificat.'),
+      );
+  }, [certificatId]);
+
+  const c = fiche?.certificat;
+  return (
+    <div className="profil-overlay" role="dialog" aria-modal="true" aria-labelledby="titre-fiche">
+      <section className="profil-card fiche-certificat">
+        <h1 id="titre-fiche" className="auth-title">
+          Fiche du certificat
+        </h1>
+        {erreur !== null && <p className="alert alert-error">{erreur}</p>}
+        {fiche === null && erreur === null && <p className="page-subtitle">Chargement…</p>}
+        {c && fiche && (
+          <>
+            <p className="auth-subtitle">
+              {nomApprenantFr(c.apprenant)} — {c.formation.titre}
+            </p>
+            <dl className="fiche-grille">
+              <dt>Identifiant</dt>
+              <dd>
+                <code>{c.id}</code>
+              </dd>
+              <dt>Statut</dt>
+              <dd>
+                <span className={`statut-badge certificat-${c.statut}`}>{LIBELLES_STATUT_CERTIFICAT[c.statut]}</span>
+              </dd>
+              <dt>Titulaire</dt>
+              <dd>{c.apprenant.email}</dd>
+              <dt>Score</dt>
+              <dd>
+                {nombreFr(c.scoreFinal)} / 100 · {c.mention}
+              </dd>
+              <dt>Émis le</dt>
+              <dd>{c.dateGeneration ? dateHeureFr(c.dateGeneration) : '—'}</dd>
+              <dt>Empreinte SHA-256</dt>
+              <dd>{c.empreinteSha256 ? <code className="empreinte">{c.empreinteSha256}</code> : '—'}</dd>
+            </dl>
+
+            <h2 className="fiche-titre">Consultations publiques</h2>
+            <p className="field-hint">
+              {consultationsFr(fiche.consultations.total)}
+              {fiche.consultations.total > 0 &&
+                ` — ${fiche.consultations.valides} valide${fiche.consultations.valides > 1 ? 's' : ''}, ${
+                  fiche.consultations.refusees
+                } refusée${fiche.consultations.refusees > 1 ? 's' : ''}`}
+            </p>
+            {fiche.consultationsRecentes.length > 0 && (
+              <ul className="fiche-liste">
+                {fiche.consultationsRecentes.map((v, i) => (
+                  <li key={`${v.horodatage}-${i}`}>
+                    <span>{dateHeureFr(v.horodatage)}</span>
+                    <span className={`res-badge ${v.verdict === 'VALIDE' ? 'res-ok' : 'res-ko'}`}>
+                      {v.verdict ? (LIBELLES_VERDICT[v.verdict] ?? v.verdict) : '—'}
+                    </span>
+                  </li>
+                ))}
+              </ul>
+            )}
+
+            <h2 className="fiche-titre">Historique</h2>
+            {fiche.historique.length === 0 ? (
+              <p className="field-hint">Aucun événement.</p>
+            ) : (
+              <ol className="fiche-liste fiche-historique">
+                {fiche.historique.map((e, i) => (
+                  <li key={`${e.horodatage}-${i}`}>
+                    <span>{dateHeureFr(e.horodatage)}</span>
+                    <span>
+                      {LIBELLES_ACTION_CERTIFICAT[e.action] ?? e.action}
+                      {e.resultat === 'Échec' && <span className="res-badge res-ko"> Échec</span>}
+                      <br />
+                      <span className="field-hint">{e.acteur ? nomActeur(e.acteur) : 'Système'}</span>
+                    </span>
+                  </li>
+                ))}
+              </ol>
+            )}
+          </>
+        )}
+        <div className="modal-actions">
+          <button type="button" className="btn-sm" onClick={onClose}>
+            Fermer
+          </button>
+        </div>
+      </section>
+    </div>
+  );
+}
 
 /**
  * Modale de révocation (DS-07) : double confirmation — case d'irréversibilité

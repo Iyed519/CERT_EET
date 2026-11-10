@@ -1,6 +1,14 @@
 import { ApiProperty, ApiPropertyOptional } from '@nestjs/swagger';
 import { Transform } from 'class-transformer';
-import { Equals, IsEnum, IsNotEmpty, IsOptional, IsString, Length } from 'class-validator';
+import {
+  Equals,
+  IsEnum,
+  IsNotEmpty,
+  IsOptional,
+  IsString,
+  Length,
+  MaxLength,
+} from 'class-validator';
 import { MotifRevocation } from '../../database/enums/motif-revocation.enum';
 import { StatutCertificat } from '../../database/enums/statut-certificat.enum';
 
@@ -12,6 +20,17 @@ export class FiltreCertificatsDto {
     message: 'Statut inconnu : EN_ATTENTE_GENERATION, EN_GENERATION, ACTIF ou REVOQUE.',
   })
   statut?: StatutCertificat;
+
+  @ApiPropertyOptional({
+    description:
+      'US-DASH-02 : titulaire (email, prénom, nom), titre de la formation (contient, sans casse) ' +
+      'ou identifiant exact du certificat.',
+    maxLength: 255,
+  })
+  @IsOptional()
+  @IsString({ message: 'La recherche doit être un texte.' })
+  @MaxLength(255, { message: 'La recherche ne peut pas dépasser 255 caractères.' })
+  recherche?: string;
 }
 
 /**
