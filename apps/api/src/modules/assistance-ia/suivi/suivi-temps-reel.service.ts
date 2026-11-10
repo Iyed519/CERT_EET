@@ -51,6 +51,7 @@ export class SuiviTempsReelService {
       let arrete = false;
       const debut = Date.now();
       const tour = async (): Promise<void> => {
+        if (arrete) return;
         try {
           const etat = await this.lire(nature, id);
           if (arrete) return;

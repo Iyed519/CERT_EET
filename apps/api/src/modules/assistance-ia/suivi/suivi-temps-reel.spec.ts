@@ -99,13 +99,17 @@ describe('Suivi en temps réel (US-IA-07)', () => {
     expect(e.data).toMatchObject({ nature: 'generation', resultat: 4, final: true });
   });
 
-  it('désabonnement : plus aucune lecture', async () => {
+  it('désabonnement : plus aucune lecture, minuteur annulé', async () => {
     const detail = jest.fn().mockResolvedValue(support('EN_INDEXATION'));
+    const annulation = jest.spyOn(global, 'clearTimeout');
     const abonnement = monter(detail).flux('support', 's1', { intervalleMs: 5 }).subscribe();
     await new Promise((r) => setTimeout(r, 20));
+    annulation.mockClear();
     abonnement.unsubscribe();
+    expect(annulation).toHaveBeenCalledTimes(1);
+    annulation.mockRestore();
     const apres = detail.mock.calls.length;
     await new Promise((r) => setTimeout(r, 30));
-    expect(detail.mock.calls.length).toBeLessThanOrEqual(apres + 1);
+    expect(detail.mock.calls.length).toBe(apres);
   });
 });
