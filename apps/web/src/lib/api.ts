@@ -2457,6 +2457,11 @@ export interface CertificatAdmin {
   derniereErreur: string | null;
   /** US-CERT-02 — échec définitif (tentatives épuisées), null sinon. */
   echecDefinitifLe: string | null;
+  /** US-CERT-07 — fin de validité ; null = sans expiration. */
+  dateExpiration: string | null;
+  /** US-CERT-08 — certificat révoqué remplacé par celui-ci, et réémission de celui-ci. */
+  remplaceCertificatId: string | null;
+  remplacePar: string | null;
   /** US-CERT-06 — null tant que le certificat n'est pas révoqué. */
   revocation: {
     date: string;
@@ -2522,6 +2527,19 @@ export async function relancerCertificat(certificatId: string): Promise<Certific
     method: 'POST',
   });
   return lireReponseFormation<CertificatAdmin>(response, 'Impossible de relancer la génération.');
+}
+
+/**
+ * US-CERT-08 — POST /api/admin/certificats/:id/reemettre : nouveau certificat
+ * pour un certificat révoqué pour erreur administrative (409 sinon ou déjà réémis).
+ */
+export async function reemettreCertificat(certificatId: string): Promise<CertificatAdmin> {
+  const response = await apiFetch(`/api/admin/certificats/${certificatId}/reemettre`, {
+    method: 'POST',
+    headers: JSON_HEADERS,
+    body: JSON.stringify({ confirmer: true }),
+  });
+  return lireReponseFormation<CertificatAdmin>(response, 'Impossible de réémettre le certificat.');
 }
 
 /**
@@ -2616,6 +2634,8 @@ export interface VerificationCertificat {
   dateRevocation: string | null;
   /** US-CERT-07 — fin de validité ; null = sans expiration. */
   dateExpiration: string | null;
+  /** US-CERT-08 — certificat réémis qui remplace celui-ci ; null sinon. */
+  remplacePar: string | null;
 }
 
 /**
