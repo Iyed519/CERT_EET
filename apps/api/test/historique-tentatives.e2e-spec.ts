@@ -327,7 +327,12 @@ describe('Historique des tentatives (e2e) — US-QCM-11', () => {
 
     it('tentative en cours : aucun contenu ; tentative d’un autre : 404', async () => {
       const res = await appel('get', `/mes-tentatives/${t.a2}`, tokens.a).expect(200);
-      expect(res.body).toMatchObject({ statut: 'EN_COURS', questions: [], reponses: {} });
+      expect(res.body).toMatchObject({
+        numero: 2,
+        statut: 'EN_COURS',
+        questions: [],
+        reponses: {},
+      });
       await appel('get', `/mes-tentatives/${t.b1}`, tokens.a).expect(404);
       await appel('get', `/mes-tentatives/${INCONNU}`, tokens.a).expect(404);
     });
