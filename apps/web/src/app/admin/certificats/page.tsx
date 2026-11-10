@@ -50,6 +50,11 @@ const FILTRES: Array<{ valeur: StatutCertificat | null; libelle: string }> = [
  */
 export default function CertificatsAdminPage(): JSX.Element {
   const [filtre, setFiltre] = useState<StatutCertificat | null>(null);
+  // US-CERT-02 : seulement les échecs définitifs (lien de l'email d'alerte : ?enEchec=true).
+  const [enEchec, setEnEchec] = useState(false);
+  useEffect(() => {
+    if (new URLSearchParams(window.location.search).get('enEchec') === 'true') setEnEchec(true);
+  }, []);
   const [liste, setListe] = useState<CertificatAdmin[] | null>(null);
   const [erreur, setErreur] = useState<string | null>(null);
   const [succes, setSucces] = useState<string | null>(null);
@@ -63,11 +68,11 @@ export default function CertificatsAdminPage(): JSX.Element {
 
   const charger = useCallback(async (): Promise<void> => {
     try {
-      setListe(await getCertificatsAdmin(filtre ?? undefined, recherche || undefined));
+      setListe(await getCertificatsAdmin(filtre ?? undefined, recherche || undefined, enEchec));
     } catch (error) {
       setErreur(error instanceof AdminError ? error.message : 'Impossible de charger les certificats.');
     }
-  }, [filtre, recherche]);
+  }, [filtre, recherche, enEchec]);
 
   const rechercher = (e: FormEvent<HTMLFormElement>): void => {
     e.preventDefault();
@@ -130,6 +135,17 @@ export default function CertificatsAdminPage(): JSX.Element {
             {f.libelle}
           </button>
         ))}
+        <button
+          type="button"
+          className={`filtre-livrable${enEchec ? ' filtre-livrable-actif' : ''}`}
+          aria-pressed={enEchec}
+          onClick={() => {
+            setErreur(null);
+            setEnEchec(!enEchec);
+          }}
+        >
+          Échecs définitifs
+        </button>
       </div>
 
       <form className="filters certificats-recherche" onSubmit={rechercher} role="search">
@@ -205,6 +221,12 @@ export default function CertificatsAdminPage(): JSX.Element {
                   {c.derniereErreur && c.statut !== 'ACTIF' && c.statut !== 'REVOQUE' && (
                     <p className="field-hint texte-erreur">
                       {c.nbTentatives} tentative{c.nbTentatives > 1 ? 's' : ''} · {c.derniereErreur}
+                    </p>
+                  )}
+                  {c.echecDefinitifLe && (
+                    <p className="field-hint texte-erreur">
+                      Échec définitif le {dateHeureFr(c.echecDefinitifLe)} : les administrateurs ont
+                      été alertés. Relancez une fois la cause corrigée.
                     </p>
                   )}
                 </div>
