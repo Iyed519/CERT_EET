@@ -49,4 +49,23 @@ describe('envValidationSchema — LLM (US-IA-03)', () => {
     expect(valider({ LLM_FOURNISSEUR: 'openai' }).erreur).toBeDefined();
     expect(valider({ LLM_DELAI_MS: '10' }).erreur).toBeDefined();
   });
+
+  it('US-IA-06 — compatible-openai : LLM_URL obligatoire (http/https), clé facultative', () => {
+    expect(valider({ LLM_FOURNISSEUR: 'compatible-openai' }).erreur).toBe(
+      'LLM_URL est obligatoire avec LLM_FOURNISSEUR=compatible-openai.',
+    );
+    expect(
+      valider({ LLM_FOURNISSEUR: 'compatible-openai', LLM_URL: 'ftp://x.tn/v1' }).erreur,
+    ).toBeDefined();
+    expect(
+      valider({ LLM_FOURNISSEUR: 'compatible-openai', LLM_URL: 'http://localhost:8000/v1' }).erreur,
+    ).toBeUndefined();
+    expect(
+      valider({
+        LLM_FOURNISSEUR: 'compatible-openai',
+        LLM_URL: 'https://api.mistral.ai/v1',
+        LLM_CLE: 'cle-de-test',
+      }).erreur,
+    ).toBeUndefined();
+  });
 });

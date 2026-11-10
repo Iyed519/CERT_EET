@@ -116,7 +116,20 @@ export const envValidationSchema = Joi.object({
   // « factice » (défaut : tests, CI, démonstration sans clé) ou « anthropic »
   // (Claude). Avec « anthropic », la clé est OBLIGATOIRE : l'api refuse de
   // démarrer sans elle. La clé ne vit que dans le .env local, jamais dans le dépôt.
-  LLM_FOURNISSEUR: Joi.string().valid('anthropic', 'factice').default('factice'),
+  // US-IA-06 : « compatible-openai » = tout service /chat/completions avec appel
+  // d'outil (OpenAI, Mistral, modèle hébergé localement) : LLM_URL obligatoire,
+  // LLM_CLE facultative (même règle que ANTHROPIC_API_KEY : .env local seulement).
+  LLM_FOURNISSEUR: Joi.string()
+    .valid('anthropic', 'compatible-openai', 'factice')
+    .default('factice'),
+  LLM_URL: Joi.when('LLM_FOURNISSEUR', {
+    is: 'compatible-openai',
+    then: Joi.string().uri({ scheme: ['http', 'https'] }).required().messages({
+      'any.required': 'LLM_URL est obligatoire avec LLM_FOURNISSEUR=compatible-openai.',
+    }),
+    otherwise: Joi.string().allow('').optional(),
+  }),
+  LLM_CLE: Joi.string().allow('').optional(),
   LLM_MODELE: Joi.string().max(100).allow(''),
   ANTHROPIC_API_KEY: Joi.when('LLM_FOURNISSEUR', {
     is: 'anthropic',
