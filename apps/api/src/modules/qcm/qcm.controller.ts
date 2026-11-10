@@ -10,6 +10,7 @@ import {
   Patch,
   Post,
   Put,
+  Query,
   Req,
   UnauthorizedException,
 } from '@nestjs/common';
@@ -18,6 +19,7 @@ import { Role } from '../../database/enums/role.enum';
 import { AccessTokenPayload, AuthenticatedRequest } from '../auth/auth.types';
 import { Roles } from '../auth/decorators/roles.decorator';
 import { FormateurDeLaFormation } from '../formations/autorisation/formateur-de-la-formation.decorator';
+import { ImportBanqueDto, RechercheBanqueDto } from './dto/banque.dto';
 import { ConfigurationDto } from './dto/configuration.dto';
 import { CreateQcmDto } from './dto/create-qcm.dto';
 import { QuestionDto } from './dto/question.dto';
@@ -25,7 +27,7 @@ import { ReorderQuestionsDto } from './dto/reorder-questions.dto';
 import { UpdateQcmDto } from './dto/update-qcm.dto';
 import { ConfigurationVue, QcmConfigurationService } from './qcm-configuration.service';
 import { QcmPublicationService } from './qcm-publication.service';
-import { QcmDetailVue, QcmResumeVue, QcmService, QuestionVue } from './qcm.service';
+import { BanqueVue, QcmDetailVue, QcmResumeVue, QcmService, QuestionVue } from './qcm.service';
 
 const REFUS_403 =
   'Rôle insuffisant, ou formateur non affecté à la formation (audit ACCES_RESSOURCE_REFUSE).';
@@ -275,6 +277,53 @@ export class QcmController {
       this.acteur(req).sub,
       qcmId,
       questionId,
+      this.contexte(req),
+    );
+  }
+
+  @Get('qcm/:qcmId/banque')
+  @FormateurDeLaFormation({ qcmId: 'qcmId' })
+  @ApiOperation({ summary: 'Ma banque de questions, hors celles du QCM (US-QCM-02)' })
+  @ApiResponse({
+    status: 200,
+    description:
+      'Questions de mes QCM (énoncé, options, QCM qui les utilisent, figée ou non) ; message si aucune ne correspond.',
+  })
+  @ApiResponse({ status: 400, description: 'Recherche trop longue, paramètre inconnu.' })
+  @ApiResponse({ status: 403, description: REFUS_403 })
+  @ApiResponse({ status: 404, description: 'QCM introuvable.' })
+  banque(
+    @Param('qcmId', ParseUUIDPipe) qcmId: string,
+    @Query() requete: RechercheBanqueDto,
+    @Req() req: AuthenticatedRequest,
+  ): Promise<BanqueVue> {
+    return this.qcmService.banque(this.acteur(req).sub, qcmId, requete.recherche);
+  }
+
+  @Post('qcm/:qcmId/banque/import')
+  @HttpCode(HttpStatus.OK)
+  @FormateurDeLaFormation({ qcmId: 'qcmId' })
+  @ApiOperation({ summary: 'Lier des questions de ma banque au QCM, sans copie (US-QCM-02)' })
+  @ApiResponse({
+    status: 200,
+    description: 'QCM avec les questions liées en fin ; audit QUESTIONS_IMPORTEES.',
+  })
+  @ApiResponse({
+    status: 400,
+    description: 'Liste vide ou trop longue, question hors de ma banque ou déjà dans ce QCM.',
+  })
+  @ApiResponse({ status: 403, description: REFUS_403 })
+  @ApiResponse({ status: 404, description: 'QCM introuvable.' })
+  @ApiResponse({ status: 409, description: 'QCM verrouillé (tentatives) ou formation archivée.' })
+  importerDeLaBanque(
+    @Param('qcmId', ParseUUIDPipe) qcmId: string,
+    @Body() dto: ImportBanqueDto,
+    @Req() req: AuthenticatedRequest,
+  ): Promise<QcmDetailVue> {
+    return this.qcmService.importerDeLaBanque(
+      this.acteur(req).sub,
+      qcmId,
+      dto.questionIds,
       this.contexte(req),
     );
   }

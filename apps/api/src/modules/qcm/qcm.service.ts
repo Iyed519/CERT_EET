@@ -23,6 +23,16 @@ import { OptionDto, QuestionDto } from './dto/question.dto';
 import { UpdateQcmDto } from './dto/update-qcm.dto';
 import { ConfigurationVue, versConfigurationVue } from './qcm-configuration.service';
 import { verifierRetraitQuestion } from './qcm-publication.regles';
+import {
+  BORNES_BANQUE,
+  MESSAGE_AUCUN_RESULTAT,
+  MESSAGE_IMPORT_VIDE,
+  MESSAGE_HORS_BANQUE,
+  MESSAGE_QUESTION_PARTAGEE_FIGEE,
+  horsBanque,
+  motifRecherche,
+  sansDoublons,
+} from './banque.regles';
 
 /** Contexte de la requête transmis pour l'audit. */
 interface Contexte {
@@ -50,6 +60,28 @@ export interface OptionVue {
 }
 
 /** Une question du QCM, vue par le FORMATEUR. */
+/** US-QCM-02 — Une question de la banque du formateur. */
+export interface QuestionBanqueVue {
+  id: string;
+  enonce: string;
+  type: string;
+  ponderation: number;
+  explication: string | null;
+  niveauDifficulte: string | null;
+  origine: string;
+  /** QCM (du formateur) qui utilisent déjà la question. */
+  qcms: Array<{ id: string; titre: string }>;
+  /** Un de ces QCM a des tentatives : contenu figé (hors explication). */
+  figee: boolean;
+  options: Array<{ texte: string; estCorrecte: boolean; ordre: number }>;
+}
+
+/** US-QCM-02 — Réponse de la banque (message si aucune question ne correspond). */
+export interface BanqueVue {
+  questions: QuestionBanqueVue[];
+  message: string | null;
+}
+
 export interface QuestionVue {
   id: string;
   enonce: string;
@@ -343,9 +375,14 @@ export class QcmService {
     const actuelle = await this.questionDuQcm(qcmId, questionId);
     const saisie = this.validerQuestion(dto);
 
-    if (await this.estVerrouille(qcmId)) {
+    // US-QCM-02 : une question partagée est figée dès qu'UN de ses QCM a
+    // des tentatives (la modifier ici la changerait là-bas aussi).
+    const verrouLocal = await this.estVerrouille(qcmId);
+    if (verrouLocal || (await this.questionTenteeAilleurs(questionId, qcmId))) {
       if (!this.memeContenuHorsExplication(actuelle, saisie)) {
-        throw new ConflictException(MESSAGE_VERROUILLE);
+        throw new ConflictException(
+          verrouLocal ? MESSAGE_VERROUILLE : MESSAGE_QUESTION_PARTAGEE_FIGEE,
+        );
       }
       await this.dataSource.manager.update(
         Question,
@@ -537,6 +574,115 @@ export class QcmService {
       }),
     );
     return question.id;
+  }
+
+  // ===================================================================
+  //  US-QCM-02 — Banque de questions (liaison sans copie)
+  // ===================================================================
+
+  /**
+   * Questions des QCM créés par le formateur, hors celles déjà dans le QCM
+   * cible ; recherche dans l'énoncé (insensible à la casse) ; 100 au plus,
+   * les plus récentes d'abord. Chaque question dit où elle sert et si elle
+   * est figée (un de ses QCM a des tentatives).
+   */
+  async banque(acteurId: string, qcmId: string, recherche?: string): Promise<BanqueVue> {
+    const qcm = await this.qcmRepository.findOne({ where: { id: qcmId }, select: { id: true } });
+    if (!qcm) throw new NotFoundException('QCM introuvable.');
+    const lignes = (await this.dataSource.query(
+      `SELECT q.id, q.enonce, q.type::text AS type, q.ponderation::float AS ponderation,
+              q.explication, q.niveau_difficulte AS "niveauDifficulte", q.origine::text AS origine,
+              json_agg(json_build_object('id', src.id, 'titre', src.titre) ORDER BY src.titre) AS qcms,
+              bool_or(EXISTS (SELECT 1 FROM tentatives_qcm t WHERE t.qcm_id = src.id)) AS figee
+         FROM questions q
+         JOIN qcm_questions l ON l.question_id = q.id
+         JOIN qcm src ON src.id = l.qcm_id
+        WHERE src.formateur_id = $1
+          AND NOT EXISTS (SELECT 1 FROM qcm_questions c WHERE c.qcm_id = $2 AND c.question_id = q.id)
+          AND ($3::text IS NULL OR q.enonce ILIKE $3)
+        GROUP BY q.id
+        ORDER BY q.created_at DESC, q.id
+        LIMIT ${BORNES_BANQUE.resultatsMax}`,
+      [acteurId, qcmId, motifRecherche(recherche)],
+    )) as Array<Omit<QuestionBanqueVue, 'options'>>;
+    if (lignes.length === 0) return { questions: [], message: MESSAGE_AUCUN_RESULTAT };
+    const options = (await this.dataSource.query(
+      `SELECT question_id AS "questionId", texte, est_correcte AS "estCorrecte", ordre
+         FROM options WHERE question_id = ANY($1) ORDER BY ordre`,
+      [lignes.map((l) => l.id)],
+    )) as Array<{ questionId: string; texte: string; estCorrecte: boolean; ordre: number }>;
+    const questions = lignes.map((l) => ({
+      ...l,
+      options: options
+        .filter((o) => o.questionId === l.id)
+        .map((o) => ({ texte: o.texte, estCorrecte: o.estCorrecte, ordre: o.ordre })),
+    }));
+    return { questions, message: null };
+  }
+
+  /**
+   * Importe des questions de la banque dans le QCM : LIAISON en fin de QCM,
+   * dans l'ordre demandé (pas de copie). QCM modifiable (404 / 409 archivée /
+   * 409 tentatives), chaque question dans la banque du formateur (400 sinon,
+   * rien n'est importé). Ligne du QCM verrouillée : deux imports simultanés
+   * ne prennent pas les mêmes rangs ni deux fois la même question.
+   */
+  async importerDeLaBanque(
+    acteurId: string,
+    qcmId: string,
+    questionIds: string[],
+    contexte: Contexte,
+  ): Promise<QcmDetailVue> {
+    const ids = sansDoublons(questionIds);
+    if (ids.length === 0) throw new BadRequestException(MESSAGE_IMPORT_VIDE);
+    await this.chargerPourEcriture(qcmId);
+    await this.exigerNonVerrouille(qcmId);
+
+    await this.dataSource.transaction(async (manager) => {
+      await manager.query('SELECT id FROM qcm WHERE id = $1 FOR UPDATE', [qcmId]);
+      const banque = (await manager.query(
+        `SELECT DISTINCT l.question_id AS id
+           FROM qcm_questions l JOIN qcm src ON src.id = l.qcm_id
+          WHERE src.formateur_id = $1 AND l.question_id = ANY($2)
+            AND NOT EXISTS (SELECT 1 FROM qcm_questions c WHERE c.qcm_id = $3 AND c.question_id = l.question_id)`,
+        [acteurId, ids, qcmId],
+      )) as Array<{ id: string }>;
+      if (horsBanque(ids, new Set(banque.map((b) => b.id))).length > 0) {
+        throw new BadRequestException(MESSAGE_HORS_BANQUE);
+      }
+      const [{ max }] = (await manager.query(
+        `SELECT COALESCE(MAX(ordre), 0)::int AS max FROM qcm_questions WHERE qcm_id = $1`,
+        [qcmId],
+      )) as Array<{ max: number }>;
+      for (const [i, questionId] of ids.entries()) {
+        await manager.query(
+          `INSERT INTO qcm_questions (qcm_id, question_id, ordre) VALUES ($1, $2, $3)`,
+          [qcmId, questionId, max + i + 1],
+        );
+      }
+    });
+
+    await this.auditService.record({
+      action: 'QUESTIONS_IMPORTEES',
+      acteur: acteurId,
+      cible: qcmId,
+      adresseIp: contexte.adresseIp,
+      resultat: 'Succès',
+      detailsAvantApres: { questionIds: ids, nombre: ids.length },
+    });
+    return this.detail(qcmId);
+  }
+
+  /** Une question est-elle liée à un AUTRE QCM qui a des tentatives ? */
+  private async questionTenteeAilleurs(questionId: string, qcmId: string): Promise<boolean> {
+    const [l] = (await this.dataSource.query(
+      `SELECT 1 FROM qcm_questions l
+        WHERE l.question_id = $1 AND l.qcm_id <> $2
+          AND EXISTS (SELECT 1 FROM tentatives_qcm t WHERE t.qcm_id = l.qcm_id)
+        LIMIT 1`,
+      [questionId, qcmId],
+    )) as unknown[];
+    return l !== undefined;
   }
 
   /** La question dans sa forme de vue (US-IA-04 : réponse de l'acceptation). */

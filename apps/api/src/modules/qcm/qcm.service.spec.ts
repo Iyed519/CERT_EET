@@ -34,7 +34,7 @@ describe('QcmService', () => {
   const mockModuleRepo = { findOne: jest.fn() };
   const mockFormationsService = { chargerPourEcriture: jest.fn() };
   const mockAuditService = { record: jest.fn().mockResolvedValue(undefined) };
-  const mockDataSource = { transaction: jest.fn(), manager: {} };
+  const mockDataSource = { transaction: jest.fn(), query: jest.fn(), manager: {} };
 
   const contexte = { adresseIp: '127.0.0.1' };
 
@@ -76,6 +76,7 @@ describe('QcmService', () => {
 
     mockFormationsService.chargerPourEcriture.mockResolvedValue({ id: 'form-1' });
     mockTentativeRepo.countBy.mockResolvedValue(0);
+    mockDataSource.query.mockResolvedValue([]);
     mockQcmRepo.create.mockImplementation((v) => v);
     mockQcmRepo.save.mockImplementation(async (v) => ({
       id: 'qcm-1',
@@ -341,6 +342,31 @@ describe('QcmService', () => {
       if (devient) expect(changements).toMatchObject({ origine: OrigineQuestion.IA_MODIFIEE });
       else expect(changements).not.toHaveProperty('origine');
     });
+    it('question partagée avec un QCM tenté : contenu figé (409), explication modifiable', async () => {
+      jest
+        .spyOn(service as never, 'questionDuQcm')
+        .mockResolvedValue(vue(OrigineQuestion.MANUELLE) as never);
+      mockDataSource.query.mockResolvedValue([{ '?column?': 1 }]);
+      await expect(
+        service.remplacerQuestion('u', 'qcm-1', 'q-1', question({ enonce: 'Autre ?' }), contexte),
+      ).rejects.toThrow(/aussi utilisée par un QCM qui a déjà des tentatives/);
+      const [sql, params] = mockDataSource.query.mock.calls[0];
+      expect(sql).toContain('l.qcm_id <> $2');
+      expect(params).toEqual(['q-1', 'qcm-1']);
+      const update = jest.fn();
+      Object.assign(mockDataSource.manager, { update });
+      await expect(
+        service.remplacerQuestion(
+          'u',
+          'qcm-1',
+          'q-1',
+          question({ explication: 'Voir.' }),
+          contexte,
+        ),
+      ).resolves.toBeDefined();
+      expect(update).toHaveBeenCalledWith(Question, { id: 'q-1' }, { explication: 'Voir.' });
+      Object.assign(mockDataSource.manager, { update: undefined });
+    });
   });
 
   describe('QCM verrouillé (tentatives existantes)', () => {
@@ -409,6 +435,95 @@ describe('QcmService', () => {
       await expect(
         service.modifier('u', 'qcm-1', { titre: null as unknown as string }, contexte),
       ).rejects.toThrow('Le titre ne peut pas être vide.');
+    });
+  });
+  // US-QCM-02 — banque de questions
+  describe('banque et import (US-QCM-02)', () => {
+    const managerImport = (banque: string[], max = 2): { query: jest.Mock } => ({
+      query: jest.fn(async (sql: string): Promise<unknown> => {
+        if (sql.includes('DISTINCT')) return banque.map((id) => ({ id }));
+        if (sql.includes('MAX(ordre)')) return [{ max }];
+        return [];
+      }),
+    });
+
+    beforeEach(() => {
+      mockQcmRepo.findOne.mockResolvedValue(qcmExistant());
+      jest.spyOn(service, 'detail').mockResolvedValue({ id: 'qcm-1' } as never);
+    });
+
+    it('banque : filtrée par le formateur, hors QCM cible, recherche échappée', async () => {
+      mockDataSource.query
+        .mockResolvedValueOnce([{ id: 'q-1', enonce: 'E', qcms: [], figee: false }])
+        .mockResolvedValueOnce([
+          { questionId: 'q-1', texte: 'A', estCorrecte: true, ordre: 1 },
+          { questionId: 'q-9', texte: 'Z', estCorrecte: false, ordre: 1 },
+        ]);
+      const r = await service.banque('form-a', 'qcm-1', ' 50%_ ');
+      const [sql, params] = mockDataSource.query.mock.calls[0];
+      expect(sql).toContain('src.formateur_id = $1');
+      expect(sql).toContain('c.qcm_id = $2');
+      expect(params).toEqual(['form-a', 'qcm-1', '%50\\%\\_%']);
+      expect(r.message).toBeNull();
+      expect(r.questions[0].options).toEqual([{ texte: 'A', estCorrecte: true, ordre: 1 }]);
+    });
+
+    it('banque vide : message « aucune question ne correspond »', async () => {
+      const r = await service.banque('form-a', 'qcm-1', 'rien');
+      expect(r).toEqual({
+        questions: [],
+        message: 'Aucune question de votre banque ne correspond.',
+      });
+      expect(mockDataSource.query).toHaveBeenCalledTimes(1);
+    });
+
+    it('banque : QCM inconnu -> 404', async () => {
+      mockQcmRepo.findOne.mockResolvedValue(null);
+      await expect(service.banque('form-a', 'x', undefined)).rejects.toBeInstanceOf(
+        NotFoundException,
+      );
+    });
+
+    it('import : liaison en fin, dans l’ordre, sous verrou, sans doublon ; audit', async () => {
+      const m = managerImport(['q-2', 'q-1']);
+      mockDataSource.transaction.mockImplementation(async (cb: (x: unknown) => unknown) => cb(m));
+      await service.importerDeLaBanque('form-a', 'qcm-1', ['q-1', 'q-2', 'q-1'], contexte);
+      const sqls = m.query.mock.calls.map((c) => c[0] as string);
+      expect(sqls[0]).toMatch(/FROM qcm WHERE id = \$1 FOR UPDATE/);
+      const inserts = m.query.mock.calls.filter((c) => (c[0] as string).startsWith('INSERT'));
+      expect(inserts.map((c) => c[1])).toEqual([
+        ['qcm-1', 'q-1', 3],
+        ['qcm-1', 'q-2', 4],
+      ]);
+      expect(sqls.some((q) => q.startsWith('INSERT INTO questions'))).toBe(false);
+      expect(mockAuditService.record).toHaveBeenCalledWith(
+        expect.objectContaining({
+          action: 'QUESTIONS_IMPORTEES',
+          acteur: 'form-a',
+          detailsAvantApres: { questionIds: ['q-1', 'q-2'], nombre: 2 },
+        }),
+      );
+    });
+
+    it('import : une question hors banque -> 400, rien n’est lié ni tracé', async () => {
+      const m = managerImport(['q-1']);
+      mockDataSource.transaction.mockImplementation(async (cb: (x: unknown) => unknown) => cb(m));
+      await expect(
+        service.importerDeLaBanque('form-a', 'qcm-1', ['q-1', 'q-x'], contexte),
+      ).rejects.toThrow(/ne font pas partie de votre banque/);
+      expect(m.query.mock.calls.some((c) => (c[0] as string).startsWith('INSERT'))).toBe(false);
+      expect(mockAuditService.record).not.toHaveBeenCalled();
+    });
+
+    it('import : liste vide -> 400 ; QCM avec tentatives -> 409', async () => {
+      await expect(service.importerDeLaBanque('u', 'qcm-1', [], contexte)).rejects.toThrow(
+        'Choisissez au moins une question à importer.',
+      );
+      mockTentativeRepo.countBy.mockResolvedValue(1);
+      await expect(
+        service.importerDeLaBanque('u', 'qcm-1', ['q-1'], contexte),
+      ).rejects.toBeInstanceOf(ConflictException);
+      expect(mockDataSource.transaction).not.toHaveBeenCalled();
     });
   });
 });
