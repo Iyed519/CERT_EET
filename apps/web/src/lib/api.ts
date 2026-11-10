@@ -3034,6 +3034,8 @@ export interface ApprenantSuivi {
   moyenne: number | null;
   certificat: StatutCertificat | null;
   risque: { inactif: boolean; joursSansConnexion: number };
+  /** US-SUIVI-02 — critères des alertes ouvertes. */
+  alertes: string[];
 }
 
 export interface SuiviFormation {
@@ -3048,6 +3050,7 @@ export interface SuiviFormation {
     scoreMoyenQcm: number | null;
     noteMoyenneAteliers: number | null;
     certifies: number;
+    alertesOuvertes: number;
     qcmPublies: number;
     ateliersPublies: number;
   };
@@ -3085,6 +3088,15 @@ export interface FicheApprenantSuivi {
     dateGeneration: string | null;
   } | null;
   chronologie: Array<{ date: string; type: string; libelle: string }>;
+  alertes: Array<{
+    id: string;
+    critere: string;
+    statut: string;
+    donnees: Record<string, unknown>;
+    suggestion: string;
+    dateCreation: string;
+    dateTraitement: string | null;
+  }>;
 }
 
 /** US-SUIVI-01 — GET /api/formateur/formations/:id/suivi (403 si non affecté). */
@@ -3105,4 +3117,41 @@ export async function getFicheApprenantSuivi(
     response,
     'Impossible de charger la fiche de l’apprenant.',
   );
+}
+
+// ---------------------------------------------------------------------------
+// US-SUIVI-02 — Alertes de décrochage (formateur affecté, administrateur).
+// ---------------------------------------------------------------------------
+
+export type CritereAlerte = 'INACTIVITE' | 'ECHECS_QCM' | 'LIVRABLE_EN_RETARD' | 'SCORE_EN_CHUTE';
+export type StatutAlerte = 'OUVERTE' | 'TRAITEE';
+
+export interface AlerteDecrochage {
+  id: string;
+  critere: CritereAlerte;
+  statut: StatutAlerte;
+  donnees: Record<string, unknown>;
+  suggestion: string;
+  dateCreation: string;
+  dateTraitement: string | null;
+  formation: { id: string; titre: string };
+  apprenant: { id: string; prenom: string | null; nom: string | null; email: string };
+}
+
+/** US-SUIVI-02 — GET /api/formateur/alertes?statut&formationId. */
+export async function getAlertes(
+  filtre: { statut?: StatutAlerte; formationId?: string } = {},
+): Promise<AlerteDecrochage[]> {
+  const params = new URLSearchParams();
+  if (filtre.statut) params.set('statut', filtre.statut);
+  if (filtre.formationId) params.set('formationId', filtre.formationId);
+  const qs = params.toString();
+  const response = await apiFetch(`/api/formateur/alertes${qs ? `?${qs}` : ''}`);
+  return lireReponseFormation<AlerteDecrochage[]>(response, 'Impossible de charger les alertes.');
+}
+
+/** US-SUIVI-02 — GET /api/formateur/alertes/compteur (badge). */
+export async function getCompteurAlertes(): Promise<{ ouvertes: number }> {
+  const response = await apiFetch('/api/formateur/alertes/compteur');
+  return lireReponseFormation<{ ouvertes: number }>(response, 'Impossible de compter les alertes.');
 }

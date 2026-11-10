@@ -1,7 +1,13 @@
 'use client';
 import Link from 'next/link';
 import { useCallback, useEffect, useState } from 'react';
-import { AdminError, getMesFormations, MaFormation, StatutFormation } from '../../../lib/api';
+import {
+  AdminError,
+  getCompteurAlertes,
+  getMesFormations,
+  MaFormation,
+  StatutFormation,
+} from '../../../lib/api';
 
 /** Libellés FR des statuts (l'enum backend reste la source de vérité). */
 const LIBELLES: Record<StatutFormation, string> = {
@@ -65,6 +71,7 @@ export default function MesFormationsPage(): JSX.Element {
           </p>
         </div>
         <div className="row-actions">
+          <AlertesLien />
           <button className="btn-sm" onClick={() => void charger()} disabled={chargement}>
             Actualiser
           </button>
@@ -126,5 +133,21 @@ export default function MesFormationsPage(): JSX.Element {
         </div>
       )}
     </>
+  );
+}
+
+/** US-SUIVI-02 — Lien vers les alertes de décrochage, avec le nombre d'alertes ouvertes. */
+function AlertesLien(): JSX.Element {
+  const [ouvertes, setOuvertes] = useState<number | null>(null);
+  useEffect(() => {
+    getCompteurAlertes()
+      .then((c) => setOuvertes(c.ouvertes))
+      .catch(() => setOuvertes(null));
+  }, []);
+  return (
+    <Link className="btn-sm alertes-lien" href="/formateur/alertes">
+      Alertes de décrochage
+      {ouvertes !== null && ouvertes > 0 && <span className="badge-compteur">{ouvertes}</span>}
+    </Link>
   );
 }
