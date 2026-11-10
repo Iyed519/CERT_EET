@@ -39,7 +39,7 @@ describe('SupervisionCertificatsService (US-DASH-02)', () => {
 
       const liste = await service.lister(StatutCertificat.ACTIF, '  ines ');
 
-      expect(certificats.lister).toHaveBeenCalledWith(StatutCertificat.ACTIF, 'ines');
+      expect(certificats.lister).toHaveBeenCalledWith(StatutCertificat.ACTIF, 'ines', false);
       expect(dataSource.query).toHaveBeenCalledTimes(1);
       const [sql, params] = dataSource.query.mock.calls[0];
       expect(sql).toContain('GROUP BY cible');
@@ -51,7 +51,7 @@ describe('SupervisionCertificatsService (US-DASH-02)', () => {
     it('recherche vide ou blanche -> pas de recherche', async () => {
       certificats.lister.mockResolvedValue([]);
       await service.lister(undefined, '   ');
-      expect(certificats.lister).toHaveBeenCalledWith(undefined, undefined);
+      expect(certificats.lister).toHaveBeenCalledWith(undefined, undefined, false);
     });
 
     it('liste vide -> aucune requête de comptage', async () => {

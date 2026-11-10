@@ -45,7 +45,8 @@ export class CertificatsAdminController {
   @ApiOperation({
     summary: 'Superviser les certificats (US-CERT-01, US-DASH-02)',
     description:
-      'Plus récents d’abord, 200 au plus ; filtres facultatifs `statut` et `recherche` ' +
+      'Plus récents d’abord, 200 au plus ; filtres facultatifs `statut`, `recherche` et ' +
+      '`enEchec=true` (US-CERT-02 : échecs définitifs) ' +
       '(titulaire, formation, identifiant). Chaque certificat porte son nombre de ' +
       'consultations publiques (journal d’audit CERTIFICAT_VERIFIE).',
   })
@@ -57,7 +58,11 @@ export class CertificatsAdminController {
   @ApiResponse({ status: 401, description: 'Non authentifié.' })
   @ApiResponse({ status: 403, description: 'Rôle autre qu’administrateur.' })
   lister(@Query() filtre: FiltreCertificatsDto): Promise<CertificatSupervisionVue[]> {
-    return this.supervisionService.lister(filtre.statut, filtre.recherche);
+    return this.supervisionService.lister(
+      filtre.statut,
+      filtre.recherche,
+      filtre.enEchec === 'true',
+    );
   }
 
   @Get('certificats/:certificatId')
