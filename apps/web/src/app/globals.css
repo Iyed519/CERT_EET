@@ -931,3 +931,13 @@ textarea.input { resize: vertical; font-family: inherit; line-height: 1.45; }
 
 /* US-INSC-03 — Conséquences d'une désinscription. */
 .desinscription-consequences { margin: 4px 0 14px; padding-left: 20px; display: grid; gap: 6px; font-size: 0.92rem; color: #33414f; }
+
+/* US-FORM-04 — Contenu pédagogique géré par le formateur. */
+.suivi-lien { display: flex; flex-wrap: wrap; gap: 8px; }
+.contenu-form { display: grid; gap: 10px; margin-bottom: 18px; }
+.contenu-modules { list-style: none; margin: 6px 0 12px; padding: 0; display: grid; gap: 8px; }
+.contenu-module { display: flex; flex-wrap: wrap; align-items: center; gap: 8px; padding: 8px 0; border-top: 1px solid rgba(0, 0, 0, 0.06); }
+.contenu-titre { flex: 1 1 160px; min-width: 0; overflow-wrap: anywhere; font-weight: 600; }
+.contenu-renommage { flex: 1 1 200px; display: flex; gap: 6px; }
+.contenu-ajout { display: flex; gap: 8px; flex-wrap: wrap; }
+.contenu-ajout .input { flex: 1 1 200px; }
