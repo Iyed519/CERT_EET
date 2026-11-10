@@ -975,6 +975,82 @@ export class MailService {
     });
     this.logger.log(`Email de rapport envoyé à ${to}`);
   }
+
+  /**
+   * US-INSC-02 — Email à l'apprenant quand un administrateur suspend ou
+   * réactive son inscription (motif repris s'il y en a un). Erreur remontée :
+   * l'appelant la rend non bloquante.
+   */
+  async sendStatutInscriptionEmail(
+    to: string,
+    donnees: {
+      prenom: string | null;
+      titreFormation: string;
+      suspendue: boolean;
+      motif: string | null;
+    },
+  ): Promise<void> {
+    const { from, appBaseUrl } = this.configService.getOrThrow<MailConfig>('mail');
+    const lien = `${appBaseUrl}/mes-inscriptions`;
+    const formation = donnees.titreFormation.replace(/\s+/g, ' ').trim();
+    const prenom = donnees.prenom?.trim() ?? '';
+    const salutation = prenom ? `Bonjour ${prenom},` : 'Bonjour,';
+    const titre = donnees.suspendue ? 'Inscription suspendue' : 'Inscription réactivée';
+    const phrase = donnees.suspendue
+      ? `Votre inscription à la formation « ${formation} » a été suspendue par un administrateur.`
+      : `Votre inscription à la formation « ${formation} » a été réactivée : vous pouvez reprendre votre parcours.`;
+    const motif = donnees.suspendue && donnees.motif ? `Motif : ${donnees.motif}` : '';
+    const couleur = donnees.suspendue ? '#b03a2e' : '#1e8449';
+    const text = [salutation, '', phrase, motif, '', `Mes inscriptions : ${lien}`, '', "— L'équipe Cert_EET"]
+      .filter((l, i, t) => !(l === '' && t[i - 1] === ''))
+      .join('\n');
+    const html = `<!doctype html>
+<html lang="fr">
+  <body style="margin:0;padding:0;background-color:#f2f4f3;">
+    <table role="presentation" width="100%" cellpadding="0" cellspacing="0" style="background-color:#f2f4f3;font-family:Arial,Helvetica,sans-serif;">
+      <tr>
+        <td align="center" style="padding:28px 12px;">
+          <table role="presentation" width="600" cellpadding="0" cellspacing="0" style="width:600px;max-width:600px;background-color:#ffffff;border-radius:16px;overflow:hidden;">
+            <tr>
+              <td style="background-color:${couleur};padding:22px 30px;color:#ffffff;font-size:18px;font-weight:bold;">Cert_EET</td>
+            </tr>
+            <tr>
+              <td style="padding:34px 34px 6px 34px;">
+                <h1 style="margin:0 0 12px 0;font-size:22px;line-height:1.3;color:#1b2631;">${echapperHtml(titre)}</h1>
+                <p style="margin:0 0 14px 0;font-size:15px;line-height:1.6;color:#4a5866;">${echapperHtml(salutation)}</p>
+                <p style="margin:0 0 14px 0;font-size:15px;line-height:1.6;color:#4a5866;">${echapperHtml(phrase)}</p>
+                ${motif ? `<p style="margin:0 0 22px 0;font-size:15px;line-height:1.6;color:#4a5866;">${echapperHtml(motif)}</p>` : ''}
+                <table role="presentation" cellpadding="0" cellspacing="0" style="margin:6px 0 18px 0;">
+                  <tr>
+                    <td align="center" bgcolor="${couleur}" style="border-radius:10px;">
+                      <a href="${lien}" target="_blank" style="display:inline-block;padding:14px 30px;font-size:15px;font-weight:bold;color:#ffffff;text-decoration:none;border-radius:10px;">Mes inscriptions</a>
+                    </td>
+                  </tr>
+                </table>
+              </td>
+            </tr>
+            <tr>
+              <td style="padding:18px 34px 26px 34px;">
+                <p style="margin:0;font-size:12px;line-height:1.5;color:#aab4bd;">
+                  © Cert_EET — Email envoyé automatiquement, merci de ne pas y répondre.
+                </p>
+              </td>
+            </tr>
+          </table>
+        </td>
+      </tr>
+    </table>
+  </body>
+</html>`;
+    await this.transporter.sendMail({
+      from,
+      to,
+      subject: `Cert_EET — ${titre} : « ${formation} »`,
+      text,
+      html,
+    });
+    this.logger.log(`Email de statut d’inscription envoyé à ${to}`);
+  }
 }
 /**
  * Période d'une formation pour un email : « du JJ/MM/AAAA au JJ/MM/AAAA »,

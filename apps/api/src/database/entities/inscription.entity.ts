@@ -88,6 +88,16 @@ export class Inscription {
   })
   tauxAvancement: number;
 
+  // US-INSC-02 : suspension motivée par un administrateur (effacée à la réactivation).
+  @Column({ name: 'motif_suspension', type: 'varchar', length: 500, nullable: true })
+  motifSuspension: string | null;
+
+  @Column({ name: 'date_suspension', type: 'timestamptz', nullable: true })
+  dateSuspension: Date | null;
+
+  @Column({ name: 'suspendue_par', type: 'uuid', nullable: true })
+  suspenduePar: string | null;
+
   @UpdateDateColumn({ name: 'updated_at', type: 'timestamptz' })
   updatedAt: Date;
 }
