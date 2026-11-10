@@ -218,6 +218,8 @@ select.input { appearance: auto; background: #fff; }
 .pagination { display: flex; align-items: center; justify-content: space-between; gap: 12px; margin-top: 14px; flex-wrap: wrap; }
 
 /* Badge de résultat (Succès / Échec) — même gabarit que .statut-badge. */
+.audit-ip { white-space: nowrap; }
+.audit-details { margin: 6px 0 0; min-width: 220px; max-width: 360px; white-space: pre-wrap; word-break: break-word; font-size: 0.74rem; }
 .res-badge { display: inline-block; padding: 3px 10px; border-radius: 999px; font-size: 0.76rem; font-weight: 650; }
 .res-ok { background: var(--success-soft); color: var(--primary-dark); }
 .res-ko { background: var(--danger-soft); color: #922b21; }

@@ -105,9 +105,7 @@ describe('Audit (e2e) — US-AUTH-12', () => {
     await app.init();
 
     userRepository = moduleRef.get<Repository<User>>(getRepositoryToken(User));
-    auditLogRepository = moduleRef.get<Repository<AuditLog>>(
-      getRepositoryToken(AuditLog),
-    );
+    auditLogRepository = moduleRef.get<Repository<AuditLog>>(getRepositoryToken(AuditLog));
     dataSource = moduleRef.get(DataSource, { strict: false });
 
     const motDePasseHash = await bcrypt.hash(MOT_DE_PASSE, 12);
@@ -169,9 +167,7 @@ describe('Audit (e2e) — US-AUTH-12', () => {
     }
 
     await expect(
-      dataSource.query("UPDATE audit_logs SET resultat = 'HACK' WHERE id = $1", [
-        row.id,
-      ]),
+      dataSource.query("UPDATE audit_logs SET resultat = 'HACK' WHERE id = $1", [row.id]),
     ).rejects.toThrow(/immuable/i);
 
     await expect(
@@ -181,9 +177,7 @@ describe('Audit (e2e) — US-AUTH-12', () => {
 
   // ---- Consultation : RBAC ----
   it('GET /api/admin/audit-logs -> 401 sans token', () => {
-    return request(app.getHttpServer())
-      .get('/api/admin/audit-logs')
-      .expect(401);
+    return request(app.getHttpServer()).get('/api/admin/audit-logs').expect(401);
   });
 
   it('GET /api/admin/audit-logs -> 403 pour un non-admin', async () => {
@@ -255,7 +249,7 @@ describe('Audit (e2e) — US-AUTH-12', () => {
     expect(res.headers['content-disposition']).toContain('attachment');
     // En-tête de colonnes présent (le BOM UTF-8 précède, toContain reste vrai).
     expect(res.text).toContain(
-      'horodatage,action,acteur,cible,adresse_ip,resultat,details',
+      'horodatage,action,acteur,acteur_email,cible,adresse_ip,resultat,details',
     );
   });
 

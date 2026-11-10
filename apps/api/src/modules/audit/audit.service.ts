@@ -1,13 +1,10 @@
-import { Injectable } from '@nestjs/common';
+import { BadRequestException, Injectable } from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
-import {
-  Between,
-  FindOptionsWhere,
-  LessThanOrEqual,
-  MoreThanOrEqual,
-  Repository,
-} from 'typeorm';
+import { Repository, SelectQueryBuilder } from 'typeorm';
 import { AuditLog } from '../../database/entities/audit-log.entity';
+
+export const MESSAGE_PERIODE_INVALIDE =
+  'La période est invalide : la date de début doit précéder la date de fin.';
 
 /**
  * Entrée d'audit à enregistrer (US-AUTH-12).
@@ -32,18 +29,61 @@ export interface AuditRecordInput {
 export interface AuditQueryInput {
   action?: string;
   userId?: string;
+  /** US-AUDIT-01 : recherche de l'acteur par email (contient, sans casse). */
+  acteur?: string;
+  /** US-AUDIT-01 : cible exacte (identifiant de la ressource). */
+  cible?: string;
+  /** US-AUDIT-01 : « Succès » ou « Échec ». */
+  resultat?: string;
   from?: string;
   to?: string;
   page?: number;
   limit?: number;
 }
 
+/** Acteur d'une entrée, en liste blanche (US-AUDIT-01). */
+export interface AuditActeurVue {
+  id: string;
+  email: string;
+  prenom: string | null;
+  nom: string | null;
+  role: string;
+}
+
+/** Une entrée du journal telle que l'expose la consultation (US-AUDIT-01). */
+export interface AuditEntreeVue {
+  id: string;
+  userId: string | null;
+  acteur: AuditActeurVue | null;
+  action: string;
+  cible: string | null;
+  adresseIp: string | null;
+  resultat: string | null;
+  detailsAvantApres: Record<string, unknown> | null;
+  horodatage: Date;
+}
+
 /** Réponse paginée de la consultation (DS-16). */
 export interface AuditPage {
-  items: AuditLog[];
+  items: AuditEntreeVue[];
   total: number;
   page: number;
   limit: number;
+}
+
+interface LigneAudit {
+  id: string;
+  user_id: string | null;
+  action: string;
+  cible: string | null;
+  adresse_ip: string | null;
+  resultat: string | null;
+  details_avant_apres: Record<string, unknown> | null;
+  horodatage: Date;
+  acteur_email: string | null;
+  acteur_prenom: string | null;
+  acteur_nom: string | null;
+  acteur_role: string | null;
 }
 
 /**
@@ -83,24 +123,28 @@ export class AuditService {
   }
 
   /**
-   * US-AUTH-12 / DS-16 — Consultation paginée, filtrée, triée horodatage DESC.
+   * US-AUTH-12 / US-AUDIT-01 / DS-16 — Consultation paginée, filtrée, triée
+   * horodatage DESC (puis id, pour un ordre stable entre deux pages).
    *
-   * Filtres tous optionnels : action (exact), userId (acteur), et une période
-   * [from, to] (bornes ISO). Lecture seule — aucune mutation possible ici (ni
-   * ailleurs : pas de route UPDATE/DELETE, trigger d'immuabilité en base).
+   * Filtres tous optionnels : action (exact), acteur (userId exact, ou email
+   * « contient » sans casse), cible (exacte), résultat, période [from, to]
+   * (from > to : 400). L'acteur est joint en liste blanche (email, prénom,
+   * nom, rôle). Lecture seule — aucune mutation possible ici (ni ailleurs :
+   * pas de route UPDATE/DELETE, trigger d'immuabilité en base).
    */
   async list(query: AuditQueryInput): Promise<AuditPage> {
     const page = query.page ?? 1;
     const limit = query.limit ?? 50;
-
-    const [items, total] = await this.auditLogRepository.findAndCount({
-      where: this.buildWhere(query),
-      order: { horodatage: 'DESC' },
-      skip: (page - 1) * limit,
-      take: limit,
-    });
-
-    return { items, total, page, limit };
+    const base = this.requeteFiltree(query);
+    const total = await base.clone().getCount();
+    const lignes = await base
+      .clone()
+      .orderBy('a.horodatage', 'DESC')
+      .addOrderBy('a.id', 'DESC')
+      .offset((page - 1) * limit)
+      .limit(limit)
+      .getRawMany<LigneAudit>();
+    return { items: lignes.map(versVue), total, page, limit };
   }
 
   /**
@@ -109,36 +153,86 @@ export class AuditService {
    * la recherche, pas une seule page). Tri horodatage DESC. Garde-fou
    * MAX_EXPORT pour ne pas charger un volume déraisonnable en mémoire.
    */
-  async export(query: AuditQueryInput): Promise<AuditLog[]> {
-    return this.auditLogRepository.find({
-      where: this.buildWhere(query),
-      order: { horodatage: 'DESC' },
-      take: AuditService.MAX_EXPORT,
-    });
+  async export(query: AuditQueryInput): Promise<AuditEntreeVue[]> {
+    const lignes = await this.requeteFiltree(query)
+      .orderBy('a.horodatage', 'DESC')
+      .addOrderBy('a.id', 'DESC')
+      .limit(AuditService.MAX_EXPORT)
+      .getRawMany<LigneAudit>();
+    return lignes.map(versVue);
   }
 
-  /**
-   * Construit le filtre commun à list() et export() : action (exact), userId
-   * (acteur), période [from, to] (Between, ou borne unique). Aucun filtre -> {}.
-   */
-  private buildWhere(query: AuditQueryInput): FindOptionsWhere<AuditLog> {
-    const where: FindOptionsWhere<AuditLog> = {};
-    if (query.action) {
-      where.action = query.action;
-    }
-    if (query.userId) {
-      where.userId = query.userId;
-    }
-    // Période : Between si les deux bornes, sinon borne unique.
+  /** US-AUDIT-01 — Types d'action présents dans le journal (liste des filtres). */
+  async actions(): Promise<string[]> {
+    const lignes = (await this.auditLogRepository.query(
+      'SELECT DISTINCT action FROM audit_logs ORDER BY action',
+    )) as Array<{ action: string }>;
+    return lignes.map((l) => l.action);
+  }
+
+  /** Requête commune à list() et export(), acteur joint en liste blanche. */
+  private requeteFiltree(query: AuditQueryInput): SelectQueryBuilder<AuditLog> {
     const from = query.from ? new Date(query.from) : null;
     const to = query.to ? new Date(query.to) : null;
-    if (from && to) {
-      where.horodatage = Between(from, to);
-    } else if (from) {
-      where.horodatage = MoreThanOrEqual(from);
-    } else if (to) {
-      where.horodatage = LessThanOrEqual(to);
+    if (from && to && from.getTime() > to.getTime()) {
+      throw new BadRequestException(MESSAGE_PERIODE_INVALIDE);
     }
-    return where;
+    const qb = this.auditLogRepository
+      .createQueryBuilder('a')
+      .leftJoin('users', 'u', 'u.id = a.user_id')
+      .select([
+        'a.id AS id',
+        'a.user_id AS user_id',
+        'a.action AS action',
+        'a.cible AS cible',
+        'a.adresse_ip AS adresse_ip',
+        'a.resultat AS resultat',
+        'a.details_avant_apres AS details_avant_apres',
+        'a.horodatage AS horodatage',
+        'u.email AS acteur_email',
+        'u.prenom AS acteur_prenom',
+        'u.nom AS acteur_nom',
+        'u.role AS acteur_role',
+      ]);
+    if (query.action) qb.andWhere('a.action = :action', { action: query.action });
+    if (query.userId) qb.andWhere('a.user_id = :userId', { userId: query.userId });
+    if (query.acteur) {
+      qb.andWhere("u.email ILIKE :acteur ESCAPE '\\'", {
+        acteur: `%${echapperLike(query.acteur.trim())}%`,
+      });
+    }
+    if (query.cible) qb.andWhere('a.cible = :cible', { cible: query.cible.trim() });
+    if (query.resultat) qb.andWhere('a.resultat = :resultat', { resultat: query.resultat });
+    if (from) qb.andWhere('a.horodatage >= :from', { from });
+    if (to) qb.andWhere('a.horodatage <= :to', { to });
+    return qb;
   }
+}
+
+/** Neutralise les jokers de LIKE dans une saisie (%, _ et l'échappement). */
+export function echapperLike(saisie: string): string {
+  return saisie.replace(/[\\%_]/g, (c) => `\\${c}`);
+}
+
+function versVue(l: LigneAudit): AuditEntreeVue {
+  return {
+    id: l.id,
+    userId: l.user_id,
+    acteur:
+      l.user_id && l.acteur_email
+        ? {
+            id: l.user_id,
+            email: l.acteur_email,
+            prenom: l.acteur_prenom,
+            nom: l.acteur_nom,
+            role: String(l.acteur_role),
+          }
+        : null,
+    action: l.action,
+    cible: l.cible,
+    adresseIp: l.adresse_ip,
+    resultat: l.resultat,
+    detailsAvantApres: l.details_avant_apres,
+    horodatage: l.horodatage,
+  };
 }

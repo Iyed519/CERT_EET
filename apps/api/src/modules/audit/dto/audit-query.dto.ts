@@ -2,11 +2,13 @@ import { ApiPropertyOptional } from '@nestjs/swagger';
 import { Type } from 'class-transformer';
 import {
   IsDateString,
+  IsIn,
   IsInt,
   IsOptional,
   IsString,
   IsUUID,
   Max,
+  MaxLength,
   Min,
 } from 'class-validator';
 
@@ -35,6 +37,28 @@ export class AuditQueryDto {
   @IsOptional()
   @IsUUID('4', { message: 'userId doit être un UUID valide.' })
   userId?: string;
+
+  @ApiPropertyOptional({
+    description: "US-AUDIT-01 : recherche de l'acteur par email (contient, sans casse).",
+    example: 'formateur@esprit.tn',
+  })
+  @IsOptional()
+  @IsString({ message: "L'acteur doit être un texte." })
+  @MaxLength(255, { message: "L'acteur ne peut pas dépasser 255 caractères." })
+  acteur?: string;
+
+  @ApiPropertyOptional({
+    description: 'US-AUDIT-01 : cible exacte (identifiant de la ressource).',
+  })
+  @IsOptional()
+  @IsString({ message: 'La cible doit être un texte.' })
+  @MaxLength(255, { message: 'La cible ne peut pas dépasser 255 caractères.' })
+  cible?: string;
+
+  @ApiPropertyOptional({ description: 'US-AUDIT-01 : résultat.', enum: ['Succès', 'Échec'] })
+  @IsOptional()
+  @IsIn(['Succès', 'Échec'], { message: 'Le résultat doit être « Succès » ou « Échec ».' })
+  resultat?: string;
 
   @ApiPropertyOptional({
     description: 'Borne basse de la période (ISO 8601).',
