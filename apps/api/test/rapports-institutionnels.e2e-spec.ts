@@ -51,6 +51,7 @@ describe('Rapports institutionnels (e2e) — US-RPT-02', () => {
     formateur: 'e2e-rpt02-form@cert-eet.local',
     a: 'e2e-rpt02-a@cert-eet.local',
     b: 'e2e-rpt02-b@cert-eet.local',
+    c: 'e2e-rpt02-c@cert-eet.local',
   };
   const ALL_EMAILS = Object.values(EMAIL);
   const FEVRIER = { du: '2004-02-01', au: '2004-02-29' };
@@ -188,6 +189,7 @@ describe('Rapports institutionnels (e2e) — US-RPT-02', () => {
       formateur: Role.FORMATEUR,
       a: Role.APPRENANT,
       b: Role.APPRENANT,
+      c: Role.APPRENANT,
     };
     for (const cle of Object.keys(EMAIL) as Array<keyof typeof EMAIL>) {
       const u = await userRepository.save(
@@ -234,6 +236,13 @@ describe('Rapports institutionnels (e2e) — US-RPT-02', () => {
     await tentative(ids.a, '2004-02-12T09:00:00Z', 40);
     await tentative(ids.b, '2004-02-29T22:30:00Z', 90); // 29/02 23:30 à Tunis : dans la période.
     await tentative(ids.b, '2004-02-29T23:30:00Z', 10); // 01/03 00:30 à Tunis : hors période.
+    // Tentative abandonnée (minuterie) dans la période : jamais comptée comme notée.
+    await sql(
+      `INSERT INTO tentatives_qcm (apprenant_id, qcm_id, date_debut, date_limite, date_fin, statut)
+       VALUES ($1, $2, '2004-02-11T09:00:00Z', '2004-02-11T09:30:00Z', '2004-02-11T09:30:00Z',
+         'ABANDONNEE_TIMER')`,
+      [ids.a, q1],
+    );
     const at = await un(
       `INSERT INTO ateliers (module_id, titre, enonce, date_limite, types_livrables, statut)
        VALUES ($1, $2, 'Énoncé (test).', '2004-02-05T10:00:00Z', '{pdf}', 'PUBLIE') RETURNING id`,
@@ -264,6 +273,15 @@ describe('Rapports institutionnels (e2e) — US-RPT-02', () => {
        VALUES ($1, $2, 'REVOQUE', 64, 'Passable', 'ESPRIT Entreprise', '2004-02-20T10:00:00Z',
          '2004-02-20T10:00:00Z', $3, $4, '2004-02-25T10:00:00Z', 'ERREUR_ADMIN', 'Erreur de saisie de la note finale (test).', $5) RETURNING id`,
       [ids.b, ids.f, `certificats/${MARQUEUR}-b.pdf`, 'e'.repeat(64), ids.admin],
+    );
+    // Émis en février, révoqué en mars : émis sur la période, pas révoqué sur la période.
+    ids.cC = await un(
+      `INSERT INTO certificats (apprenant_id, formation_id, statut, score_final, mention, organisme_emetteur,
+         date_emission, date_generation, cle_stockage, empreinte_sha256, date_revocation,
+         motif_revocation, description_revocation, revoque_par)
+       VALUES ($1, $2, 'REVOQUE', 61, 'Passable', 'ESPRIT Entreprise', '2004-02-22T10:00:00Z',
+         '2004-02-22T10:00:00Z', $3, $4, '2004-03-05T10:00:00Z', 'FRAUDE', 'Plagiat constaté après émission (test).', $5) RETURNING id`,
+      [ids.c, ids.f, `certificats/${MARQUEUR}-c.pdf`, 'f'.repeat(64), ids.admin],
     );
     for (let i = 0; i < 3; i += 1) {
       await sql(
@@ -342,8 +360,8 @@ describe('Rapports institutionnels (e2e) — US-RPT-02', () => {
         '70', // (80 + 40 + 90) / 3
         '1', // corrections finalisées
         '72',
-        '2', // certificats émis
-        '1', // révoqués sur la période
+        '3', // certificats émis sur la période
+        '1', // révoqués sur la période (le 3e l'est en mars)
       ]);
       expect(await traces('RAPPORT_DEMANDE', ids.rFormations)).toBe(1);
       expect(await traces('RAPPORT_GENERE', ids.rFormations)).toBe(1);
@@ -386,6 +404,17 @@ describe('Rapports institutionnels (e2e) — US-RPT-02', () => {
           'Passable',
           'REVOQUE',
           '20/02/2004 11:00',
+          '0',
+        ],
+        [
+          ids.cC,
+          'C Institution',
+          EMAIL.c,
+          `${MARQUEUR} Back-end`,
+          '61',
+          'Passable',
+          'REVOQUE',
+          '22/02/2004 11:00',
           '0',
         ],
       ]);
