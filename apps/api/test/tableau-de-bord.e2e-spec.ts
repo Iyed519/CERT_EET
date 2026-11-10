@@ -160,7 +160,9 @@ describe('Tableau de bord global (e2e) — US-DASH-01', () => {
         transformOptions: { enableImplicitConversion: true },
       }),
     );
-    await app.init();
+    // Serveur à l'écoute une fois pour toutes : sans cela, supertest ouvre un port
+    // éphémère par requête et 8 requêtes simultanées peuvent se couper (ECONNRESET).
+    await app.listen(0);
     userRepository = moduleRef.get<Repository<User>>(getRepositoryToken(User));
     dataSource = moduleRef.get(DataSource, { strict: false });
 
@@ -283,6 +285,15 @@ describe('Tableau de bord global (e2e) — US-DASH-01', () => {
       await audit('CERTIFICAT_VERIFIE', h, null, ids.cA);
     }
     await audit('CERTIFICAT_VERIFIE', '2003-03-31T23:30:00Z', null, ids.cA); // 1er avril à Tunis
+    // Dernier jour inclus en entier ; 23 h 30 UTC le 6 = le 7 à Tunis (série quotidienne).
+    await audit('CERTIFICAT_VERIFIE', '2003-03-31T12:00:00Z', null, ids.cA);
+    await audit('CERTIFICAT_VERIFIE', '2003-03-06T23:30:00Z', null, ids.cA);
+    // En attente de génération (demande en mars) : pas « émis ».
+    await sql(
+      `INSERT INTO certificats (apprenant_id, formation_id, score_final, mention, organisme_emetteur, date_emission)
+       VALUES ($1, $2, 65, 'Assez bien', 'ESPRIT Entreprise', '2003-03-20T08:00:00Z')`,
+      [ids.b, f2],
+    );
   }, 90_000);
 
   afterAll(async () => {
@@ -373,7 +384,7 @@ describe('Tableau de bord global (e2e) — US-DASH-01', () => {
         correctionsFinalisees: 1,
         noteMoyenne: 75,
       });
-      expect(t.certificats).toMatchObject({ emis: 2, revoques: 1, consultations: 3 });
+      expect(t.certificats).toMatchObject({ emis: 2, revoques: 1, consultations: 5 });
     });
 
     it('série quotidienne et activité récente (acteur en liste blanche, sans adresse IP)', async () => {
@@ -388,14 +399,19 @@ describe('Tableau de bord global (e2e) — US-DASH-01', () => {
         echecs: 1,
       });
       expect(jour('2003-03-16')).toMatchObject({ evenements: 3, connexions: 0, echecs: 0 });
-      expect(jour('2003-03-31')).toMatchObject({ evenements: 0 });
+      expect(jour('2003-03-07')).toMatchObject({ evenements: 1 });
+      expect(jour('2003-03-31')).toMatchObject({ evenements: 1 });
       expect(t.activite.reduce((s: number, j: { evenements: number }) => s + j.evenements, 0)).toBe(
-        5,
+        7,
       );
 
-      expect(t.activiteRecente).toHaveLength(5);
-      expect(t.activiteRecente[0]).toMatchObject({ action: 'CERTIFICAT_VERIFIE', acteur: null });
-      const connexion = t.activiteRecente[4];
+      expect(t.activiteRecente).toHaveLength(7);
+      expect(t.activiteRecente[0]).toMatchObject({
+        horodatage: '2003-03-31T12:00:00.000Z',
+        action: 'CERTIFICAT_VERIFIE',
+        acteur: null,
+      });
+      const connexion = t.activiteRecente[6];
       expect(connexion).toEqual({
         horodatage: '2003-03-06T09:00:00.000Z',
         action: 'LOGIN',
