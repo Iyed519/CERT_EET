@@ -17,7 +17,11 @@ import { Role } from '../../database/enums/role.enum';
 import { AuthenticatedRequest } from '../auth/auth.types';
 import { Roles } from '../auth/decorators/roles.decorator';
 import { FormateurDeLaFormation } from '../formations/autorisation/formateur-de-la-formation.decorator';
-import { DemanderRapportSessionDto, FiltreRapportsDto } from './rapports.dto';
+import {
+  DemanderRapportInstitutionnelDto,
+  DemanderRapportSessionDto,
+  FiltreRapportsDto,
+} from './rapports.dto';
 import { RapportVue, RapportsService } from './rapports.service';
 
 /**
@@ -57,6 +61,31 @@ export class RapportsController {
   ): Promise<RapportVue> {
     if (!req.user) throw new UnauthorizedException('Non authentifié.');
     return this.rapportsService.demanderSession(req.user.sub, formationId, dto, {
+      adresseIp: req.ip ?? null,
+    });
+  }
+
+  @Post('admin/rapports')
+  @HttpCode(HttpStatus.ACCEPTED)
+  @Roles(Role.ADMINISTRATEUR)
+  @ApiOperation({
+    summary: 'Demander un rapport institutionnel, CSV ou PDF (US-RPT-02, DS-16 P4)',
+    description:
+      'Modèle SYNTHESE (indicateurs de la plateforme), FORMATIONS (une ligne par formation) ou ' +
+      'CERTIFICATS (certificats émis), sur une période (jours inclus, heure de Tunis). ' +
+      'Génération en arrière-plan ; un email prévient le demandeur. Au plus 5 demandes par minute.',
+  })
+  @ApiResponse({ status: 202, description: 'Rapport EN_ATTENTE ; audit RAPPORT_DEMANDE.' })
+  @ApiResponse({ status: 400, description: 'Modèle, format ou période invalide (début > fin…).' })
+  @ApiResponse({ status: 401, description: 'Non authentifié.' })
+  @ApiResponse({ status: 403, description: 'Rôle autre qu’administrateur.' })
+  @ApiResponse({ status: 429, description: 'Plus de 5 demandes dans la minute.' })
+  demanderInstitutionnel(
+    @Body() dto: DemanderRapportInstitutionnelDto,
+    @Req() req: AuthenticatedRequest,
+  ): Promise<RapportVue> {
+    if (!req.user) throw new UnauthorizedException('Non authentifié.');
+    return this.rapportsService.demanderInstitutionnel(req.user.sub, dto, {
       adresseIp: req.ip ?? null,
     });
   }

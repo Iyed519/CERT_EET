@@ -12,6 +12,7 @@ import { MailService } from '../../mail/mail.service';
 import { StockageService } from '../../stockage/stockage.service';
 import { AuditService } from '../audit/audit.service';
 import { SuiviFormationService } from '../pilotage/suivi-formation.service';
+import { TableauDeBordService } from '../pilotage/tableau-de-bord.service';
 import { FileRapportsService } from './file-rapports.service';
 import {
   MESSAGE_LIMITE_RAPPORTS,
@@ -25,6 +26,33 @@ const AUTRE = 'u0000000-0000-4000-8000-000000000002';
 const FORM = 'f0000000-0000-4000-8000-000000000001';
 const R = 'r0000000-0000-4000-8000-000000000001';
 const D = new Date('2026-11-10T10:00:00Z');
+
+const TDB = {
+  periode: { du: '2026-10-01', au: '2026-10-31', jours: 31 },
+  utilisateurs: {
+    parRole: { APPRENANT: 3 },
+    parStatut: { ACTIF: 3 },
+    total: 3,
+    nouveaux: 1,
+    connectes: 2,
+  },
+  formations: { parStatut: { OUVERTE: 1 }, total: 1, nouvelles: 0 },
+  inscriptions: { parStatut: { EN_COURS: 2 }, total: 2, nouvelles: 1 },
+  evaluations: {
+    qcm: { tentativesNotees: 4, reussies: 3, tauxReussite: 75, scoreMoyen: 66.5, enCours: 0 },
+    ateliers: {
+      livrablesSoumis: 1,
+      correctionsFinalisees: 1,
+      noteMoyenne: 80,
+      enAttenteCorrection: 0,
+      enCorrection: 0,
+    },
+  },
+  certificats: { parStatut: { ACTIF: 1 }, emis: 1, revoques: 0, consultations: 5 },
+  activite: [],
+  activiteRecente: [],
+  alertes: [],
+};
 
 function ligne(p: Record<string, unknown> = {}): Record<string, unknown> {
   return {
@@ -121,6 +149,13 @@ function monter(o: Options = {}) {
     })),
     fiche: jest.fn(),
   };
+  const tdb = {
+    periode: jest.fn((du?: string, au?: string) => {
+      if (du && au && du > au) throw new BadRequestException('inversée');
+      return { du: du ?? '2026-10-12', au: au ?? '2026-11-10', jours: 30 };
+    }),
+    global: jest.fn(async () => TDB),
+  };
   const record = jest.fn();
   const mail = { sendRapportPretEmail: jest.fn(async () => undefined) };
   const service = new RapportsService(
@@ -128,10 +163,11 @@ function monter(o: Options = {}) {
     file as unknown as FileRapportsService,
     stockage as unknown as StockageService,
     suivi as unknown as SuiviFormationService,
+    tdb as unknown as TableauDeBordService,
     { record } as unknown as AuditService,
     mail as unknown as MailService,
   );
-  return { service, query, tx, file, stockage, record, mail, suivi };
+  return { service, query, tx, file, stockage, record, mail, suivi, tdb };
 }
 
 describe('RapportsService (US-RPT-01)', () => {
@@ -146,7 +182,13 @@ describe('RapportsService (US-RPT-01)', () => {
       expect(m.tx.mock.calls[0][0]).toContain('pg_advisory_xact_lock');
       expect(m.tx.mock.calls[0][1]).toEqual([MOI]);
       const insert = m.tx.mock.calls.find((c) => String(c[0]).includes('INSERT'));
-      expect(insert?.[1]).toEqual(['CSV', MOI, FORM, JSON.stringify({ portee: 'GLOBAL' })]);
+      expect(insert?.[1]).toEqual([
+        'SESSION',
+        'CSV',
+        MOI,
+        FORM,
+        JSON.stringify({ portee: 'GLOBAL' }),
+      ]);
       expect(m.file.ajouter).toHaveBeenCalledWith(R);
       expect(m.record).toHaveBeenCalledWith(
         expect.objectContaining({ action: 'RAPPORT_DEMANDE', acteur: MOI, cible: R }),
@@ -215,7 +257,7 @@ describe('RapportsService (US-RPT-01)', () => {
         apprenantId: AUTRE,
       });
       const insert = m.tx.mock.calls.find((c) => String(c[0]).includes('INSERT'));
-      expect(JSON.parse((insert?.[1] as unknown as string[])[3])).toEqual({
+      expect(JSON.parse((insert?.[1] as unknown as string[])[4])).toEqual({
         portee: 'INDIVIDUEL',
         apprenantId: AUTRE,
       });
@@ -337,6 +379,124 @@ describe('RapportsService (US-RPT-01)', () => {
       const n = monter({ prise: null });
       await n.service.echecDefinitif(R, 'x');
       expect(n.record).not.toHaveBeenCalled();
+    });
+  });
+
+  describe('rapports institutionnels (US-RPT-02)', () => {
+    it('période résolue et conservée ; type INSTITUTIONNEL sans formation ; audit', async () => {
+      const m = monter({
+        rapport: ligne({ type: 'INSTITUTIONNEL', formation_id: null, statut: 'EN_ATTENTE' }),
+      });
+      const r = await m.service.demanderInstitutionnel(MOI, {
+        format: FormatRapport.PDF,
+        modele: 'FORMATIONS',
+        du: '2026-10-01',
+        au: '2026-10-31',
+      });
+      expect(r.formation).toBeNull();
+      expect(m.tdb.periode).toHaveBeenCalledWith('2026-10-01', '2026-10-31');
+      const insert = m.tx.mock.calls.find((c) => String(c[0]).includes('INSERT'));
+      expect(insert?.[1]).toEqual([
+        'INSTITUTIONNEL',
+        'PDF',
+        MOI,
+        null,
+        JSON.stringify({ modele: 'FORMATIONS', du: '2026-10-01', au: '2026-10-31' }),
+      ]);
+      expect(m.tx.mock.calls[0][0]).toContain('pg_advisory_xact_lock');
+      expect(m.file.ajouter).toHaveBeenCalledWith(R);
+      expect(m.record).toHaveBeenCalledWith(
+        expect.objectContaining({
+          action: 'RAPPORT_DEMANDE',
+          detailsAvantApres: expect.objectContaining({
+            type: 'INSTITUTIONNEL',
+            modele: 'FORMATIONS',
+          }),
+        }),
+      );
+    });
+
+    it('période par défaut : celle résolue par le tableau de bord', async () => {
+      const m = monter();
+      await m.service.demanderInstitutionnel(MOI, {
+        format: FormatRapport.CSV,
+        modele: 'SYNTHESE',
+      });
+      const insert = m.tx.mock.calls.find((c) => String(c[0]).includes('INSERT'));
+      expect(JSON.parse((insert?.[1] as unknown as string[])[4])).toEqual({
+        modele: 'SYNTHESE',
+        du: '2026-10-12',
+        au: '2026-11-10',
+      });
+    });
+
+    it('400 période invalide : rien d’inséré, rien en file', async () => {
+      const m = monter();
+      await expect(
+        m.service.demanderInstitutionnel(MOI, {
+          format: FormatRapport.CSV,
+          modele: 'SYNTHESE',
+          du: '2026-11-02',
+          au: '2026-11-01',
+        }),
+      ).rejects.toBeInstanceOf(BadRequestException);
+      expect(m.tx).not.toHaveBeenCalled();
+      expect(m.file.ajouter).not.toHaveBeenCalled();
+    });
+
+    it('429 partagé avec les rapports de session', async () => {
+      const m = monter({ recents: 5 });
+      await expect(
+        m.service.demanderInstitutionnel(MOI, { format: FormatRapport.CSV, modele: 'SYNTHESE' }),
+      ).rejects.toBeInstanceOf(HttpException);
+    });
+
+    it('worker : synthèse sur la période stockée, nom de fichier, email', async () => {
+      const m = monter({
+        prise: {
+          type: 'INSTITUTIONNEL',
+          format: 'CSV',
+          demandeur_id: MOI,
+          formation_id: null,
+          parametres: { modele: 'SYNTHESE', du: '2026-10-01', au: '2026-10-31' },
+        },
+      });
+      await m.service.generer(R, D);
+      expect(m.tdb.global).toHaveBeenCalledWith('2026-10-01', '2026-10-31');
+      expect(m.suivi.suivi).not.toHaveBeenCalled();
+      const [cle, tampon] = m.stockage.deposerTampon.mock.calls[0] as unknown as [string, Buffer];
+      expect(cle).toBe(`rapports/${R}/rapport-institutionnel-synthese-2026-10-01-2026-10-31.csv`);
+      expect(tampon.toString('utf8')).toContain('Taux de réussite QCM;75 %');
+      expect(m.mail.sendRapportPretEmail).toHaveBeenCalledWith(
+        'f@x',
+        expect.objectContaining({
+          titreFormation: 'Synthèse de la plateforme (du 01/10/2026 au 31/10/2026)',
+        }),
+      );
+    });
+
+    it('worker : bilan par formation et registre, bornes de période passées à la requête', async () => {
+      for (const modele of ['FORMATIONS', 'CERTIFICATS']) {
+        const m = monter({
+          prise: {
+            type: 'INSTITUTIONNEL',
+            format: 'PDF',
+            demandeur_id: MOI,
+            formation_id: null,
+            parametres: { modele, du: '2026-10-01', au: '2026-10-31' },
+          },
+        });
+        await m.service.generer(R, D);
+        const requete = m.query.mock.calls.find((c) =>
+          String(c[0]).includes(
+            modele === 'FORMATIONS' ? 'FROM formations f' : 'FROM certificats x',
+          ),
+        );
+        expect(requete?.[1]).toEqual(['2026-10-01', '2026-10-31']);
+        expect(String(requete?.[0])).toContain("AT TIME ZONE 'Africa/Tunis'");
+        const [, tampon] = m.stockage.deposerTampon.mock.calls[0] as unknown as [string, Buffer];
+        expect(tampon.subarray(0, 5).toString()).toBe('%PDF-');
+      }
     });
   });
 

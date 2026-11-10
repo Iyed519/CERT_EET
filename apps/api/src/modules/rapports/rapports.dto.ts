@@ -1,6 +1,8 @@
 import { ApiProperty, ApiPropertyOptional } from '@nestjs/swagger';
-import { IsEnum, IsIn, IsOptional, IsUUID, ValidateIf } from 'class-validator';
+import { IsEnum, IsIn, IsOptional, IsUUID, Matches, ValidateIf } from 'class-validator';
 import { FormatRapport } from '../../database/enums/rapport.enum';
+import { MESSAGE_DATE_INVALIDE } from '../pilotage/periode.regles';
+import { MODELES, ModeleInstitutionnel } from './rapport-institutionnel';
 import { PorteeRapport } from './rapport-session';
 
 const PORTEES: PorteeRapport[] = ['GLOBAL', 'INDIVIDUEL', 'MODULE'];
@@ -38,4 +40,34 @@ export class FiltreRapportsDto {
   @IsOptional()
   @IsUUID('4', { message: 'Identifiant de formation mal formé.' })
   formationId?: string;
+}
+
+const JOUR = /^\d{4}-\d{2}-\d{2}$/;
+
+/**
+ * US-RPT-02 — Demande d'un rapport institutionnel (DS-16 P4) : modèle,
+ * format, période (jours inclus, AAAA-MM-JJ, heure de Tunis ; 30 derniers
+ * jours par défaut, 366 au plus, début ≤ fin -> 400 sinon).
+ */
+export class DemanderRapportInstitutionnelDto {
+  @ApiProperty({
+    enum: MODELES,
+    description: 'Synthèse, bilan par formation, registre des certificats.',
+  })
+  @IsIn(MODELES, { message: 'Modèle inconnu : SYNTHESE, FORMATIONS ou CERTIFICATS.' })
+  modele: ModeleInstitutionnel;
+
+  @ApiProperty({ enum: FormatRapport, description: 'CSV (Excel) ou PDF.' })
+  @IsEnum(FormatRapport, { message: 'Format inconnu : CSV ou PDF.' })
+  format: FormatRapport;
+
+  @ApiPropertyOptional({ example: '2026-10-01', description: 'Premier jour inclus.' })
+  @IsOptional()
+  @Matches(JOUR, { message: MESSAGE_DATE_INVALIDE })
+  du?: string;
+
+  @ApiPropertyOptional({ example: '2026-10-31', description: 'Dernier jour inclus.' })
+  @IsOptional()
+  @Matches(JOUR, { message: MESSAGE_DATE_INVALIDE })
+  au?: string;
 }
