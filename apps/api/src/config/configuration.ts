@@ -134,10 +134,13 @@ export interface IaConfig {
 
 /** US-IA-03 — fournisseur du modèle de langage (ADR-05). */
 export interface LlmConfig {
-  fournisseur: 'anthropic' | 'factice';
+  fournisseur: 'anthropic' | 'compatible-openai' | 'factice';
   modele: string;
   /** Jamais journalisée ni renvoyée ; lue seulement par le fournisseur Anthropic. */
   cleAnthropic: string | undefined;
+  /** US-IA-06 — fournisseur « compatible OpenAI » : adresse de base (…/v1) et clé facultative. */
+  urlCompatible: string | undefined;
+  cle: string | undefined;
   delaiMs: number;
   promptMaxCaracteres: number;
 }
@@ -250,11 +253,16 @@ export default (): {
     tailleMaxMo: parseInt(process.env.RESSOURCES_TAILLE_MAX_MO ?? '500', 10),
   },
   llm: {
-    fournisseur: process.env.LLM_FOURNISSEUR === 'anthropic' ? 'anthropic' : 'factice',
+    fournisseur:
+      process.env.LLM_FOURNISSEUR === 'anthropic' || process.env.LLM_FOURNISSEUR === 'compatible-openai'
+        ? process.env.LLM_FOURNISSEUR
+        : 'factice',
     modele:
       process.env.LLM_MODELE ||
       (process.env.LLM_FOURNISSEUR === 'anthropic' ? 'claude-sonnet-5-5' : 'factice-v1'),
     cleAnthropic: process.env.ANTHROPIC_API_KEY || undefined,
+    urlCompatible: process.env.LLM_URL || undefined,
+    cle: process.env.LLM_CLE || undefined,
     delaiMs: parseInt(process.env.LLM_DELAI_MS ?? '90000', 10),
     promptMaxCaracteres: parseInt(process.env.LLM_PROMPT_MAX_CARACTERES ?? '24000', 10),
   },
