@@ -3631,3 +3631,91 @@ export async function getTentativeFormateur(
     'Impossible de charger cette tentative.',
   );
 }
+
+// ===================================================================
+//  US-IA-05 — Traçabilité des générations IA (administrateur)
+// ===================================================================
+
+export interface PersonneTracee {
+  id: string;
+  prenom: string | null;
+  nom: string | null;
+  email: string;
+}
+
+export interface GenerationTracee {
+  id: string;
+  statut: 'EN_COURS' | 'TERMINEE' | 'ECHEC';
+  dateLancement: string;
+  dateFin: string | null;
+  modeleLlm: string | null;
+  parametres: {
+    nbQuestionsDemandees: number;
+    types: string[];
+    niveau: string;
+    focusThematique: string | null;
+  };
+  nbSuggestions: number | null;
+  nbInvalides: number | null;
+  nbTentatives: number;
+  derniereErreur: string | null;
+  formateur: PersonneTracee | null;
+  formation: { id: string; titre: string };
+  module: { id: string; titre: string };
+  support: { id: string; titre: string };
+  decisions: { proposees: number; acceptees: number; modifiees: number; rejetees: number };
+}
+
+export interface SuggestionTracee {
+  id: string;
+  ordre: number;
+  enonce: string;
+  type: string;
+  statut: 'PROPOSEE' | 'ACCEPTEE' | 'MODIFIEE' | 'REJETEE';
+  scoreConfiance: number | null;
+  decidePar: PersonneTracee | null;
+  dateDecision: string | null;
+  motifRejet: string | null;
+  question: { id: string; origine: string } | null;
+  qcm: { id: string; titre: string } | null;
+}
+
+export interface DetailGenerationTracee extends GenerationTracee {
+  suggestions: SuggestionTracee[];
+  historique: Array<{
+    horodatage: string;
+    action: string;
+    acteur: PersonneTracee | null;
+    cible: string;
+    resultat: string;
+  }>;
+}
+
+export interface FiltreGenerationsIa {
+  statut?: string;
+  du?: string;
+  au?: string;
+  page?: number;
+}
+
+/** GET /api/admin/generations-ia — registre paginé. */
+export async function getGenerationsIa(
+  filtre: FiltreGenerationsIa,
+): Promise<{ total: number; page: number; limite: number; generations: GenerationTracee[] }> {
+  const params = new URLSearchParams();
+  for (const [cle, valeur] of Object.entries(filtre)) {
+    if (valeur !== undefined && valeur !== '') params.set(cle, String(valeur));
+  }
+  const suffixe = params.toString() ? `?${params.toString()}` : '';
+  const response = await apiFetch(`/api/admin/generations-ia${suffixe}`);
+  return lireReponseFormation(response, 'Impossible de charger les générations IA.');
+}
+
+/** GET /api/admin/generations-ia/:id — détail, décisions et historique. */
+export async function getGenerationIa(id: string): Promise<DetailGenerationTracee> {
+  const response = await apiFetch(`/api/admin/generations-ia/${id}`);
+  return lireReponseFormation<DetailGenerationTracee>(
+    response,
+    'Impossible de charger cette génération.',
+  );
+}

@@ -968,3 +968,7 @@ textarea.input { resize: vertical; font-family: inherit; line-height: 1.45; }
 .historique-juste { font-size: 0.8rem; font-weight: 650; color: var(--primary-dark); }
 .historique-faux { font-size: 0.8rem; font-weight: 650; color: #922b21; }
 .depot-remplacer { display: flex; align-items: center; gap: 10px; flex-wrap: wrap; margin-top: 12px; }
+
+/* US-IA-05 — registre des générations IA. */
+.filtres-ligne { display: flex; gap: 12px; flex-wrap: wrap; align-items: flex-end; margin-bottom: 14px; }
+.filtres-ligne .field-label { display: flex; flex-direction: column; gap: 4px; min-width: 150px; }
