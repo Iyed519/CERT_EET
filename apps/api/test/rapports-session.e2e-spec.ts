@@ -97,7 +97,10 @@ describe('Rapports de session (e2e) — US-RPT-01', () => {
     )[0].n;
 
   /** Attend la fin de la génération (PRET ou ECHEC), 20 s au plus. */
-  const attendre = async (id: string, token = tokens.formateur): Promise<Record<string, unknown>> => {
+  const attendre = async (
+    id: string,
+    token = tokens.formateur,
+  ): Promise<Record<string, unknown>> => {
     for (let i = 0; i < 80; i += 1) {
       const res = await get(`/api/rapports/${id}`, token).expect(200);
       if (res.body.statut === 'PRET' || res.body.statut === 'ECHEC') return res.body;
@@ -232,10 +235,10 @@ describe('Rapports de session (e2e) — US-RPT-01', () => {
       `INSERT INTO qcm (module_id, titre, statut) VALUES ($1, $2, 'PUBLIE') RETURNING id`,
       [ids.m1, `${MARQUEUR} QCM 1`],
     );
-    await un(`INSERT INTO qcm (module_id, titre, statut) VALUES ($1, $2, 'BROUILLON') RETURNING id`, [
-      ids.m1,
-      `${MARQUEUR} QCM brouillon`,
-    ]);
+    await un(
+      `INSERT INTO qcm (module_id, titre, statut) VALUES ($1, $2, 'BROUILLON') RETURNING id`,
+      [ids.m1, `${MARQUEUR} QCM brouillon`],
+    );
     const tentative = (apprenant: string, score: number, jours: number): Promise<unknown[]> =>
       sql(
         `INSERT INTO tentatives_qcm (apprenant_id, qcm_id, date_debut, date_limite, date_fin,
@@ -337,7 +340,12 @@ describe('Rapports de session (e2e) — US-RPT-01', () => {
       const texte = tampon.toString('utf8');
       expect(texte.charCodeAt(0)).toBe(0xfeff);
       const lignes = texte.slice(1).trimEnd().split('\r\n');
-      expect(lignes[0].split(';').slice(0, 4)).toEqual(['nom', 'prenom', 'email', 'statut_inscription']);
+      expect(lignes[0].split(';').slice(0, 4)).toEqual([
+        'nom',
+        'prenom',
+        'email',
+        'statut_inscription',
+      ]);
       expect(lignes).toHaveLength(3);
       expect(texte).toContain(EMAIL.a);
       expect(texte).toContain(`"'=HYPERLINK(""x"")"`);
@@ -373,7 +381,10 @@ describe('Rapports de session (e2e) — US-RPT-01', () => {
       const texte = ((await telecharger(ids.rModule).expect(200)).body as Buffer)
         .toString('utf8')
         .slice(1);
-      const [entete, ...lignes] = texte.trimEnd().split('\r\n').map((l) => l.split(';'));
+      const [entete, ...lignes] = texte
+        .trimEnd()
+        .split('\r\n')
+        .map((l) => l.split(';'));
       expect(entete).toEqual([
         'nom',
         'prenom',
@@ -427,6 +438,10 @@ describe('Rapports de session (e2e) — US-RPT-01', () => {
       // Un rapport terminé n'est plus repris par le worker.
       await moduleRef.get(RapportsService).generer(id);
       expect((await get(`/api/rapports/${id}`).expect(200)).body.statut).toBe('ECHEC');
+      // Un échec tardif ne touche pas un rapport déjà prêt.
+      await moduleRef.get(RapportsService).echecDefinitif(ids.rGlobal, new Error('Tardif.'));
+      expect((await get(`/api/rapports/${ids.rGlobal}`).expect(200)).body.statut).toBe('PRET');
+      expect(await traces('RAPPORT_ECHEC', ids.rGlobal)).toBe(0);
     });
   });
 
