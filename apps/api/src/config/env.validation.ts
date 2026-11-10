@@ -79,6 +79,10 @@ export const envValidationSchema = Joi.object({
   CERTIFICATS_WORKER: Joi.string().valid('on', 'off').default('on'),
   CERTIFICATS_TENTATIVES: Joi.number().integer().min(1).max(10).default(3),
   CERTIFICATS_BACKOFF_MS: Joi.number().integer().min(10).max(600000).default(5000),
+  // US-SUIVI-02 — alertes de décrochage : balayage planifié, email aux formateurs.
+  ALERTES_BALAYAGE_ACTIF: Joi.boolean().default(true),
+  ALERTES_INTERVALLE_MINUTES: Joi.number().integer().min(5).max(1440).default(60),
+  ALERTES_EMAIL: Joi.boolean().default(true),
 
   // --- Vérification publique (US-CERT-05) ---
   // Requêtes par minute et par adresse IP sur /api/verification (DS-05 : 20).

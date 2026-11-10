@@ -825,6 +825,82 @@ export class MailService {
     });
     this.logger.log(`Email de fin de génération envoyé à ${to}`);
   }
+
+  /**
+   * US-SUIVI-02 — Récapitulatif des nouvelles alertes de décrochage d'un
+   * balayage, au formateur affecté (DS-14 P2 : « notifier(formateurId) »).
+   * Faits seulement (apprenant, formation, critère) : le détail est dans
+   * l'application.
+   */
+  async sendAlertesDecrochageEmail(
+    to: string,
+    donnees: {
+      prenom: string | null;
+      alertes: Array<{ apprenant: string; formation: string; critere: string }>;
+    },
+  ): Promise<void> {
+    const { from, appBaseUrl } = this.configService.getOrThrow<MailConfig>('mail');
+    const lien = `${appBaseUrl}/formateur/alertes`;
+    const LIBELLES: Record<string, string> = {
+      INACTIVITE: 'aucune connexion depuis plus de 7 jours',
+      ECHECS_QCM: 'deux échecs consécutifs au QCM',
+      LIVRABLE_EN_RETARD: 'livrable non rendu 48 h après la date limite',
+      SCORE_EN_CHUTE: 'note en forte baisse',
+    };
+    const prenom = donnees.prenom?.trim() ?? '';
+    const salutation = prenom ? `Bonjour ${prenom},` : 'Bonjour,';
+    const n = donnees.alertes.length;
+    const titre = `${n} nouvelle${n > 1 ? 's' : ''} alerte${n > 1 ? 's' : ''} de décrochage`;
+    const lignes = donnees.alertes.map(
+      (a) =>
+        `${a.apprenant.replace(/\s+/g, ' ').trim()} — ${a.formation.replace(/\s+/g, ' ').trim()} : ` +
+        (LIBELLES[a.critere] ?? a.critere),
+    );
+    const text =
+      `${salutation}\n\n${titre} :\n${lignes.map((l) => `- ${l}`).join('\n')}\n\n` +
+      `Voir les alertes : ${lien}\n\n— L'équipe Cert_EET`;
+    const html = `<!doctype html>
+<html lang="fr">
+  <body style="margin:0;padding:0;background-color:#f2f4f3;">
+    <table role="presentation" width="100%" cellpadding="0" cellspacing="0" style="background-color:#f2f4f3;font-family:Arial,Helvetica,sans-serif;">
+      <tr>
+        <td align="center" style="padding:28px 12px;">
+          <table role="presentation" width="600" cellpadding="0" cellspacing="0" style="width:600px;max-width:600px;background-color:#ffffff;border-radius:16px;overflow:hidden;box-shadow:0 6px 24px rgba(16,24,40,0.08);">
+            <tr>
+              <td style="background-color:#b9770e;padding:22px 30px;color:#ffffff;font-size:18px;font-weight:bold;">Cert_EET</td>
+            </tr>
+            <tr>
+              <td style="padding:34px 34px 6px 34px;">
+                <h1 style="margin:0 0 12px 0;font-size:22px;line-height:1.3;color:#1b2631;">${echapperHtml(titre)}</h1>
+                <p style="margin:0 0 14px 0;font-size:15px;line-height:1.6;color:#4a5866;">${echapperHtml(salutation)}</p>
+                <ul style="margin:0 0 22px 0;padding-left:20px;font-size:15px;line-height:1.6;color:#4a5866;">
+                  ${lignes.map((l) => `<li>${echapperHtml(l)}</li>`).join('\n                  ')}
+                </ul>
+                <table role="presentation" cellpadding="0" cellspacing="0" style="margin:6px 0 18px 0;">
+                  <tr>
+                    <td align="center" bgcolor="#b9770e" style="border-radius:10px;">
+                      <a href="${lien}" target="_blank" style="display:inline-block;padding:14px 30px;font-size:15px;font-weight:bold;color:#ffffff;text-decoration:none;border-radius:10px;">Voir les alertes</a>
+                    </td>
+                  </tr>
+                </table>
+              </td>
+            </tr>
+            <tr>
+              <td style="padding:18px 34px 26px 34px;">
+                <p style="margin:0;font-size:12px;line-height:1.5;color:#aab4bd;">
+                  © Cert_EET — Email envoyé automatiquement, merci de ne pas y répondre.
+                </p>
+              </td>
+            </tr>
+          </table>
+        </td>
+      </tr>
+    </table>
+  </body>
+</html>`;
+    await this.transporter.sendMail({ from, to, subject: `Cert_EET — ${titre}`, text, html });
+    this.logger.log(`Email d'alertes de décrochage envoyé à ${to}`);
+  }
 }
 /**
  * Période d'une formation pour un email : « du JJ/MM/AAAA au JJ/MM/AAAA »,

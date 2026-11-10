@@ -71,6 +71,7 @@ describe('SuiviFormationService (US-SUIVI-01)', () => {
       scoreMoyenQcm: null,
       noteMoyenneAteliers: null,
       certifies: 0,
+      alertesOuvertes: 0,
       qcmPublies: 2,
       ateliersPublies: 2,
     });
@@ -186,6 +187,24 @@ describe('SuiviFormationService (US-SUIVI-01)', () => {
       inactifs: 0,
       tauxCompletion: 0,
     });
+  });
+
+  it('US-SUIVI-02 : critères des alertes ouvertes par apprenant ; compteur', async () => {
+    const { ds } = source([
+      FORMATION,
+      COMPTEURS,
+      INSCRITS,
+      [
+        "statut = 'OUVERTE'",
+        (): unknown[] => [
+          { apprenant_id: B, critere: 'ECHECS_QCM' },
+          { apprenant_id: B, critere: 'INACTIVITE' },
+        ],
+      ],
+    ]);
+    const s = await new SuiviFormationService(ds).suivi(F, MAINTENANT);
+    expect(s.apprenants.map((a) => a.alertes)).toEqual([[], ['ECHECS_QCM', 'INACTIVITE']]);
+    expect(s.kpis.alertesOuvertes).toBe(2);
   });
 
   describe('fiche', () => {

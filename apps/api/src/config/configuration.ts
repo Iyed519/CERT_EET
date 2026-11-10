@@ -94,6 +94,17 @@ export interface VerificationConfig {
   limiteParMinute: number;
 }
 
+/**
+ * US-SUIVI-02 — Alertes de décrochage : balayage planifié toutes les
+ * `intervalleMinutes` (désactivable par ALERTES_BALAYAGE_ACTIF=false ;
+ * toujours désactivé en test) ; email aux formateurs affectés si `email`.
+ */
+export interface AlertesConfig {
+  balayageActif: boolean;
+  intervalleMinutes: number;
+  email: boolean;
+}
+
 /** US-CERT-01 — file d'émission des certificats (BullMQ, ADR-04). */
 export interface CertificatsConfig {
   workerActif: boolean;
@@ -146,6 +157,7 @@ export default (): {
   minuterie: MinuterieConfig;
   stockage: StockageConfig;
   certificats: CertificatsConfig;
+  alertes: AlertesConfig;
   verification: VerificationConfig;
   ia: IaConfig;
   ressources: RessourcesConfig;
@@ -205,6 +217,11 @@ export default (): {
     workerActif: (process.env.CERTIFICATS_WORKER ?? 'on') !== 'off',
     tentatives: parseInt(process.env.CERTIFICATS_TENTATIVES ?? '3', 10),
     backoffMs: parseInt(process.env.CERTIFICATS_BACKOFF_MS ?? '5000', 10),
+  },
+  alertes: {
+    balayageActif: process.env.ALERTES_BALAYAGE_ACTIF !== 'false',
+    intervalleMinutes: parseInt(process.env.ALERTES_INTERVALLE_MINUTES ?? '60', 10),
+    email: process.env.ALERTES_EMAIL !== 'false',
   },
   verification: {
     limiteParMinute: parseInt(process.env.VERIFICATION_LIMITE_PAR_MINUTE ?? '20', 10),

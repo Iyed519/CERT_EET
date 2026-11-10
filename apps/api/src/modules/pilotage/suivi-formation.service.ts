@@ -33,6 +33,8 @@ export interface ApprenantSuivi {
   moyenne: number | null;
   certificat: string | null;
   risque: EtatRisque;
+  /** US-SUIVI-02 — critères des alertes de décrochage OUVERTES. */
+  alertes: string[];
 }
 
 /** US-SUIVI-01 — Tableau de bord pédagogique d'une formation. */
@@ -48,6 +50,7 @@ export interface SuiviFormation {
     scoreMoyenQcm: number | null;
     noteMoyenneAteliers: number | null;
     certifies: number;
+    alertesOuvertes: number;
     qcmPublies: number;
     ateliersPublies: number;
   };
@@ -92,6 +95,16 @@ export interface FicheApprenant {
     dateGeneration: Date | null;
   } | null;
   chronologie: EvenementApprenant[];
+  /** US-SUIVI-02 — alertes de décrochage (toutes, plus récentes d'abord). */
+  alertes: Array<{
+    id: string;
+    critere: string;
+    statut: string;
+    donnees: Record<string, unknown>;
+    suggestion: string;
+    dateCreation: Date;
+    dateTraitement: Date | null;
+  }>;
 }
 
 interface LigneInscrit {
@@ -128,7 +141,7 @@ export class SuiviFormationService {
 
   async suivi(formationId: string, maintenant: Date = new Date()): Promise<SuiviFormation> {
     const formation = await this.formation(formationId);
-    const [inscrits, compteurs, tentatives, livrables] = await Promise.all([
+    const [inscrits, compteurs, tentatives, livrables, alertes] = await Promise.all([
       this.q<LigneInscrit>(
         `SELECT u.id, u.prenom, u.nom, u.email, i.statut::text AS statut, i.date_inscription,
                 u.derniere_connexion, c.statut::text AS certificat
@@ -175,17 +188,24 @@ export class SuiviFormationService {
           WHERE l.atelier_id IN (SELECT id FROM a)`,
         [formationId],
       ),
+      this.q<{ apprenant_id: string; critere: string }>(
+        `SELECT apprenant_id, critere::text AS critere FROM alertes_decrochage
+          WHERE formation_id = $1 AND statut = 'OUVERTE'
+          ORDER BY critere`,
+        [formationId],
+      ),
     ]);
 
-    const apprenants = inscrits.map((i) =>
-      this.ligne(
+    const apprenants = inscrits.map((i) => ({
+      ...this.ligne(
         i,
         tentatives.filter((t) => t.apprenant_id === i.id),
         livrables.filter((l) => l.apprenant_id === i.id),
         compteurs,
         maintenant,
       ),
-    );
+      alertes: alertes.filter((a) => a.apprenant_id === i.id).map((a) => a.critere),
+    }));
 
     const suivis = apprenants.filter((a) => a.statutInscription !== 'SUSPENDUE');
     const moyennes = apprenants.map((a) => a.moyenne).filter((m): m is number => m !== null);
@@ -206,6 +226,7 @@ export class SuiviFormationService {
           livrables.filter((l) => l.note !== null).map((l) => Number(l.note)),
         ),
         certifies: apprenants.filter((a) => a.certificat === 'ACTIF').length,
+        alertesOuvertes: alertes.length,
         qcmPublies: compteurs.qcm,
         ateliersPublies: compteurs.ateliers,
       },
@@ -231,7 +252,7 @@ export class SuiviFormationService {
     );
     if (!inscrit) throw new NotFoundException('Apprenant non inscrit à cette formation.');
 
-    const [compteurs, tentatives, livrables, certificats] = await Promise.all([
+    const [compteurs, tentatives, livrables, certificats, alertes] = await Promise.all([
       this.compteurs(formationId),
       this.q<{
         id: string;
@@ -282,6 +303,21 @@ export class SuiviFormationService {
            FROM certificats WHERE formation_id = $1 AND apprenant_id = $2`,
         [formationId, apprenantId],
       ),
+      this.q<{
+        id: string;
+        critere: string;
+        statut: string;
+        donnees: Record<string, unknown>;
+        suggestion: string;
+        date_creation: Date;
+        date_traitement: Date | null;
+      }>(
+        `SELECT id, critere::text AS critere, statut::text AS statut, donnees, suggestion,
+                date_creation, date_traitement
+           FROM alertes_decrochage WHERE formation_id = $1 AND apprenant_id = $2
+          ORDER BY date_creation DESC, id`,
+        [formationId, apprenantId],
+      ),
     ]);
 
     // Même agrégation que le tableau (évaluations publiées seulement).
@@ -316,7 +352,7 @@ export class SuiviFormationService {
       if (date > e.derniere) e.derniere = date;
       parQcm.set(t.qcm_id, e);
     }
-    const apprenant = this.ligne(
+    const ligneApprenant = this.ligne(
       inscrit,
       [...parQcm.values()],
       livrables.filter((l) => l.publie).map((l) => ({ ...l, apprenant_id: apprenantId })),
@@ -324,6 +360,10 @@ export class SuiviFormationService {
       maintenant,
     );
 
+    const apprenant = {
+      ...ligneApprenant,
+      alertes: alertes.filter((a) => a.statut === 'OUVERTE').map((a) => a.critere),
+    };
     const [cert] = certificats;
     const chronologie: EvenementApprenant[] = [
       { date: inscrit.date_inscription, type: 'INSCRIPTION' as const, libelle: 'Inscription' },
@@ -391,6 +431,15 @@ export class SuiviFormationService {
           }
         : null,
       chronologie,
+      alertes: alertes.map((a) => ({
+        id: a.id,
+        critere: a.critere,
+        statut: a.statut,
+        donnees: a.donnees,
+        suggestion: a.suggestion,
+        dateCreation: a.date_creation,
+        dateTraitement: a.date_traitement,
+      })),
     };
   }
 
@@ -446,6 +495,7 @@ export class SuiviFormationService {
       moyenne: moyenne([...scores, ...notes]),
       certificat: i.certificat,
       risque: etatRisque(i.statut, i.derniere_connexion, i.date_inscription, maintenant),
+      alertes: [],
     };
   }
 
