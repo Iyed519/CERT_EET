@@ -260,9 +260,9 @@ describe('Rapports institutionnels (e2e) — US-RPT-02', () => {
     ids.cB = await un(
       `INSERT INTO certificats (apprenant_id, formation_id, statut, score_final, mention, organisme_emetteur,
          date_emission, date_generation, cle_stockage, empreinte_sha256, date_revocation,
-         motif_revocation, revoque_par)
+         motif_revocation, description_revocation, revoque_par)
        VALUES ($1, $2, 'REVOQUE', 64, 'Passable', 'ESPRIT Entreprise', '2004-02-20T10:00:00Z',
-         '2004-02-20T10:00:00Z', $3, $4, '2004-02-25T10:00:00Z', 'ERREUR_ADMIN', $5) RETURNING id`,
+         '2004-02-20T10:00:00Z', $3, $4, '2004-02-25T10:00:00Z', 'ERREUR_ADMIN', 'Erreur de saisie de la note finale (test).', $5) RETURNING id`,
       [ids.b, ids.f, `certificats/${MARQUEUR}-b.pdf`, 'e'.repeat(64), ids.admin],
     );
     for (let i = 0; i < 3; i += 1) {
