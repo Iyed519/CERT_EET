@@ -133,6 +133,24 @@ describe('Supports pédagogiques (e2e) — US-IA-01', () => {
     );
   };
 
+  /**
+   * Le worker écrit le statut PUIS la trace d'audit : on attend la trace
+   * (5 s au plus) au lieu de la lire une seule fois — sinon test instable
+   * (constaté au Sprint 4, US-FORM-04).
+   */
+  const attendreTraces = async (
+    action: string,
+    cible: string,
+    attendu: number,
+  ): Promise<number> => {
+    const fin = Date.now() + 5_000;
+    for (;;) {
+      const n = await auditLogRepository.countBy({ action, cible });
+      if (n >= attendu || Date.now() > fin) return n;
+      await new Promise((r) => setTimeout(r, 50));
+    }
+  };
+
   const attendreStatut = async (
     supportId: string,
     attendu: StatutSupport,
@@ -348,7 +366,7 @@ describe('Supports pédagogiques (e2e) — US-IA-01', () => {
       expect(await lireObjet(indexe.cleStockage)).toEqual(contenu);
       expect(indexe.cleStockage).toBe(`supports/${moduleId}/${txtId}/original.txt`);
       expect(await auditLogRepository.countBy({ action: 'SUPPORT_DEPOSE', cible: txtId })).toBe(1);
-      expect(await auditLogRepository.countBy({ action: 'SUPPORT_INDEXE', cible: txtId })).toBe(1);
+      expect(await attendreTraces('SUPPORT_INDEXE', txtId, 1)).toBe(1);
     }, 30_000);
 
     it('PDF : texte extrait (processus enfant), découpé en plusieurs passages', async () => {
@@ -509,9 +527,7 @@ describe('Supports pédagogiques (e2e) — US-IA-01', () => {
       expect(echec.nbTentatives).toBe(1);
       expect(echec.nbSegments).toBeNull();
       expect(await nbSegments(id)).toBe(0);
-      expect(
-        await auditLogRepository.countBy({ action: 'SUPPORT_ECHEC_INDEXATION', cible: id }),
-      ).toBe(1);
+      expect(await attendreTraces('SUPPORT_ECHEC_INDEXATION', id, 1)).toBe(1);
 
       // Relance : nouvel essai (le contenu reste illisible -> nouvel échec).
       const relance = await api('post', `/supports/${id}/reindexer`, tokens.formateur).expect(202);

@@ -3424,3 +3424,69 @@ export async function seDesinscrire(formationId: string): Promise<void> {
   });
   await lireReponseFormation<unknown>(response, 'Impossible de vous désinscrire.');
 }
+
+// ---------------------------------------------------------------------------
+// US-FORM-04 — Contenu pédagogique géré par le formateur affecté.
+// ---------------------------------------------------------------------------
+
+const baseContenu = (formationId: string): string => `/api/formateur/formations/${formationId}`;
+
+/** US-FORM-04 — PATCH contenu (description, objectifs, prérequis ; null vide le champ). */
+export async function modifierContenuFormation(
+  formationId: string,
+  contenu: { description?: string | null; objectifs?: string | null; prerequis?: string | null },
+): Promise<FormationVue> {
+  const response = await apiFetch(`${baseContenu(formationId)}/contenu`, {
+    method: 'PATCH',
+    headers: JSON_HEADERS,
+    body: JSON.stringify(contenu),
+  });
+  return lireReponseFormation<FormationVue>(response, 'Impossible d’enregistrer le contenu.');
+}
+
+/** US-FORM-04 — POST module (ajouté en fin). */
+export async function ajouterModuleFormateur(formationId: string, titre: string): Promise<ModuleVue> {
+  const response = await apiFetch(`${baseContenu(formationId)}/modules`, {
+    method: 'POST',
+    headers: JSON_HEADERS,
+    body: JSON.stringify({ titre }),
+  });
+  return lireReponseFormation<ModuleVue>(response, 'Impossible d’ajouter le module.');
+}
+
+/** US-FORM-04 — PATCH module (titre). */
+export async function renommerModuleFormateur(
+  formationId: string,
+  moduleId: string,
+  titre: string,
+): Promise<ModuleVue> {
+  const response = await apiFetch(`${baseContenu(formationId)}/modules/${moduleId}`, {
+    method: 'PATCH',
+    headers: JSON_HEADERS,
+    body: JSON.stringify({ titre }),
+  });
+  return lireReponseFormation<ModuleVue>(response, 'Impossible de renommer le module.');
+}
+
+/** US-FORM-04 — PUT ordre (liste complète des modules). */
+export async function reordonnerModulesFormateur(
+  formationId: string,
+  moduleIds: string[],
+): Promise<ModuleVue[]> {
+  const response = await apiFetch(`${baseContenu(formationId)}/modules/ordre`, {
+    method: 'PUT',
+    headers: JSON_HEADERS,
+    body: JSON.stringify({ moduleIds }),
+  });
+  return lireReponseFormation<ModuleVue[]>(response, 'Impossible de réordonner les modules.');
+}
+
+/** US-FORM-04 — DELETE module (409 s'il porte une évaluation ou une ressource). */
+export async function supprimerModuleFormateur(formationId: string, moduleId: string): Promise<void> {
+  const response = await apiFetch(`${baseContenu(formationId)}/modules/${moduleId}`, {
+    method: 'DELETE',
+  });
+  if (!response.ok) {
+    await lireReponseFormation<never>(response, 'Impossible de supprimer le module.');
+  }
+}

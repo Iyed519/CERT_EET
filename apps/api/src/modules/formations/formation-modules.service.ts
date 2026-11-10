@@ -7,6 +7,7 @@ import {
 import { InjectRepository } from '@nestjs/typeorm';
 import { MoreThan, Repository } from 'typeorm';
 import { ModuleFormation } from '../../database/entities/module-formation.entity';
+import { RessourceModule } from '../../database/entities/ressource-module.entity';
 import { Atelier } from '../../database/entities/atelier.entity';
 import { Qcm } from '../../database/entities/qcm.entity';
 import { AuditService } from '../audit/audit.service';
@@ -39,6 +40,9 @@ export class FormationModulesService {
     private readonly qcmRepository: Repository<Qcm>,
     @InjectRepository(Atelier)
     private readonly atelierRepository: Repository<Atelier>,
+    // US-FORM-04 : un module qui porte des ressources (US-FORM-05 / 06) n'est pas vide.
+    @InjectRepository(RessourceModule)
+    private readonly ressourceRepository: Repository<RessourceModule>,
     private readonly formationsService: FormationsService,
     // Writer d'audit UNIQUE (@Global, US-AUTH-12).
     private readonly auditService: AuditService,
@@ -53,18 +57,24 @@ export class FormationModulesService {
   ): Promise<ModuleVue> {
     await this.formationsService.chargerPourEcriture(formationId);
 
-    const dernier = await this.moduleRepository.findOne({
-      where: { formationId },
-      order: { ordre: 'DESC' },
+    // US-FORM-04 : administrateur et formateurs affectés peuvent ajouter en
+    // même temps ; la formation est VERROUILLÉE le temps de lire le dernier
+    // ordre et d'insérer : deux ajouts simultanés ne prennent pas le même rang.
+    const module = await this.moduleRepository.manager.transaction(async (m) => {
+      await m.query(`SELECT 1 FROM formations WHERE id = $1 FOR UPDATE`, [formationId]);
+      const dernier = await m.findOne(ModuleFormation, {
+        where: { formationId },
+        order: { ordre: 'DESC' },
+      });
+      return m.save(
+        m.create(ModuleFormation, {
+          formationId,
+          titre: dto.titre,
+          description: dto.description ?? null,
+          ordre: (dernier?.ordre ?? 0) + 1,
+        }),
+      );
     });
-    const module = await this.moduleRepository.save(
-      this.moduleRepository.create({
-        formationId,
-        titre: dto.titre,
-        description: dto.description ?? null,
-        ordre: (dernier?.ordre ?? 0) + 1,
-      }),
-    );
 
     await this.auditService.record({
       action: 'MODULE_CREE',
@@ -146,6 +156,13 @@ export class FormationModulesService {
     if (evaluations > 0) {
       throw new ConflictException(
         'Ce module contient des évaluations et ne peut pas être supprimé.',
+      );
+    }
+    // US-FORM-04 : ses ressources (liens, fichiers) partiraient en cascade et
+    // les fichiers resteraient orphelins dans le stockage -> 409.
+    if ((await this.ressourceRepository.count({ where: { moduleId } })) > 0) {
+      throw new ConflictException(
+        'Ce module contient des ressources : retirez-les avant de le supprimer.',
       );
     }
 

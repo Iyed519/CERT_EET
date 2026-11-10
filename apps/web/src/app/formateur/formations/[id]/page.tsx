@@ -3,6 +3,7 @@ import Link from 'next/link';
 import { useParams, useRouter } from 'next/navigation';
 import { useCallback, useEffect, useState } from 'react';
 import { AtelierModal } from '../../../../components/AtelierModal';
+import { ContenuFormationModal } from '../../../../components/ContenuFormationModal';
 import { QcmInfosModal } from '../../../../components/QcmInfosModal';
 import { RessourcesFormateur } from '../../../../components/RessourcesCours';
 import { SupportsModule } from '../../../../components/SupportsModule';
@@ -63,6 +64,9 @@ const dateFr = (iso: string | null): string => {
  *
  * US-FORM-05 — Au-dessus : les ressources du cours (liens, vidéos YouTube /
  * Vimeo) que les apprenants voient dans « Mon espace ».
+ *
+ * US-FORM-04 — « Modifier le contenu » : description, objectifs, prérequis et
+ * modules (ajout, renommage, ordre, suppression), formation non archivée.
  */
 export default function MaFormationPage(): JSX.Element {
   const params = useParams<{ id: string }>();
@@ -77,6 +81,8 @@ export default function MaFormationPage(): JSX.Element {
   const [ateliers, setAteliers] = useState<Record<string, AtelierResume[]>>({});
   const [nouvelAtelier, setNouvelAtelier] = useState<{ id: string; titre: string } | null>(null);
   const router = useRouter();
+  const [contenuOuvert, setContenuOuvert] = useState(false);
+  const [version, setVersion] = useState(0);
 
   const chargerQcms = useCallback(async (f: FormationDetailVue): Promise<void> => {
     const [listesQcm, listesAteliers] = await Promise.all([
@@ -104,7 +110,7 @@ export default function MaFormationPage(): JSX.Element {
         setChargement(false);
       }
     })();
-  }, [id, chargerQcms]);
+  }, [id, chargerQcms, version]);
 
   const modifiable = formation !== null && formation.statut !== 'ARCHIVEE';
 
@@ -141,7 +147,20 @@ export default function MaFormationPage(): JSX.Element {
             <Link className="btn btn-sm" href={`/formateur/formations/${id}/suivi`}>
               Suivi pédagogique des apprenants
             </Link>
+            {modifiable && (
+              <button className="btn btn-sm" onClick={() => setContenuOuvert(true)}>
+                Modifier le contenu
+              </button>
+            )}
           </p>
+
+          {contenuOuvert && (
+            <ContenuFormationModal
+              formation={formation}
+              onClose={() => setContenuOuvert(false)}
+              onChange={() => setVersion((v) => v + 1)}
+            />
+          )}
 
           {NOTES[formation.statut] !== null && (
             <p className="alert alert-info">{NOTES[formation.statut]}</p>

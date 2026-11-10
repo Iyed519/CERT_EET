@@ -1,6 +1,7 @@
 import { BadRequestException, ConflictException, NotFoundException } from '@nestjs/common';
 import { Test, TestingModule } from '@nestjs/testing';
 import { getRepositoryToken } from '@nestjs/typeorm';
+import { RessourceModule } from '../../database/entities/ressource-module.entity';
 import { ModuleFormation } from '../../database/entities/module-formation.entity';
 import { Atelier } from '../../database/entities/atelier.entity';
 import { Qcm } from '../../database/entities/qcm.entity';
@@ -23,6 +24,15 @@ describe('FormationModulesService', () => {
     delete: jest.fn().mockResolvedValue(undefined),
     decrement: jest.fn().mockResolvedValue(undefined),
     update: jest.fn().mockResolvedValue(undefined),
+    // US-FORM-04 : l'ajout passe par la transaction (verrou de la formation).
+    query: jest.fn().mockResolvedValue([]),
+    findOne: jest.fn((_entite: unknown, options: unknown): unknown =>
+      mockModuleRepo.findOne(options),
+    ),
+    create: jest.fn((_entite: unknown, donnees: unknown): unknown =>
+      mockModuleRepo.create(donnees),
+    ),
+    save: jest.fn((entite: unknown): unknown => mockModuleRepo.save(entite)),
   };
   const mockModuleRepo = {
     create: jest.fn(),
@@ -37,6 +47,7 @@ describe('FormationModulesService', () => {
   };
   const mockQcmRepo = { count: jest.fn() };
   const mockAtelierRepo = { count: jest.fn() };
+  const mockRessourceRepo = { count: jest.fn().mockResolvedValue(0) };
   const mockFormationsService = { chargerPourEcriture: jest.fn() };
   const mockAuditService = { record: jest.fn().mockResolvedValue(undefined) };
 
@@ -58,6 +69,7 @@ describe('FormationModulesService', () => {
         FormationModulesService,
         { provide: getRepositoryToken(ModuleFormation), useValue: mockModuleRepo },
         { provide: getRepositoryToken(Qcm), useValue: mockQcmRepo },
+        { provide: getRepositoryToken(RessourceModule), useValue: mockRessourceRepo },
         { provide: getRepositoryToken(Atelier), useValue: mockAtelierRepo },
         { provide: FormationsService, useValue: mockFormationsService },
         { provide: AuditService, useValue: mockAuditService },
@@ -87,6 +99,10 @@ describe('FormationModulesService', () => {
       const vue = await service.ajouter('admin-1', 'form-1', { titre: 'Bilan' }, contexte);
 
       expect(vue.ordre).toBe(5);
+      expect(mockManager.query).toHaveBeenCalledWith(
+        'SELECT 1 FROM formations WHERE id = $1 FOR UPDATE',
+        ['form-1'],
+      );
       expect(mockAuditService.record).toHaveBeenCalledWith(
         expect.objectContaining({ action: 'MODULE_CREE', cible: 'form-1' }),
       );
@@ -185,6 +201,19 @@ describe('FormationModulesService', () => {
       ).rejects.toBeInstanceOf(ConflictException);
       expect(mockAtelierRepo.count).toHaveBeenCalledWith({ where: { moduleId: 'mod-2' } });
       expect(mockManager.delete).not.toHaveBeenCalled();
+    });
+
+    it('US-FORM-04 : refuse (409) de supprimer un module qui porte des ressources', async () => {
+      mockModuleRepo.findOne.mockResolvedValue(module());
+      mockQcmRepo.count.mockResolvedValue(0);
+      mockAtelierRepo.count.mockResolvedValue(0);
+      mockRessourceRepo.count.mockResolvedValueOnce(2);
+      await expect(service.supprimer('form-1-admin', 'form-1', 'mod-2', contexte)).rejects.toThrow(
+        new ConflictException(
+          'Ce module contient des ressources : retirez-les avant de le supprimer.',
+        ),
+      );
+      expect(mockModuleRepo.manager.transaction).not.toHaveBeenCalled();
     });
   });
 
