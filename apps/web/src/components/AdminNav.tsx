@@ -9,7 +9,7 @@ import { useAuth } from '../contexts/AuthContext';
  * Rendu UNIQUEMENT pour un ADMINISTRATEUR connecté (le rôle vient du contexte
  * d'auth, en mémoire). Le backend reste la vraie barrière (RolesGuard) : ce
  * lien n'est qu'un raccourci d'UI, pas un contrôle de sécurité. Masqué quand on
- * est déjà sur une page /admin.
+ * est déjà sur une page /admin. Mène au tableau de bord global (US-DASH-01).
  */
 export function AdminNav(): JSX.Element | null {
   const { user } = useAuth();
@@ -21,7 +21,7 @@ export function AdminNav(): JSX.Element | null {
     return null;
   }
   return (
-    <Link className="header-link" href="/admin/utilisateurs">
+    <Link className="header-link" href="/admin/tableau-de-bord">
       Administration
     </Link>
   );

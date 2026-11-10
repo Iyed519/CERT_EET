@@ -18,6 +18,7 @@ import { AteliersModule } from './modules/ateliers/ateliers.module';
 import { CertificatsModule } from './modules/certificats/certificats.module';
 import { AssistanceIaModule } from './modules/assistance-ia/assistance-ia.module';
 import { RessourcesModule } from './modules/ressources/ressources.module';
+import { PilotageModule } from './modules/pilotage/pilotage.module';
 /**
  * Module racine (AppModule).
  *
@@ -38,6 +39,7 @@ import { RessourcesModule } from './modules/ressources/ressources.module';
  * AssistanceIaModule (US-IA-01, Sprint 3 bloc B) indexe les supports
  * pédagogiques pour la génération de questions par IA (RAG, ADR-05).
  * RessourcesModule (US-FORM-05) : liens et vidéos de cours des modules.
+ * PilotageModule (US-DASH-01, Sprint 4) : tableaux de bord agrégés.
  */
 @Module({
   imports: [
@@ -60,6 +62,7 @@ import { RessourcesModule } from './modules/ressources/ressources.module';
     CertificatsModule,
     AssistanceIaModule,
     RessourcesModule,
+    PilotageModule,
   ],
 })
 export class AppModule {}

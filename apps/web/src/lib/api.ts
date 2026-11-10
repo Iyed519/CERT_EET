@@ -2929,3 +2929,81 @@ export async function lienLectureRessource(ressourceId: string): Promise<string>
   );
   return url;
 }
+
+// ---------------------------------------------------------------------------
+// US-DASH-01 — Tableau de bord global (ADMINISTRATEUR).
+// ---------------------------------------------------------------------------
+
+export interface PeriodeTableau {
+  du: string;
+  au: string;
+  jours: number;
+}
+
+export type CodeAlerteSysteme =
+  | 'CERTIFICATS_BLOQUES'
+  | 'SUPPORTS_EN_ECHEC'
+  | 'GENERATIONS_EN_ECHEC'
+  | 'DEMANDES_ROLE_EN_ATTENTE'
+  | 'LIVRABLES_EN_ATTENTE';
+
+export interface TableauDeBordGlobal {
+  periode: PeriodeTableau;
+  utilisateurs: {
+    parRole: Record<string, number>;
+    parStatut: Record<string, number>;
+    total: number;
+    nouveaux: number;
+    connectes: number;
+  };
+  formations: { parStatut: Record<string, number>; total: number; nouvelles: number };
+  inscriptions: { parStatut: Record<string, number>; total: number; nouvelles: number };
+  evaluations: {
+    qcm: {
+      tentativesNotees: number;
+      reussies: number;
+      tauxReussite: number;
+      scoreMoyen: number | null;
+      enCours: number;
+    };
+    ateliers: {
+      livrablesSoumis: number;
+      correctionsFinalisees: number;
+      noteMoyenne: number | null;
+      enAttenteCorrection: number;
+      enCorrection: number;
+    };
+  };
+  certificats: {
+    parStatut: Record<string, number>;
+    emis: number;
+    revoques: number;
+    consultations: number;
+  };
+  activite: Array<{ jour: string; evenements: number; connexions: number; echecs: number }>;
+  activiteRecente: Array<{
+    horodatage: string;
+    action: string;
+    resultat: string | null;
+    acteur: { email: string; prenom: string | null; nom: string | null } | null;
+  }>;
+  alertes: Array<{ code: CodeAlerteSysteme; nombre: number }>;
+}
+
+/**
+ * US-DASH-01 — GET /api/admin/tableau-de-bord?du&au (jours inclus, AAAA-MM-JJ).
+ *   - 400 -> date invalide, période inversée ou trop longue (message de l'API).
+ */
+export async function getTableauDeBordGlobal(
+  periode: { du?: string; au?: string } = {},
+): Promise<TableauDeBordGlobal> {
+  const params = new URLSearchParams();
+  if (periode.du) params.set('du', periode.du);
+  if (periode.au) params.set('au', periode.au);
+  const qs = params.toString();
+  const response = await apiFetch(`/api/admin/tableau-de-bord${qs ? `?${qs}` : ''}`);
+  return lireReponseFormation<TableauDeBordGlobal>(
+    response,
+    'Impossible de charger le tableau de bord.',
+  );
+}

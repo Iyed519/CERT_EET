@@ -828,3 +828,25 @@ textarea.input { resize: vertical; font-family: inherit; line-height: 1.45; }
   .fiche-grille { grid-template-columns: 1fr; gap: 2px; }
   .fiche-grille dd { margin-bottom: 8px; }
 }
+
+/* US-DASH-01 — Tableau de bord global : période, alertes, indicateurs, activité. */
+.tdb-periode { align-items: flex-end; }
+.tdb-sous-titre { color: var(--muted, #5b6b66); margin: 4px 0 12px; font-size: 0.9rem; }
+.tdb-alertes { display: grid; gap: 6px; margin-bottom: 14px; }
+.tdb-alertes .alert { margin: 0; }
+.tdb-grille { display: grid; grid-template-columns: repeat(auto-fill, minmax(240px, 1fr)); gap: 14px; margin: 14px 0; }
+.kpi { background: #fff; border: 1px solid rgba(0, 0, 0, 0.08); border-radius: 10px; padding: 14px 16px; min-width: 0; }
+.kpi h2 { font-size: 0.85rem; text-transform: uppercase; letter-spacing: 0.04em; color: var(--muted, #5b6b66); margin: 0; }
+.kpi-valeur { font-size: 2rem; font-weight: 700; margin: 4px 0 0; font-variant-numeric: tabular-nums; }
+.kpi-sous { font-size: 0.84rem; color: var(--muted, #5b6b66); margin: 2px 0 8px; }
+.kpi-repartition { list-style: none; padding: 0; margin: 0; font-size: 0.86rem; }
+.kpi-repartition li { display: flex; justify-content: space-between; gap: 10px; padding: 4px 0; border-top: 1px solid rgba(0, 0, 0, 0.06); }
+.kpi-repartition strong { font-variant-numeric: tabular-nums; }
+.tdb-bloc { background: #fff; border: 1px solid rgba(0, 0, 0, 0.08); border-radius: 10px; padding: 14px 16px; margin: 14px 0; min-width: 0; }
+.tdb-bloc h2 { font-size: 1rem; margin: 0 0 4px; }
+.tdb-graphe { display: flex; align-items: flex-end; gap: 2px; height: 140px; padding-top: 6px; overflow-x: auto; }
+.tdb-barre { flex: 1 0 4px; height: 100%; display: flex; align-items: flex-end; }
+.tdb-barre-total { width: 100%; min-height: 1px; background: #b9d8cf; border-radius: 2px 2px 0 0; display: flex; align-items: flex-end; }
+.tdb-barre-connexions { width: 100%; background: #2f7d68; border-radius: 2px 2px 0 0; }
+.tdb-axe { display: flex; justify-content: space-between; font-size: 0.78rem; color: var(--muted, #5b6b66); margin: 4px 0 0; }
+.tdb-echec { color: #b3261e; font-weight: 600; }

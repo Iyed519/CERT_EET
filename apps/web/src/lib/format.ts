@@ -323,3 +323,29 @@ export const LIBELLES_NIVEAU_GENERATION: Record<NiveauGeneration, string> = {
   INTERMEDIAIRE: 'Intermédiaire',
   AVANCE: 'Avancé',
 };
+
+/** US-DASH-01 — Libellés des alertes système du tableau de bord global. */
+export const LIBELLES_ALERTE_SYSTEME: Record<string, [string, string]> = {
+  CERTIFICATS_BLOQUES: ['certificat(s) bloqué(s) après échec de génération', '/admin/certificats'],
+  SUPPORTS_EN_ECHEC: ['support(s) pédagogique(s) en échec d’indexation', ''],
+  GENERATIONS_EN_ECHEC: ['génération(s) IA en échec sur la période', ''],
+  DEMANDES_ROLE_EN_ATTENTE: ['demande(s) de rôle en attente', '/admin/role-requests'],
+  LIVRABLES_EN_ATTENTE: ['livrable(s) en attente de correction depuis plus de 7 jours', ''],
+};
+
+/** US-DASH-01 — Libellés courts des rôles et statuts agrégés. */
+export const LIBELLES_ROLE: Record<string, string> = {
+  APPRENANT: 'Apprenants',
+  FORMATEUR: 'Formateurs',
+  ADMINISTRATEUR: 'Administrateurs',
+};
+export const LIBELLES_STATUT_FORMATION_COURT: Record<string, string> = {
+  OUVERTE: 'Ouvertes',
+  FERMEE: 'Fermées',
+  ARCHIVEE: 'Archivées',
+};
+export const LIBELLES_STATUT_INSCRIPTION_COURT: Record<string, string> = {
+  EN_COURS: 'En cours',
+  TERMINEE: 'Terminées',
+  SUSPENDUE: 'Suspendues',
+};
