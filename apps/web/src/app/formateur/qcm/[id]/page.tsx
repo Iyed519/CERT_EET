@@ -2,6 +2,7 @@
 import Link from 'next/link';
 import { useParams, useRouter } from 'next/navigation';
 import { useCallback, useEffect, useState } from 'react';
+import { BanqueQuestionsModal } from '../../../../components/BanqueQuestionsModal';
 import { ConfigurationModal } from '../../../../components/ConfigurationModal';
 import { ConfirmationModal } from '../../../../components/ConfirmationModal';
 import { QcmInfosModal } from '../../../../components/QcmInfosModal';
@@ -29,6 +30,7 @@ type Fenetre =
   | { type: 'infos' }
   | { type: 'configuration' }
   | { type: 'question'; question: QuestionQcm | null }
+  | { type: 'banque' }
   | { type: 'retirer'; question: QuestionQcm }
   | { type: 'supprimer' }
   | { type: 'publier' }
@@ -287,13 +289,22 @@ export default function EditeurQcmPage(): JSX.Element {
 
           <div className="section-tete">
             <h2 className="section-title">Questions</h2>
-            <button
-              className="btn-sm btn-primary-sm"
-              onClick={() => setFenetre({ type: 'question', question: null })}
-              disabled={fige}
-            >
-              + Ajouter une question
-            </button>
+            <div className="section-actions">
+              <button
+                className="btn-sm"
+                onClick={() => setFenetre({ type: 'banque' })}
+                disabled={fige}
+              >
+                Importer depuis ma banque
+              </button>
+              <button
+                className="btn-sm btn-primary-sm"
+                onClick={() => setFenetre({ type: 'question', question: null })}
+                disabled={fige}
+              >
+                + Ajouter une question
+              </button>
+            </div>
           </div>
 
           {qcm.questions.length === 0 ? (
@@ -404,6 +415,13 @@ export default function EditeurQcmPage(): JSX.Element {
           verrouille={fige}
           onClose={() => setFenetre(null)}
           onEnregistree={fermerEtRecharger}
+        />
+      )}
+      {qcm && fenetre?.type === 'banque' && (
+        <BanqueQuestionsModal
+          qcmId={qcm.id}
+          onClose={() => setFenetre(null)}
+          onImporte={fermerEtRecharger}
         />
       )}
       {qcm && fenetre?.type === 'retirer' && (

@@ -110,7 +110,8 @@ describe('Journal d audit (e2e) — US-AUDIT-01', () => {
         transformOptions: { enableImplicitConversion: true },
       }),
     );
-    await app.init();
+    // Serveur unique : les requêtes simultanées ne démarrent pas chacune le leur (ECONNRESET).
+    await app.listen(0);
 
     userRepository = moduleRef.get(getRepositoryToken(User));
     auditLogRepository = moduleRef.get(getRepositoryToken(AuditLog));
