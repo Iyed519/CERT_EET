@@ -67,9 +67,13 @@ le refaire (D1).
 - Prettier lancé sur tout le dossier `audit/` a reformaté des fichiers hors
   périmètre (intercepteur, module) : restaurés, seuls les fichiers de la
   story sont touchés.
+- Première CI rouge : `npm run lint` impose `--max-warnings 0` ; trois
+  types de retour manquaient dans les tests (avertissements lus comme
+  bénins en local). Corrigé ; je lis désormais le code de sortie du lint,
+  pas seulement le nombre d'erreurs.
 
 ## Vérification
-- API : lint 0 erreur, `tsc`, unitaires **77 suites / 1 135 tests**,
+- API : lint 0 erreur / 0 avertissement, `tsc`, unitaires **77 suites / 1 135 tests**,
   migration run + revert + run (28 migrations), e2e **42 suites / 612 tests**
   (+ 1 ignoré : essai Anthropic réel sans clé), dont `E2E-AUDIT01`
   (20 tests : filtres acteur sans casse et jokers neutralisés, cible exacte,
@@ -92,7 +96,7 @@ le refaire (D1).
 Voir la PR.
 
 ## Suites
-- US-DASH-02 : compter les consultations publiques (`CERTIFICAT_- API : lint 0 erreur, `tsc`, unitaires **77 suites / 1 135 tests**,
+- US-DASH-02 : compter les consultations publiques (`CERTIFICAT_- API : lint 0 erreur / 0 avertissement, `tsc`, unitaires **77 suites / 1 135 tests**,
   migration run + revert + run (28 migrations), e2e **42 suites / 612 tests**
   (+ 1 ignoré : essai Anthropic réel sans clé), dont `E2E-AUDIT01`
   (20 tests : filtres acteur sans casse et jokers neutralisés, cible exacte,
