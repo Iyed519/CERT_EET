@@ -3490,3 +3490,46 @@ export async function supprimerModuleFormateur(formationId: string, moduleId: st
     await lireReponseFormation<never>(response, 'Impossible de supprimer le module.');
   }
 }
+
+// ===================================================================
+//  US-QCM-02 — Banque de questions du formateur
+// ===================================================================
+
+/** Une question de ma banque (questions de mes QCM, hors QCM courant). */
+export interface QuestionBanque {
+  id: string;
+  enonce: string;
+  type: QuestionQcm['type'];
+  ponderation: number;
+  explication: string | null;
+  niveauDifficulte: string | null;
+  origine: string;
+  qcms: Array<{ id: string; titre: string }>;
+  figee: boolean;
+  options: Array<{ texte: string; estCorrecte: boolean; ordre: number }>;
+}
+
+export interface Banque {
+  questions: QuestionBanque[];
+  message: string | null;
+}
+
+/** GET /api/qcm/:id/banque?recherche — ma banque, hors questions du QCM. */
+export async function getBanque(qcmId: string, recherche: string): Promise<Banque> {
+  const params = recherche.trim() ? `?recherche=${encodeURIComponent(recherche.trim())}` : '';
+  const response = await apiFetch(`/api/qcm/${qcmId}/banque${params}`);
+  return lireReponseFormation<Banque>(response, 'Impossible de charger la banque de questions.');
+}
+
+/** POST /api/qcm/:id/banque/import — lie les questions choisies (sans copie). */
+export async function importerDeLaBanque(
+  qcmId: string,
+  questionIds: string[],
+): Promise<QcmDetail> {
+  const response = await apiFetch(`/api/qcm/${qcmId}/banque/import`, {
+    method: 'POST',
+    headers: JSON_HEADERS,
+    body: JSON.stringify({ questionIds }),
+  });
+  return lireReponseFormation<QcmDetail>(response, 'Impossible d’importer les questions.');
+}
