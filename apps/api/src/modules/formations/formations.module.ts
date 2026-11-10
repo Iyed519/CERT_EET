@@ -6,6 +6,7 @@ import { SupportPedagogique } from '../../database/entities/support-pedagogique.
 import { GenerationIa } from '../../database/entities/generation-ia.entity';
 import { SuggestionQuestionIa } from '../../database/entities/suggestion-question-ia.entity';
 import { RessourceModule } from '../../database/entities/ressource-module.entity';
+import { AlerteDecrochage } from '../../database/entities/alerte-decrochage.entity';
 import { AffectationFormateur } from '../../database/entities/affectation-formateur.entity';
 import { Formation } from '../../database/entities/formation.entity';
 import { Inscription } from '../../database/entities/inscription.entity';
@@ -56,6 +57,7 @@ import { FormationsService } from './formations.service';
       GenerationIa,
       RessourceModule,
       SuggestionQuestionIa,
+      AlerteDecrochage,
       AffectationFormateur,
       User,
     ]),

@@ -3155,3 +3155,43 @@ export async function getCompteurAlertes(): Promise<{ ouvertes: number }> {
   const response = await apiFetch('/api/formateur/alertes/compteur');
   return lireReponseFormation<{ ouvertes: number }>(response, 'Impossible de compter les alertes.');
 }
+
+// ---------------------------------------------------------------------------
+// US-SUIVI-03 — Traiter une alerte (action, réouverture, historique).
+// ---------------------------------------------------------------------------
+
+export interface AlerteDetail extends AlerteDecrochage {
+  historique: Array<{
+    id: string;
+    type: 'TRAITEMENT' | 'REOUVERTURE';
+    commentaire: string;
+    date: string;
+    auteur: { id: string; prenom: string | null; nom: string | null; email: string } | null;
+  }>;
+}
+
+/** US-SUIVI-03 — GET /api/formateur/alertes/:id (alerte + historique). */
+export async function getAlerte(alerteId: string): Promise<AlerteDetail> {
+  const response = await apiFetch(`/api/formateur/alertes/${alerteId}`);
+  return lireReponseFormation<AlerteDetail>(response, 'Impossible de charger l’alerte.');
+}
+
+/** US-SUIVI-03 — POST /api/formateur/alertes/:id/traiter { action } (409 si déjà traitée). */
+export async function traiterAlerte(alerteId: string, action: string): Promise<AlerteDetail> {
+  const response = await apiFetch(`/api/formateur/alertes/${alerteId}/traiter`, {
+    method: 'POST',
+    headers: JSON_HEADERS,
+    body: JSON.stringify({ action }),
+  });
+  return lireReponseFormation<AlerteDetail>(response, 'Impossible de traiter l’alerte.');
+}
+
+/** US-SUIVI-03 — POST /api/formateur/alertes/:id/rouvrir { motif }. */
+export async function rouvrirAlerte(alerteId: string, motif: string): Promise<AlerteDetail> {
+  const response = await apiFetch(`/api/formateur/alertes/${alerteId}/rouvrir`, {
+    method: 'POST',
+    headers: JSON_HEADERS,
+    body: JSON.stringify({ motif }),
+  });
+  return lireReponseFormation<AlerteDetail>(response, 'Impossible de rouvrir l’alerte.');
+}

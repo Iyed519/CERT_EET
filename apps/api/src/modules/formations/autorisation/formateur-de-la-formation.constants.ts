@@ -18,7 +18,9 @@ export const FORMATEUR_FORMATION_KEY = 'formateur_de_la_formation';
  *  - `{ ressourceId: 'ressourceId' }` : une ressource de module -> son module
  *    -> sa formation (US-FORM-05) ;
  *  - `{ suggestionId: 'suggestionId' }` : une suggestion de question IA -> sa
- *    génération -> son module -> sa formation (US-IA-04).
+ *    génération -> son module -> sa formation (US-IA-04) ;
+ *  - `{ alerteId: 'alerteId' }` : une alerte de décrochage -> sa formation
+ *    (US-SUIVI-03).
  *
  * Fichier séparé du décorateur et du garde : chacun des deux l'importe, sans
  * que l'un ait à importer l'autre pour cela (pas de dépendance circulaire).
@@ -32,4 +34,5 @@ export type SourceFormation =
   | { supportId: string }
   | { generationId: string }
   | { ressourceId: string }
-  | { suggestionId: string };
+  | { suggestionId: string }
+  | { alerteId: string };
