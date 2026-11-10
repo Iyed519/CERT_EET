@@ -954,3 +954,16 @@ textarea.input { resize: vertical; font-family: inherit; line-height: 1.45; }
 .banque-meta { font-size: 0.82rem; color: var(--muted, #64748b); overflow-wrap: anywhere; }
 .banque-figee { margin-left: 6px; }
 .section-actions { display: flex; gap: 8px; flex-wrap: wrap; }
+
+/* US-QCM-11 — historique des tentatives. */
+.cellule-titre { display: block; font-weight: 600; }
+.filtre-apprenant { max-width: 320px; margin-bottom: 12px; }
+.historique-questions { margin: 12px 0 0; padding-left: 20px; display: grid; gap: 14px; max-height: 60vh; overflow-y: auto; }
+.historique-enonce { font-weight: 600; margin: 0 0 6px; overflow-wrap: anywhere; }
+.historique-options { list-style: none; margin: 0; padding: 0; display: grid; gap: 4px; }
+.historique-options li { padding: 4px 8px; border-radius: 6px; overflow-wrap: anywhere; }
+.historique-cochee { background: #eef2f7; }
+.historique-bonne { color: var(--primary-dark); }
+.historique-marque { font-size: 0.8rem; font-weight: 650; }
+.historique-juste { font-size: 0.8rem; font-weight: 650; color: var(--primary-dark); }
+.historique-faux { font-size: 0.8rem; font-weight: 650; color: #922b21; }

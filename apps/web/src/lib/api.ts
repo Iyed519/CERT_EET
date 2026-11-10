@@ -3533,3 +3533,82 @@ export async function importerDeLaBanque(
   });
   return lireReponseFormation<QcmDetail>(response, 'Impossible d’importer les questions.');
 }
+
+// ===================================================================
+//  US-QCM-11 — Historique des tentatives
+// ===================================================================
+
+/** Une ligne de l'historique (apprenant ou formateur). */
+export interface LigneHistorique {
+  id: string;
+  qcmId: string;
+  qcmTitre: string;
+  formationId: string;
+  formationTitre: string;
+  numero: number;
+  statut: StatutTentative;
+  dateDebut: string;
+  dateFin: string | null;
+  dureeSecondes: number | null;
+  score: number | null;
+  estReussie: boolean | null;
+  nbQuestions: number;
+  nbRepondues: number;
+}
+
+export interface LigneHistoriqueFormateur extends LigneHistorique {
+  apprenant: { id: string; prenom: string | null; nom: string | null; email: string };
+}
+
+/** Détail apprenant : questions vues et options cochées, sans corrigé. */
+export interface DetailHistoriqueApprenant extends LigneHistorique {
+  questions: Array<{
+    id: string;
+    enonce: string;
+    type: TypeQuestion;
+    options: Array<{ id: string; texte: string }>;
+  }>;
+  reponses: Record<string, string[]>;
+  correction: EtatCorrection;
+}
+
+/** Détail formateur : corrigé complet. */
+export interface DetailHistoriqueFormateur extends LigneHistoriqueFormateur {
+  questions: QuestionCorrigee[];
+}
+
+/** GET /api/mes-tentatives — mon historique, les plus récentes d'abord. */
+export async function getMesTentatives(): Promise<LigneHistorique[]> {
+  const response = await apiFetch('/api/mes-tentatives');
+  return lireReponseFormation<LigneHistorique[]>(response, 'Impossible de charger vos tentatives.');
+}
+
+/** GET /api/mes-tentatives/:id — détail d'une de mes tentatives. */
+export async function getMaTentative(tentativeId: string): Promise<DetailHistoriqueApprenant> {
+  const response = await apiFetch(`/api/mes-tentatives/${tentativeId}`);
+  return lireReponseFormation<DetailHistoriqueApprenant>(
+    response,
+    'Impossible de charger cette tentative.',
+  );
+}
+
+/** GET /api/formateur/qcm/:qcmId/tentatives — tentatives de mon QCM. */
+export async function getTentativesQcm(qcmId: string): Promise<LigneHistoriqueFormateur[]> {
+  const response = await apiFetch(`/api/formateur/qcm/${qcmId}/tentatives`);
+  return lireReponseFormation<LigneHistoriqueFormateur[]>(
+    response,
+    'Impossible de charger les tentatives.',
+  );
+}
+
+/** GET /api/formateur/qcm/:qcmId/tentatives/:id — détail avec corrigé. */
+export async function getTentativeFormateur(
+  qcmId: string,
+  tentativeId: string,
+): Promise<DetailHistoriqueFormateur> {
+  const response = await apiFetch(`/api/formateur/qcm/${qcmId}/tentatives/${tentativeId}`);
+  return lireReponseFormation<DetailHistoriqueFormateur>(
+    response,
+    'Impossible de charger cette tentative.',
+  );
+}

@@ -14,6 +14,7 @@ import { FormationsModule } from './modules/formations/formations.module';
 import { InscriptionsModule } from './modules/inscriptions/inscriptions.module';
 import { QcmModule } from './modules/qcm/qcm.module';
 import { TentativesModule } from './modules/tentatives/tentatives.module';
+import { HistoriqueTentativesModule } from './modules/tentatives/historique/historique-tentatives.module';
 import { AteliersModule } from './modules/ateliers/ateliers.module';
 import { CertificatsModule } from './modules/certificats/certificats.module';
 import { AssistanceIaModule } from './modules/assistance-ia/assistance-ia.module';
@@ -60,6 +61,7 @@ import { RapportsModule } from './modules/rapports/rapports.module';
     InscriptionsModule,
     QcmModule,
     TentativesModule,
+    HistoriqueTentativesModule,
     AteliersModule,
     CertificatsModule,
     AssistanceIaModule,

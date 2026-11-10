@@ -4,8 +4,8 @@ import { usePathname } from 'next/navigation';
 import { useAuth } from '../contexts/AuthContext';
 
 /**
- * Liens « Catalogue », « Mes inscriptions » (US-INSC-01) et « Mes
- * certificats » (US-CERT-03) dans l'en-tête.
+ * Liens « Catalogue », « Mes inscriptions » (US-INSC-01), « Mes tentatives »
+ * (US-QCM-11) et « Mes certificats » (US-CERT-03) dans l'en-tête.
  *
  * Rendus UNIQUEMENT pour un APPRENANT connecté (rôle lu dans le contexte
  * d'auth). Chaque lien est masqué sur sa propre page. Le backend reste la
@@ -27,6 +27,11 @@ export function ApprenantNav(): JSX.Element | null {
       {!pathname?.startsWith('/mes-inscriptions') && (
         <Link className="header-link" href="/mes-inscriptions">
           Mes inscriptions
+        </Link>
+      )}
+      {!pathname?.startsWith('/mes-tentatives') && (
+        <Link className="header-link" href="/mes-tentatives">
+          Mes tentatives
         </Link>
       )}
       {!pathname?.startsWith('/mes-certificats') && (
