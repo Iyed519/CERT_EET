@@ -17,11 +17,13 @@ import { FichierLivrable } from '../../../database/entities/fichier-livrable.ent
 import { Livrable } from '../../../database/entities/livrable.entity';
 import { User } from '../../../database/entities/user.entity';
 import { StatutAtelier } from '../../../database/enums/statut-atelier.enum';
+import { StatutFormation } from '../../../database/enums/statut-formation.enum';
 import { StatutInscription } from '../../../database/enums/statut-inscription.enum';
 import { StatutLivrable } from '../../../database/enums/statut-livrable.enum';
 import { MailService } from '../../../mail/mail.service';
 import { ObjetADeposer, StockageService } from '../../../stockage/stockage.service';
 import { AuditService } from '../../audit/audit.service';
+import { MESSAGE_FORMATION_ARCHIVEE_PARCOURS } from '../../formations/cycle-formation.regles';
 import { ContexteAcces, EspaceFormationService } from '../../inscriptions/espace-formation.service';
 import { MESSAGE_ATELIER_INTROUVABLE } from '../ateliers-apprenant.service';
 import { AteliersService } from '../ateliers.service';
@@ -144,6 +146,10 @@ export class LivrablesService {
     );
     if (inscription.statut === StatutInscription.TERMINEE) {
       throw new ForbiddenException(MESSAGE_FORMATION_TERMINEE);
+    }
+    // US-FORM-02 : une formation archivée a un parcours figé.
+    if (formation.statut === StatutFormation.ARCHIVEE) {
+      throw new ConflictException(MESSAGE_FORMATION_ARCHIVEE_PARCOURS);
     }
 
     const maintenant = await this.ateliersService.maintenant(this.dataSource.manager);

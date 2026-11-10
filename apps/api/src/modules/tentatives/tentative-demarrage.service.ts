@@ -11,10 +11,12 @@ import { ConfigurationAntiFraude } from '../../database/entities/configuration-a
 import { Inscription } from '../../database/entities/inscription.entity';
 import { Qcm } from '../../database/entities/qcm.entity';
 import { TentativeQcm } from '../../database/entities/tentative-qcm.entity';
+import { StatutFormation } from '../../database/enums/statut-formation.enum';
 import { StatutInscription } from '../../database/enums/statut-inscription.enum';
 import { StatutQcm } from '../../database/enums/statut-qcm.enum';
 import { StatutTentative } from '../../database/enums/statut-tentative.enum';
 import { AuditService } from '../audit/audit.service';
+import { MESSAGE_FORMATION_ARCHIVEE_PARCOURS } from '../formations/cycle-formation.regles';
 import { MESSAGE_NON_INSCRIT, MESSAGE_SUSPENDUE } from '../inscriptions/espace-formation.service';
 import {
   RefusDemarrage,
@@ -147,7 +149,7 @@ export class TentativeDemarrageService {
   ): Promise<TentativeDemarreeVue> {
     const qcm = await this.qcmRepository.findOne({
       where: { id: qcmId },
-      relations: { module: true, configuration: true },
+      relations: { module: { formation: true }, configuration: true },
     });
     if (!qcm || qcm.statut !== StatutQcm.PUBLIE || !qcm.configuration) {
       throw new NotFoundException(MESSAGE_QCM_INTROUVABLE);
@@ -156,6 +158,10 @@ export class TentativeDemarrageService {
     const formationId = qcm.module.formationId;
 
     const inscription = await this.exigerInscriptionActive(apprenantId, formationId, contexte);
+    // US-FORM-02 : une formation archivée a un parcours figé.
+    if (qcm.module.formation?.statut === StatutFormation.ARCHIVEE) {
+      throw new ConflictException(MESSAGE_FORMATION_ARCHIVEE_PARCOURS);
+    }
 
     let bilan: Bilan;
     try {
