@@ -7,6 +7,7 @@ import { SuiviFormateurController } from './suivi-formateur.controller';
 import { SuiviFormationService } from './suivi-formation.service';
 import { TableauDeBordAdminController } from './tableau-de-bord-admin.controller';
 import { TableauDeBordService } from './tableau-de-bord.service';
+import { TraitementAlertesService } from './traitement-alertes.service';
 
 /**
  * Pilotage (épopée E8) : tableaux de bord et indicateurs agrégés.
@@ -14,6 +15,7 @@ import { TableauDeBordService } from './tableau-de-bord.service';
  * US-SUIVI-01 : suivi pédagogique d'une formation (formateur affecté) ;
  * FormationsModule fournit le garde @FormateurDeLaFormation.
  * US-SUIVI-02 : alertes de décrochage (balayage planifié, listes, badge).
+ * US-SUIVI-03 : traitement des alertes (action, réouverture, historique).
  */
 @Module({
   imports: [FormationsModule],
@@ -23,6 +25,7 @@ import { TableauDeBordService } from './tableau-de-bord.service';
     SuiviFormationService,
     AlertesDecrochageService,
     AlertesBalayageService,
+    TraitementAlertesService,
   ],
   exports: [TableauDeBordService, SuiviFormationService, AlertesDecrochageService],
 })

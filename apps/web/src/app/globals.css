@@ -875,3 +875,9 @@ textarea.input { resize: vertical; font-family: inherit; line-height: 1.45; }
 .alerte-date { font-size: 0.8rem; color: var(--muted, #5b6b66); }
 .alerte-qui, .alerte-faits, .alerte-suggestion { margin: 6px 0 0; overflow-wrap: anywhere; }
 .alerte-suggestion { font-size: 0.88rem; color: var(--muted, #5b6b66); }
+
+/* US-SUIVI-03 — Traiter une alerte. */
+.alerte-actions { margin-top: 10px; }
+.alerte-saisie { margin-top: 10px; display: grid; gap: 8px; }
+.alerte-saisie textarea { width: 100%; resize: vertical; }
+.alerte-historique { margin-top: 8px; border-top: 1px solid rgba(0, 0, 0, 0.06); padding-top: 6px; }
