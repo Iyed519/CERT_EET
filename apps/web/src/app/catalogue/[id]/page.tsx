@@ -4,6 +4,7 @@ import { useParams } from 'next/navigation';
 import { useCallback, useEffect, useState } from 'react';
 import { ActionInscription } from '../../../components/ActionInscription';
 import { ConfirmationInscription } from '../../../components/ConfirmationInscription';
+import { FormationVisuel } from '../../../components/FormationVisuel';
 import { useAuth } from '../../../contexts/AuthContext';
 import { AdminError, FormationCatalogueDetailVue, getFormation } from '../../../lib/api';
 import { LIBELLES_INSCRIPTION, periodeFr } from '../../../lib/format';
@@ -67,6 +68,9 @@ export default function FormationCataloguePage(): JSX.Element {
         <p className="page-subtitle">Chargement…</p>
       ) : formation === null ? null : (
         <>
+          <div className="formation-banniere">
+            <FormationVisuel id={formation.id} titre={formation.titre} />
+          </div>
           <div className="page-head">
             <div>
               <h1 className="page-title">{formation.titre}</h1>

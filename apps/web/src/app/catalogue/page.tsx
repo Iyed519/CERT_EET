@@ -1,41 +1,73 @@
 'use client';
 import Link from 'next/link';
-import { useCallback, useEffect, useState } from 'react';
+import { useRouter, useSearchParams } from 'next/navigation';
+import { FormEvent, Suspense, useCallback, useEffect, useState } from 'react';
 import { ActionInscription } from '../../components/ActionInscription';
 import { ConfirmationInscription } from '../../components/ConfirmationInscription';
+import { FormationVisuel } from '../../components/FormationVisuel';
 import { useAuth } from '../../contexts/AuthContext';
 import { AdminError, FormationCatalogueVue, getFormations } from '../../lib/api';
 import { LIBELLES_INSCRIPTION, periodeFr } from '../../lib/format';
 
-const PAR_PAGE = 20;
+const PAR_PAGE = 12;
+/** Recherche : filtrée côté navigateur sur les 100 premières formations (maximum de l'API). */
+const MAX_RECHERCHE = 100;
+
+/** Comparaison sans casse ni accents. */
+function normaliser(texte: string): string {
+  return texte
+    .normalize('NFD')
+    .replace(/[̀-ͯ]/g, '')
+    .toLowerCase();
+}
 
 /**
  * US-INSC-01 — Catalogue des formations ouvertes (DS-08, étape 1).
  *
- * Pour chaque formation : période, places restantes et, pour un apprenant,
- * son inscription éventuelle. Une formation déjà suivie reste listée, marquée
- * de son statut (DS-08 la masquait). Le bouton « S’inscrire » n’apparaît que
- * pour un apprenant ; le serveur refait tous les contrôles (capacité,
- * ouverture, inscription existante).
+ * Cartes : visuel, titre, durée, période, places restantes et, pour un
+ * apprenant, son inscription éventuelle. Une formation déjà suivie reste
+ * listée, marquée de son statut. Le bouton « S’inscrire » n’apparaît que pour
+ * un apprenant ; le serveur refait tous les contrôles (capacité, ouverture,
+ * inscription existante). `?q=` (recherche de l'en-tête) filtre par titre et
+ * description.
  */
-export default function CataloguePage(): JSX.Element {
+function Catalogue(): JSX.Element {
   const { user } = useAuth();
+  const router = useRouter();
+  const params = useSearchParams();
+  const q = params.get('q')?.trim() ?? '';
   const estApprenant = user?.role === 'APPRENANT';
   const [formations, setFormations] = useState<FormationCatalogueVue[]>([]);
   const [total, setTotal] = useState(0);
   const [page, setPage] = useState(1);
+  const [saisie, setSaisie] = useState(q);
   const [chargement, setChargement] = useState(true);
   const [erreur, setErreur] = useState<string | null>(null);
   const [succes, setSucces] = useState<string | null>(null);
   const [aConfirmer, setAConfirmer] = useState<FormationCatalogueVue | null>(null);
 
+  useEffect(() => {
+    setSaisie(q);
+    setPage(1);
+  }, [q]);
+
   const charger = useCallback(async (): Promise<void> => {
     setChargement(true);
     setErreur(null);
     try {
-      const resultat = await getFormations({ page, limit: PAR_PAGE });
-      setFormations(resultat.items);
-      setTotal(resultat.total);
+      if (q) {
+        const resultat = await getFormations({ page: 1, limit: MAX_RECHERCHE });
+        const cible = normaliser(q);
+        const trouvees = resultat.items.filter((f) =>
+          normaliser(`${f.titre} ${f.description ?? ''}`).includes(cible),
+        );
+        setFormations(trouvees);
+        setTotal(trouvees.length);
+      } else {
+        const resultat = await getFormations({ page, limit: PAR_PAGE });
+        setFormations(resultat.items);
+        setTotal(resultat.total);
+      }
     } catch (error) {
       setErreur(
         error instanceof AdminError ? error.message : 'Impossible de charger le catalogue.',
@@ -43,27 +75,53 @@ export default function CataloguePage(): JSX.Element {
     } finally {
       setChargement(false);
     }
-  }, [page]);
+  }, [page, q]);
 
   useEffect(() => {
     void charger();
   }, [charger]);
 
-  const totalPages = Math.max(1, Math.ceil(total / PAR_PAGE));
+  function rechercher(e: FormEvent): void {
+    e.preventDefault();
+    const valeur = saisie.trim();
+    router.push(valeur ? `/catalogue?q=${encodeURIComponent(valeur)}` : '/catalogue');
+  }
+
+  const totalPages = q ? 1 : Math.max(1, Math.ceil(total / PAR_PAGE));
 
   return (
     <>
-      <div className="page-head">
+      <section className="catalogue-entete">
         <div>
           <h1 className="page-title">Catalogue des formations</h1>
-          <p className="page-subtitle">Les formations ouvertes aux inscriptions.</p>
+          <p className="page-subtitle">
+            {q
+              ? `${total} résultat(s) pour « ${q} »`
+              : 'Les formations ouvertes aux inscriptions, certifiantes et vérifiables.'}
+          </p>
         </div>
-        <div className="row-actions">
-          <button className="btn-sm" onClick={() => void charger()} disabled={chargement}>
-            Actualiser
+        <form className="catalogue-recherche" role="search" onSubmit={rechercher}>
+          <label htmlFor="catalogue-q" className="sr-only">
+            Rechercher dans le catalogue
+          </label>
+          <input
+            id="catalogue-q"
+            type="search"
+            className="input"
+            placeholder="Titre, thème…"
+            value={saisie}
+            onChange={(e) => setSaisie(e.target.value)}
+          />
+          <button type="submit" className="btn-sm btn-primary-sm">
+            Rechercher
           </button>
-        </div>
-      </div>
+          {q && (
+            <Link href="/catalogue" className="btn-sm btn-link">
+              Effacer
+            </Link>
+          )}
+        </form>
+      </section>
 
       {succes !== null && (
         <p className="alert alert-success">
@@ -73,74 +131,69 @@ export default function CataloguePage(): JSX.Element {
       {erreur !== null && <p className="alert alert-error">{erreur}</p>}
 
       {chargement ? (
-        <p className="page-subtitle">Chargement…</p>
+        <div className="cartes" aria-busy="true" aria-label="Chargement du catalogue">
+          {[0, 1, 2, 3].map((i) => (
+            <div key={i} className="carte carte-squelette" />
+          ))}
+        </div>
       ) : erreur !== null ? null : formations.length === 0 ? (
-        <p className="page-subtitle">Aucune formation n’est ouverte aux inscriptions pour l’instant.</p>
+        <div className="vide">
+          <p>
+            {q
+              ? 'Aucune formation ne correspond à votre recherche.'
+              : 'Aucune formation n’est ouverte aux inscriptions pour l’instant.'}
+          </p>
+        </div>
       ) : (
         <>
-          <div className="table-wrap">
-            <table className="data-table">
-              <thead>
-                <tr>
-                  <th>Formation</th>
-                  <th>Période</th>
-                  <th>Places restantes</th>
-                  {estApprenant && <th>Mon inscription</th>}
-                  <th aria-label="Actions" />
-                </tr>
-              </thead>
-              <tbody>
-                {formations.map((f) => (
-                  <tr key={f.id}>
-                    <td>
-                      <Link className="table-link" href={`/catalogue/${f.id}`}>
-                        {f.titre}
-                      </Link>
-                      {f.dureeHeures !== null && (
-                        <div className="muted-cell">{f.dureeHeures} h</div>
-                      )}
-                    </td>
-                    <td>
-                      {periodeFr(f.dateDebut, f.dateFin) ?? <span className="muted-cell">—</span>}
-                    </td>
-                    <td>
-                      {f.placesRestantes === 0 ? (
-                        <span className="statut-badge statut-COMPLETE">Complète</span>
-                      ) : (
-                        `${f.placesRestantes} / ${f.capaciteMax}`
-                      )}
-                    </td>
-                    {estApprenant && (
-                      <td>
-                        {f.statutInscription === null ? (
-                          <span className="muted-cell">—</span>
-                        ) : (
-                          <span className={`statut-badge statut-${f.statutInscription}`}>
-                            {LIBELLES_INSCRIPTION[f.statutInscription]}
-                          </span>
-                        )}
-                      </td>
+          <div className="cartes">
+            {formations.map((f) => (
+              <article key={f.id} className="carte">
+                <Link href={`/catalogue/${f.id}`} className="carte-image-lien" tabIndex={-1}>
+                  <FormationVisuel id={f.id} titre={f.titre} />
+                  {f.placesRestantes === 0 && <span className="carte-ruban">Complète</span>}
+                </Link>
+                <div className="carte-corps">
+                  <h2 className="carte-titre">
+                    <Link href={`/catalogue/${f.id}`}>{f.titre}</Link>
+                  </h2>
+                  {f.description && <p className="carte-description">{f.description}</p>}
+                  <ul className="carte-infos">
+                    {f.dureeHeures !== null && <li>{f.dureeHeures} h</li>}
+                    {periodeFr(f.dateDebut, f.dateFin) && <li>{periodeFr(f.dateDebut, f.dateFin)}</li>}
+                    <li>
+                      {f.placesRestantes === 0
+                        ? 'Plus de place'
+                        : `${f.placesRestantes} / ${f.capaciteMax} places`}
+                    </li>
+                    <li>Certifiant · seuil {f.noteMinCertification} / 100</li>
+                  </ul>
+                  <div className="carte-pied">
+                    {estApprenant && f.statutInscription !== null ? (
+                      <span className={`statut-badge statut-${f.statutInscription}`}>
+                        {LIBELLES_INSCRIPTION[f.statutInscription]}
+                      </span>
+                    ) : (
+                      <span />
                     )}
-                    <td>
-                      <div className="row-actions">
-                        <Link className="btn-sm btn-link" href={`/catalogue/${f.id}`}>
-                          Détails
-                        </Link>
-                        {estApprenant && (
-                          <ActionInscription
-                            formation={f}
-                            onInscrire={() => {
-                              setSucces(null);
-                              setAConfirmer(f);
-                            }}
-                          />
-                        )}
-                      </div>
-                    </td>
-                  </tr>
-                ))}
-              </tbody>
-            </table>
+                    <div className="row-actions">
+                      <Link className="btn-sm btn-link" href={`/catalogue/${f.id}`}>
+                        Détails
+                      </Link>
+                      {estApprenant && (
+                        <ActionInscription
+                          formation={f}
+                          onInscrire={() => {
+                            setSucces(null);
+                            setAConfirmer(f);
+                          }}
+                        />
+                      )}
+                    </div>
+                  </div>
+                </div>
+              </article>
+            ))}
           </div>
 
           {totalPages > 1 && (
@@ -182,5 +235,13 @@ export default function CataloguePage(): JSX.Element {
         />
       )}
     </>
+  );
+}
+
+export default function CataloguePage(): JSX.Element {
+  return (
+    <Suspense fallback={<p className="page-subtitle">Chargement…</p>}>
+      <Catalogue />
+    </Suspense>
   );
 }
