@@ -43,7 +43,10 @@ describe('VerificationService (US-CERT-04)', () => {
     const moduleRef: TestingModule = await Test.createTestingModule({
       providers: [
         VerificationService,
-        { provide: DataSource, useValue: { manager: { findOne } } },
+        {
+          provide: DataSource,
+          useValue: { manager: { findOne }, query: jest.fn().mockResolvedValue([]) },
+        },
         { provide: StockageService, useValue: { lire } },
         { provide: AuditService, useValue: { record } },
       ],
@@ -70,6 +73,7 @@ describe('VerificationService (US-CERT-04)', () => {
       dateEmission: DATE,
       empreinteSha256: SHA,
       dateRevocation: null,
+      remplacePar: null,
     });
     expect(JSON.stringify(v)).not.toMatch(/ines@prive|app-secret|certificats\//);
     expect(record).toHaveBeenCalledWith(

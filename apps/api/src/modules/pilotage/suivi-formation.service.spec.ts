@@ -293,7 +293,7 @@ describe('SuiviFormationService (US-SUIVI-01)', () => {
           ],
         ],
         [
-          'FROM certificats WHERE formation_id',
+          'FROM certificats c WHERE formation_id',
           (): unknown[] => [
             { id: 'c1', statut: 'ACTIF', score_final: '77.5', date_generation: il(1) },
           ],

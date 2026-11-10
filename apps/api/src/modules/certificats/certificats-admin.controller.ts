@@ -15,7 +15,11 @@ import { ApiBearerAuth, ApiOperation, ApiResponse, ApiTags } from '@nestjs/swagg
 import { Role } from '../../database/enums/role.enum';
 import { AuthenticatedRequest } from '../auth/auth.types';
 import { Roles } from '../auth/decorators/roles.decorator';
-import { FiltreCertificatsDto, RevoquerCertificatDto } from './certificats.dto';
+import {
+  FiltreCertificatsDto,
+  ReemettreCertificatDto,
+  RevoquerCertificatDto,
+} from './certificats.dto';
 import { CertificatsService } from './certificats.service';
 import { EligibiliteService } from './eligibilite.service';
 import {
@@ -126,6 +130,42 @@ export class CertificatsAdminController {
   ): Promise<CertificatSupervisionVue> {
     if (!req.user) throw new UnauthorizedException('Non authentifié.');
     const vue = await this.certificatsService.revoquer(req.user.sub, certificatId, dto, {
+      adresseIp: req.ip ?? null,
+    });
+    return this.supervisionService.enrichirUne(vue);
+  }
+
+  @Post('certificats/:certificatId/reemettre')
+  @HttpCode(HttpStatus.CREATED)
+  @ApiOperation({
+    summary: 'Réémettre un certificat révoqué pour erreur (US-CERT-08, DS-07 -> DS-04)',
+    description:
+      'Seulement un certificat REVOQUE pour ERREUR_ADMIN, une seule fois. Un NOUVEAU certificat ' +
+      '(mêmes titulaire, formation, score, mention) est créé et généré ; le révoqué reste ' +
+      'tel quel et sa vérification publique renvoie vers le nouveau.',
+  })
+  @ApiResponse({
+    status: 201,
+    description: 'Nouveau certificat en file ; audit CERTIFICAT_REEMIS.',
+  })
+  @ApiResponse({
+    status: 400,
+    description: 'Confirmation absente ou fausse, identifiant mal formé.',
+  })
+  @ApiResponse({ status: 401, description: 'Non authentifié.' })
+  @ApiResponse({ status: 403, description: 'Rôle autre qu’administrateur.' })
+  @ApiResponse({ status: 404, description: 'Certificat introuvable.' })
+  @ApiResponse({
+    status: 409,
+    description: 'Pas révoqué, révoqué pour un autre motif, ou déjà réémis.',
+  })
+  async reemettre(
+    @Param('certificatId', ParseUUIDPipe) certificatId: string,
+    @Body() _dto: ReemettreCertificatDto,
+    @Req() req: AuthenticatedRequest,
+  ): Promise<CertificatSupervisionVue> {
+    if (!req.user) throw new UnauthorizedException('Non authentifié.');
+    const vue = await this.certificatsService.reemettre(req.user.sub, certificatId, {
       adresseIp: req.ip ?? null,
     });
     return this.supervisionService.enrichirUne(vue);

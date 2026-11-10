@@ -125,7 +125,9 @@ describe('EspaceFormationService', () => {
       const espace = await service.monEspace('appr-1', 'form-1', contexte);
       expect(mockEligibilite.evaluer).toHaveBeenCalledWith('appr-1', 'form-1');
       expect(mockLivrableRepo.query).toHaveBeenCalledWith(
-        'SELECT id, statut FROM certificats WHERE apprenant_id = $1 AND formation_id = $2',
+        expect.stringContaining(
+          'NOT EXISTS (SELECT 1 FROM certificats n WHERE n.remplace_certificat_id = c.id)',
+        ),
         ['appr-1', 'form-1'],
       );
       expect(espace.certification).toEqual({

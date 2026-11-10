@@ -148,6 +148,7 @@ export class SuiviFormationService {
            FROM inscriptions i
            JOIN users u ON u.id = i.apprenant_id
            LEFT JOIN certificats c ON c.apprenant_id = i.apprenant_id AND c.formation_id = i.formation_id
+                AND NOT EXISTS (SELECT 1 FROM certificats n WHERE n.remplace_certificat_id = c.id)
           WHERE i.formation_id = $1
           ORDER BY u.nom COLLATE "C" NULLS LAST, u.prenom COLLATE "C" NULLS LAST, u.email COLLATE "C"`,
         [formationId],
@@ -247,6 +248,7 @@ export class SuiviFormationService {
          FROM inscriptions i
          JOIN users u ON u.id = i.apprenant_id
          LEFT JOIN certificats c ON c.apprenant_id = i.apprenant_id AND c.formation_id = i.formation_id
+                AND NOT EXISTS (SELECT 1 FROM certificats n WHERE n.remplace_certificat_id = c.id)
         WHERE i.formation_id = $1 AND i.apprenant_id = $2`,
       [formationId, apprenantId],
     );
@@ -300,7 +302,8 @@ export class SuiviFormationService {
       ),
       this.q<{ id: string; statut: string; score_final: string; date_generation: Date | null }>(
         `SELECT id, statut::text AS statut, score_final, date_generation
-           FROM certificats WHERE formation_id = $1 AND apprenant_id = $2`,
+           FROM certificats c WHERE formation_id = $1 AND apprenant_id = $2
+            AND NOT EXISTS (SELECT 1 FROM certificats n WHERE n.remplace_certificat_id = c.id)`,
         [formationId, apprenantId],
       ),
       this.q<{

@@ -72,3 +72,10 @@ export class RevoquerCertificatDto {
   @IsNotEmpty({ message: 'Le mot de passe administrateur est requis.' })
   motDePasseAdmin: string;
 }
+
+/** Réémission (US-CERT-08) : confirmation explicite exigée. */
+export class ReemettreCertificatDto {
+  @ApiProperty({ description: 'Confirme la réémission d’un nouveau certificat.' })
+  @Equals(true, { message: 'Confirmez la réémission du certificat.' })
+  confirmer: boolean;
+}

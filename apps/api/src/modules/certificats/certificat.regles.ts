@@ -153,3 +153,19 @@ export function estEmis(statut: StatutCertificat): boolean {
     statut === StatutCertificat.EXPIRE
   );
 }
+
+// ---------------------------------------------------------------------
+//  US-CERT-08 — Réémission après révocation pour erreur
+// ---------------------------------------------------------------------
+
+export const MESSAGE_PAS_REVOQUE_REEMISSION = 'Seul un certificat révoqué peut être réémis.';
+export const MESSAGE_MOTIF_REEMISSION =
+  'Seule une révocation pour erreur administrative permet de réémettre le certificat.';
+export const MESSAGE_DEJA_REEMIS = 'Ce certificat a déjà été réémis.';
+
+/** Réémission (US-CERT-08) : révoqué, et pour ERREUR_ADMIN seulement (409 sinon). */
+export function verifierReemettable(statut: string, motif: string | null): void {
+  if (statut !== StatutCertificat.REVOQUE)
+    throw new ConflictException(MESSAGE_PAS_REVOQUE_REEMISSION);
+  if (motif !== MotifRevocation.ERREUR_ADMIN) throw new ConflictException(MESSAGE_MOTIF_REEMISSION);
+}

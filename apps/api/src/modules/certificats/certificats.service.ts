@@ -1,4 +1,5 @@
 import {
+  ConflictException,
   Injectable,
   Logger,
   NotFoundException,
@@ -10,7 +11,15 @@ import * as bcrypt from 'bcryptjs';
 import { Readable } from 'stream';
 import { ConfigService } from '@nestjs/config';
 import { createHash } from 'crypto';
-import { DataSource, FindOperator, FindOptionsWhere, ILike, IsNull, Not } from 'typeorm';
+import {
+  DataSource,
+  FindOperator,
+  FindOptionsWhere,
+  ILike,
+  IsNull,
+  Not,
+  QueryFailedError,
+} from 'typeorm';
 import { MailConfig } from '../../config/configuration';
 import { Certificat } from '../../database/entities/certificat.entity';
 import { Formation } from '../../database/entities/formation.entity';
@@ -39,6 +48,8 @@ import {
   MESSAGE_REPRISE_AUTOMATIQUE,
   REPRISE_CERTIFICATS,
   estEmis,
+  MESSAGE_DEJA_REEMIS,
+  verifierReemettable,
 } from './certificat.regles';
 import { RevoquerCertificatDto } from './certificats.dto';
 import { FileCertificatsService } from './file-certificats.service';
@@ -60,6 +71,9 @@ export interface CertificatAdminVue {
   echecDefinitifLe: Date | null;
   /** US-CERT-07 — fin de validité ; null = sans expiration. */
   dateExpiration: Date | null;
+  /** US-CERT-08 — certificat révoqué que celui-ci remplace, et sa réémission éventuelle. */
+  remplaceCertificatId: string | null;
+  remplacePar: string | null;
   /** US-CERT-06 — null tant que le certificat n'est pas révoqué. */
   revocation: {
     date: Date;
@@ -166,13 +180,13 @@ export class CertificatsService implements OnApplicationBootstrap {
               CASE WHEN f.duree_validite_mois IS NULL THEN NULL
                    ELSE now() + make_interval(months => f.duree_validite_mois) END
          FROM formations f WHERE f.id = $2
-       ON CONFLICT ON CONSTRAINT "UQ_certificats_apprenant_formation" DO NOTHING
+       ON CONFLICT (apprenant_id, formation_id) WHERE remplace_certificat_id IS NULL DO NOTHING
        RETURNING id`,
       [apprenantId, formationId, score, mentionPour(score), ORGANISME_EMETTEUR],
     )) as Array<{ id: string }>;
     if (lignes.length === 0) {
       const existant = await manager.findOneOrFail(Certificat, {
-        where: { apprenantId, formationId },
+        where: { apprenantId, formationId, remplaceCertificatId: IsNull() },
         select: { id: true },
       });
       return { certificatId: existant.id, cree: false };
@@ -408,6 +422,7 @@ export class CertificatsService implements OnApplicationBootstrap {
       order: { dateEmission: 'DESC', id: 'ASC' },
       take: 200,
     });
+    const remplacements = await this.remplacements(certificats.map((c) => c.id));
     return certificats.map((c) => ({
       id: c.id,
       statut: c.statut,
@@ -427,6 +442,8 @@ export class CertificatsService implements OnApplicationBootstrap {
       derniereErreur: c.derniereErreur,
       echecDefinitifLe: c.echecDefinitifLe,
       dateExpiration: c.dateExpiration,
+      remplaceCertificatId: c.remplaceCertificatId,
+      remplacePar: remplacements.get(c.id) ?? null,
       revocation:
         c.statut === StatutCertificat.REVOQUE
           ? {
@@ -473,6 +490,83 @@ export class CertificatsService implements OnApplicationBootstrap {
     });
     await this.file.ajouter(certificatId, rang);
     return this.vueAdmin(certificatId);
+  }
+
+  /** US-CERT-08 — Réémission de chacun de ces certificats (identifiant du remplaçant). */
+  async remplacements(ids: string[]): Promise<Map<string, string>> {
+    if (ids.length === 0) return new Map();
+    const lignes = (await this.dataSource.query(
+      `SELECT id, remplace_certificat_id AS "remplace" FROM certificats
+        WHERE remplace_certificat_id = ANY($1::uuid[])`,
+      [ids],
+    )) as Array<{ id: string; remplace: string }>;
+    return new Map(lignes.map((l) => [l.remplace, l.id]));
+  }
+
+  /**
+   * US-CERT-08 — Réémission d'un certificat révoqué POUR ERREUR (DS-07, cas
+   * particulier -> DS-04). Sous le verrou de la ligne révoquée : inconnu ->
+   * 404 ; pas révoqué -> 409 ; motif autre que ERREUR_ADMIN -> 409 ; déjà
+   * réémis -> 409. Crée un NOUVEAU certificat (mêmes titulaire, formation,
+   * score et mention ; nouvelle date d'émission et d'expiration) qui porte
+   * `remplace_certificat_id` ; le révoqué reste tel quel. Index unique :
+   * deux réémissions simultanées -> une seule. Puis génération en file.
+   */
+  async reemettre(
+    acteurId: string,
+    certificatId: string,
+    contexte: { adresseIp: string | null },
+  ): Promise<CertificatAdminVue> {
+    let nouveauId: string;
+    try {
+      nouveauId = await this.dataSource.transaction(async (manager) => {
+        const [ancien] = (await manager.query(
+          `SELECT id, statut::text AS statut, motif_revocation::text AS motif
+             FROM certificats WHERE id = $1 FOR UPDATE`,
+          [certificatId],
+        )) as Array<{ id: string; statut: string; motif: string | null }>;
+        if (!ancien) throw new NotFoundException(MESSAGE_CERTIFICAT_INTROUVABLE);
+        verifierReemettable(ancien.statut, ancien.motif);
+        const [deja] = (await manager.query(
+          'SELECT id FROM certificats WHERE remplace_certificat_id = $1',
+          [certificatId],
+        )) as Array<{ id: string }>;
+        if (deja) throw new ConflictException(MESSAGE_DEJA_REEMIS);
+        const [cree] = (await manager.query(
+          `INSERT INTO certificats
+             (apprenant_id, formation_id, score_final, mention, organisme_emetteur, date_emission,
+              date_expiration, remplace_certificat_id)
+           SELECT c.apprenant_id, c.formation_id, c.score_final, c.mention, c.organisme_emetteur,
+                  now(),
+                  CASE WHEN f.duree_validite_mois IS NULL THEN NULL
+                       ELSE now() + make_interval(months => f.duree_validite_mois) END,
+                  c.id
+             FROM certificats c JOIN formations f ON f.id = c.formation_id
+            WHERE c.id = $1
+           RETURNING id`,
+          [certificatId],
+        )) as Array<{ id: string }>;
+        return cree.id;
+      });
+    } catch (erreur) {
+      if (
+        erreur instanceof QueryFailedError &&
+        (erreur.driverError as { code?: string } | undefined)?.code === '23505'
+      ) {
+        throw new ConflictException(MESSAGE_DEJA_REEMIS);
+      }
+      throw erreur;
+    }
+    await this.auditService.record({
+      action: 'CERTIFICAT_REEMIS',
+      acteur: acteurId,
+      cible: nouveauId,
+      adresseIp: contexte.adresseIp,
+      resultat: 'Succès',
+      detailsAvantApres: { remplace: certificatId },
+    });
+    await this.file.ajouter(nouveauId);
+    return this.vueAdmin(nouveauId);
   }
 
   /**

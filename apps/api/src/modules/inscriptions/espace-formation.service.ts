@@ -265,7 +265,10 @@ export class EspaceFormationService {
     const maintenantBase = ateliers.length === 0 ? new Date() : await this.maintenantPostgres();
     const verdict = await this.eligibiliteService.evaluer(apprenantId, formationId);
     const [certificat] = (await this.livrableRepository.query(
-      'SELECT id, statut FROM certificats WHERE apprenant_id = $1 AND formation_id = $2',
+      // US-CERT-08 : le certificat COURANT (celui qu'aucune réémission ne remplace).
+      `SELECT c.id, c.statut FROM certificats c
+        WHERE c.apprenant_id = $1 AND c.formation_id = $2
+          AND NOT EXISTS (SELECT 1 FROM certificats n WHERE n.remplace_certificat_id = c.id)`,
       [apprenantId, formationId],
     )) as Array<{ id: string; statut: StatutCertificat }>;
 

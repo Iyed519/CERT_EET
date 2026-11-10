@@ -33,7 +33,12 @@ const nombre = {
  *    REVOQUE ne change plus (US-CERT-06, migration 1787100000000) ;
  *  - FK RESTRICT vers l'apprenant et la formation.
  */
-@Index('UQ_certificats_apprenant_formation', ['apprenantId', 'formationId'], { unique: true })
+// US-CERT-08 : unicité sur les certificats d'origine seulement (une réémission
+// porte `remplace_certificat_id`).
+@Index('UQ_certificats_apprenant_formation', ['apprenantId', 'formationId'], {
+  unique: true,
+  where: '"remplace_certificat_id" IS NULL',
+})
 @Entity('certificats')
 export class Certificat {
   @PrimaryGeneratedColumn('uuid')
@@ -94,6 +99,10 @@ export class Certificat {
   derniereErreur: string | null;
 
   // US-CERT-06 — révocation (CHECK : les quatre si REVOQUE, aucune sinon).
+  /** US-CERT-08 — Certificat révoqué (pour erreur) que celui-ci remplace ; null sinon. */
+  @Column({ name: 'remplace_certificat_id', type: 'uuid', nullable: true })
+  remplaceCertificatId: string | null;
+
   /** US-CERT-07 — Fin de validité (durée de la formation à l'émission) ; null = sans expiration. */
   @Column({ name: 'date_expiration', type: 'timestamptz', nullable: true })
   dateExpiration: Date | null;
