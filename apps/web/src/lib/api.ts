@@ -3257,3 +3257,24 @@ export async function telechargerRapport(rapport: Rapport): Promise<void> {
   lien.remove();
   setTimeout(() => URL.revokeObjectURL(url), 1000);
 }
+
+// ---------------------------------------------------------------------------
+// US-RPT-02 — Rapports institutionnels (administrateur, période).
+// ---------------------------------------------------------------------------
+
+export type ModeleInstitutionnel = 'SYNTHESE' | 'FORMATIONS' | 'CERTIFICATS';
+
+/** US-RPT-02 — POST /api/admin/rapports (202 ; 400 période invalide ; 429). */
+export async function demanderRapportInstitutionnel(demande: {
+  modele: ModeleInstitutionnel;
+  format: FormatRapport;
+  du?: string;
+  au?: string;
+}): Promise<Rapport> {
+  const response = await apiFetch('/api/admin/rapports', {
+    method: 'POST',
+    headers: JSON_HEADERS,
+    body: JSON.stringify(demande),
+  });
+  return lireReponseFormation<Rapport>(response, 'Impossible de demander le rapport.');
+}

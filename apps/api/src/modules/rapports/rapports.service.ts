@@ -17,7 +17,19 @@ import { MailService } from '../../mail/mail.service';
 import { StockageService } from '../../stockage/stockage.service';
 import { AuditService } from '../audit/audit.service';
 import { SuiviFormationService } from '../pilotage/suivi-formation.service';
+import { TableauDeBordService } from '../pilotage/tableau-de-bord.service';
 import { FileRapportsService } from './file-rapports.service';
+import {
+  BilanFormation,
+  CertificatRegistre,
+  ContenuInstitutionnel,
+  LIBELLES_MODELE,
+  ModeleInstitutionnel,
+  csvInstitutionnel,
+  libellePeriode,
+  nomFichierInstitutionnel,
+  pdfInstitutionnel,
+} from './rapport-institutionnel';
 import {
   ContenuSession,
   DonneesModule,
@@ -49,6 +61,13 @@ export interface ParametresSession {
   portee: PorteeRapport;
   apprenantId?: string;
   moduleId?: string;
+}
+
+/** US-RPT-02 — Paramètres d'un rapport institutionnel (période résolue). */
+export interface ParametresInstitutionnel {
+  modele: ModeleInstitutionnel;
+  du: string;
+  au: string;
 }
 
 /** Un rapport tel que le voit son demandeur. */
@@ -114,6 +133,7 @@ export class RapportsService implements OnApplicationBootstrap {
     private readonly file: FileRapportsService,
     private readonly stockageService: StockageService,
     private readonly suiviService: SuiviFormationService,
+    private readonly tableauDeBord: TableauDeBordService,
     private readonly auditService: AuditService,
     private readonly mailService: MailService,
   ) {}
@@ -133,24 +153,13 @@ export class RapportsService implements OnApplicationBootstrap {
     contexte: { adresseIp: string | null } = { adresseIp: null },
   ): Promise<RapportVue> {
     const parametres = await this.verifierParametres(formationId, demande);
-    const id = await this.dataSource.transaction(async (m) => {
-      await m.query(`SELECT pg_advisory_xact_lock(hashtext('rapports:' || $1))`, [demandeurId]);
-      const [{ n }] = (await m.query(
-        `SELECT count(*)::int AS n FROM rapports
-          WHERE demandeur_id = $1 AND date_demande > now() - interval '1 minute'`,
-        [demandeurId],
-      )) as Array<{ n: number }>;
-      if (limiteAtteinte(n)) {
-        throw new HttpException(MESSAGE_LIMITE_RAPPORTS, HttpStatus.TOO_MANY_REQUESTS);
-      }
-      const [ligne] = (await m.query(
-        `INSERT INTO rapports (type, format, demandeur_id, formation_id, parametres)
-         VALUES ('SESSION', $1::rapports_format_enum, $2, $3, $4::jsonb)
-         RETURNING id`,
-        [demande.format, demandeurId, formationId, JSON.stringify(parametres)],
-      )) as Array<{ id: string }>;
-      return ligne.id;
-    });
+    const id = await this.inserer(
+      demandeurId,
+      TypeRapport.SESSION,
+      demande.format,
+      formationId,
+      parametres,
+    );
     await this.file.ajouter(id);
     await this.auditService.record({
       action: 'RAPPORT_DEMANDE',
@@ -166,6 +175,76 @@ export class RapportsService implements OnApplicationBootstrap {
       },
     });
     return this.monRapport(demandeurId, id);
+  }
+
+  /**
+   * US-RPT-02 — Demande d'un rapport institutionnel (administrateur) : la
+   * période est résolue et validée ici (400 si invalide), puis conservée
+   * telle quelle dans les paramètres (rapport reproductible).
+   */
+  async demanderInstitutionnel(
+    demandeurId: string,
+    demande: { format: FormatRapport; modele: ModeleInstitutionnel; du?: string; au?: string },
+    contexte: { adresseIp: string | null } = { adresseIp: null },
+  ): Promise<RapportVue> {
+    const periode = this.tableauDeBord.periode(demande.du, demande.au);
+    const parametres: ParametresInstitutionnel = {
+      modele: demande.modele,
+      du: periode.du,
+      au: periode.au,
+    };
+    const id = await this.inserer(
+      demandeurId,
+      TypeRapport.INSTITUTIONNEL,
+      demande.format,
+      null,
+      parametres,
+    );
+    await this.file.ajouter(id);
+    await this.auditService.record({
+      action: 'RAPPORT_DEMANDE',
+      acteur: demandeurId,
+      cible: id,
+      adresseIp: contexte.adresseIp,
+      resultat: 'Succès',
+      detailsAvantApres: {
+        type: TypeRapport.INSTITUTIONNEL,
+        format: demande.format,
+        ...parametres,
+      },
+    });
+    return this.monRapport(demandeurId, id);
+  }
+
+  /**
+   * Insertion EN_ATTENTE sous verrou consultatif du demandeur : au plus
+   * 5 demandes par minute, même simultanées (429 au-delà).
+   */
+  private async inserer(
+    demandeurId: string,
+    type: TypeRapport,
+    format: FormatRapport,
+    formationId: string | null,
+    parametres: object,
+  ): Promise<string> {
+    return this.dataSource.transaction(async (m) => {
+      await m.query(`SELECT pg_advisory_xact_lock(hashtext('rapports:' || $1))`, [demandeurId]);
+      const [{ n }] = (await m.query(
+        `SELECT count(*)::int AS n FROM rapports
+          WHERE demandeur_id = $1 AND date_demande > now() - interval '1 minute'`,
+        [demandeurId],
+      )) as Array<{ n: number }>;
+      if (limiteAtteinte(n)) {
+        throw new HttpException(MESSAGE_LIMITE_RAPPORTS, HttpStatus.TOO_MANY_REQUESTS);
+      }
+      const [ligne] = (await m.query(
+        `INSERT INTO rapports (type, format, demandeur_id, formation_id, parametres)
+         VALUES ($1::rapports_type_enum, $2::rapports_format_enum, $3, $4, $5::jsonb)
+         RETURNING id`,
+        [type, format, demandeurId, formationId, JSON.stringify(parametres)],
+      )) as Array<{ id: string }>;
+      return ligne.id;
+    });
   }
 
   /** « Mes rapports » : les 50 plus récents du demandeur. */
@@ -229,14 +308,16 @@ export class RapportsService implements OnApplicationBootstrap {
     const [prises] = (await this.dataSource.query(
       `UPDATE rapports SET statut = 'EN_COURS', nb_tentatives = nb_tentatives + 1
         WHERE id = $1 AND statut = 'EN_ATTENTE'
-      RETURNING format::text AS format, demandeur_id, formation_id, parametres`,
+      RETURNING type::text AS type, format::text AS format, demandeur_id, formation_id,
+                parametres`,
       [rapportId],
     )) as [
       Array<{
+        type: TypeRapport;
         format: FormatRapport;
         demandeur_id: string;
-        formation_id: string;
-        parametres: ParametresSession;
+        formation_id: string | null;
+        parametres: ParametresSession | ParametresInstitutionnel;
       }>,
       number,
     ];
@@ -269,17 +350,36 @@ export class RapportsService implements OnApplicationBootstrap {
   /** Contenu, fichier, dépôt, puis PRET (dans cet ordre). */
   private async produire(
     rapportId: string,
-    ligne: { format: FormatRapport; formation_id: string; parametres: ParametresSession },
+    ligne: {
+      type: TypeRapport;
+      format: FormatRapport;
+      formation_id: string | null;
+      parametres: ParametresSession | ParametresInstitutionnel;
+    },
     maintenant: Date,
   ): Promise<{ titre: string; nom: string; taille: number; empreinte: string }> {
-    const contenu = await this.contenu(ligne.formation_id, ligne.parametres);
-    const titre =
-      contenu.portee === 'GLOBAL' ? contenu.suivi.formation.titre : contenu.formation.titre;
-    const nom = nomFichier(titre, ligne.parametres.portee, ligne.format, maintenant);
-    const tampon =
-      ligne.format === FormatRapport.PDF
-        ? await pdfSession(contenu, maintenant)
-        : Buffer.from(csvSession(contenu), 'utf8');
+    let titre: string;
+    let nom: string;
+    let tampon: Buffer;
+    if (ligne.type === TypeRapport.INSTITUTIONNEL) {
+      const p = ligne.parametres as ParametresInstitutionnel;
+      const contenu = await this.contenuInstitutionnel(p);
+      titre = `${LIBELLES_MODELE[p.modele]} (${libellePeriode(p)})`;
+      nom = nomFichierInstitutionnel(p.modele, p, ligne.format);
+      tampon =
+        ligne.format === FormatRapport.PDF
+          ? await pdfInstitutionnel(contenu, maintenant)
+          : Buffer.from(csvInstitutionnel(contenu), 'utf8');
+    } else {
+      const p = ligne.parametres as ParametresSession;
+      const contenu = await this.contenu(ligne.formation_id as string, p);
+      titre = contenu.portee === 'GLOBAL' ? contenu.suivi.formation.titre : contenu.formation.titre;
+      nom = nomFichier(titre, p.portee, ligne.format, maintenant);
+      tampon =
+        ligne.format === FormatRapport.PDF
+          ? await pdfSession(contenu, maintenant)
+          : Buffer.from(csvSession(contenu), 'utf8');
+    }
     const empreinte = createHash('sha256').update(tampon).digest('hex');
     const cle = cleStockageRapport(rapportId, nom);
     await this.stockageService.deposerTampon(cle, tampon, typeMime(ligne.format), empreinte);
@@ -316,6 +416,69 @@ export class RapportsService implements OnApplicationBootstrap {
       l.formation_id,
     ])) as Array<{ titre: string }>;
     await this.notifier(l.demandeur_id, f?.titre ?? 'formation', null, false);
+  }
+
+  /** US-RPT-02 — Données agrégées sur la période (jours inclus, Tunis). */
+  private async contenuInstitutionnel(p: ParametresInstitutionnel): Promise<ContenuInstitutionnel> {
+    const periode = { du: p.du, au: p.au };
+    if (p.modele === 'SYNTHESE') {
+      return { modele: 'SYNTHESE', periode, tdb: await this.tableauDeBord.global(p.du, p.au) };
+    }
+    const debut = `(($1::date)::timestamp AT TIME ZONE 'Africa/Tunis')`;
+    const fin = `((($2::date) + 1)::timestamp AT TIME ZONE 'Africa/Tunis')`;
+    const dans = (c: string): string => `${c} >= ${debut} AND ${c} < ${fin}`;
+    if (p.modele === 'FORMATIONS') {
+      const lignes = (await this.dataSource.query(
+        `SELECT f.titre, f.statut::text AS statut,
+                (SELECT count(*)::int FROM inscriptions i WHERE i.formation_id = f.id) AS inscrits,
+                (SELECT count(*)::int FROM inscriptions i
+                  WHERE i.formation_id = f.id AND ${dans('i.date_inscription')}) AS "nouvellesInscriptions",
+                (SELECT count(*)::int FROM inscriptions i
+                  WHERE i.formation_id = f.id AND i.statut = 'TERMINEE') AS terminees,
+                (SELECT count(*)::int FROM inscriptions i
+                  WHERE i.formation_id = f.id AND i.statut = 'SUSPENDUE') AS suspendues,
+                t.notees AS "tentativesNotees", t.reussies AS "tentativesReussies",
+                t.score AS "scoreMoyen",
+                c.finalisees AS "correctionsFinalisees", c.note AS "noteMoyenneAteliers",
+                (SELECT count(*)::int FROM certificats x
+                  WHERE x.formation_id = f.id AND ${dans('x.date_emission')}) AS "certificatsEmis",
+                (SELECT count(*)::int FROM certificats x
+                  WHERE x.formation_id = f.id AND x.date_revocation IS NOT NULL
+                    AND ${dans('x.date_revocation')}) AS "certificatsRevoques"
+           FROM formations f
+           CROSS JOIN LATERAL (
+             SELECT count(*)::int AS notees,
+                    count(*) FILTER (WHERE tq.est_reussie)::int AS reussies,
+                    round(avg(tq.score)::numeric, 2)::float AS score
+               FROM tentatives_qcm tq JOIN qcm q ON q.id = tq.qcm_id
+               JOIN modules m ON m.id = q.module_id
+              WHERE m.formation_id = f.id AND tq.statut = 'NOTEE' AND ${dans('tq.date_fin')}) t
+           CROSS JOIN LATERAL (
+             SELECT count(*)::int AS finalisees, round(avg(co.score_total)::numeric, 2)::float AS note
+               FROM corrections co JOIN livrables l ON l.id = co.livrable_id
+               JOIN ateliers a ON a.id = l.atelier_id JOIN modules m ON m.id = a.module_id
+              WHERE m.formation_id = f.id AND co.statut = 'TERMINEE'
+                AND ${dans('co.date_finalisation')}) c
+          ORDER BY f.titre COLLATE "C", f.id`,
+        [p.du, p.au],
+      )) as BilanFormation[];
+      return { modele: 'FORMATIONS', periode, formations: lignes };
+    }
+    const certificats = (await this.dataSource.query(
+      `SELECT x.id,
+              COALESCE(NULLIF(trim(concat_ws(' ', u.prenom, u.nom)), ''), u.email) AS titulaire,
+              u.email, f.titre AS formation, x.score_final::float AS "scoreFinal", x.mention,
+              x.statut::text AS statut, x.date_emission AS "dateEmission",
+              (SELECT count(*)::int FROM audit_logs a
+                WHERE a.action = 'CERTIFICAT_VERIFIE' AND a.cible = x.id::text) AS consultations
+         FROM certificats x
+         JOIN users u ON u.id = x.apprenant_id
+         JOIN formations f ON f.id = x.formation_id
+        WHERE ${dans('x.date_emission')}
+        ORDER BY x.date_emission, x.id`,
+      [p.du, p.au],
+    )) as CertificatRegistre[];
+    return { modele: 'CERTIFICATS', periode, certificats };
   }
 
   /** Contrôle des paramètres d'un rapport de session (400 / 404). */
