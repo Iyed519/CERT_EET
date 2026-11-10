@@ -36,7 +36,8 @@ tableau.
 - `components/FormationVisuel.tsx` : visuel de remplacement déterministe
   (dégradé et motif tirés de l'identifiant, initiales du titre).
 - `app/catalogue/page.tsx` : cartes (visuel, titre, description, durée,
-  période, places, seuil de certification, inscription) ; recherche.
+  période, places, seuil de certification, inscription) ; recherche ;
+  `app/catalogue/[id]/page.tsx` : bannière visuelle sur la fiche.
 - `app/layout.tsx` : en-tête, contenu, pied de page ; `globals.css` : section
   « Refonte visuelle » ajoutée à la fin (les classes existantes sont gardées).
 - `lib/api.ts` : `restaurerSession()`.
@@ -53,7 +54,7 @@ tableau.
 
 ## Fichiers
 - `apps/web/src/components/SiteHeader.tsx`, `navigation.ts`, `FormationVisuel.tsx`, `accueil/AccueilPublic.tsx`, `accueil/AccueilApprenant.tsx`, `accueil/AccueilFormateur.tsx`, `accueil/AccueilAdmin.tsx`, `accueil/elements.tsx`
-- `apps/web/src/app/layout.tsx`, `app/page.tsx`, `app/catalogue/page.tsx`, `app/globals.css`, `lib/api.ts`
+- `apps/web/src/app/layout.tsx`, `app/page.tsx`, `app/catalogue/page.tsx`, `app/catalogue/[id]/page.tsx`, `app/globals.css`, `lib/api.ts`
 - Retirés : `components/AdminNav.tsx`, `ApprenantNav.tsx`, `FormateurNav.tsx`, `RoleRequestNav.tsx`, `SecuriteNav.tsx`
 
 ## Incidents

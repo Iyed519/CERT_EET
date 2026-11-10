@@ -1337,6 +1337,10 @@ h1, h2, h3 { color: var(--ink); }
 .visuel-compact .visuel-initiales { font-size: 1.1rem; letter-spacing: 0.5px; }
 
 /* Catalogue */
+.formation-banniere { margin: 0 0 20px; border-radius: 18px; overflow: hidden; box-shadow: var(--shadow-card); }
+.formation-banniere .visuel { aspect-ratio: 4 / 1; }
+.formation-banniere .visuel-initiales { font-size: 2.8rem; }
+@media (max-width: 560px) { .formation-banniere .visuel { aspect-ratio: 5 / 2; } }
 .catalogue-entete {
   display: flex; flex-wrap: wrap; align-items: flex-end; justify-content: space-between; gap: 16px; margin-bottom: 22px;
 }
