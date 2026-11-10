@@ -2,7 +2,9 @@
 import { useCallback, useEffect, useState, FormEvent } from 'react';
 import {
   getAuditLogs,
+  getAuditActions,
   downloadAuditLogsCsv,
+  AuditActeur,
   AuditLogEntry,
   AuditQuery,
   AdminError,
@@ -19,11 +21,20 @@ function formatHorodatage(iso: string): string {
   });
 }
 
+/** US-AUDIT-01 — Nom lisible de l'acteur (prénom nom, sinon email). */
+function nomActeur(acteur: AuditActeur): string {
+  const nom = [acteur.prenom, acteur.nom].filter(Boolean).join(' ').trim();
+  return nom || acteur.email;
+}
+
 /**
- * US-AUTH-12 / DS-16 — Consultation du journal d'audit (ADMINISTRATEUR).
+ * US-AUTH-12 / US-AUDIT-01 / DS-16 — Consultation du journal d'audit
+ * (ADMINISTRATEUR).
  *
- * Tableau filtrable (action, acteur, période), paginé, trié du plus récent au
- * plus ancien, + téléchargement CSV du résultat filtré. Lecture seule : aucune
+ * Tableau filtrable (action — liste des actions présentes —, email de
+ * l'acteur, cible, résultat, période), paginé, trié du plus récent au plus
+ * ancien, + téléchargement CSV du résultat filtré. L'acteur est affiché par
+ * son nom et son email (jointure côté API, liste blanche). Lecture seule : aucune
  * action de modification/suppression n'existe (immuabilité NF3). La sécurité
  * réelle est côté API : un non-admin reçoit un 403 et ne voit aucune donnée.
  */
@@ -32,7 +43,9 @@ export default function AdminAuditPage(): JSX.Element {
   const [filtres, setFiltres] = useState<AuditQuery>({ page: 1, limit: LIMIT });
   // Saisie EN COURS (appliquée seulement au clic sur « Filtrer »).
   const [action, setAction] = useState('');
-  const [userId, setUserId] = useState('');
+  const [acteur, setActeur] = useState('');
+  const [cible, setCible] = useState('');
+  const [resultatFiltre, setResultatFiltre] = useState('');
   const [from, setFrom] = useState('');
   const [to, setTo] = useState('');
 
@@ -41,6 +54,14 @@ export default function AdminAuditPage(): JSX.Element {
   const [chargement, setChargement] = useState(true);
   const [erreur, setErreur] = useState<string | null>(null);
   const [exportEnCours, setExportEnCours] = useState(false);
+  // US-AUDIT-01 : actions présentes dans le journal (liste déroulante).
+  const [actions, setActions] = useState<string[]>([]);
+
+  useEffect(() => {
+    getAuditActions()
+      .then(setActions)
+      .catch(() => setActions([]));
+  }, []);
 
   const charger = useCallback(async (): Promise<void> => {
     setChargement(true);
@@ -66,9 +87,18 @@ export default function AdminAuditPage(): JSX.Element {
 
   const appliquerFiltres = (event: FormEvent<HTMLFormElement>): void => {
     event.preventDefault();
+    // Contrôle immédiat (l'API refuse aussi : 400, même message).
+    if (from && to && from > to) {
+      setErreur(
+        'La période est invalide : la date de début doit précéder la date de fin.',
+      );
+      return;
+    }
     setFiltres({
-      action: action.trim() || undefined,
-      userId: userId.trim() || undefined,
+      action: action || undefined,
+      acteur: acteur.trim() || undefined,
+      cible: cible.trim() || undefined,
+      resultat: resultatFiltre || undefined,
       from: from || undefined,
       to: to || undefined,
       page: 1,
@@ -78,7 +108,9 @@ export default function AdminAuditPage(): JSX.Element {
 
   const reinitialiser = (): void => {
     setAction('');
-    setUserId('');
+    setActeur('');
+    setCible('');
+    setResultatFiltre('');
     setFrom('');
     setTo('');
     setFiltres({ page: 1, limit: LIMIT });
@@ -98,7 +130,9 @@ export default function AdminAuditPage(): JSX.Element {
       // Export = MÊMES filtres que l'affichage, sans pagination (tout le résultat).
       await downloadAuditLogsCsv({
         action: filtres.action,
-        userId: filtres.userId,
+        acteur: filtres.acteur,
+        cible: filtres.cible,
+        resultat: filtres.resultat,
         from: filtres.from,
         to: filtres.to,
       });
@@ -122,8 +156,9 @@ export default function AdminAuditPage(): JSX.Element {
         <div>
           <h1 className="page-title">Journal d&apos;audit</h1>
           <p className="page-subtitle">
-            Trace inviolable des actions sensibles (US-AUTH-12, NF3). Lecture
-            seule : aucune entrée ne peut être modifiée ni supprimée.
+            Trace inviolable des actions sensibles (US-AUTH-12, US-AUDIT-01,
+            NF3). Lecture seule : aucune entrée ne peut être modifiée ni
+            supprimée.
           </p>
         </div>
         <button
@@ -140,25 +175,60 @@ export default function AdminAuditPage(): JSX.Element {
           <label className="field-label" htmlFor="f-action">
             Action
           </label>
-          <input
+          <select
             id="f-action"
             className="input"
             value={action}
             onChange={(e) => setAction(e.target.value)}
-            placeholder="ex. LOGIN, ROLE_CHANGE"
+          >
+            <option value="">Toutes</option>
+            {actions.map((a) => (
+              <option key={a} value={a}>
+                {a}
+              </option>
+            ))}
+          </select>
+        </div>
+        <div className="field">
+          <label className="field-label" htmlFor="f-acteur">
+            Acteur (email)
+          </label>
+          <input
+            id="f-acteur"
+            className="input"
+            value={acteur}
+            maxLength={255}
+            onChange={(e) => setActeur(e.target.value)}
+            placeholder="ex. formateur@esprit.tn"
           />
         </div>
         <div className="field">
-          <label className="field-label" htmlFor="f-user">
-            Acteur (userId)
+          <label className="field-label" htmlFor="f-cible">
+            Cible
           </label>
           <input
-            id="f-user"
+            id="f-cible"
             className="input"
-            value={userId}
-            onChange={(e) => setUserId(e.target.value)}
-            placeholder="UUID de l'utilisateur"
+            value={cible}
+            maxLength={255}
+            onChange={(e) => setCible(e.target.value)}
+            placeholder="Identifiant de la ressource"
           />
+        </div>
+        <div className="field">
+          <label className="field-label" htmlFor="f-resultat">
+            Résultat
+          </label>
+          <select
+            id="f-resultat"
+            className="input"
+            value={resultatFiltre}
+            onChange={(e) => setResultatFiltre(e.target.value)}
+          >
+            <option value="">Tous</option>
+            <option value="Succès">Succès</option>
+            <option value="Échec">Échec</option>
+          </select>
         </div>
         <div className="field">
           <label className="field-label" htmlFor="f-from">
@@ -223,13 +293,27 @@ export default function AdminAuditPage(): JSX.Element {
                   <tr key={entree.id}>
                     <td>{formatHorodatage(entree.horodatage)}</td>
                     <td>{entree.action}</td>
-                    <td className="mono">
-                      {entree.userId ?? <span className="muted-cell">—</span>}
+                    <td>
+                      {entree.acteur ? (
+                        <>
+                          {nomActeur(entree.acteur)}
+                          <br />
+                          <span className="muted-cell">
+                            {entree.acteur.email}
+                          </span>
+                        </>
+                      ) : entree.userId ? (
+                        <span className="mono" title="Compte introuvable">
+                          {entree.userId}
+                        </span>
+                      ) : (
+                        <span className="muted-cell">Anonyme</span>
+                      )}
                     </td>
                     <td className="mono">
                       {entree.cible ?? <span className="muted-cell">—</span>}
                     </td>
-                    <td className="mono">
+                    <td className="mono audit-ip">
                       {entree.adresseIp ?? (
                         <span className="muted-cell">—</span>
                       )}
@@ -249,7 +333,12 @@ export default function AdminAuditPage(): JSX.Element {
                     </td>
                     <td className="mono">
                       {entree.detailsAvantApres ? (
-                        JSON.stringify(entree.detailsAvantApres)
+                        <details>
+                          <summary>Voir</summary>
+                          <pre className="audit-details">
+                            {JSON.stringify(entree.detailsAvantApres, null, 2)}
+                          </pre>
+                        </details>
                       ) : (
                         <span className="muted-cell">—</span>
                       )}

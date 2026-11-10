@@ -1,4 +1,4 @@
-import { AuditLog } from '../../database/entities/audit-log.entity';
+import type { AuditEntreeVue } from './audit.service';
 
 /**
  * Sérialisation CSV du journal d'audit (US-AUTH-12, export DS-16).
@@ -15,6 +15,7 @@ export const AUDIT_CSV_HEADERS = [
   'horodatage',
   'action',
   'acteur',
+  'acteur_email',
   'cible',
   'adresse_ip',
   'resultat',
@@ -31,18 +32,17 @@ function csvCell(value: unknown): string {
 }
 
 /** Une ligne d'audit -> tableau de cellules (mêmes colonnes que les en-têtes). */
-function ligneToCells(ligne: AuditLog): string[] {
+function ligneToCells(ligne: AuditEntreeVue): string[] {
   const horodatage =
     ligne.horodatage instanceof Date
       ? ligne.horodatage.toISOString()
       : String(ligne.horodatage ?? '');
-  const details = ligne.detailsAvantApres
-    ? JSON.stringify(ligne.detailsAvantApres)
-    : '';
+  const details = ligne.detailsAvantApres ? JSON.stringify(ligne.detailsAvantApres) : '';
   return [
     horodatage,
     ligne.action ?? '',
     ligne.userId ?? '', // "acteur"
+    ligne.acteur?.email ?? '',
     ligne.cible ?? '',
     ligne.adresseIp ?? '',
     ligne.resultat ?? '',
@@ -54,7 +54,7 @@ function ligneToCells(ligne: AuditLog): string[] {
  * Convertit des lignes d'audit en CSV (en-tête + lignes, séparateur CRLF).
  * Ne préfixe PAS le BOM : c'est le contrôleur qui l'ajoute au moment de l'envoi.
  */
-export function auditLogsToCsv(lignes: AuditLog[]): string {
+export function auditLogsToCsv(lignes: AuditEntreeVue[]): string {
   const rows = [
     AUDIT_CSV_HEADERS.join(','),
     ...lignes.map((l) => ligneToCells(l).map(csvCell).join(',')),

@@ -495,10 +495,20 @@ export async function changeUserStatut(
  * US-AUTH-12 — Journal d'audit (consultation + export CSV)
  * ============================================================ */
 
+/** US-AUDIT-01 — Acteur joint (liste blanche) ; null si compte absent / anonyme. */
+export interface AuditActeur {
+  id: string;
+  email: string;
+  prenom: string | null;
+  nom: string | null;
+  role: string;
+}
+
 /** Une entrée du journal telle que renvoyée par l'API (lecture seule). */
 export interface AuditLogEntry {
   id: string;
   userId: string | null; // acteur
+  acteur: AuditActeur | null;
   action: string;
   cible: string | null;
   adresseIp: string | null;
@@ -519,6 +529,12 @@ export interface AuditPage {
 export interface AuditQuery {
   action?: string;
   userId?: string;
+  /** US-AUDIT-01 : email de l'acteur (contient, sans casse). */
+  acteur?: string;
+  /** US-AUDIT-01 : ressource visée (exacte). */
+  cible?: string;
+  /** US-AUDIT-01 : « Succès » ou « Échec ». */
+  resultat?: string;
   from?: string;
   to?: string;
   page?: number;
@@ -534,6 +550,9 @@ function buildAuditParams(query: AuditQuery): string {
   const params = new URLSearchParams();
   if (query.action) params.set('action', query.action);
   if (query.userId) params.set('userId', query.userId);
+  if (query.acteur) params.set('acteur', query.acteur);
+  if (query.cible) params.set('cible', query.cible);
+  if (query.resultat) params.set('resultat', query.resultat);
   if (query.from) params.set('from', `${query.from}T00:00:00.000Z`);
   if (query.to) params.set('to', `${query.to}T23:59:59.999Z`);
   if (query.page) params.set('page', String(query.page));
@@ -552,13 +571,55 @@ export async function getAuditLogs(query: AuditQuery = {}): Promise<AuditPage> {
   );
   if (!response.ok) {
     throw new AdminError(
-      response.status === 403
-        ? 'Accès réservé aux administrateurs.'
-        : "Impossible de charger le journal d'audit.",
+      await messageErreurAudit(
+        response,
+        "Impossible de charger le journal d'audit.",
+      ),
       response.status,
     );
   }
   return (await response.json()) as AuditPage;
+}
+
+/**
+ * US-AUDIT-01 — Message d'erreur : 403 = pas admin ; 400 = message de l'API
+ * (ex. période inversée) ; sinon message générique.
+ */
+async function messageErreurAudit(
+  response: Response,
+  generique: string,
+): Promise<string> {
+  if (response.status === 403) return 'Accès réservé aux administrateurs.';
+  if (response.status === 400) {
+    try {
+      const corps = (await response.json()) as { message?: string | string[] };
+      const message = Array.isArray(corps.message)
+        ? corps.message.join(' ')
+        : corps.message;
+      if (message) return message;
+    } catch {
+      // corps illisible : message générique
+    }
+  }
+  return generique;
+}
+
+/**
+ * US-AUDIT-01 — GET /api/admin/audit-logs/actions : types d'action présents
+ * dans le journal (liste déroulante du filtre « Action »).
+ */
+export async function getAuditActions(): Promise<string[]> {
+  const response = await apiFetch('/api/admin/audit-logs/actions');
+  if (!response.ok) {
+    throw new AdminError(
+      await messageErreurAudit(
+        response,
+        "Impossible de charger les types d'action.",
+      ),
+      response.status,
+    );
+  }
+  return (await response.json()) as string[];
 }
 
 /**
@@ -575,9 +636,10 @@ export async function downloadAuditLogsCsv(
   );
   if (!response.ok) {
     throw new AdminError(
-      response.status === 403
-        ? 'Accès réservé aux administrateurs.'
-        : "Impossible d'exporter le journal d'audit.",
+      await messageErreurAudit(
+        response,
+        "Impossible d'exporter le journal d'audit.",
+      ),
       response.status,
     );
   }

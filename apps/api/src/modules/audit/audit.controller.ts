@@ -33,10 +33,12 @@ export class AuditController {
   @ApiOperation({ summary: "Consulter le journal d'audit (US-AUTH-12, DS-16)" })
   @ApiResponse({
     status: 200,
-    description:
-      'Entrées paginées { items, total, page, limit }, tri horodatage DESC.',
+    description: 'Entrées paginées { items, total, page, limit }, tri horodatage DESC.',
   })
-  @ApiResponse({ status: 400, description: 'Filtres invalides (UUID, date…).' })
+  @ApiResponse({
+    status: 400,
+    description: 'Filtres invalides (UUID, date, résultat) ; période début > fin.',
+  })
   @ApiResponse({ status: 403, description: 'Rôle insuffisant (non-admin).' })
   list(@Query() query: AuditQueryDto): Promise<AuditPage> {
     return this.auditService.list(query);
@@ -57,6 +59,18 @@ export class AuditController {
    * téléchargement, mais je laisse Nest envoyer le corps (renvoyé) et gérer le
    * cycle de vie -> l'AuditInterceptor voit toujours le succès/échec.
    */
+  /**
+   * US-AUDIT-01 — Types d'action présents dans le journal, pour la liste du
+   * filtre « Action ». Non tracé (aucune donnée d'audit n'est révélée).
+   */
+  @Get('actions')
+  @ApiOperation({ summary: "Types d'action présents dans le journal (US-AUDIT-01)" })
+  @ApiResponse({ status: 200, description: 'Liste triée des actions distinctes.' })
+  @ApiResponse({ status: 403, description: 'Rôle insuffisant (non-admin).' })
+  actions(): Promise<string[]> {
+    return this.auditService.actions();
+  }
+
   @Get('export')
   @Audit('AUDIT_EXPORTE')
   @ApiOperation({
@@ -75,10 +89,7 @@ export class AuditController {
     const lignes = await this.auditService.export(query);
     const stamp = new Date().toISOString().replace(/[:.]/g, '-');
     res.setHeader('Content-Type', 'text/csv; charset=utf-8');
-    res.setHeader(
-      'Content-Disposition',
-      `attachment; filename="audit-logs-${stamp}.csv"`,
-    );
+    res.setHeader('Content-Disposition', `attachment; filename="audit-logs-${stamp}.csv"`);
     // BOM UTF-8 (﻿) : Excel lit alors correctement les accents (Succès…).
     return '﻿' + auditLogsToCsv(lignes);
   }
