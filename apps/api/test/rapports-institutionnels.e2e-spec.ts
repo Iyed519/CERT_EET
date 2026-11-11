@@ -335,9 +335,11 @@ describe('Rapports institutionnels (e2e) — US-RPT-02', () => {
   describe('Génération', () => {
     it('bilan par formation (CSV) : comptes exacts sur février 2004', async () => {
       const res = await post({ modele: 'FORMATIONS', format: 'CSV', ...FEVRIER }).expect(202);
+      // Le worker peut avoir déjà pris la tâche avant la réponse (US-QUAL-01 :
+      // échec intermittent en CI) : EN_ATTENTE ou EN_COURS, jamais un autre état.
+      expect(['EN_ATTENTE', 'EN_COURS']).toContain(res.body.statut);
       expect(res.body).toMatchObject({
         type: 'INSTITUTIONNEL',
-        statut: 'EN_ATTENTE',
         formation: null,
         parametres: { modele: 'FORMATIONS', ...FEVRIER },
       });

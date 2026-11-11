@@ -325,7 +325,9 @@ describe('Rapports de session (e2e) — US-RPT-01', () => {
   describe('Génération asynchrone et téléchargement', () => {
     it('CSV global : 202, PRET, BOM, liste blanche, formule neutralisée, empreinte, audit', async () => {
       const res = await post(url(), { format: 'CSV', portee: 'GLOBAL' }).expect(202);
-      expect(res.body).toMatchObject({ type: 'SESSION', format: 'CSV', statut: 'EN_ATTENTE' });
+      // Même course possible avec le worker (US-QUAL-01) : EN_ATTENTE ou EN_COURS.
+      expect(['EN_ATTENTE', 'EN_COURS']).toContain(res.body.statut);
+      expect(res.body).toMatchObject({ type: 'SESSION', format: 'CSV' });
       ids.rGlobal = res.body.id;
       const fin = await attendre(ids.rGlobal);
       expect(fin.statut).toBe('PRET');
