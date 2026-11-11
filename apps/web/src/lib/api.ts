@@ -2586,6 +2586,19 @@ export async function getFicheCertificat(certificatId: string): Promise<FicheCer
 }
 
 /**
+ * US-CERT-09 — GET /api/admin/certificats/:id/pdf : le PDF d'un certificat
+ * généré (actif, expiré ou révoqué), en Blob pour l'aperçu et le
+ * téléchargement depuis le panneau de supervision. 409 : pas encore généré.
+ */
+export async function getPdfCertificatAdmin(certificatId: string): Promise<Blob> {
+  const response = await apiFetch(`/api/admin/certificats/${certificatId}/pdf`);
+  if (!response.ok) {
+    await lireReponseFormation<never>(response, 'Impossible d’ouvrir le PDF du certificat.');
+  }
+  return response.blob();
+}
+
+/**
  * POST /api/admin/certificats/:id/relancer — relance la génération.
  *   - 409 -> certificat déjà actif ou révoqué.
  */

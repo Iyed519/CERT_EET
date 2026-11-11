@@ -88,6 +88,21 @@ export function verifierTelechargeable(statut: StatutCertificat): void {
   }
 }
 
+/**
+ * US-CERT-09 — L'administrateur consulte le PDF de tout certificat GÉNÉRÉ, y
+ * compris révoqué ou expiré (preuve de ce qui a été délivré) ; un certificat
+ * pas encore généré n'a pas de PDF : 409.
+ */
+export function verifierConsultableParAdmin(statut: StatutCertificat): void {
+  if (
+    statut !== StatutCertificat.ACTIF &&
+    statut !== StatutCertificat.EXPIRE &&
+    statut !== StatutCertificat.REVOQUE
+  ) {
+    throw new ConflictException(MESSAGE_CERTIFICAT_EN_PREPARATION);
+  }
+}
+
 /** Nom du fichier téléchargé : « certificat-<titre-sans-accents>.pdf ». */
 export function nomFichierCertificat(titreFormation: string): string {
   const base = titreFormation

@@ -12,6 +12,7 @@ import {
   urlVerification,
   verifierRelancable,
   verifierRevocable,
+  verifierConsultableParAdmin,
   verifierTelechargeable,
 } from './certificat.regles';
 
@@ -114,5 +115,16 @@ describe('certificat.regles (US-CERT-01)', () => {
         Object.values(MotifRevocation).sort(),
       );
     });
+  });
+});
+
+describe('US-CERT-09 — PDF consultable par l’administrateur', () => {
+  it('tout certificat généré (actif, expiré, révoqué) ; jamais un certificat pas encore généré', () => {
+    for (const s of [StatutCertificat.ACTIF, StatutCertificat.EXPIRE, StatutCertificat.REVOQUE]) {
+      expect(() => verifierConsultableParAdmin(s)).not.toThrow();
+    }
+    for (const s of [StatutCertificat.EN_ATTENTE_GENERATION, StatutCertificat.EN_GENERATION]) {
+      expect(() => verifierConsultableParAdmin(s)).toThrow(ConflictException);
+    }
   });
 });
