@@ -240,6 +240,18 @@ export default function TableauDeBordPage(): JSX.Element {
             </article>
 
             <article className="kpi">
+              <h2>Demandes en attente</h2>
+              <p className="kpi-valeur">{nombreFr(t.demandesEnAttente.role)}</p>
+              <p className="kpi-sous">attendent votre décision</p>
+              <ul className="kpi-repartition">
+                <li>
+                  <Link href="/admin/role-requests">Demandes de rôle</Link>
+                  <strong>{nombreFr(t.demandesEnAttente.role)}</strong>
+                </li>
+              </ul>
+            </article>
+
+            <article className="kpi">
               <h2>Certificats</h2>
               <p className="kpi-valeur">{nombreFr(t.certificats.emis)}</p>
               <p className="kpi-sous">

@@ -337,6 +337,13 @@ export const LIBELLES_ALERTE_SYSTEME: Record<string, [string, string]> = {
   LIVRABLES_EN_ATTENTE: ['livrable(s) en attente de correction depuis plus de 7 jours', ''],
 };
 
+/** Statut d'UNE formation (badge), au singulier. */
+export const LIBELLES_STATUT_FORMATION_UN: Record<string, string> = {
+  OUVERTE: 'Ouverte',
+  FERMEE: 'Fermée',
+  ARCHIVEE: 'Archivée',
+};
+
 /** US-DASH-01 — Libellés courts des rôles et statuts agrégés. */
 export const LIBELLES_ROLE: Record<string, string> = {
   APPRENANT: 'Apprenants',
