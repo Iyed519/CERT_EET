@@ -2,6 +2,7 @@ import type { Metadata } from 'next';
 import './globals.css';
 import { AuthProvider } from '../contexts/AuthContext';
 import { ProfilGate } from '../components/ProfilGate';
+import { SessionPrete } from '../components/SessionPrete';
 import { SiteHeader } from '../components/SiteHeader';
 export const metadata: Metadata = {
   title: 'Cert_EET — Certification numérique vérifiable',
@@ -23,7 +24,9 @@ export default function RootLayout({
       <body>
         <AuthProvider>
           <SiteHeader />
-          <main className="site-main">{children}</main>
+          <main className="site-main">
+            <SessionPrete>{children}</SessionPrete>
+          </main>
           <footer className="site-footer">
             <div className="site-footer-inner">
               <span className="site-footer-marque">

@@ -93,7 +93,17 @@ let onRefreshed: ((session: LoginResponse) => void) | null = null;
 let onCleared: (() => void) | null = null;
 
 /** Promesse de refresh partagée (single-flight). */
-let refreshInFlight: Promise<string | null> | null = null;
+let refreshInFlight: Promise<LoginResponse | null> | null = null;
+
+/**
+ * US-AUTH-17 — Restauration de la session au chargement de la page : UNE seule
+ * par chargement (le module est réévalué à chaque rechargement complet), même
+ * si plusieurs composants la demandent ou si React rejoue les effets.
+ */
+let restaurationInitiale: Promise<LoginResponse | null> | null = null;
+
+/** Au-delà, la restauration est abandonnée (api injoignable) : visiteur anonyme. */
+const DELAI_RESTAURATION_MS = 8000;
 
 /** Met à jour le miroir du token (appelé par AuthContext.setSession). */
 export function setAccessToken(token: string | null): void {
@@ -138,8 +148,8 @@ export async function apiFetch(
     return response;
   }
 
-  const newToken = await refreshSession();
-  if (!newToken) {
+  const session = await refreshSession();
+  if (!session) {
     forceLogout();
     return response;
   }
@@ -148,7 +158,7 @@ export async function apiFetch(
 }
 
 /** Refresh single-flight : un seul appel réseau partagé. */
-function refreshSession(): Promise<string | null> {
+function refreshSession(): Promise<LoginResponse | null> {
   if (!refreshInFlight) {
     refreshInFlight = doRefresh().finally(() => {
       refreshInFlight = null;
@@ -157,12 +167,30 @@ function refreshSession(): Promise<string | null> {
   return refreshInFlight;
 }
 
+/**
+ * US-AUTH-17 — Sérialise les rafraîchissements ENTRE ONGLETS du même
+ * navigateur (Web Locks) : deux onglets rechargés ensemble enverraient le même
+ * cookie, et la rotation n'en accepte qu'un (l'autre recevrait 401). Avec le
+ * verrou, le second attend et part avec le cookie déjà pivoté. Sans l'API
+ * (contexte non sécurisé, vieux navigateur) : appel direct, comme avant.
+ */
+async function avecVerrouRafraichissement<T>(appel: () => Promise<T>): Promise<T> {
+  const verrous =
+    typeof navigator !== 'undefined'
+      ? (navigator as Navigator & { locks?: LockManager }).locks
+      : undefined;
+  if (!verrous) return appel();
+  return verrous.request('cert-eet-rafraichissement-session', appel);
+}
+
 /** POST /api/auth/refresh (le cookie part tout seul). */
-async function doRefresh(): Promise<string | null> {
-  const response = await fetch('/api/auth/refresh', {
-    method: 'POST',
-    credentials: 'include',
-  });
+async function doRefresh(): Promise<LoginResponse | null> {
+  const response = await avecVerrouRafraichissement(() =>
+    fetch('/api/auth/refresh', {
+      method: 'POST',
+      credentials: 'include',
+    }),
+  );
   if (!response.ok) {
     return null;
   }
@@ -171,20 +199,27 @@ async function doRefresh(): Promise<string | null> {
   if (onRefreshed) {
     onRefreshed(session);
   }
-  return session.accessToken;
+  return session;
 }
 
 /**
- * Restauration discrète de la session au chargement d'une page (en-tête) :
- * même refresh partagé qu'apiFetch (un seul appel réseau à la fois), mais un
- * échec ne redirige PAS vers /login — un visiteur anonyme reste sur la page.
+ * US-AUTH-17 — Restauration de la session au chargement de la page, appelée
+ * une fois par AuthProvider : même refresh partagé qu'apiFetch (jamais deux
+ * appels concurrents, donc jamais deux rotations du même jeton). Un échec ne
+ * redirige PAS vers /login : un visiteur anonyme reste sur la page. Renvoie
+ * la session restaurée, ou null (pas de cookie, cookie refusé, api muette).
  */
-export async function restaurerSession(): Promise<boolean> {
-  try {
-    return (await refreshSession()) !== null;
-  } catch {
-    return false;
+export function restaurerSessionInitiale(): Promise<LoginResponse | null> {
+  if (!restaurationInitiale) {
+    const delai = new Promise<null>((resoudre) => {
+      setTimeout(() => resoudre(null), DELAI_RESTAURATION_MS);
+    });
+    restaurationInitiale = Promise.race([
+      refreshSession().catch(() => null),
+      delai,
+    ]);
   }
+  return restaurationInitiale;
 }
 
 /** Session morte : on efface tout et on renvoie vers /login. */
@@ -280,18 +315,14 @@ export async function verifyEmailRequest(
 
 /**
  * US-AUTH-14 — Bootstrap de session après une connexion OAuth. Le callback
- * backend a posé le cookie refresh (httpOnly) ; on échange ce cookie contre un
- * access token en mémoire via /api/auth/refresh. Retourne la session ou null.
+ * backend a posé le cookie refresh (httpOnly) puis redirigé : c'est un
+ * chargement complet, AuthProvider restaure déjà la session. US-AUTH-17 : on
+ * attend CETTE restauration au lieu d'un second POST /refresh concurrent (le
+ * même cookie présenté deux fois : un seul gagne, l'autre recevait 401 et
+ * renvoyait à tort vers /login). Retourne la session ou null.
  */
 export async function bootstrapSession(): Promise<LoginResponse | null> {
-  const response = await fetch('/api/auth/refresh', {
-    method: 'POST',
-    credentials: 'include',
-  });
-  if (!response.ok) {
-    return null;
-  }
-  return (await response.json()) as LoginResponse;
+  return restaurerSessionInitiale();
 }
 
 /* ============================================================
