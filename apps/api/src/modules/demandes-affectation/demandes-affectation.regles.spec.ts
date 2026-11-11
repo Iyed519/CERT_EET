@@ -25,6 +25,7 @@ describe('US-FORM-07 — règles des demandes d’affectation', () => {
 
   it('une formation archivée ne reçoit plus de demande', () => {
     expect(formationOuverteAuxDemandes('ARCHIVEE')).toBe(false);
+    expect(formationOuverteAuxDemandes('BROUILLON')).toBe(false);
     expect(formationOuverteAuxDemandes('OUVERTE')).toBe(true);
     expect(formationOuverteAuxDemandes('FERMEE')).toBe(true);
   });

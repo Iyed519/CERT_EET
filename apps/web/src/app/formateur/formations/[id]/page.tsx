@@ -24,6 +24,7 @@ import {
 } from '../../../../lib/format';
 
 const LIBELLES: Record<StatutFormation, string> = {
+  BROUILLON: 'Brouillon',
   OUVERTE: 'Ouverte',
   FERMEE: 'Fermée',
   ARCHIVEE: 'Archivée',
@@ -31,6 +32,8 @@ const LIBELLES: Record<StatutFormation, string> = {
 
 /** Ce que le statut change pour le formateur, en une phrase. */
 const NOTES: Record<StatutFormation, string | null> = {
+  BROUILLON:
+    'Formation en brouillon : préparez son contenu ; elle sera visible au catalogue quand un administrateur la publiera.',
   OUVERTE: null,
   FERMEE: 'Formation fermée : elle n’accepte plus d’inscriptions.',
   ARCHIVEE: 'Formation archivée : elle est figée, consultation seulement.',

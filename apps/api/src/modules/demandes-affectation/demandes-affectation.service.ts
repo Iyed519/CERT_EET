@@ -175,7 +175,7 @@ export class DemandesAffectationService {
                        WHERE d.formation_id = f.id AND d.formateur_id = $1
                          AND d.statut = 'EN_ATTENTE') AS en_attente
          FROM formations f
-        WHERE f.statut <> 'ARCHIVEE'
+        WHERE f.statut IN ('OUVERTE', 'FERMEE')
           AND NOT EXISTS (SELECT 1 FROM formation_formateurs ff
                            WHERE ff.formation_id = f.id AND ff.formateur_id = $1)
         ORDER BY f.titre, f.id`,

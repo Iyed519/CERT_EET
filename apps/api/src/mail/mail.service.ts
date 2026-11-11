@@ -1387,6 +1387,69 @@ export class MailService {
     });
     this.logger.log(`Email de décision (demande d'affectation) envoyé à ${to}`);
   }
+  /**
+   * US-FORM-08 — Décision sur une proposition de formation : acceptée (une
+   * formation en brouillon est créée, le formateur y est affecté), modifications
+   * demandées (commentaire) ou refusée (motif). Saisies échappées ; l'erreur
+   * d'envoi remonte (l'appelant la rend non bloquante).
+   */
+  async sendDecisionPropositionEmail(
+    to: string,
+    donnees: {
+      prenom: string | null;
+      titre: string;
+      decision: 'ACCEPTEE' | 'A_MODIFIER' | 'REFUSEE';
+      commentaire: string | null;
+      formationId: string | null;
+    },
+  ): Promise<void> {
+    const { from, appBaseUrl } = this.configService.getOrThrow<MailConfig>('mail');
+    const titre = donnees.titre.replace(/\s+/g, ' ').trim();
+    const prenom = donnees.prenom?.trim() ?? '';
+    const salutation = prenom ? `Bonjour ${prenom},` : 'Bonjour,';
+    const acceptee = donnees.decision === 'ACCEPTEE';
+    const lien =
+      acceptee && donnees.formationId
+        ? `${appBaseUrl}/formateur/formations/${donnees.formationId}`
+        : `${appBaseUrl}/formateur/propositions`;
+    const phrases: Record<typeof donnees.decision, [string, string, string]> = {
+      ACCEPTEE: [
+        'Proposition acceptée',
+        'a été acceptée : la formation est créée en brouillon et vous y êtes affecté. Préparez son contenu ; un administrateur la publiera.',
+        'Ouvrir la formation',
+      ],
+      A_MODIFIER: [
+        'Modifications demandées',
+        "appelle des modifications avant décision. Modifiez-la puis renvoyez-la depuis « Mes propositions ».",
+        'Modifier ma proposition',
+      ],
+      REFUSEE: ['Proposition refusée', 'a été refusée.', 'Voir mes propositions'],
+    };
+    const [titreEmail, suite, bouton] = phrases[donnees.decision];
+    const commentaire = !acceptee && donnees.commentaire ? donnees.commentaire.trim() : null;
+    const text =
+      `${salutation}\n\nVotre proposition de formation « ${titre} » ${suite}\n\n` +
+      (commentaire ? `Commentaire de l'administrateur : ${commentaire}\n\n` : '') +
+      `${bouton} : ${lien}\n\n— L'équipe Cert_EET`;
+    const html = gabaritEmail({
+      titre: titreEmail,
+      paragraphesHtml: [
+        echapperHtml(salutation),
+        `Votre proposition de formation <strong style="color:#1b2631;">«&nbsp;${echapperHtml(titre)}&nbsp;»</strong> ${echapperHtml(suite)}`,
+        ...(commentaire ? [`Commentaire de l'administrateur&nbsp;: ${echapperHtml(commentaire)}`] : []),
+      ],
+      bouton: { libelle: bouton, lien },
+      piedHtml: 'Une question sur cette décision&nbsp;? Contactez un administrateur de la plateforme.',
+    });
+    await this.transporter.sendMail({
+      from,
+      to,
+      subject: `Cert_EET — ${titreEmail} : « ${titre} »`,
+      text,
+      html,
+    });
+    this.logger.log(`Email de décision (proposition de formation) envoyé à ${to}`);
+  }
 }
 /**
  * Période d'une formation pour un email : « du JJ/MM/AAAA au JJ/MM/AAAA »,

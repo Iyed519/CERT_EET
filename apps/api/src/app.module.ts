@@ -22,6 +22,7 @@ import { AssistanceIaModule } from './modules/assistance-ia/assistance-ia.module
 import { RessourcesModule } from './modules/ressources/ressources.module';
 import { PilotageModule } from './modules/pilotage/pilotage.module';
 import { DemandesAffectationModule } from './modules/demandes-affectation/demandes-affectation.module';
+import { PropositionsFormationModule } from './modules/propositions-formation/propositions-formation.module';
 import { RapportsModule } from './modules/rapports/rapports.module';
 /**
  * Module racine (AppModule).
@@ -73,6 +74,8 @@ import { RapportsModule } from './modules/rapports/rapports.module';
     PilotageModule,
     // US-FORM-07 (Sprint 6) : demandes d'affectation d'un formateur.
     DemandesAffectationModule,
+    // US-FORM-08 (Sprint 6) : propositions de nouvelles formations.
+    PropositionsFormationModule,
     RapportsModule,
   ],
 })

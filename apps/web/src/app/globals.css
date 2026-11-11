@@ -1409,3 +1409,6 @@ h1, h2, h3 { color: var(--ink); }
 .data-table .statut-badge { white-space: nowrap; }
 /* Onglets d'administration : sur grand écran, ils passent à la ligne plutôt que de défiler. */
 @media (min-width: 921px) { .admin-tabs { flex-wrap: wrap; overflow-x: visible; } }
+.statut-BROUILLON { background: #eceff1; color: #37474f; }
+.proposition-details { font-size: 0.86rem; color: var(--muted, #5b6b66); white-space: pre-wrap; overflow-wrap: break-word; min-width: 24ch; max-width: 52ch; }
+.proposition-grille { display: grid; grid-template-columns: repeat(auto-fill, minmax(220px, 1fr)); gap: 12px; }

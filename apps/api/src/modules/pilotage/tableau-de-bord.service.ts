@@ -87,13 +87,13 @@ export interface TableauDeBordGlobal {
    * US-DASH-03 — Demandes qui attendent une décision de l'administrateur,
    * toujours présentes (zéro compris), avec un lien vers leur liste.
    */
-  demandesEnAttente: { role: number; affectation: number };
+  demandesEnAttente: { role: number; affectation: number; propositions: number };
 }
 
 const ROLES = ['APPRENANT', 'FORMATEUR', 'ADMINISTRATEUR'];
 const STATUTS_COMPTE = ['EN_ATTENTE_ACTIVATION', 'ACTIF', 'DESACTIVE', 'ANONYMISE'];
 /** Statuts d'une formation, dans l'ordre d'affichage (US-DASH-01, US-DASH-03). */
-export const STATUTS_FORMATION = ['OUVERTE', 'FERMEE', 'ARCHIVEE'];
+export const STATUTS_FORMATION = ['BROUILLON', 'OUVERTE', 'FERMEE', 'ARCHIVEE'];
 const STATUTS_INSCRIPTION = ['EN_COURS', 'TERMINEE', 'SUSPENDUE'];
 const STATUTS_CERTIFICAT = ['EN_ATTENTE_GENERATION', 'EN_GENERATION', 'ACTIF', 'REVOQUE', 'EXPIRE'];
 
@@ -237,6 +237,7 @@ export class TableauDeBordService {
         demandes: number;
         livrables: number;
         affectations: number;
+        propositions: number;
       }>(
         `SELECT
            (SELECT count(*)::int FROM certificats
@@ -247,7 +248,8 @@ export class TableauDeBordService {
            (SELECT count(*)::int FROM demandes_role WHERE statut = 'EN_ATTENTE') AS demandes,
            (SELECT count(*)::int FROM livrables
              WHERE statut = 'SOUMIS' AND date_soumission < now() - make_interval(days => $3)) AS livrables,
-           (SELECT count(*)::int FROM demandes_affectation WHERE statut = 'EN_ATTENTE') AS affectations`,
+           (SELECT count(*)::int FROM demandes_affectation WHERE statut = 'EN_ATTENTE') AS affectations,
+           (SELECT count(*)::int FROM propositions_formation WHERE statut = 'EN_ATTENTE') AS propositions`,
         [...p, JOURS_LIVRABLE_EN_ATTENTE],
       ),
     ]);
@@ -329,7 +331,11 @@ export class TableauDeBordService {
         acteur: e.email ? { email: e.email, prenom: e.prenom, nom: e.nom } : null,
       })),
       alertes: listeAlertes,
-      demandesEnAttente: { role: al.demandes, affectation: al.affectations },
+      demandesEnAttente: {
+        role: al.demandes,
+        affectation: al.affectations,
+        propositions: al.propositions,
+      },
     };
   }
 

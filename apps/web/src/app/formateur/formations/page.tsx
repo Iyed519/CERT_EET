@@ -11,6 +11,7 @@ import {
 
 /** Libellés FR des statuts (l'enum backend reste la source de vérité). */
 const LIBELLES: Record<StatutFormation, string> = {
+  BROUILLON: 'Brouillon',
   OUVERTE: 'Ouverte',
   FERMEE: 'Fermée',
   ARCHIVEE: 'Archivée',

@@ -19,6 +19,7 @@ const ONGLETS: Array<[string, string]> = [
   ['/admin/utilisateurs', 'Utilisateurs'],
   ['/admin/role-requests', 'Demandes de rôle'],
   ['/admin/demandes-affectation', 'Affectations'],
+  ['/admin/propositions-formation', 'Propositions'],
   ['/admin/formations', 'Formations'],
   ['/admin/certificats', 'Certificats'],
   ['/admin/rapports', 'Rapports'],

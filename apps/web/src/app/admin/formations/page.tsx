@@ -30,6 +30,7 @@ import {
 
 /** Libellés FR des statuts (l'enum backend reste la source de vérité). */
 const STATUTS: Array<[StatutFormation, string]> = [
+  ['BROUILLON', 'Brouillon'],
   ['OUVERTE', 'Ouverte'],
   ['FERMEE', 'Fermée'],
   ['ARCHIVEE', 'Archivée'],
@@ -1086,6 +1087,11 @@ function FormateursModal({
 /* ------------------------------------------------------------------ */
 
 const ACTIONS_STATUT: Record<StatutFormation, { libelle: string; effet: string; succes: string }> = {
+  BROUILLON: {
+    libelle: 'Remettre en brouillon',
+    effet: 'Transition non proposée par l’API.',
+    succes: 'Formation en brouillon.',
+  },
   FERMEE: {
     libelle: 'Clôturer',
     effet: 'Plus aucune inscription ; les inscrits terminent leur parcours.',
@@ -1103,6 +1109,18 @@ const ACTIONS_STATUT: Record<StatutFormation, { libelle: string; effet: string; 
     succes: 'Formation rouverte.',
   },
 };
+
+/** US-FORM-08 : publier un brouillon n'est pas « rouvrir ». */
+const PUBLIER = {
+  libelle: 'Publier',
+  effet: 'La formation entre au catalogue et accepte les inscriptions.',
+  succes: 'Formation publiée.',
+};
+const actionStatut = (
+  de: StatutFormation,
+  vers: StatutFormation,
+): { libelle: string; effet: string; succes: string } =>
+  de === 'BROUILLON' && vers === 'OUVERTE' ? PUBLIER : ACTIONS_STATUT[vers];
 
 /**
  * US-FORM-02 — Modale de changement de statut : impact (inscriptions,
@@ -1141,7 +1159,7 @@ function StatutModal({
     setEnCours(true);
     try {
       await changerStatutFormation(formation.id, vers, confirme);
-      onDone(ACTIONS_STATUT[vers].succes);
+      onDone(actionStatut(formation.statut, vers).succes);
     } catch (err: unknown) {
       setErreur(err instanceof AdminError ? err.message : 'Impossible de changer le statut.');
     } finally {
@@ -1207,9 +1225,9 @@ function StatutModal({
                     disabled={enCours || (t !== 'OUVERTE' && nbEnCours > 0 && !confirme)}
                     onClick={() => void appliquer(t)}
                   >
-                    {ACTIONS_STATUT[t].libelle}
+                    {actionStatut(formation.statut, t).libelle}
                   </button>
-                  <span className="field-hint">{ACTIONS_STATUT[t].effet}</span>
+                  <span className="field-hint">{actionStatut(formation.statut, t).effet}</span>
                 </div>
               ))}
               {impact.transitionsPossibles.length === 0 && (
