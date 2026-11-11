@@ -3110,7 +3110,7 @@ export interface TableauDeBordGlobal {
   }>;
   alertes: Array<{ code: CodeAlerteSysteme; nombre: number }>;
   /** US-DASH-03 — demandes qui attendent une décision (zéro compris). */
-  demandesEnAttente: { role: number };
+  demandesEnAttente: { role: number; affectation: number };
 }
 
 /**
@@ -4181,4 +4181,101 @@ export async function lienCapture(captureId: string): Promise<string> {
     throw new AdminError(messageErreur(data) ?? 'Impossible d’ouvrir la capture.', response.status);
   }
   return data.url;
+}
+
+// ---------------------------------------------------------------------------
+// US-FORM-07 — Demandes d'affectation (un formateur demande une formation).
+// ---------------------------------------------------------------------------
+
+export type StatutDemandeAffectation = 'EN_ATTENTE' | 'ACCEPTEE' | 'REFUSEE' | 'ANNULEE';
+
+export interface DemandeAffectation {
+  id: string;
+  formation: { id: string; titre: string; statut: StatutFormation };
+  motif: string;
+  statut: StatutDemandeAffectation;
+  motifRefus: string | null;
+  traiteLe: string | null;
+  creeLe: string;
+}
+
+export interface DemandeAffectationAdmin extends DemandeAffectation {
+  formateur: { id: string; email: string; prenom: string | null; nom: string | null };
+  traitePar: string | null;
+}
+
+export interface FormationDisponible {
+  id: string;
+  titre: string;
+  statut: StatutFormation;
+  dateDebut: string | null;
+  dateFin: string | null;
+  demandeEnAttente: boolean;
+}
+
+/** GET /api/formateur/demandes-affectation — mes demandes. */
+export async function getMesDemandesAffectation(): Promise<DemandeAffectation[]> {
+  const response = await apiFetch('/api/formateur/demandes-affectation');
+  return lireReponseFormation<DemandeAffectation[]>(response, 'Impossible de charger vos demandes.');
+}
+
+/** GET /api/formateur/demandes-affectation/formations-disponibles. */
+export async function getFormationsDisponibles(): Promise<FormationDisponible[]> {
+  const response = await apiFetch('/api/formateur/demandes-affectation/formations-disponibles');
+  return lireReponseFormation<FormationDisponible[]>(response, 'Impossible de charger les formations.');
+}
+
+/** POST /api/formateur/demandes-affectation — 400 motif / archivée, 409 déjà affecté ou en attente. */
+export async function creerDemandeAffectation(
+  formationId: string,
+  motif: string,
+): Promise<DemandeAffectation> {
+  const response = await apiFetch('/api/formateur/demandes-affectation', {
+    method: 'POST',
+    headers: JSON_HEADERS,
+    body: JSON.stringify({ formationId, motif }),
+  });
+  return lireReponseFormation<DemandeAffectation>(response, 'Impossible d’envoyer la demande.');
+}
+
+/** PATCH /api/formateur/demandes-affectation/:id/annuler. */
+export async function annulerDemandeAffectation(id: string): Promise<DemandeAffectation> {
+  const response = await apiFetch(`/api/formateur/demandes-affectation/${id}/annuler`, {
+    method: 'PATCH',
+  });
+  return lireReponseFormation<DemandeAffectation>(response, 'Impossible d’annuler la demande.');
+}
+
+/** GET /api/admin/demandes-affectation?statut&page&limit. */
+export async function getAdminDemandesAffectation(
+  query: { statut?: StatutDemandeAffectation; page?: number; limit?: number } = {},
+): Promise<{ items: DemandeAffectationAdmin[]; total: number; page: number; limit: number }> {
+  const params = new URLSearchParams();
+  if (query.statut) params.set('statut', query.statut);
+  if (query.page) params.set('page', String(query.page));
+  if (query.limit) params.set('limit', String(query.limit));
+  const qs = params.toString();
+  const response = await apiFetch(`/api/admin/demandes-affectation${qs ? `?${qs}` : ''}`);
+  return lireReponseFormation(response, 'Impossible de charger les demandes.');
+}
+
+/** PATCH /api/admin/demandes-affectation/:id/accepter — crée l'affectation. */
+export async function accepterDemandeAffectation(id: string): Promise<DemandeAffectationAdmin> {
+  const response = await apiFetch(`/api/admin/demandes-affectation/${id}/accepter`, {
+    method: 'PATCH',
+  });
+  return lireReponseFormation<DemandeAffectationAdmin>(response, 'Impossible d’accepter la demande.');
+}
+
+/** PATCH /api/admin/demandes-affectation/:id/refuser — motif obligatoire (10–1000). */
+export async function refuserDemandeAffectation(
+  id: string,
+  motif: string,
+): Promise<DemandeAffectationAdmin> {
+  const response = await apiFetch(`/api/admin/demandes-affectation/${id}/refuser`, {
+    method: 'PATCH',
+    headers: JSON_HEADERS,
+    body: JSON.stringify({ motif }),
+  });
+  return lireReponseFormation<DemandeAffectationAdmin>(response, 'Impossible de refuser la demande.');
 }

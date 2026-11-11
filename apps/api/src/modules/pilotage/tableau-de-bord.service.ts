@@ -87,7 +87,7 @@ export interface TableauDeBordGlobal {
    * US-DASH-03 — Demandes qui attendent une décision de l'administrateur,
    * toujours présentes (zéro compris), avec un lien vers leur liste.
    */
-  demandesEnAttente: { role: number };
+  demandesEnAttente: { role: number; affectation: number };
 }
 
 const ROLES = ['APPRENANT', 'FORMATEUR', 'ADMINISTRATEUR'];
@@ -236,6 +236,7 @@ export class TableauDeBordService {
         generations: number;
         demandes: number;
         livrables: number;
+        affectations: number;
       }>(
         `SELECT
            (SELECT count(*)::int FROM certificats
@@ -245,7 +246,8 @@ export class TableauDeBordService {
              WHERE statut = 'ECHEC' AND ${dans('updated_at')}) AS generations,
            (SELECT count(*)::int FROM demandes_role WHERE statut = 'EN_ATTENTE') AS demandes,
            (SELECT count(*)::int FROM livrables
-             WHERE statut = 'SOUMIS' AND date_soumission < now() - make_interval(days => $3)) AS livrables`,
+             WHERE statut = 'SOUMIS' AND date_soumission < now() - make_interval(days => $3)) AS livrables,
+           (SELECT count(*)::int FROM demandes_affectation WHERE statut = 'EN_ATTENTE') AS affectations`,
         [...p, JOURS_LIVRABLE_EN_ATTENTE],
       ),
     ]);
@@ -327,7 +329,7 @@ export class TableauDeBordService {
         acteur: e.email ? { email: e.email, prenom: e.prenom, nom: e.nom } : null,
       })),
       alertes: listeAlertes,
-      demandesEnAttente: { role: al.demandes },
+      demandesEnAttente: { role: al.demandes, affectation: al.affectations },
     };
   }
 

@@ -45,7 +45,11 @@ export const LIENS_PAR_ROLE: Record<Role, LienNavigation[]> = {
       libelle: 'Utilisateurs',
       actifSur: ['/admin/utilisateurs', '/admin/role-requests'],
     },
-    { href: '/admin/formations', libelle: 'Formations', actifSur: ['/admin/formations'] },
+    {
+      href: '/admin/formations',
+      libelle: 'Formations',
+      actifSur: ['/admin/formations', '/admin/demandes-affectation'],
+    },
     { href: '/admin/certificats', libelle: 'Certificats', actifSur: ['/admin/certificats'] },
     { href: '/catalogue', libelle: 'Catalogue', actifSur: ['/catalogue'] },
   ],
