@@ -4,9 +4,12 @@ import {
   Injectable,
   Logger,
   NotFoundException,
+  Optional,
 } from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
+import { ConfigService } from '@nestjs/config';
 import { DataSource, EntityManager, QueryFailedError, Repository } from 'typeorm';
+import { SurveillanceConfig } from '../../config/configuration';
 import { ConfigurationAntiFraude } from '../../database/entities/configuration-anti-fraude.entity';
 import { Inscription } from '../../database/entities/inscription.entity';
 import { Qcm } from '../../database/entities/qcm.entity';
@@ -21,6 +24,7 @@ import { MESSAGE_NON_INSCRIT, MESSAGE_SUSPENDUE } from '../inscriptions/espace-f
 import {
   RefusDemarrage,
   calculerDateLimite,
+  verifierConsentement,
   verifierDelai,
   verifierFenetre,
   verifierQuota,
@@ -65,6 +69,9 @@ const MESSAGE_TERMINEE =
 
 const MS_PAR_SECONDE = 1000;
 
+/** US-QCM-12 — version de la notice d'information acceptée par l'apprenant. */
+export const VERSION_NOTICE_SURVEILLANCE = 'v1-2026-11';
+
 /** Issue de la transaction : la décision est prise dedans, les effets après. */
 type Issue =
   | { type: 'creee'; tentative: TentativeQcm; numero: number }
@@ -104,7 +111,15 @@ export class TentativeDemarrageService {
     private readonly notation: TentativeNotationService,
     // Verrou de session (US-QCM-10).
     private readonly session: TentativeSessionService,
+    // US-QCM-12 : interrupteur de la surveillance webcam.
+    @Optional() private readonly configService?: ConfigService,
   ) {}
+
+  /** US-QCM-12 — le QCM est-il surveillé (choix du formateur ET plateforme) ? */
+  private estSurveille(configuration: ConfigurationAntiFraude): boolean {
+    const surveillance = this.configService?.get<SurveillanceConfig>('surveillance');
+    return configuration.proctoringWebcam === true && surveillance?.active === true;
+  }
 
   /**
    * Démarre (ou reprend) une tentative, dans cet ordre :
@@ -146,6 +161,8 @@ export class TentativeDemarrageService {
     qcmId: string,
     sessionId: string,
     contexte: ContexteDemarrage,
+    // US-QCM-12 : consentement à la surveillance webcam (QCM surveillé).
+    options: { consentementSurveillance?: boolean } = {},
   ): Promise<TentativeDemarreeVue> {
     const qcm = await this.qcmRepository.findOne({
       where: { id: qcmId },
@@ -173,6 +190,7 @@ export class TentativeDemarrageService {
           qcmId,
           sessionId,
           configuration,
+          this.estSurveille(configuration) ? options.consentementSurveillance === true : null,
         ),
       );
     } catch (erreur) {
@@ -258,6 +276,21 @@ export class TentativeDemarrageService {
           dateLimite: issue.tentative.dateLimite,
         },
       });
+      // US-QCM-12 : consentement horodaté et journalisé.
+      if (issue.tentative.consentementSurveillanceLe) {
+        await this.auditService.record({
+          action: 'CONSENTEMENT_SURVEILLANCE',
+          acteur: apprenantId,
+          cible: issue.tentative.id,
+          adresseIp: contexte.adresseIp,
+          resultat: 'Succès',
+          detailsAvantApres: {
+            qcmId,
+            consentementLe: issue.tentative.consentementSurveillanceLe,
+            notice: VERSION_NOTICE_SURVEILLANCE,
+          },
+        });
+      }
     }
 
     // Clé posée à la création, reposée à la reprise si elle a disparu : même
@@ -318,6 +351,8 @@ export class TentativeDemarrageService {
     qcmId: string,
     sessionId: string,
     configuration: ConfigurationAntiFraude,
+    // US-QCM-12 : null = QCM non surveillé ; sinon, consentement donné ou non.
+    consentement: boolean | null = null,
   ): Promise<Bilan> {
     const verrouillee = await manager.findOne(Inscription, {
       where: { id: inscriptionId },
@@ -396,6 +431,11 @@ export class TentativeDemarrageService {
     if (refus) {
       return { issue: { type: 'refus', refus, nbTentativesPassees }, expiree };
     }
+    // US-QCM-12 : un QCM surveillé ne se commence qu'avec le consentement.
+    const refusConsentement = verifierConsentement(consentement !== null, consentement === true);
+    if (refusConsentement) {
+      return { issue: { type: 'refus', refus: refusConsentement, nbTentativesPassees }, expiree };
+    }
 
     // Tirage figé dans la même transaction que la création (US-QCM-06, D1).
     const planTirage = await this.tirageService.tirer(manager, qcmId, configuration);
@@ -414,6 +454,7 @@ export class TentativeDemarrageService {
         planTirage,
         // Enregistrée même blocage désactivé (D7) : utile à US-QCM-11.
         sessionId,
+        consentementSurveillanceLe: consentement === true ? maintenant : null,
       }),
     );
     return {

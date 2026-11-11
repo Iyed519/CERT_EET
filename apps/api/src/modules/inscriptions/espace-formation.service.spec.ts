@@ -345,6 +345,7 @@ describe('EspaceFormationService', () => {
           'id',
           'nbTentativesMax',
           'nbTentativesPassees',
+          'surveillanceWebcam',
           'tentativeEnCoursId',
           'titre',
         ].sort(),

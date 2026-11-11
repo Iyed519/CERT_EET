@@ -11,6 +11,7 @@ import { Role } from '../../../database/enums/role.enum';
 import { StatutCompte } from '../../../database/enums/statut-compte.enum';
 import { AuditService } from '../../audit/audit.service';
 import { AuthService } from '../../auth/auth.service';
+import { SurveillanceService } from '../../surveillance/surveillance.service';
 import {
   emailAnonyme,
   NOM_ANONYMISE,
@@ -49,8 +50,9 @@ export interface AnonymisationVue {
  *  4. données personnelles remplacées (identité, email, profil, secrets),
  *     liaisons OAuth et liens email supprimés, traces de connexion (IP,
  *     navigateur) effacées, justifications libres masquées ; statut ANONYMISE ;
- *  5. après COMMIT : toutes les sessions révoquées (base + Redis), audit
- *     COMPTE_ANONYMISE sans donnée personnelle.
+ *  5. après COMMIT : toutes les sessions révoquées (base + Redis), captures
+ *     webcam supprimées (US-QCM-12), audit COMPTE_ANONYMISE sans donnée
+ *     personnelle.
  * Conservés : tentatives, livrables, corrections, certificats (vérifiables,
  * titulaire masqué), journal d'audit.
  */
@@ -60,6 +62,8 @@ export class AnonymisationService {
     private readonly dataSource: DataSource,
     private readonly auditService: AuditService,
     private readonly authService: AuthService,
+    // US-QCM-12 : les captures webcam (images du visage) sont supprimées.
+    private readonly surveillance: SurveillanceService,
   ) {}
 
   async anonymiser(
@@ -144,6 +148,7 @@ export class AnonymisationService {
     });
 
     const sessionsRevoquees = await this.authService.invalidateUserSessions(cibleId);
+    const capturesSupprimees = await this.surveillance.purger({ apprenantId: cibleId, acteur: adminId });
     await this.auditService.record({
       action: 'COMPTE_ANONYMISE',
       acteur: adminId,
@@ -155,6 +160,7 @@ export class AnonymisationService {
         ancienStatut: resultat.cible.statut,
         sessionsRevoquees,
         liaisonsOauthSupprimees: resultat.liaisonsOauth,
+        capturesWebcamSupprimees: capturesSupprimees,
       },
     });
     return {

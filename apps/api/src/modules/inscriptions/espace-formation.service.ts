@@ -87,6 +87,9 @@ export interface EspaceFormationVue {
       nbTentativesPassees: number;
       // Ma tentative EN_COURS encore dans son échéance, à reprendre ; sinon null.
       tentativeEnCoursId: string | null;
+      // US-QCM-12 — le formateur a activé la surveillance webcam (consentement
+      // demandé au démarrage).
+      surveillanceWebcam: boolean;
     }>;
     // US-ATEL-03 — ateliers PUBLIÉS du module (jamais les brouillons), sans énoncé.
     ateliers: Array<{
@@ -209,6 +212,7 @@ export class EspaceFormationService {
                 dateFermeture: true,
                 dureeMaxMinutes: true,
                 nbTentativesMax: true,
+                proctoringWebcam: true,
               },
             },
             order: { createdAt: 'ASC' },
@@ -383,6 +387,7 @@ export class EspaceFormationService {
           nbTentativesMax: q.configuration?.nbTentativesMax ?? null,
           nbTentativesPassees: mesTentatives.length,
           tentativeEnCoursId: tentativeAReprendre(mesTentatives, maintenant),
+          surveillanceWebcam: q.configuration?.proctoringWebcam ?? false,
         };
       });
     return {

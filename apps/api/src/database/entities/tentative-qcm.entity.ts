@@ -118,6 +118,11 @@ export class TentativeQcm {
   @Column({ name: 'session_id', type: 'uuid', nullable: true })
   sessionId: string | null;
 
+  // US-QCM-12 — consentement à la surveillance webcam, donné avant la
+  // création (NULL : QCM non surveillé).
+  @Column({ name: 'consentement_surveillance_le', type: 'timestamptz', nullable: true })
+  consentementSurveillanceLe: Date | null;
+
   // Composition : les réponses n'existent pas hors de leur tentative.
   @OneToMany(() => Reponse, (reponse) => reponse.tentative)
   reponses: Reponse[];

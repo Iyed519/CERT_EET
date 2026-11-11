@@ -1,6 +1,8 @@
-import { Injectable, NotFoundException } from '@nestjs/common';
+import { Injectable, NotFoundException, Optional } from '@nestjs/common';
+import { ConfigService } from '@nestjs/config';
 import { InjectRepository } from '@nestjs/typeorm';
 import { DataSource, LessThanOrEqual, Repository } from 'typeorm';
+import { SurveillanceConfig } from '../../config/configuration';
 import { ConfigurationAntiFraude } from '../../database/entities/configuration-anti-fraude.entity';
 import { Reponse } from '../../database/entities/reponse.entity';
 import { QuestionTiree, TentativeQcm } from '../../database/entities/tentative-qcm.entity';
@@ -55,6 +57,10 @@ export interface TentativeConsulteeVue {
   // US-QCM-09 (D12) — le corrigé est-il disponible, sinon pourquoi et à partir
   // de quand : la page affiche le bouton ou la date. AUCUNE réponse ici.
   correction: EtatCorrection;
+  // US-QCM-12 — surveillance webcam de cette tentative : la page prend une
+  // capture au démarrage puis toutes les `intervalleSecondes` (pendant le
+  // temps de passage, consentement enregistré).
+  surveillance: { active: boolean; intervalleSecondes: number };
 }
 
 const MESSAGE_INTROUVABLE = 'Tentative introuvable.';
@@ -80,6 +86,8 @@ export class TentativeConsultationService {
     private readonly correctionService: TentativeCorrectionService,
     // Verrou de session (US-QCM-10).
     private readonly session: TentativeSessionService,
+    // US-QCM-12 : interrupteur et intervalle de la surveillance webcam.
+    @Optional() private readonly configService?: ConfigService,
   ) {}
 
   /**
@@ -159,6 +167,24 @@ export class TentativeConsultationService {
       questions,
       reponses,
       correction,
+      surveillance: this.surveillance(enPassage, tentative, configuration.proctoringWebcam),
+    };
+  }
+
+  /** US-QCM-12 — état de la surveillance webcam pour la page de passage. */
+  private surveillance(
+    enPassage: boolean,
+    tentative: TentativeQcm,
+    proctoring: boolean,
+  ): { active: boolean; intervalleSecondes: number } {
+    const config = this.configService?.get<SurveillanceConfig>('surveillance');
+    return {
+      active:
+        enPassage &&
+        proctoring === true &&
+        config?.active === true &&
+        tentative.consentementSurveillanceLe != null,
+      intervalleSecondes: config?.intervalleSecondes ?? 120,
     };
   }
 
