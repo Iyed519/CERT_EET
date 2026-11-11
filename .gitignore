@@ -1,7 +1,8 @@
 # Dependencies (dépendances) — JAMAIS poussées sur GitHub
 node_modules/
 **/node_modules/
- 
+ml/donnees/
+ml/.venv/
 # Build outputs (résultats de compilation)
 dist/
 .next/
