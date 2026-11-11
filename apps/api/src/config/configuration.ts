@@ -103,6 +103,16 @@ export interface VerificationConfig {
  */
 export type LimitesConfig = Record<string, number>;
 
+/**
+ * US-CPT-02 — Envoi asynchrone des emails d'activation des comptes importés
+ * (file BullMQ, worker dans le processus de l'api ; COMPTES_WORKER=off le coupe).
+ */
+export interface ActivationsConfig {
+  workerActif: boolean;
+  tentatives: number;
+  backoffMs: number;
+}
+
 /** Valeurs par défaut (requêtes par fenêtre de la route) et variable associée. */
 export const LIMITES_PAR_DEFAUT: Record<string, { variable: string; valeur: number; relacheeEnTest: boolean }> = {
   connexion: { variable: 'LIMITE_CONNEXION', valeur: 30, relacheeEnTest: true },
@@ -112,6 +122,7 @@ export const LIMITES_PAR_DEFAUT: Record<string, { variable: string; valeur: numb
   'verification-email': { variable: 'LIMITE_VERIFICATION_EMAIL', valeur: 30, relacheeEnTest: true },
   'mdp-oublie': { variable: 'LIMITE_MDP_OUBLIE', valeur: 5, relacheeEnTest: false },
   'mdp-reinitialisation': { variable: 'LIMITE_MDP_REINITIALISATION', valeur: 10, relacheeEnTest: false },
+  activation: { variable: 'LIMITE_ACTIVATION', valeur: 10, relacheeEnTest: false },
 };
 
 /**
@@ -212,6 +223,7 @@ export default (): {
   rapports: RapportsConfig;
   verification: VerificationConfig;
   limites: LimitesConfig;
+  activations: ActivationsConfig;
   ia: IaConfig;
   ressources: RessourcesConfig;
   llm: LlmConfig;
@@ -285,6 +297,11 @@ export default (): {
     limiteParMinute: parseInt(process.env.VERIFICATION_LIMITE_PAR_MINUTE ?? '20', 10),
   },
   limites: lireLimites(process.env),
+  activations: {
+    workerActif: (process.env.COMPTES_WORKER ?? 'on') !== 'off',
+    tentatives: 3,
+    backoffMs: 2000,
+  },
   ia: {
     workerActif: (process.env.IA_WORKER ?? 'on') !== 'off',
     tentatives: parseInt(process.env.IA_TENTATIVES ?? '3', 10),

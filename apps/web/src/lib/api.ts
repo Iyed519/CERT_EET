@@ -3906,3 +3906,81 @@ export async function reinitialiserMotDePasse(
   }
   return messageErreur(data) ?? '';
 }
+
+// ---------------------------------------------------------------------------
+// US-CPT-02 — Import CSV de comptes (ADMINISTRATEUR) et activation.
+// ---------------------------------------------------------------------------
+
+export interface CompteImporte {
+  ligne: number;
+  id: string;
+  email: string;
+  role: RoleUtilisateur;
+}
+
+export interface ErreurLigneImport {
+  ligne: number;
+  email: string;
+  erreurs: string[];
+  libelles: string[];
+}
+
+export type ResultatImportComptes =
+  | { ok: true; crees: number; comptes: CompteImporte[] }
+  | { ok: false; message: string; lignesAnalysees: number; erreurs: ErreurLigneImport[] };
+
+/**
+ * POST /api/admin/users/import — tout ou rien. Un refus (400) qui porte un
+ * rapport ligne par ligne est un résultat, pas une exception ; les autres
+ * erreurs (fichier inexploitable, 413, 409, 403…) lèvent AdminError.
+ */
+export async function importerComptes(fichier: File): Promise<ResultatImportComptes> {
+  const corps = new FormData();
+  corps.append('fichier', fichier);
+  const response = await apiFetch('/api/admin/users/import', { method: 'POST', body: corps });
+  const data = (await response.json().catch(() => ({}))) as {
+    message?: string | string[];
+    crees?: number;
+    comptes?: CompteImporte[];
+    lignesAnalysees?: number;
+    erreurs?: ErreurLigneImport[];
+  };
+  if (response.ok) {
+    return { ok: true, crees: data.crees ?? 0, comptes: data.comptes ?? [] };
+  }
+  if (response.status === 400 && Array.isArray(data.erreurs)) {
+    return {
+      ok: false,
+      message: messageErreur(data) ?? 'Import refusé.',
+      lignesAnalysees: data.lignesAnalysees ?? 0,
+      erreurs: data.erreurs,
+    };
+  }
+  throw new AdminError(messageErreur(data) ?? 'Impossible d’importer le fichier.', response.status);
+}
+
+/** POST /api/admin/users/:id/activation — renvoie l'email d'activation. */
+export async function renvoyerActivation(userId: string): Promise<string> {
+  const response = await apiFetch(`/api/admin/users/${userId}/activation`, { method: 'POST' });
+  const data = (await response.json().catch(() => ({}))) as { message?: string | string[] };
+  if (!response.ok) {
+    throw new AdminError(messageErreur(data) ?? 'Impossible de renvoyer l’email.', response.status);
+  }
+  return messageErreur(data) ?? 'Email d’activation renvoyé.';
+}
+
+/** POST /api/auth/activate — activation d'un compte importé (route publique). */
+export async function activerCompte(token: string, nouveauMotDePasse: string): Promise<string> {
+  const response = await fetch('/api/auth/activate', {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ token, nouveauMotDePasse }),
+  });
+  const data = (await response.json().catch(() => ({}))) as { message?: string | string[] };
+  if (!response.ok) {
+    throw new MotDePasseOublieError(
+      messageErreur(data) ?? 'Une erreur est survenue. Veuillez réessayer.',
+    );
+  }
+  return messageErreur(data) ?? '';
+}

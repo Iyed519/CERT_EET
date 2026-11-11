@@ -109,6 +109,9 @@ export const envValidationSchema = Joi.object({
   LIMITE_VERIFICATION_EMAIL: Joi.number().integer().min(1).max(1000000),
   LIMITE_MDP_OUBLIE: Joi.number().integer().min(1).max(1000000),
   LIMITE_MDP_REINITIALISATION: Joi.number().integer().min(1).max(1000000),
+  LIMITE_ACTIVATION: Joi.number().integer().min(1).max(1000000),
+  // US-CPT-02 : worker d'envoi des emails d'activation (comptes importés).
+  COMPTES_WORKER: Joi.string().valid('on', 'off').default('on'),
 
   // --- Assistance IA (US-IA-01, ADR-04 / ADR-05) ---
   // Worker d'indexation des supports dans le processus de l'api (« off » le

@@ -24,9 +24,11 @@ import { MfaCodeDto } from './dto/mfa-code.dto';
 import { MfaVerifyDto } from './dto/mfa-verify.dto';
 import { ChangerMotDePasseDto } from './dto/changer-mot-de-passe.dto';
 import {
+  ActiverCompteDto,
   DemanderReinitialisationDto,
   ReinitialiserMotDePasseDto,
 } from './dto/mot-de-passe-oublie.dto';
+import { ActivationComptesService } from './activation-comptes.service';
 import {
   MESSAGE_DEMANDE_REINITIALISATION,
   MotDePasseOublieService,
@@ -52,6 +54,7 @@ export class AuthController {
     private readonly authService: AuthService,
     private readonly configService: ConfigService,
     private readonly motDePasseOublie: MotDePasseOublieService,
+    private readonly activations: ActivationComptesService,
   ) {
     this.jwtConfig = this.configService.getOrThrow<JwtConfig>('jwt');
   }
@@ -460,6 +463,27 @@ export class AuthController {
       message:
         'Votre mot de passe a été réinitialisé. Toutes vos sessions ont été fermées : connectez-vous avec le nouveau mot de passe.',
     };
+  }
+
+  /**
+   * US-CPT-02 — Activation d'un compte importé par l'administrateur : le
+   * titulaire choisit son mot de passe avec le lien reçu (48 h, usage unique).
+   */
+  @Public()
+  @Post('activate')
+  @HttpCode(HttpStatus.OK)
+  @UseGuards(LimiteRequetesGuard)
+  @AppliquerLimite({ nom: 'activation', limite: 10, fenetreSecondes: 15 * 60 })
+  @ApiOperation({ summary: 'Activer un compte importé et choisir son mot de passe (US-CPT-02)' })
+  @ApiResponse({ status: 200, description: 'Compte activé.' })
+  @ApiResponse({ status: 400, description: 'Lien invalide, expiré ou déjà utilisé ; mot de passe non conforme.' })
+  @ApiResponse({ status: 429, description: 'Trop d’essais depuis cette adresse IP.' })
+  async activerCompte(
+    @Body() dto: ActiverCompteDto,
+    @Req() req: Request,
+  ): Promise<{ message: string }> {
+    await this.activations.activer(dto.token, dto.nouveauMotDePasse, { adresseIp: req.ip ?? null });
+    return { message: 'Votre compte est activé. Vous pouvez maintenant vous connecter.' };
   }
 
   /**

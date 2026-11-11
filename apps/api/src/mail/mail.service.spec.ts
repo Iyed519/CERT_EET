@@ -438,4 +438,19 @@ describe('MailService', () => {
       expect(message.html).not.toContain('<b>A</b>');
     });
   });
+
+  describe('sendActivationCompteEmail (US-CPT-02)', () => {
+    it('contient le lien et sa durée, échappe le prénom', async () => {
+      await service.sendActivationCompteEmail('u@cert-eet.local', {
+        prenom: '<b>A</b>',
+        lien: 'http://localhost:3001/activer-compte?token=abc',
+        heures: 48,
+      });
+      const message = dernierMessage();
+      expect(message.subject).toBe('Cert_EET — Activez votre compte');
+      expect(message.text).toContain('48 heures');
+      expect(message.html).toContain('href="http://localhost:3001/activer-compte?token=abc"');
+      expect(message.html).not.toContain('<b>A</b>');
+    });
+  });
 });

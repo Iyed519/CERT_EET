@@ -30,7 +30,8 @@ describe('Durcissement (US-AUTH-13)', () => {
     expect(test['mdp-oublie']).toBe(5);
     expect(test['mdp-reinitialisation']).toBe(10);
     expect(lireLimites({ NODE_ENV: 'test', LIMITE_CONNEXION: '3' }).connexion).toBe(3);
-    expect(Object.keys(LIMITES_PAR_DEFAUT)).toHaveLength(7);
+    expect(Object.keys(LIMITES_PAR_DEFAUT)).toHaveLength(8);
+    expect(test.activation).toBe(10);
   });
 
   it('CSP de l’API : aucun cadre, aucun objet, aucune source tierce ; corps JSON borné', () => {
