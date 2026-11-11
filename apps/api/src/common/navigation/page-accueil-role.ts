@@ -9,7 +9,7 @@ import { Role } from '../../database/enums/role.enum';
  */
 export const PAGE_ACCUEIL_PAR_ROLE: Record<Role, string> = {
   [Role.ADMINISTRATEUR]: '/admin/tableau-de-bord',
-  [Role.FORMATEUR]: '/formateur/formations',
+  [Role.FORMATEUR]: '/formateur/tableau-de-bord',
   [Role.APPRENANT]: '/catalogue',
 };
 

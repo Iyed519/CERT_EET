@@ -25,6 +25,11 @@ export const LIENS_PAR_ROLE: Record<Role, LienNavigation[]> = {
   ],
   FORMATEUR: [
     {
+      href: '/formateur/tableau-de-bord',
+      libelle: 'Tableau de bord',
+      actifSur: ['/formateur/tableau-de-bord'],
+    },
+    {
       href: '/formateur/formations',
       libelle: 'Mes formations',
       actifSur: ['/formateur/formations', '/formateur/qcm', '/formateur/ateliers', '/formateur/livrables'],
@@ -55,7 +60,7 @@ export const LIENS_PAR_ROLE: Record<Role, LienNavigation[]> = {
  */
 export const PAGE_ACCUEIL_PAR_ROLE: Record<Role, string> = {
   ADMINISTRATEUR: '/admin/tableau-de-bord',
-  FORMATEUR: '/formateur/formations',
+  FORMATEUR: '/formateur/tableau-de-bord',
   APPRENANT: '/catalogue',
 };
 

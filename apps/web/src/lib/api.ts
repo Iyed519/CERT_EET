@@ -3109,6 +3109,8 @@ export interface TableauDeBordGlobal {
     acteur: { email: string; prenom: string | null; nom: string | null } | null;
   }>;
   alertes: Array<{ code: CodeAlerteSysteme; nombre: number }>;
+  /** US-DASH-03 — demandes qui attendent une décision (zéro compris). */
+  demandesEnAttente: { role: number };
 }
 
 /**
@@ -3124,6 +3126,61 @@ export async function getTableauDeBordGlobal(
   const qs = params.toString();
   const response = await apiFetch(`/api/admin/tableau-de-bord${qs ? `?${qs}` : ''}`);
   return lireReponseFormation<TableauDeBordGlobal>(
+    response,
+    'Impossible de charger le tableau de bord.',
+  );
+}
+
+// ---------------------------------------------------------------------------
+// US-DASH-03 — Tableau de bord global du formateur (toutes ses formations).
+// ---------------------------------------------------------------------------
+
+export interface FormationTableauDeBordFormateur {
+  id: string;
+  titre: string;
+  statut: StatutFormation;
+  inscrits: number;
+  actifs: number;
+  tentativesNotees: number;
+  tauxReussite: number;
+  scoreMoyen: number | null;
+  tentativesAEvaluer: number;
+  livrablesAEvaluer: number;
+  alertesOuvertes: number;
+  certificatsDelivres: number;
+}
+
+export interface TableauDeBordFormateur {
+  periode: { du: string; au: string; jours: number };
+  formations: { parStatut: Record<string, number>; total: number };
+  apprenants: { inscrits: number; actifs: number; nouveaux: number };
+  qcm: {
+    tentativesNotees: number;
+    reussies: number;
+    tauxReussite: number;
+    scoreMoyen: number | null;
+    aEvaluer: number;
+  };
+  ateliers: { livrablesAEvaluer: number };
+  alertesOuvertes: number;
+  certificatsDelivres: number;
+  activite: Array<{ jour: string; tentatives: number; livrables: number }>;
+  mesFormations: FormationTableauDeBordFormateur[];
+}
+
+/**
+ * US-DASH-03 — GET /api/formateur/tableau-de-bord?du&au (jours inclus).
+ *   - 400 -> date invalide, période inversée ou trop longue (message de l'API).
+ */
+export async function getTableauDeBordFormateur(
+  periode: { du?: string; au?: string } = {},
+): Promise<TableauDeBordFormateur> {
+  const params = new URLSearchParams();
+  if (periode.du) params.set('du', periode.du);
+  if (periode.au) params.set('au', periode.au);
+  const qs = params.toString();
+  const response = await apiFetch(`/api/formateur/tableau-de-bord${qs ? `?${qs}` : ''}`);
+  return lireReponseFormation<TableauDeBordFormateur>(
     response,
     'Impossible de charger le tableau de bord.',
   );

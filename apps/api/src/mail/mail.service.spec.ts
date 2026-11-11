@@ -53,10 +53,10 @@ describe('MailService', () => {
       expect(message.subject).toBe('Cert_EET — Vous êtes affecté à la formation « DevOps avancé »');
       expect(message.text).toContain('Bonjour Amine,');
       expect(message.text).toContain('« DevOps avancé »');
-      expect(message.text).toContain('http://localhost:3001/formateur/formations');
+      expect(message.text).toContain('http://localhost:3001/formateur/tableau-de-bord');
       expect(message.html).toContain('Bonjour Amine,');
       expect(message.html).toContain('DevOps avancé');
-      expect(message.html).toContain('href="http://localhost:3001/formateur/formations"');
+      expect(message.html).toContain('href="http://localhost:3001/formateur/tableau-de-bord"');
     });
 
     it('salue sans prénom quand le compte n’en a pas', async () => {

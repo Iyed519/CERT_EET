@@ -83,11 +83,17 @@ export interface TableauDeBordGlobal {
   activite: JourActivite[];
   activiteRecente: EvenementRecent[];
   alertes: AlerteSysteme[];
+  /**
+   * US-DASH-03 — Demandes qui attendent une décision de l'administrateur,
+   * toujours présentes (zéro compris), avec un lien vers leur liste.
+   */
+  demandesEnAttente: { role: number };
 }
 
 const ROLES = ['APPRENANT', 'FORMATEUR', 'ADMINISTRATEUR'];
 const STATUTS_COMPTE = ['EN_ATTENTE_ACTIVATION', 'ACTIF', 'DESACTIVE', 'ANONYMISE'];
-const STATUTS_FORMATION = ['OUVERTE', 'FERMEE', 'ARCHIVEE'];
+/** Statuts d'une formation, dans l'ordre d'affichage (US-DASH-01, US-DASH-03). */
+export const STATUTS_FORMATION = ['OUVERTE', 'FERMEE', 'ARCHIVEE'];
 const STATUTS_INSCRIPTION = ['EN_COURS', 'TERMINEE', 'SUSPENDUE'];
 const STATUTS_CERTIFICAT = ['EN_ATTENTE_GENERATION', 'EN_GENERATION', 'ACTIF', 'REVOQUE', 'EXPIRE'];
 
@@ -321,6 +327,7 @@ export class TableauDeBordService {
         acteur: e.email ? { email: e.email, prenom: e.prenom, nom: e.nom } : null,
       })),
       alertes: listeAlertes,
+      demandesEnAttente: { role: al.demandes },
     };
   }
 
