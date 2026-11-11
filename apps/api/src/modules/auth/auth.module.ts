@@ -8,6 +8,9 @@ import { RefreshToken } from '../../database/entities/refresh-token.entity';
 import { CompteOauth } from '../../database/entities/compte-oauth.entity';
 import { AuthController } from './auth.controller';
 import { AuthService } from './auth.service';
+import { JetonsLienService } from './jetons-lien.service';
+import { MotDePasseOublieService } from './mot-de-passe-oublie.service';
+import { LimiteRequetesGuard } from '../../common/limite-requetes/limite-requetes.guard';
 import { JwtAuthGuard } from './guards/jwt-auth.guard';
 import { RolesGuard } from './guards/roles.guard';
 import { GoogleStrategy } from './strategies/google.strategy';
@@ -30,6 +33,9 @@ import { GithubStrategy } from './strategies/github.strategy';
   controllers: [AuthController],
   providers: [
     AuthService,
+    JetonsLienService,
+    MotDePasseOublieService,
+    LimiteRequetesGuard,
     GoogleStrategy,
     GithubStrategy,
     { provide: APP_GUARD, useClass: JwtAuthGuard },
@@ -37,6 +43,6 @@ import { GithubStrategy } from './strategies/github.strategy';
   ],
   // Export pour qu’AdminModule (US-ROL-01) puisse injecter
   // AuthService.invalidateUserSessions (hook ADR-08-R1).
-  exports: [AuthService],
+  exports: [AuthService, JetonsLienService, LimiteRequetesGuard],
 })
 export class AuthModule {}

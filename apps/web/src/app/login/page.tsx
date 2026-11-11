@@ -173,7 +173,10 @@ export default function LoginPage(): JSX.Element {
               value={email} onChange={(e) => setEmail(e.target.value)} disabled={enCours} />
           </div>
           <div className="field">
-            <label className="field-label" htmlFor="password">Mot de passe</label>
+            <div className="field-label-ligne">
+              <label className="field-label" htmlFor="password">Mot de passe</label>
+              <a className="lien-discret" href="/mot-de-passe-oublie">Mot de passe oublié ?</a>
+            </div>
             <input id="password" className="input" type="password" name="password"
               autoComplete="current-password" required
               value={password} onChange={(e) => setPassword(e.target.value)} disabled={enCours} />

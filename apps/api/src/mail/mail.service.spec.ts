@@ -422,4 +422,20 @@ describe('MailService', () => {
       expect(message.html).toContain('&lt;i&gt;Iyed&lt;/i&gt;');
     });
   });
+
+  describe('sendReinitialisationMotDePasseEmail (US-AUTH-06)', () => {
+    it('contient le lien, sa durée, et échappe le prénom', async () => {
+      await service.sendReinitialisationMotDePasseEmail('u@cert-eet.local', {
+        prenom: '<b>A</b>',
+        lien: 'http://localhost:3001/reinitialiser-mot-de-passe?token=abc',
+        minutes: 30,
+      });
+      const message = dernierMessage();
+      expect(message.subject).toBe('Cert_EET — Réinitialisation de votre mot de passe');
+      expect(message.text).toContain('http://localhost:3001/reinitialiser-mot-de-passe?token=abc');
+      expect(message.text).toContain('30 minutes');
+      expect(message.html).toContain('href="http://localhost:3001/reinitialiser-mot-de-passe?token=abc"');
+      expect(message.html).not.toContain('<b>A</b>');
+    });
+  });
 });

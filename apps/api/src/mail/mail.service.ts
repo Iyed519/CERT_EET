@@ -1203,6 +1203,47 @@ export class MailService {
   }
 
   /**
+   * US-AUTH-06 — Lien de réinitialisation du mot de passe (usage unique,
+   * durée limitée). Le lien porte le jeton en clair : il n'apparaît que dans
+   * cet email (la base n'en garde que l'empreinte). L'erreur d'envoi remonte ;
+   * l'appelant la journalise sans la faire voir au demandeur.
+   */
+  async sendReinitialisationMotDePasseEmail(
+    to: string,
+    donnees: { prenom: string | null; lien: string; minutes: number },
+  ): Promise<void> {
+    const { from } = this.configService.getOrThrow<MailConfig>('mail');
+    const prenom = donnees.prenom?.trim() ?? '';
+    const salutation = prenom ? `Bonjour ${prenom},` : 'Bonjour,';
+    const text =
+      `${salutation}\n\n` +
+      `Vous avez demandé à réinitialiser le mot de passe de votre compte Cert_EET. ` +
+      `Ouvrez le lien suivant pour en choisir un nouveau (valable ${donnees.minutes} minutes, ` +
+      `utilisable une seule fois) :\n${donnees.lien}\n\n` +
+      `Si vous n'êtes pas à l'origine de cette demande, ignorez cet email : votre mot de ` +
+      `passe actuel reste valable.\n\n` +
+      `— L'équipe Cert_EET`;
+    const html = gabaritEmail({
+      titre: 'Réinitialisez votre mot de passe',
+      paragraphesHtml: [
+        echapperHtml(salutation),
+        'Vous avez demandé à réinitialiser le mot de passe de votre compte Cert_EET. Choisissez-en un nouveau avec le bouton ci-dessous.',
+      ],
+      bouton: { libelle: 'Choisir un nouveau mot de passe', lien: donnees.lien },
+      mentionHtml: `Ce lien est valable <strong style="color:#1e8449;">${donnees.minutes} minutes</strong> et ne fonctionne qu'une seule fois.`,
+      piedHtml:
+        "Vous n'êtes pas à l'origine de cette demande&nbsp;? Ignorez simplement cet email&nbsp;: votre mot de passe actuel reste valable.",
+    });
+    await this.transporter.sendMail({
+      from,
+      to,
+      subject: 'Cert_EET — Réinitialisation de votre mot de passe',
+      text,
+      html,
+    });
+    this.logger.log(`Email de réinitialisation envoyé à ${to}`);
+  }
+  /**
    * US-AUTH-08 — Prévient le titulaire que son mot de passe vient d'être
    * changé et que toutes ses sessions ont été fermées. Aucun lien d'action :
    * si ce n'est pas lui, il passe par « Mot de passe oublié » ou contacte un
