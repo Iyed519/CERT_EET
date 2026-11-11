@@ -13,6 +13,43 @@
 
 ---
 
+## [Sprint 6] — Prêt pour la démonstration : session stable, navigation par rôle, formateur outillé — ✅ CLÔTURÉ
+
+**Résumé :** 6 stories livrées (26 pts), le 11/11/2026 (PR #97 → #102). **2 310 tests automatisés verts**
+(1 464 unitaires + 846 e2e) et 79 mutants tués. La session survit au rafraîchissement, chaque rôle arrive
+sur sa page, le formateur a son tableau de bord et peut demander ou proposer une formation ; un audit
+rejouable vérifie toute la navigation, et un jeu de démonstration se charge en une commande.
+Backlog et revue : `docs/Sprint6_Backlog.md`, `docs/Sprint6_Review.md` ; guide : `docs/GUIDE_DEMO.md`.
+
+#### US-AUTH-17 — Garder la session après un rafraîchissement — PR #97 · journal `engineering-log/83`
+- **Quoi :** restauration unique de la session au chargement, aucune page rendue avant, rotation du
+  refresh token rendue atomique, zone nginx dédiée. **Pourquoi :** F5 déconnectait l'utilisateur.
+
+#### US-NAV-01 — Redirection par rôle après connexion — PR #98 · journal `engineering-log/84`
+- **Quoi :** page de rôle après toute connexion, pas d'écran de connexion pour un connecté, retour sur
+  la page demandée (chemins internes seulement), pages d'autres rôles redirigées. **Pourquoi :** arriver
+  directement au travail, sans page intermédiaire.
+
+#### US-DASH-03 — Tableau de bord du formateur — PR #99 · journal `engineering-log/85`
+- **Quoi :** indicateurs sur toutes ses formations, période, graphique, tableau par formation ; demandes
+  en attente sur le tableau de bord administrateur. **Pourquoi :** savoir où intervenir en premier.
+
+#### US-FORM-07 — Demande d'affectation — PR #100 · journal `engineering-log/86`
+- **Quoi :** le formateur demande une formation existante ; l'administrateur accepte (affectation dans la
+  même transaction) ou refuse avec motif ; emails, audit. **Pourquoi :** exprimer un souhait d'enseigner.
+
+#### US-FORM-08 — Proposition de formation — PR #101 · journal `engineering-log/87`
+- **Quoi :** propositions (5 en cours au plus), modifications demandées puis resoumission, acceptation en
+  formation BROUILLON avec le proposant affecté, publication. **Pourquoi :** enrichir l'offre à partir du
+  terrain.
+
+#### US-QUAL-01 — Audit de navigation — PR #102 · journal `engineering-log/88`
+- **Quoi :** outil Playwright rejouable (`outils/recette`), page « introuvable » en français, icône,
+  tests rendus déterministes, jeu de démonstration idempotent, guide de démonstration. **Pourquoi :**
+  aucune page cassée devant l'encadrant.
+
+---
+
 ## [Sprint 5] — Comptes et sécurité soldés : mots de passe, durcissement, import, RGPD, surveillance — ✅ CLÔTURÉ
 
 **Résumé :** 6 stories livrées (23 pts), le 11/11/2026 (PR #90 → #95), avec un agent de développement qui
