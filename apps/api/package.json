@@ -17,7 +17,8 @@
     "test:e2e": "jest --config ./test/jest-e2e.json --runInBand",
     "typeorm": "ts-node -r tsconfig-paths/register ./node_modules/typeorm/cli.js -d ./src/database/data-source.ts",
     "migration:generate": "npm run typeorm -- migration:generate",
-    "migration:run": "npm run typeorm -- migration:run"
+    "migration:run": "npm run typeorm -- migration:run",
+    "demo:charger": "ts-node -r tsconfig-paths/register ./src/database/demo/charger-demo.ts"
   },
   "dependencies": {
     "@anthropic-ai/sdk": "1.3.0",

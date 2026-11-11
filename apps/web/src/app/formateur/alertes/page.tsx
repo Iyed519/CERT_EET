@@ -75,6 +75,7 @@ export default function AlertesPage(): JSX.Element {
             key={l}
             type="button"
             className={`filtre-livrable${statut === v ? ' filtre-livrable-actif' : ''}`}
+            aria-pressed={statut === v}
             onClick={() => setStatut(v)}
           >
             {l}
