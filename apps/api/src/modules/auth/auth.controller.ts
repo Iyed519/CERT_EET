@@ -23,6 +23,16 @@ import { CompleteProfileDto } from './dto/complete-profile.dto';
 import { MfaCodeDto } from './dto/mfa-code.dto';
 import { MfaVerifyDto } from './dto/mfa-verify.dto';
 import { ChangerMotDePasseDto } from './dto/changer-mot-de-passe.dto';
+import {
+  DemanderReinitialisationDto,
+  ReinitialiserMotDePasseDto,
+} from './dto/mot-de-passe-oublie.dto';
+import {
+  MESSAGE_DEMANDE_REINITIALISATION,
+  MotDePasseOublieService,
+} from './mot-de-passe-oublie.service';
+import { LimiteRequetesGuard } from '../../common/limite-requetes/limite-requetes.guard';
+import { AppliquerLimite } from '../../common/limite-requetes/limite-requetes.decorator';
 import { JwtConfig, MailConfig } from '../../config/configuration';
 import { Public } from './decorators/public.decorator';
 import { AuthenticatedRequest, OauthProfile } from './auth.types';
@@ -41,6 +51,7 @@ export class AuthController {
   constructor(
     private readonly authService: AuthService,
     private readonly configService: ConfigService,
+    private readonly motDePasseOublie: MotDePasseOublieService,
   ) {
     this.jwtConfig = this.configService.getOrThrow<JwtConfig>('jwt');
   }
@@ -384,6 +395,55 @@ export class AuthController {
       message:
         'Mot de passe modifié. Toutes vos sessions ont été déconnectées : reconnectez-vous avec votre nouveau mot de passe.',
       sessionsRevoquees,
+    };
+  }
+
+  /**
+   * US-AUTH-06 — Mot de passe oublié : demande d'un lien. Route @Public,
+   * limitée par IP (5 demandes / 15 min, puis 429). Réponse TOUJOURS
+   * identique, que l'adresse corresponde ou non à un compte actif.
+   */
+  @Public()
+  @Post('forgot-password')
+  @HttpCode(HttpStatus.OK)
+  @UseGuards(LimiteRequetesGuard)
+  @AppliquerLimite({ nom: 'mdp-oublie', limite: 5, fenetreSecondes: 15 * 60 })
+  @ApiOperation({ summary: 'Demander un lien de réinitialisation (US-AUTH-06)' })
+  @ApiResponse({ status: 200, description: 'Réponse neutre, identique dans tous les cas.' })
+  @ApiResponse({ status: 400, description: 'Adresse email mal formée.' })
+  @ApiResponse({ status: 429, description: 'Trop de demandes depuis cette adresse IP.' })
+  async demanderReinitialisation(
+    @Body() dto: DemanderReinitialisationDto,
+    @Req() req: Request,
+  ): Promise<{ message: string }> {
+    await this.motDePasseOublie.demander(dto.email, { adresseIp: req.ip ?? null });
+    return { message: MESSAGE_DEMANDE_REINITIALISATION };
+  }
+
+  /**
+   * US-AUTH-06 — Réinitialisation avec le jeton du lien (usage unique,
+   * 30 min). Toutes les sessions du compte sont ensuite révoquées. Limitée
+   * par IP (10 essais / 15 min).
+   */
+  @Public()
+  @Post('reset-password')
+  @HttpCode(HttpStatus.OK)
+  @UseGuards(LimiteRequetesGuard)
+  @AppliquerLimite({ nom: 'mdp-reinitialisation', limite: 10, fenetreSecondes: 15 * 60 })
+  @ApiOperation({ summary: 'Réinitialiser le mot de passe avec le lien reçu (US-AUTH-06)' })
+  @ApiResponse({ status: 200, description: 'Mot de passe réinitialisé ; toutes les sessions sont fermées.' })
+  @ApiResponse({ status: 400, description: 'Lien invalide, expiré ou déjà utilisé ; mot de passe non conforme.' })
+  @ApiResponse({ status: 429, description: 'Trop d’essais depuis cette adresse IP.' })
+  async reinitialiserMotDePasse(
+    @Body() dto: ReinitialiserMotDePasseDto,
+    @Req() req: Request,
+  ): Promise<{ message: string }> {
+    await this.motDePasseOublie.reinitialiser(dto.token, dto.nouveauMotDePasse, {
+      adresseIp: req.ip ?? null,
+    });
+    return {
+      message:
+        'Votre mot de passe a été réinitialisé. Toutes vos sessions ont été fermées : connectez-vous avec le nouveau mot de passe.',
     };
   }
 

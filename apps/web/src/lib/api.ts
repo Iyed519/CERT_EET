@@ -3866,3 +3866,43 @@ export async function changerMotDePasse(
     sessionsRevoquees: data.sessionsRevoquees ?? 0,
   };
 }
+
+/* ============================================================
+ * US-AUTH-06 — Mot de passe oublié (routes publiques)
+ * ============================================================ */
+export class MotDePasseOublieError extends Error {}
+
+/** POST /api/auth/forgot-password — réponse neutre, identique dans tous les cas. */
+export async function demanderReinitialisation(email: string): Promise<string> {
+  const response = await fetch('/api/auth/forgot-password', {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ email }),
+  });
+  const data = (await response.json().catch(() => ({}))) as { message?: string | string[] };
+  if (!response.ok) {
+    throw new MotDePasseOublieError(
+      messageErreur(data) ?? 'Une erreur est survenue. Veuillez réessayer.',
+    );
+  }
+  return messageErreur(data) ?? '';
+}
+
+/** POST /api/auth/reset-password — jeton du lien + nouveau mot de passe. */
+export async function reinitialiserMotDePasse(
+  token: string,
+  nouveauMotDePasse: string,
+): Promise<string> {
+  const response = await fetch('/api/auth/reset-password', {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ token, nouveauMotDePasse }),
+  });
+  const data = (await response.json().catch(() => ({}))) as { message?: string | string[] };
+  if (!response.ok) {
+    throw new MotDePasseOublieError(
+      messageErreur(data) ?? 'Une erreur est survenue. Veuillez réessayer.',
+    );
+  }
+  return messageErreur(data) ?? '';
+}

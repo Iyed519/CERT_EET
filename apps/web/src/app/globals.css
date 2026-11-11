@@ -1362,3 +1362,9 @@ h1, h2, h3 { color: var(--ink); }
 .securite-bloc { max-width: 560px; margin: 0 0 22px; padding: 18px; border: 1px solid var(--border); border-radius: var(--radius-sm); background: var(--surface); }
 .securite-bloc .section-title { margin-top: 0; }
 .securite-bloc .page-subtitle { margin: 0 0 14px; }
+
+/* ===== Mot de passe oublié (US-AUTH-06) ===== */
+.field-label-ligne { display: flex; align-items: baseline; justify-content: space-between; gap: 10px; flex-wrap: wrap; }
+.lien-discret { font-size: 0.85rem; color: var(--primary, #1e8449); text-decoration: none; }
+.lien-discret:hover { text-decoration: underline; }
+.auth-card > .btn { display: block; text-align: center; text-decoration: none; }
