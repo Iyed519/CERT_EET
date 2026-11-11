@@ -62,6 +62,9 @@ export class AuthController {
    */
   @Public()
   @Post('register')
+  @UseGuards(LimiteRequetesGuard)
+  @AppliquerLimite({ nom: 'inscription', limite: 30, fenetreSecondes: 15 * 60 })
+  @ApiResponse({ status: 429, description: 'Trop de requêtes depuis cette adresse IP (US-AUTH-13).' })
   @HttpCode(HttpStatus.CREATED)
   @ApiOperation({ summary: 'Auto-inscription publique (US-CPT-05)' })
   @ApiResponse({
@@ -89,6 +92,9 @@ export class AuthController {
    */
   @Public()
   @Post('verify-email')
+  @UseGuards(LimiteRequetesGuard)
+  @AppliquerLimite({ nom: 'verification-email', limite: 30, fenetreSecondes: 15 * 60 })
+  @ApiResponse({ status: 429, description: 'Trop de requêtes depuis cette adresse IP (US-AUTH-13).' })
   @HttpCode(HttpStatus.OK)
   @ApiOperation({ summary: "Vérifier l'email et activer le compte (US-CPT-05)" })
   @ApiResponse({ status: 200, description: 'Compte activé (statut ACTIF).' })
@@ -159,6 +165,9 @@ export class AuthController {
   }
   @Public()
   @Post('login')
+  @UseGuards(LimiteRequetesGuard)
+  @AppliquerLimite({ nom: 'connexion', limite: 30, fenetreSecondes: 60 })
+  @ApiResponse({ status: 429, description: 'Trop de requêtes depuis cette adresse IP (US-AUTH-13).' })
   @HttpCode(HttpStatus.OK)
   @ApiOperation({ summary: 'Connexion par email + mot de passe (US-AUTH-01)' })
   @ApiResponse({ status: 200, description: 'accessToken en JSON, refreshToken en cookie httpOnly.' })
@@ -188,6 +197,9 @@ export class AuthController {
    */
   @Public()
   @Post('mfa/verify')
+  @UseGuards(LimiteRequetesGuard)
+  @AppliquerLimite({ nom: 'mfa', limite: 30, fenetreSecondes: 60 })
+  @ApiResponse({ status: 429, description: 'Trop de requêtes depuis cette adresse IP (US-AUTH-13).' })
   @HttpCode(HttpStatus.OK)
   @ApiOperation({ summary: 'Vérifier le code MFA et ouvrir la session (US-AUTH-02)' })
   @ApiResponse({ status: 200, description: 'accessToken en JSON, refreshToken en cookie httpOnly.' })
@@ -206,6 +218,9 @@ export class AuthController {
   }
   @Public()
   @Post('refresh')
+  @UseGuards(LimiteRequetesGuard)
+  @AppliquerLimite({ nom: 'rafraichissement', limite: 120, fenetreSecondes: 60 })
+  @ApiResponse({ status: 429, description: 'Trop de requêtes depuis cette adresse IP (US-AUTH-13).' })
   @HttpCode(HttpStatus.OK)
   @ApiOperation({ summary: 'Rafraîchir la session avec rotation (US-AUTH-03)' })
   @ApiResponse({ status: 200, description: 'Nouvel access token ; refresh token pivoté.' })

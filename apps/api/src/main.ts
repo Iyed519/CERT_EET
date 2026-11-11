@@ -1,11 +1,11 @@
-import { Logger, ValidationPipe } from '@nestjs/common';
+import { Logger } from '@nestjs/common';
 import { ConfigService } from '@nestjs/config';
 import { NestFactory } from '@nestjs/core';
 import { NestExpressApplication } from '@nestjs/platform-express';
 import { DocumentBuilder, SwaggerModule } from '@nestjs/swagger';
-import * as cookieParser from 'cookie-parser';
 import { AppModule } from './app.module';
 import { AppConfig } from './config/configuration';
+import { configurerApplication } from './common/securite/configurer-application';
 
 /**
  * Point d'entrée de l'API (bootstrap).
@@ -20,31 +20,10 @@ async function bootstrap(): Promise<void> {
   const config = app.get(ConfigService);
   const app_ = config.getOrThrow<AppConfig>('app');
 
-  // Préfixe global : le reverse proxy Nginx routera /api -> api (INF03).
-  app.setGlobalPrefix(app_.apiPrefix, { exclude: ['health'] });
-
-  // US-AUTH-03 : lecture des cookies entrants. cookie-parser peuple req.cookies
-  // pour que POST /auth/refresh puisse lire le refresh token déposé en cookie
-  // httpOnly au login. Sans ce middleware, req.cookies serait undefined.
-  app.use(cookieParser());
-
-  // US-CERT-05 — derrière nginx, l'IP du visiteur vient de X-Forwarded-For :
-  // je ne fais confiance qu'aux proxies des réseaux privés (TRUST_PROXY), sinon
-  // toutes les requêtes auraient l'IP de nginx (limitation de débit commune,
-  // audit faux).
-  app.set('trust proxy', config.getOrThrow<string>('TRUST_PROXY'));
-
-  // Validation stricte de toutes les entrées (DTOs).
-  app.useGlobalPipes(
-    new ValidationPipe({
-      whitelist: true,
-      forbidNonWhitelisted: true,
-      transform: true,
-      transformOptions: { enableImplicitConversion: true },
-    }),
-  );
-
-  app.enableCors({ origin: app_.corsOrigin, credentials: true });
+  // Préfixe, cookies, proxies de confiance, en-têtes de sécurité, tailles de
+  // corps, validation et CORS : réglages communs, partagés avec les tests e2e
+  // (US-AUTH-13).
+  configurerApplication(app, config);
 
   // OpenAPI/Swagger (US-INFRA-08).
   const swaggerConfig = new DocumentBuilder()

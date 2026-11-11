@@ -95,6 +95,47 @@ export interface VerificationConfig {
 }
 
 /**
+ * US-AUTH-13 — Limites de débit par IP des routes sensibles (garde
+ * `LimiteRequetesGuard`), indexées par le nom de la limite. Une limite absente
+ * ici garde la valeur posée sur la route. Réglables par LIMITE_<NOM> (par ex.
+ * LIMITE_CONNEXION) : une salle de cours derrière une seule adresse publique
+ * peut demander des valeurs plus hautes.
+ */
+export type LimitesConfig = Record<string, number>;
+
+/** Valeurs par défaut (requêtes par fenêtre de la route) et variable associée. */
+export const LIMITES_PAR_DEFAUT: Record<string, { variable: string; valeur: number; relacheeEnTest: boolean }> = {
+  connexion: { variable: 'LIMITE_CONNEXION', valeur: 30, relacheeEnTest: true },
+  mfa: { variable: 'LIMITE_MFA', valeur: 30, relacheeEnTest: true },
+  rafraichissement: { variable: 'LIMITE_RAFRAICHISSEMENT', valeur: 120, relacheeEnTest: true },
+  inscription: { variable: 'LIMITE_INSCRIPTION', valeur: 30, relacheeEnTest: true },
+  'verification-email': { variable: 'LIMITE_VERIFICATION_EMAIL', valeur: 30, relacheeEnTest: true },
+  'mdp-oublie': { variable: 'LIMITE_MDP_OUBLIE', valeur: 5, relacheeEnTest: false },
+  'mdp-reinitialisation': { variable: 'LIMITE_MDP_REINITIALISATION', valeur: 10, relacheeEnTest: false },
+};
+
+/**
+ * Lit les limites. En test (NODE_ENV=test), les limites des routes que toutes
+ * les suites e2e appellent sans cesse depuis 127.0.0.1 (connexion, refresh…)
+ * sont relâchées SAUF si la variable est posée : la suite qui prouve le 429
+ * pose la sienne avant de démarrer l'application.
+ */
+export function lireLimites(env: NodeJS.ProcessEnv): LimitesConfig {
+  const limites: LimitesConfig = {};
+  for (const [nom, defaut] of Object.entries(LIMITES_PAR_DEFAUT)) {
+    const brut = env[defaut.variable];
+    if (brut !== undefined && brut !== '') {
+      limites[nom] = parseInt(brut, 10);
+    } else if (env.NODE_ENV === 'test' && defaut.relacheeEnTest) {
+      limites[nom] = 1_000_000;
+    } else {
+      limites[nom] = defaut.valeur;
+    }
+  }
+  return limites;
+}
+
+/**
  * US-SUIVI-02 — Alertes de décrochage : balayage planifié toutes les
  * `intervalleMinutes` (désactivable par ALERTES_BALAYAGE_ACTIF=false ;
  * toujours désactivé en test) ; email aux formateurs affectés si `email`.
@@ -170,6 +211,7 @@ export default (): {
   alertes: AlertesConfig;
   rapports: RapportsConfig;
   verification: VerificationConfig;
+  limites: LimitesConfig;
   ia: IaConfig;
   ressources: RessourcesConfig;
   llm: LlmConfig;
@@ -242,6 +284,7 @@ export default (): {
   verification: {
     limiteParMinute: parseInt(process.env.VERIFICATION_LIMITE_PAR_MINUTE ?? '20', 10),
   },
+  limites: lireLimites(process.env),
   ia: {
     workerActif: (process.env.IA_WORKER ?? 'on') !== 'off',
     tentatives: parseInt(process.env.IA_TENTATIVES ?? '3', 10),
