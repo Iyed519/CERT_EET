@@ -4,6 +4,8 @@ import { Readable } from 'stream';
 import { DataSource } from 'typeorm';
 import { Certificat } from '../../database/entities/certificat.entity';
 import { StatutCertificat } from '../../database/enums/statut-certificat.enum';
+import { StatutCompte } from '../../database/enums/statut-compte.enum';
+import { TITULAIRE_ANONYMISE } from '../admin/anonymisation/anonymisation.regles';
 import { StockageService } from '../../stockage/stockage.service';
 import { AuditService } from '../audit/audit.service';
 import { nomFichierCertificat, resumeErreur } from './certificat.regles';
@@ -84,10 +86,12 @@ export class VerificationService {
       certificatId: certificat.id,
       verdict: resultat,
       integrite,
-      titulaire: nomTitulaire(
-        certificat.apprenant?.prenom ?? null,
-        certificat.apprenant?.nom ?? null,
-      ),
+      // US-CPT-04 : titulaire anonymisé -> le certificat reste vérifiable,
+      // sans aucune donnée d'identité.
+      titulaire:
+        certificat.apprenant?.statut === StatutCompte.ANONYMISE
+          ? TITULAIRE_ANONYMISE
+          : nomTitulaire(certificat.apprenant?.prenom ?? null, certificat.apprenant?.nom ?? null),
       formation: certificat.formation?.titre ?? '',
       organismeEmetteur: certificat.organismeEmetteur,
       mention: certificat.mention,
@@ -104,7 +108,12 @@ export class VerificationService {
   /** PDF d'un certificat valide ET intègre ; sinon la même 404. */
   async pdfPublic(certificatId: string): Promise<{ contenu: Buffer; nomFichier: string }> {
     const certificat = await this.chargerPublic(certificatId);
-    if (certificat.statut !== StatutCertificat.ACTIF) {
+    // US-CPT-04 : le PDF porte le nom du titulaire ; après anonymisation il
+    // reste conservé (preuve, empreinte vérifiable) mais n'est plus servi.
+    if (
+      certificat.statut !== StatutCertificat.ACTIF ||
+      certificat.apprenant?.statut === StatutCompte.ANONYMISE
+    ) {
       throw new NotFoundException(MESSAGE_INCONNU);
     }
     const contenu = await this.lirePdf(certificat.cleStockage as string);

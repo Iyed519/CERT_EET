@@ -88,6 +88,16 @@ describe('VerificationService (US-CERT-04)', () => {
     );
   });
 
+  it('US-CPT-04 : titulaire anonymisé -> toujours vérifiable et intègre, sans identité ; PDF public refusé', async () => {
+    const anonyme = certificat();
+    anonyme.apprenant = { prenom: null, nom: 'Compte anonymisé', statut: 'ANONYMISE', id: 'x' };
+    findOne.mockResolvedValue(anonyme);
+    const v = await service.verifier(ID, { adresseIp: null });
+    expect(v).toMatchObject({ verdict: 'VALIDE', integrite: 'VERIFIEE', titulaire: 'Titulaire anonymisé' });
+    findOne.mockResolvedValue(anonyme);
+    await expect(service.pdfPublic(ID)).rejects.toThrow(NotFoundException);
+  });
+
   it('PDF altéré : INTEGRITE_COMPROMISE, tracé en échec', async () => {
     findOne.mockResolvedValue(certificat());
     lire.mockResolvedValue({ flux: Readable.from([Buffer.from('%PDF falsifié')]), taille: 1 });
