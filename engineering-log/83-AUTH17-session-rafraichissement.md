@@ -92,8 +92,8 @@ mémoire seulement (choix anti-XSS, DS-01, inchangé) ; au chargement :
   20 rafraîchissements répétés ; deux simultanés -> un seul gagnant et session
   vivante ; cinq simultanés -> un succès, un seul jeton actif ; vrai rejeu ->
   famille révoquée ; déconnexion puis rechargement -> reste déconnecté ;
-  changement de mot de passe et marqueur `tms`), e2e complet en série (voir
-  la PR).
+  changement de mot de passe et marqueur `tms`), e2e complet en série
+  **69 suites / 815 tests** (+ 1 ignoré).
 - Mutations : **13 / 13 tuées** — api (10) : denylist après la désactivation,
   désactivation non conditionnelle, brûlage toujours gagnant, perdant qui
   garde son jeton, perdant qui reçoit 200, pas de seconde lecture de la
