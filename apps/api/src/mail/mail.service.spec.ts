@@ -41,7 +41,7 @@ describe('MailService', () => {
   });
 
   describe('sendAffectationFormateurEmail', () => {
-    it('envoie au formateur un message qui nomme la formation et mène à la plateforme', async () => {
+    it('envoie au formateur un message qui nomme la formation et mène à sa page d’accueil', async () => {
       await service.sendAffectationFormateurEmail('formateur@cert-eet.local', {
         prenom: 'Amine',
         titreFormation: 'DevOps avancé',
@@ -53,10 +53,10 @@ describe('MailService', () => {
       expect(message.subject).toBe('Cert_EET — Vous êtes affecté à la formation « DevOps avancé »');
       expect(message.text).toContain('Bonjour Amine,');
       expect(message.text).toContain('« DevOps avancé »');
-      expect(message.text).toContain('http://localhost:3001');
+      expect(message.text).toContain('http://localhost:3001/formateur/formations');
       expect(message.html).toContain('Bonjour Amine,');
       expect(message.html).toContain('DevOps avancé');
-      expect(message.html).toContain('href="http://localhost:3001"');
+      expect(message.html).toContain('href="http://localhost:3001/formateur/formations"');
     });
 
     it('salue sans prénom quand le compte n’en a pas', async () => {

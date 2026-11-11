@@ -8,6 +8,12 @@ import {
   LoginError,
 } from '../../lib/api';
 import { useAuth } from '../../contexts/AuthContext';
+import {
+  CLE_SUITE_OAUTH,
+  destinationApresConnexion,
+  PARAMETRE_SUITE,
+  suiteSure,
+} from '../../lib/acces';
 /** Page de connexion (US-AUTH-01, MFA US-AUTH-02, OAuth US-AUTH-14). */
 export default function LoginPage(): JSX.Element {
   const router = useRouter();
@@ -23,8 +29,11 @@ export default function LoginPage(): JSX.Element {
   // sessions ont été fermées). Lu dans l'URL au montage, sans useSearchParams
   // (qui imposerait une frontière Suspense au build).
   const [info, setInfo] = useState<string | null>(null);
+  // US-NAV-01 : page demandée avant la connexion (chemin interne seulement).
+  const [suite, setSuite] = useState<string | null>(null);
   useEffect(() => {
     const params = new URLSearchParams(window.location.search);
+    setSuite(suiteSure(params.get(PARAMETRE_SUITE)));
     if (params.get('motdepasse') === 'modifie') {
       setInfo(
         'Votre mot de passe a été modifié et toutes vos sessions ont été déconnectées. Connectez-vous avec le nouveau mot de passe.',
@@ -43,7 +52,7 @@ export default function LoginPage(): JSX.Element {
         setMfaToken(result.mfaToken);
       } else {
         setSession(result);
-        router.push('/');
+        router.replace(destinationApresConnexion(result.user.role, suite));
       }
     } catch (error) {
       setErreur(
@@ -68,7 +77,7 @@ export default function LoginPage(): JSX.Element {
     try {
       const session = await mfaVerifyRequest(mfaToken, code);
       setSession(session);
-      router.push('/');
+      router.replace(destinationApresConnexion(session.user.role, suite));
     } catch (error) {
       setErreur(
         error instanceof LoginError
@@ -77,6 +86,16 @@ export default function LoginPage(): JSX.Element {
       );
     } finally {
       setEnCours(false);
+    }
+  }
+
+  /** Avant de partir chez Google / GitHub : retenir la page demandée. */
+  function memoriserSuite(): void {
+    try {
+      if (suite) window.sessionStorage.setItem(CLE_SUITE_OAUTH, suite);
+      else window.sessionStorage.removeItem(CLE_SUITE_OAUTH);
+    } catch {
+      // stockage indisponible : retour sur la page du rôle
     }
   }
 
@@ -187,7 +206,7 @@ export default function LoginPage(): JSX.Element {
           </button>
         </form>
         <div className="oauth-sep">ou</div>
-        <a className="btn-oauth" href="/api/auth/oauth/google">
+        <a className="btn-oauth" href="/api/auth/oauth/google" onClick={memoriserSuite}>
           <svg viewBox="0 0 48 48" aria-hidden="true">
             <path fill="#EA4335" d="M24 9.5c3.54 0 6.71 1.22 9.21 3.6l6.85-6.85C35.9 2.38 30.47 0 24 0 14.62 0 6.51 5.38 2.56 13.22l7.98 6.19C12.43 13.72 17.74 9.5 24 9.5z" />
             <path fill="#4285F4" d="M46.98 24.55c0-1.57-.15-3.09-.38-4.55H24v9.02h12.94c-.58 2.96-2.26 5.48-4.78 7.18l7.73 6c4.51-4.18 7.09-10.36 7.09-17.65z" />
@@ -196,7 +215,7 @@ export default function LoginPage(): JSX.Element {
           </svg>
           Continuer avec Google
         </a>
-        <a className="btn-oauth btn-oauth-github" href="/api/auth/oauth/github">
+        <a className="btn-oauth btn-oauth-github" href="/api/auth/oauth/github" onClick={memoriserSuite}>
           <svg viewBox="0 0 16 16" aria-hidden="true" fill="currentColor">
             <path d="M8 0C3.58 0 0 3.58 0 8c0 3.54 2.29 6.53 5.47 7.59.4.07.55-.17.55-.38 0-.19-.01-.82-.01-1.49-2.01.37-2.53-.49-2.69-.94-.09-.23-.48-.94-.82-1.13-.28-.15-.68-.52-.01-.53.63-.01 1.08.58 1.23.82.72 1.21 1.87.87 2.33.66.07-.52.28-.87.51-1.07-1.78-.2-3.64-.89-3.64-3.95 0-.87.31-1.59.82-2.15-.08-.2-.36-1.02.08-2.12 0 0 .67-.21 2.2.82a7.6 7.6 0 0 1 2-.27c.68 0 1.36.09 2 .27 1.53-1.04 2.2-.82 2.2-.82.44 1.1.16 1.92.08 2.12.51.56.82 1.27.82 2.15 0 3.07-1.87 3.75-3.65 3.95.29.25.54.73.54 1.48 0 1.07-.01 1.93-.01 2.2 0 .21.15.46.55.38A8.01 8.01 0 0 0 16 8c0-4.42-3.58-8-8-8z" />
           </svg>

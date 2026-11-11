@@ -3,6 +3,8 @@ import { ConfigService } from '@nestjs/config';
 import type { Transporter } from 'nodemailer';
 import { MailConfig } from '../config/configuration';
 import { MAIL_TRANSPORTER } from './mail.constants';
+import { pageAccueilDuRole } from '../common/navigation/page-accueil-role';
+import { Role } from '../database/enums/role.enum';
 /**
  * Façade mince au-dessus du transporteur nodemailer (US-CPT-05).
  * Centralise l'envoi ET le gabarit HTML des emails (réutilisable par les
@@ -102,8 +104,8 @@ export class MailService {
   /**
    * Prévient un formateur qu'il vient d'être affecté à une formation
    * (US-FORM-03, UC4 Administrateur). Même gabarit que l'email de
-   * vérification. Le bouton mène à la plateforme : l'espace formateur d'une
-   * formation n'existe pas encore, un lien direct ne mènerait nulle part.
+   * vérification. Le bouton mène à la page d'accueil du formateur
+   * (US-NAV-01, `pageAccueilDuRole`).
    *
    * Le titre de la formation et le prénom sont des saisies libres : je les
    * ÉCHAPPE avant de les placer dans le HTML. Cette méthode laisse remonter
@@ -121,11 +123,13 @@ export class MailService {
     const salutation = prenom ? `Bonjour ${prenom},` : 'Bonjour,';
     const titreHtml = echapperHtml(titre);
     const salutationHtml = echapperHtml(salutation);
+    // US-NAV-01 : le bouton mène à la page d'accueil du formateur.
+    const lien = `${appBaseUrl}${pageAccueilDuRole(Role.FORMATEUR)}`;
     const text =
       `${salutation}\n\n` +
       `Un administrateur vous a affecté à la formation « ${titre} » sur ` +
       `Cert_EET. Vous pouvez désormais y créer et gérer des évaluations.\n\n` +
-      `Accéder à la plateforme : ${appBaseUrl}\n\n` +
+      `Accéder à la plateforme : ${lien}\n\n` +
       `Si cette affectation vous semble être une erreur, contactez un ` +
       `administrateur.\n\n` +
       `— L'équipe Cert_EET`;
@@ -158,7 +162,7 @@ export class MailService {
                 <table role="presentation" cellpadding="0" cellspacing="0" style="margin:6px 0 18px 0;">
                   <tr>
                     <td align="center" bgcolor="#1e8449" style="border-radius:10px;">
-                      <a href="${appBaseUrl}" target="_blank" style="display:inline-block;padding:14px 30px;font-size:15px;font-weight:bold;color:#ffffff;text-decoration:none;border-radius:10px;">Accéder à la plateforme</a>
+                      <a href="${lien}" target="_blank" style="display:inline-block;padding:14px 30px;font-size:15px;font-weight:bold;color:#ffffff;text-decoration:none;border-radius:10px;">Accéder à la plateforme</a>
                     </td>
                   </tr>
                 </table>

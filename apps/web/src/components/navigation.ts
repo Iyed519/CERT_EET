@@ -46,6 +46,24 @@ export const LIENS_PAR_ROLE: Record<Role, LienNavigation[]> = {
   ],
 };
 
+/**
+ * US-NAV-01 — Page d'accueil de chaque rôle : destination après toute
+ * connexion, cible du logo et du lien « Accueil », redirection d'un connecté
+ * qui ouvre `/` ou une page de visiteur. SEULE source de cette règle côté web ;
+ * l'api la reprend à l'identique pour les liens de ses emails
+ * (`common/navigation/page-accueil-role.ts`).
+ */
+export const PAGE_ACCUEIL_PAR_ROLE: Record<Role, string> = {
+  ADMINISTRATEUR: '/admin/tableau-de-bord',
+  FORMATEUR: '/formateur/formations',
+  APPRENANT: '/catalogue',
+};
+
+/** Page d'accueil du rôle ; `/` (accueil public) sans rôle connu. */
+export function pageAccueilDuRole(role: string | null | undefined): string {
+  return role && role in PAGE_ACCUEIL_PAR_ROLE ? PAGE_ACCUEIL_PAR_ROLE[role as Role] : '/';
+}
+
 export const LIBELLE_ROLE: Record<Role, string> = {
   APPRENANT: 'Apprenant',
   FORMATEUR: 'Formateur',

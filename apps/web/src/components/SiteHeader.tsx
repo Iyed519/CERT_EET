@@ -4,7 +4,7 @@ import { usePathname, useRouter } from 'next/navigation';
 import { FormEvent, useEffect, useRef, useState } from 'react';
 import { useAuth } from '../contexts/AuthContext';
 import { logout } from '../lib/api';
-import { LIBELLE_ROLE, LIENS_PAR_ROLE, estActif, initiales } from './navigation';
+import { LIBELLE_ROLE, LIENS_PAR_ROLE, estActif, initiales, pageAccueilDuRole } from './navigation';
 
 /** Liens secondaires du menu de compte, par rôle. */
 const LIENS_COMPTE: Record<string, Array<[string, string]>> = {
@@ -73,6 +73,8 @@ export function SiteHeader(): JSX.Element {
   }, [menuCompte, menuMobile]);
 
   const liens = user ? LIENS_PAR_ROLE[user.role] : [];
+  // US-NAV-01 : le logo et « Accueil » mènent à la page du rôle.
+  const accueil = pageAccueilDuRole(user?.role);
   const liensCompte = user ? (LIENS_COMPTE[user.role] ?? []) : [];
 
   function rechercher(e: FormEvent): void {
@@ -102,7 +104,7 @@ export function SiteHeader(): JSX.Element {
           <span aria-hidden="true" />
         </button>
 
-        <Link href="/" className="topbar-brand" aria-label="Cert_EET — accueil">
+        <Link href={accueil} className="topbar-brand" aria-label="Cert_EET — accueil">
           <span className="brand-badge">CE</span>
           <span className="brand-name">
             Cert<span className="brand-accent">_EET</span>
@@ -173,7 +175,7 @@ export function SiteHeader(): JSX.Element {
                       </span>
                     </div>
                   </div>
-                  <Link href="/" className="compte-lien" role="menuitem">
+                  <Link href={accueil} className="compte-lien" role="menuitem">
                     Accueil
                   </Link>
                   {liensCompte.map(([href, libelle]) => (
@@ -224,7 +226,7 @@ export function SiteHeader(): JSX.Element {
                 />
               </form>
               <p className="menu-mobile-titre">Navigation</p>
-              <Link href="/" className="menu-mobile-lien">
+              <Link href={accueil} className="menu-mobile-lien">
                 Accueil
               </Link>
               {liens.map((lien) => (
@@ -253,7 +255,7 @@ export function SiteHeader(): JSX.Element {
             </>
           ) : (
             <>
-              <Link href="/" className="menu-mobile-lien">
+              <Link href={accueil} className="menu-mobile-lien">
                 Accueil
               </Link>
               <Link href="/login" className="menu-mobile-lien">
