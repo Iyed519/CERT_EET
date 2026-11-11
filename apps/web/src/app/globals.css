@@ -1412,3 +1412,7 @@ h1, h2, h3 { color: var(--ink); }
 .statut-BROUILLON { background: #eceff1; color: #37474f; }
 .proposition-details { font-size: 0.86rem; color: var(--muted, #5b6b66); white-space: pre-wrap; overflow-wrap: break-word; min-width: 24ch; max-width: 52ch; }
 .proposition-grille { display: grid; grid-template-columns: repeat(auto-fill, minmax(220px, 1fr)); gap: 12px; }
+
+/* ===== PDF du certificat dans le panneau de supervision (US-CERT-09) ===== */
+.fiche-actions-pdf { margin: 4px 0 10px; }
+.apercu-certificat { width: 100%; height: min(60vh, 520px); border: 1px solid var(--border); border-radius: var(--radius-sm); background: #f2f4f3; margin-bottom: 12px; }

@@ -7,6 +7,7 @@ import {
   FicheCertificat,
   getCertificatsAdmin,
   getFicheCertificat,
+  getPdfCertificatAdmin,
   MotifRevocation,
   reemettreCertificat,
   relancerCertificat,
@@ -341,6 +342,30 @@ function nomActeur(a: { email: string; prenom: string | null; nom: string | null
 function FicheModal({ certificatId, onClose }: { certificatId: string; onClose: () => void }): JSX.Element {
   const [fiche, setFiche] = useState<FicheCertificat | null>(null);
   const [erreur, setErreur] = useState<string | null>(null);
+  // US-CERT-09 : aperçu du PDF (URL locale du Blob, libérée à la fermeture).
+  const [pdfUrl, setPdfUrl] = useState<string | null>(null);
+  const [pdfChargement, setPdfChargement] = useState(false);
+  const [pdfErreur, setPdfErreur] = useState<string | null>(null);
+
+  useEffect(
+    () => () => {
+      if (pdfUrl) URL.revokeObjectURL(pdfUrl);
+    },
+    [pdfUrl],
+  );
+
+  async function afficherPdf(): Promise<void> {
+    setPdfChargement(true);
+    setPdfErreur(null);
+    try {
+      const blob = await getPdfCertificatAdmin(certificatId);
+      setPdfUrl(URL.createObjectURL(blob));
+    } catch (error) {
+      setPdfErreur(error instanceof AdminError ? error.message : 'Impossible d’ouvrir le PDF du certificat.');
+    } finally {
+      setPdfChargement(false);
+    }
+  }
 
   useEffect(() => {
     getFicheCertificat(certificatId)
@@ -384,6 +409,30 @@ function FicheModal({ certificatId, onClose }: { certificatId: string; onClose: 
               <dt>Empreinte SHA-256</dt>
               <dd>{c.empreinteSha256 ? <code className="empreinte">{c.empreinteSha256}</code> : '—'}</dd>
             </dl>
+
+            {/* US-CERT-09 : le document lui-même et sa page de vérification publique. */}
+            {c.dateGeneration && (
+              <>
+                <div className="row-actions fiche-actions-pdf">
+                  {pdfUrl === null ? (
+                    <button type="button" className="btn-sm" onClick={() => void afficherPdf()} disabled={pdfChargement}>
+                      {pdfChargement ? 'Ouverture…' : 'Voir le PDF'}
+                    </button>
+                  ) : (
+                    <a className="btn-sm btn-link" href={pdfUrl} download={`certificat-${c.id}.pdf`}>
+                      Télécharger le PDF
+                    </a>
+                  )}
+                  <a className="btn-sm btn-link" href={`/verifier/${c.id}`} target="_blank" rel="noopener noreferrer">
+                    Page de vérification publique ↗
+                  </a>
+                </div>
+                {pdfErreur && <p className="alert alert-error">{pdfErreur}</p>}
+                {pdfUrl && (
+                  <iframe className="apercu-certificat" src={pdfUrl} title={`Certificat — ${c.formation.titre}`} />
+                )}
+              </>
+            )}
 
             <h2 className="fiche-titre">Consultations publiques</h2>
             <p className="field-hint">

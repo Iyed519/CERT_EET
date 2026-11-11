@@ -9,9 +9,10 @@ import {
   Post,
   Query,
   Req,
+  StreamableFile,
   UnauthorizedException,
 } from '@nestjs/common';
-import { ApiBearerAuth, ApiOperation, ApiResponse, ApiTags } from '@nestjs/swagger';
+import { ApiBearerAuth, ApiOperation, ApiProduces, ApiResponse, ApiTags } from '@nestjs/swagger';
 import { Role } from '../../database/enums/role.enum';
 import { AuthenticatedRequest } from '../auth/auth.types';
 import { Roles } from '../auth/decorators/roles.decorator';
@@ -84,6 +85,37 @@ export class CertificatsAdminController {
   @ApiResponse({ status: 404, description: 'Certificat introuvable.' })
   fiche(@Param('certificatId', ParseUUIDPipe) certificatId: string): Promise<FicheCertificat> {
     return this.supervisionService.fiche(certificatId);
+  }
+
+  @Get('certificats/:certificatId/pdf')
+  @ApiProduces('application/pdf')
+  @ApiOperation({
+    summary: 'PDF d’un certificat, pour l’administrateur (US-CERT-09)',
+    description:
+      'Même fichier que celui de l’apprenant, pour tout certificat généré (actif, expiré ou ' +
+      'révoqué). Affiché dans le navigateur. Consultation journalisée ' +
+      '(CERTIFICAT_PDF_CONSULTE_ADMIN).',
+  })
+  @ApiResponse({ status: 200, description: 'PDF du certificat.' })
+  @ApiResponse({ status: 400, description: 'Identifiant mal formé.' })
+  @ApiResponse({ status: 401, description: 'Non authentifié.' })
+  @ApiResponse({ status: 403, description: 'Rôle autre qu’administrateur.' })
+  @ApiResponse({ status: 404, description: 'Certificat introuvable.' })
+  @ApiResponse({ status: 409, description: 'Certificat pas encore généré.' })
+  @ApiResponse({ status: 503, description: 'Stockage des fichiers indisponible.' })
+  async pdf(
+    @Param('certificatId', ParseUUIDPipe) certificatId: string,
+    @Req() req: AuthenticatedRequest,
+  ): Promise<StreamableFile> {
+    if (!req.user) throw new UnauthorizedException('Non authentifié.');
+    const pdf = await this.certificatsService.pdfAdmin(req.user.sub, certificatId, {
+      adresseIp: req.ip ?? null,
+    });
+    return new StreamableFile(pdf.flux, {
+      type: 'application/pdf',
+      ...(pdf.taille !== null ? { length: pdf.taille } : {}),
+      disposition: `inline; filename="${pdf.nomFichier}"`,
+    });
   }
 
   @Post('certificats/:certificatId/relancer')

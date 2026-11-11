@@ -288,6 +288,7 @@ export const LIBELLES_ACTION_CERTIFICAT: Record<string, string> = {
   CERTIFICAT_REVOQUE: 'Certificat révoqué',
   CERTIFICAT_EXPIRE: 'Certificat expiré',
   CERTIFICAT_REPRIS: 'Génération reprise automatiquement',
+  CERTIFICAT_PDF_CONSULTE_ADMIN: 'PDF consulté par un administrateur',
 };
 
 /** US-DASH-02 — « 3 consultations publiques », « aucune consultation ». */

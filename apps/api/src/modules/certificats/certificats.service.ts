@@ -44,6 +44,7 @@ import {
   urlVerification,
   verifierRelancable,
   verifierRevocable,
+  verifierConsultableParAdmin,
   verifierTelechargeable,
   MESSAGE_REPRISE_AUTOMATIQUE,
   REPRISE_CERTIFICATS,
@@ -751,17 +752,7 @@ export class CertificatsService implements OnApplicationBootstrap {
     });
     if (!certificat) throw new NotFoundException(MESSAGE_CERTIFICAT_INTROUVABLE);
     verifierTelechargeable(certificat.statut);
-    let lu: { flux: Readable; taille: number | null };
-    try {
-      lu = await this.stockageService.lire(certificat.cleStockage as string);
-    } catch (erreur) {
-      this.logger.error(
-        `Lecture du certificat ${certificatId} impossible : ${resumeErreur(erreur)}`,
-      );
-      throw new ServiceUnavailableException(
-        'Le stockage des fichiers est momentanément indisponible : réessayez dans quelques instants.',
-      );
-    }
+    const lu = await this.lirePdf(certificat);
     await this.auditService.record({
       action: 'CERTIFICAT_TELECHARGE',
       acteur: apprenantId,
@@ -775,6 +766,53 @@ export class CertificatsService implements OnApplicationBootstrap {
       nomFichier: nomFichierCertificat(certificat.formation?.titre ?? ''),
       taille: lu.taille,
     };
+  }
+
+  /**
+   * US-CERT-09 — PDF d'un certificat pour l'administrateur (panneau de
+   * supervision) : tout certificat généré, révoqué ou expiré compris ; même
+   * fichier que celui de l'apprenant ; consultation journalisée
+   * (CERTIFICAT_PDF_CONSULTE_ADMIN).
+   */
+  async pdfAdmin(
+    adminId: string,
+    certificatId: string,
+    contexte: { adresseIp: string | null },
+  ): Promise<PdfCertificat> {
+    const certificat = await this.dataSource.manager.findOne(Certificat, {
+      where: { id: certificatId },
+      relations: { formation: true },
+    });
+    if (!certificat) throw new NotFoundException(MESSAGE_CERTIFICAT_INTROUVABLE);
+    verifierConsultableParAdmin(certificat.statut);
+    const lu = await this.lirePdf(certificat);
+    await this.auditService.record({
+      action: 'CERTIFICAT_PDF_CONSULTE_ADMIN',
+      acteur: adminId,
+      cible: certificatId,
+      adresseIp: contexte.adresseIp,
+      resultat: 'Succès',
+      detailsAvantApres: { statut: certificat.statut, empreinteSha256: certificat.empreinteSha256 },
+    });
+    return {
+      flux: lu.flux,
+      nomFichier: nomFichierCertificat(certificat.formation?.titre ?? ''),
+      taille: lu.taille,
+    };
+  }
+
+  /** Lit le PDF dans le stockage objet ; stockage injoignable -> 503. */
+  private async lirePdf(certificat: Certificat): Promise<{ flux: Readable; taille: number | null }> {
+    try {
+      return await this.stockageService.lire(certificat.cleStockage as string);
+    } catch (erreur) {
+      this.logger.error(
+        `Lecture du certificat ${certificat.id} impossible : ${resumeErreur(erreur)}`,
+      );
+      throw new ServiceUnavailableException(
+        'Le stockage des fichiers est momentanément indisponible : réessayez dans quelques instants.',
+      );
+    }
   }
 
   private baseUrl(): string {
