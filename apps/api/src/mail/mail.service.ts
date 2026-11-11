@@ -1331,6 +1331,62 @@ export class MailService {
     });
     this.logger.log(`Email de changement de mot de passe envoyé à ${to}`);
   }
+  /**
+   * US-FORM-07 — Décision sur une demande d'affectation : acceptée (le bouton
+   * mène à la formation) ou refusée (motif de l'administrateur, échappé ; le
+   * bouton mène aux demandes du formateur). L'erreur d'envoi remonte :
+   * l'appelant la rend non bloquante (la décision est déjà enregistrée).
+   */
+  async sendDecisionDemandeAffectationEmail(
+    to: string,
+    donnees: {
+      prenom: string | null;
+      titreFormation: string;
+      formationId: string;
+      acceptee: boolean;
+      motifRefus: string | null;
+    },
+  ): Promise<void> {
+    const { from, appBaseUrl } = this.configService.getOrThrow<MailConfig>('mail');
+    const titre = donnees.titreFormation.replace(/\s+/g, ' ').trim();
+    const prenom = donnees.prenom?.trim() ?? '';
+    const salutation = prenom ? `Bonjour ${prenom},` : 'Bonjour,';
+    const lien = donnees.acceptee
+      ? `${appBaseUrl}/formateur/formations/${donnees.formationId}`
+      : `${appBaseUrl}/formateur/demandes`;
+    const decision = donnees.acceptee
+      ? `Votre demande pour enseigner la formation « ${titre} » a été acceptée : vous y êtes désormais affecté.`
+      : `Votre demande pour enseigner la formation « ${titre} » a été refusée.`;
+    const motif = !donnees.acceptee && donnees.motifRefus ? donnees.motifRefus.trim() : null;
+    const text =
+      `${salutation}\n\n${decision}\n\n` +
+      (motif ? `Motif de l'administrateur : ${motif}\n\n` : '') +
+      `${donnees.acceptee ? 'Ouvrir la formation' : 'Voir mes demandes'} : ${lien}\n\n` +
+      `— L'équipe Cert_EET`;
+    const html = gabaritEmail({
+      titre: donnees.acceptee ? 'Demande acceptée' : 'Demande refusée',
+      paragraphesHtml: [
+        echapperHtml(salutation),
+        donnees.acceptee
+          ? `Votre demande pour enseigner la formation <strong style="color:#1b2631;">«&nbsp;${echapperHtml(titre)}&nbsp;»</strong> a été acceptée : vous y êtes désormais affecté.`
+          : `Votre demande pour enseigner la formation <strong style="color:#1b2631;">«&nbsp;${echapperHtml(titre)}&nbsp;»</strong> a été refusée.`,
+        ...(motif ? [`Motif de l'administrateur&nbsp;: ${echapperHtml(motif)}`] : []),
+      ],
+      bouton: {
+        libelle: donnees.acceptee ? 'Ouvrir la formation' : 'Voir mes demandes',
+        lien,
+      },
+      piedHtml: 'Une question sur cette décision&nbsp;? Contactez un administrateur de la plateforme.',
+    });
+    await this.transporter.sendMail({
+      from,
+      to,
+      subject: `Cert_EET — Demande ${donnees.acceptee ? 'acceptée' : 'refusée'} : « ${titre} »`,
+      text,
+      html,
+    });
+    this.logger.log(`Email de décision (demande d'affectation) envoyé à ${to}`);
+  }
 }
 /**
  * Période d'une formation pour un email : « du JJ/MM/AAAA au JJ/MM/AAAA »,

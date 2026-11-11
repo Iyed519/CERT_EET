@@ -21,6 +21,7 @@ import { CertificatsModule } from './modules/certificats/certificats.module';
 import { AssistanceIaModule } from './modules/assistance-ia/assistance-ia.module';
 import { RessourcesModule } from './modules/ressources/ressources.module';
 import { PilotageModule } from './modules/pilotage/pilotage.module';
+import { DemandesAffectationModule } from './modules/demandes-affectation/demandes-affectation.module';
 import { RapportsModule } from './modules/rapports/rapports.module';
 /**
  * Module racine (AppModule).
@@ -70,6 +71,8 @@ import { RapportsModule } from './modules/rapports/rapports.module';
     AssistanceIaModule,
     RessourcesModule,
     PilotageModule,
+    // US-FORM-07 (Sprint 6) : demandes d'affectation d'un formateur.
+    DemandesAffectationModule,
     RapportsModule,
   ],
 })

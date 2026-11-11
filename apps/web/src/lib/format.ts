@@ -337,6 +337,15 @@ export const LIBELLES_ALERTE_SYSTEME: Record<string, [string, string]> = {
   LIVRABLES_EN_ATTENTE: ['livrable(s) en attente de correction depuis plus de 7 jours', ''],
 };
 
+/** US-FORM-07 / US-FORM-08 — Statuts d'une demande d'un formateur. */
+export const LIBELLES_STATUT_DEMANDE_FORMATEUR: Record<string, string> = {
+  EN_ATTENTE: 'En attente',
+  ACCEPTEE: 'Acceptée',
+  REFUSEE: 'Refusée',
+  ANNULEE: 'Annulée',
+  A_MODIFIER: 'À modifier',
+};
+
 /** Statut d'UNE formation (badge), au singulier. */
 export const LIBELLES_STATUT_FORMATION_UN: Record<string, string> = {
   OUVERTE: 'Ouverte',
