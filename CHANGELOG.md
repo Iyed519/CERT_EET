@@ -13,6 +13,52 @@
 
 ---
 
+## [Sprint 5] — Comptes et sécurité soldés : mots de passe, durcissement, import, RGPD, surveillance — ✅ CLÔTURÉ
+
+**Résumé :** 6 stories livrées (23 pts), le 11/11/2026 (PR #90 → #95), avec un agent de développement qui
+suit la procédure fixée par le porteur. **2 254 tests automatisés verts** (1 446 unitaires + 808 e2e) et
+89 mutants tués. Un utilisateur gère seul son mot de passe ; la plateforme chiffre ses échanges et résiste
+aux abus courants ; l'administrateur importe une promotion et anonymise un compte sans perdre les
+certificats ; le formateur peut faire surveiller un QCM par webcam, avec le consentement de l'apprenant.
+Backlog et revue : `docs/Sprint5_Backlog.md`, `docs/Sprint5_Review.md`.
+
+### Authentification & sécurité (E1)
+
+#### US-AUTH-08 — Changer son mot de passe — PR #90 · journal `engineering-log/77`
+- **Quoi :** changement avec le mot de passe actuel, politique commune, révocation de toutes les sessions
+  (base et Redis), audit, email. **Pourquoi :** couper immédiatement un accès volé.
+
+#### US-AUTH-06 — Mot de passe oublié — PR #91 · journal `engineering-log/78`
+- **Quoi :** lien à usage unique de 30 min (empreinte seule en base), réponse identique pour toute adresse,
+  limites par IP et par adresse, sessions révoquées, audit. **Pourquoi :** récupérer son compte en
+  autonomie sans révéler l'existence des comptes.
+
+#### US-AUTH-13 — TLS et durcissement — PR #92 · journal `engineering-log/79`
+- **Quoi :** TLS 1.2 / 1.3 et HSTS au reverse proxy (chemins de certificat de remplacement), en-têtes de
+  sécurité et CSP (API et web), tailles de corps, CORS strict, limites de débit réglables sur les routes
+  sensibles. **Pourquoi :** protéger les échanges et résister aux abus (NF3, NF2).
+
+### Comptes (E2)
+
+#### US-CPT-02 — Import CSV de comptes — PR #93 · journal `engineering-log/80`
+- **Quoi :** validation complète avant création, tout ou rien, rapport ligne par ligne, comptes en attente
+  d'activation, emails d'activation asynchrones (48 h, renvoi possible). **Pourquoi :** enrôler une
+  promotion en une opération.
+
+#### US-CPT-04 — Anonymisation RGPD — PR #94 · journal `engineering-log/81`
+- **Quoi :** effacement irréversible de l'identité après double confirmation, sessions révoquées,
+  certificats toujours vérifiables sans identité, dernier administrateur protégé. **Pourquoi :** droit à
+  l'oubli (NF4) sans perdre les preuves de certification.
+
+### QCM anti-fraude (E3)
+
+#### US-QCM-12 — Surveillance webcam par captures — PR #95 · journal `engineering-log/82`
+- **Quoi :** opt-in par QCM, consentement avant de commencer, une image toutes les 2 min, accès réservé
+  au formateur affecté et à l'administration, liens signés, purge à 30 jours, interrupteur de plateforme.
+  **Pourquoi :** dissuader la substitution d'identité sans vidéosurveillance ni analyse automatique.
+
+---
+
 ## [Sprint 3] — Parcours certifiant complet : ateliers, certificat vérifiable, assistance IA — ✅ CLÔTURÉ
 
 **Résumé :** 20 stories livrées (14 engagées, 54 pts ; 4 d'extension, 24 pts ; 2 ajoutées, 8 pts) et 5 PR de

@@ -97,7 +97,7 @@ enregistré dans `config_anti_fraude`, affiché « Bientôt actif ».
   ajoutés, puis e2e complet relancé.
 - `ConfigService` injecté en `@Optional` dans les services de démarrage et de
   consultation : les tests unitaires existants restent inchangés.
-- Le conteneur de travail a redémarré deux fois pendant la story : services
+- Le conteneur de travail a redémarré au début de la story : services
   relancés.
 
 ## Vérification
