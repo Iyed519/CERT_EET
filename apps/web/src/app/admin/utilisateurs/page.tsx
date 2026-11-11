@@ -10,6 +10,8 @@ import {
   AdminError,
 } from '../../../lib/api';
 import ImportComptesModal from '../../../components/ImportComptesModal';
+import AnonymiserModal from '../../../components/AnonymiserModal';
+import { useAuth } from '../../../contexts/AuthContext';
 
 /** Libellés FR des rôles (l'enum backend reste la source de vérité). */
 const ROLES: Array<[RoleUtilisateur, string]> = [
@@ -52,6 +54,9 @@ export default function AdminUsersPage(): JSX.Element {
   const [busyId, setBusyId] = useState<string | null>(null);
   // US-CPT-02 : modale d'import CSV.
   const [importOuvert, setImportOuvert] = useState(false);
+  // US-CPT-04 : compte à anonymiser (null = modale fermée).
+  const [cibleAnonymisation, setCibleAnonymisation] = useState<AdminUser | null>(null);
+  const { user: moi } = useAuth();
 
   async function renvoyer(utilisateur: AdminUser): Promise<void> {
     setSucces(null);
@@ -186,16 +191,18 @@ export default function AdminUsersPage(): JSX.Element {
                     </td>
                     <td>
                       <div className="row-actions">
-                        <button
-                          className="btn-sm"
-                          disabled={enCours}
-                          onClick={() => {
-                            setSucces(null);
-                            setCibleRole(utilisateur);
-                          }}
-                        >
-                          Changer le rôle
-                        </button>
+                        {utilisateur.statut !== 'ANONYMISE' && (
+                          <button
+                            className="btn-sm"
+                            disabled={enCours}
+                            onClick={() => {
+                              setSucces(null);
+                              setCibleRole(utilisateur);
+                            }}
+                          >
+                            Changer le rôle
+                          </button>
+                        )}
                         {utilisateur.statut === 'ACTIF' && (
                           <button
                             className="btn-sm btn-danger"
@@ -227,6 +234,19 @@ export default function AdminUsersPage(): JSX.Element {
                             {enCours ? 'Réactivation…' : 'Réactiver'}
                           </button>
                         )}
+                        {utilisateur.statut !== 'ANONYMISE' && utilisateur.id !== moi?.id && (
+                          <button
+                            className="btn-sm btn-danger"
+                            disabled={enCours}
+                            onClick={() => {
+                              setSucces(null);
+                              setErreur(null);
+                              setCibleAnonymisation(utilisateur);
+                            }}
+                          >
+                            Anonymiser
+                          </button>
+                        )}
                       </div>
                     </td>
                   </tr>
@@ -242,6 +262,18 @@ export default function AdminUsersPage(): JSX.Element {
             </tbody>
           </table>
         </div>
+      )}
+
+      {cibleAnonymisation !== null && (
+        <AnonymiserModal
+          user={cibleAnonymisation}
+          onClose={() => setCibleAnonymisation(null)}
+          onDone={(message) => {
+            setCibleAnonymisation(null);
+            setSucces(message);
+            void chargerUsers();
+          }}
+        />
       )}
 
       {importOuvert && (

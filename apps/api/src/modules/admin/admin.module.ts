@@ -6,6 +6,8 @@ import { AdminUsersController } from './admin-users.controller';
 import { AdminUsersService } from './admin-users.service';
 import { ImportComptesController } from './import-comptes/import-comptes.controller';
 import { ImportComptesService } from './import-comptes/import-comptes.service';
+import { AnonymisationController } from './anonymisation/anonymisation.controller';
+import { AnonymisationService } from './anonymisation/anonymisation.service';
 
 /**
  * Module d'administration (US-ROL-01).
@@ -18,8 +20,8 @@ import { ImportComptesService } from './import-comptes/import-comptes.service';
  */
 @Module({
   imports: [TypeOrmModule.forFeature([User]), AuthModule],
-  controllers: [AdminUsersController, ImportComptesController],
-  providers: [AdminUsersService, ImportComptesService],
+  controllers: [AdminUsersController, ImportComptesController, AnonymisationController],
+  providers: [AdminUsersService, ImportComptesService, AnonymisationService],
   // Exporté pour US-ROL-02 : le module role-requests réutilise le cœur du
   // changement de rôle (appliquerChangementRole) sans le réimplémenter.
   exports: [AdminUsersService],

@@ -3984,3 +3984,30 @@ export async function activerCompte(token: string, nouveauMotDePasse: string): P
   }
   return messageErreur(data) ?? '';
 }
+
+// ---------------------------------------------------------------------------
+// US-CPT-04 — Anonymisation RGPD d'un compte (ADMINISTRATEUR).
+// ---------------------------------------------------------------------------
+
+/** POST /api/admin/users/:id/anonymiser — irréversible, double confirmation. */
+export async function anonymiserCompte(
+  userId: string,
+  motDePasseAdmin: string,
+  confirmation: string,
+): Promise<{ id: string; statut: string; nom: string }> {
+  const response = await apiFetch(`/api/admin/users/${userId}/anonymiser`, {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ motDePasseAdmin, confirmation }),
+  });
+  const data = (await response.json().catch(() => ({}))) as {
+    message?: string | string[];
+    id?: string;
+    statut?: string;
+    nom?: string;
+  };
+  if (!response.ok) {
+    throw new AdminError(messageErreur(data) ?? 'Impossible d’anonymiser ce compte.', response.status);
+  }
+  return { id: data.id ?? userId, statut: data.statut ?? 'ANONYMISE', nom: data.nom ?? '' };
+}

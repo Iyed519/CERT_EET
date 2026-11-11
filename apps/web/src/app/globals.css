@@ -1375,3 +1375,7 @@ h1, h2, h3 { color: var(--ink); }
 .import-table { max-height: 280px; overflow: auto; margin-bottom: 12px; }
 .cellule-coupable { overflow-wrap: anywhere; }
 .page-head-actions { display: flex; gap: 8px; flex-wrap: wrap; }
+
+/* ===== Anonymisation RGPD (US-CPT-04) ===== */
+.anonymiser-cible { overflow-wrap: anywhere; font-weight: 600; }
+.anonymiser-liste { margin: 0 0 14px; padding-left: 18px; display: grid; gap: 6px; font-size: 0.92rem; color: var(--text-muted, #4a5866); }
