@@ -30,6 +30,7 @@ import {
   TentativeSoumiseVue,
 } from './tentative-passage.service';
 import { sessionDe } from './tentative-session.regles';
+import { DemarrerTentativeDto } from './dto/demarrer-tentative.dto';
 import { EnregistrerReponseDto } from './dto/enregistrer-reponse.dto';
 
 /** Texte Swagger commun aux quatre routes protégées par US-QCM-10. */
@@ -113,6 +114,7 @@ export class TentativesController {
   })
   async demarrer(
     @Param('qcmId', ParseUUIDPipe) qcmId: string,
+    @Body() dto: DemarrerTentativeDto,
     @Req() req: AuthenticatedRequest,
     @Res({ passthrough: true }) res: Response,
   ): Promise<TentativeDemarreeVue> {
@@ -121,7 +123,7 @@ export class TentativesController {
       adresseIp: req.ip ?? null,
       methode: req.method,
       route: req.originalUrl,
-    });
+    }, { consentementSurveillance: dto?.consentementSurveillance });
     res.status(vue.reprise ? HttpStatus.OK : HttpStatus.CREATED);
     return vue;
   }

@@ -107,6 +107,21 @@ export type LimitesConfig = Record<string, number>;
  * US-CPT-02 — Envoi asynchrone des emails d'activation des comptes importés
  * (file BullMQ, worker dans le processus de l'api ; COMPTES_WORKER=off le coupe).
  */
+/**
+ * US-QCM-12 — Surveillance webcam par captures. `active` : interrupteur de la
+ * plateforme (SURVEILLANCE_WEBCAM=off la coupe partout, par exemple tant que
+ * la décision sur la protection des données n'est pas prise) ; chaque QCM
+ * reste en plus soumis au choix du formateur (désactivé par défaut).
+ */
+export interface SurveillanceConfig {
+  active: boolean;
+  intervalleSecondes: number;
+  tailleMaxOctets: number;
+  conservationJours: number;
+  balayageActif: boolean;
+  balayageMinutes: number;
+}
+
 export interface ActivationsConfig {
   workerActif: boolean;
   tentatives: number;
@@ -224,6 +239,7 @@ export default (): {
   verification: VerificationConfig;
   limites: LimitesConfig;
   activations: ActivationsConfig;
+  surveillance: SurveillanceConfig;
   ia: IaConfig;
   ressources: RessourcesConfig;
   llm: LlmConfig;
@@ -297,6 +313,16 @@ export default (): {
     limiteParMinute: parseInt(process.env.VERIFICATION_LIMITE_PAR_MINUTE ?? '20', 10),
   },
   limites: lireLimites(process.env),
+  surveillance: {
+    active: (process.env.SURVEILLANCE_WEBCAM ?? 'on') !== 'off',
+    intervalleSecondes: parseInt(process.env.SURVEILLANCE_INTERVALLE_SECONDES ?? '120', 10),
+    tailleMaxOctets: 100 * 1024,
+    conservationJours: parseInt(process.env.SURVEILLANCE_CONSERVATION_JOURS ?? '30', 10),
+    // Purge planifiée : jamais en test (les e2e appellent la purge directement).
+    balayageActif:
+      process.env.NODE_ENV !== 'test' && process.env.SURVEILLANCE_BALAYAGE_ACTIF !== 'false',
+    balayageMinutes: 60,
+  },
   activations: {
     workerActif: (process.env.COMPTES_WORKER ?? 'on') !== 'off',
     tentatives: 3,

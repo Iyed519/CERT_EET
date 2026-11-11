@@ -33,7 +33,13 @@ describe('AnonymisationService (US-CPT-04)', () => {
   };
   const audit = { record: jest.fn() };
   const auth = { invalidateUserSessions: jest.fn() };
-  const service = new AnonymisationService(dataSource as never, audit as never, auth as never);
+  const surveillance = { purger: jest.fn().mockResolvedValue(3) };
+  const service = new AnonymisationService(
+    dataSource as never,
+    audit as never,
+    auth as never,
+    surveillance as never,
+  );
   let hash: string;
 
   beforeAll(async () => {
@@ -115,7 +121,9 @@ describe('AnonymisationService (US-CPT-04)', () => {
       ancienStatut: 'DESACTIVE',
       sessionsRevoquees: 2,
       liaisonsOauthSupprimees: 1,
+      capturesWebcamSupprimees: 3,
     });
+    expect(surveillance.purger).toHaveBeenCalledWith({ apprenantId: 'c1', acteur: 'a1' });
   });
 
   it('administrateur ciblé : administrateurs actifs verrouillés AVANT la cible ; dernier actif -> 403, rien modifié', async () => {

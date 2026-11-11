@@ -129,8 +129,9 @@ export class QcmController {
     description:
       'Crée ou remplace la configuration : randomisation (questions, options, tirage de K parmi N), ' +
       'durée et fenêtre d’ouverture, tentatives et délai, blocage multi-session, affichage du résultat, ' +
-      'seuil de réussite, poids dans la formation, proctoring et copier-coller (enregistrés, pas encore ' +
-      'appliqués). Le QCM passe de BROUILLON à NON_PUBLIE ; un QCM publié le reste. Dès la première ' +
+      'seuil de réussite, poids dans la formation, surveillance webcam par captures (US-QCM-12, ' +
+      'désactivée par défaut) et copier-coller (enregistré, pas encore appliqué). Le QCM passe de ' +
+      'BROUILLON à NON_PUBLIE ; un QCM publié le reste. Dès la première ' +
       'tentative, seule la date de fermeture peut être repoussée.',
   })
   @ApiResponse({ status: 200, description: 'Configuration enregistrée ; audit QCM_CONFIGURE.' })

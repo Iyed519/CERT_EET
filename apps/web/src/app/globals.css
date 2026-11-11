@@ -1379,3 +1379,16 @@ h1, h2, h3 { color: var(--ink); }
 /* ===== Anonymisation RGPD (US-CPT-04) ===== */
 .anonymiser-cible { overflow-wrap: anywhere; font-weight: 600; }
 .anonymiser-liste { margin: 0 0 14px; padding-left: 18px; display: grid; gap: 6px; font-size: 0.92rem; color: var(--text-muted, #4a5866); }
+
+/* ===== Surveillance webcam (US-QCM-12) ===== */
+.surveillance-notice { margin: 0 0 12px; padding: 12px 14px; border: 1px solid var(--border); border-radius: var(--radius-sm); background: #faf9f6; }
+.surveillance-notice h3 { margin: 0 0 6px; font-size: 1rem; }
+.surveillance-notice ul { margin: 0 0 10px; padding-left: 18px; display: grid; gap: 4px; font-size: 0.9rem; }
+.surveillance-bandeau { display: flex; align-items: center; gap: 10px; flex-wrap: wrap; margin: 0 0 14px; padding: 8px 12px; border: 1px solid var(--border); border-radius: var(--radius-sm); background: var(--primary-soft); font-size: 0.9rem; }
+.surveillance-bandeau video { width: 64px; height: 48px; border-radius: 6px; background: #1b2631; object-fit: cover; }
+.surveillance-bandeau.alerte { background: #fdecea; }
+.captures-grille { display: grid; grid-template-columns: repeat(auto-fill, minmax(150px, 1fr)); gap: 10px; margin-top: 10px; }
+.captures-grille figure { margin: 0; }
+.captures-grille img { width: 100%; height: auto; border-radius: 8px; border: 1px solid var(--border); background: #f2f4f3; }
+.captures-grille figcaption { font-size: 0.8rem; color: var(--text-muted, #4a5866); }
+.captures-section { margin: 4px 0 14px; }

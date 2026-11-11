@@ -15,7 +15,33 @@
  */
 
 /** Motif machine d'un refus, repris de DS-02 (`raison`). */
-export type RaisonRefus = 'hors_fenetre' | 'tentatives_epuisees' | 'delai_non_respecte';
+export type RaisonRefus =
+  | 'hors_fenetre'
+  | 'tentatives_epuisees'
+  | 'delai_non_respecte'
+  // US-QCM-12 — QCM surveillé par webcam sans consentement de l'apprenant.
+  | 'consentement_surveillance_requis';
+
+/** US-QCM-12 — refus sans consentement, avec la procédure alternative. */
+export const MESSAGE_CONSENTEMENT_SURVEILLANCE =
+  'Ce QCM est surveillé par webcam : votre consentement est nécessaire pour le commencer. ' +
+  'Si vous refusez ou n’avez pas de caméra, demandez à votre formateur un passage surveillé en présentiel.';
+
+/**
+ * US-QCM-12 — Consentement exigé pour CRÉER une tentative d'un QCM surveillé
+ * (une reprise n'en redemande pas : il a été donné à la création).
+ */
+export function verifierConsentement(
+  surveillance: boolean,
+  consentement: boolean,
+): RefusDemarrage | null {
+  if (!surveillance || consentement) return null;
+  return {
+    raison: 'consentement_surveillance_requis',
+    message: MESSAGE_CONSENTEMENT_SURVEILLANCE,
+    dateReouverture: null,
+  };
+}
 
 /** Refus d'une règle : motif, message affichable, date de réouverture éventuelle. */
 export interface RefusDemarrage {

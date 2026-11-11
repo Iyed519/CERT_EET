@@ -149,6 +149,7 @@ export default function MonEspacePage(): JSX.Element {
       nbTentativesMax: q.nbTentativesMax,
       nbTentativesPassees: q.nbTentativesPassees,
       dateFermeture: q.dateFermeture,
+      surveillanceWebcam: q.surveillanceWebcam,
     });
   };
 

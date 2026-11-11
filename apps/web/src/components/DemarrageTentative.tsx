@@ -4,6 +4,7 @@ import {
   AdminError,
   CONSEIL_SESSION_AILLEURS,
   demarrerTentative,
+  refuserSurveillance,
   TentativeDemarree,
   TentativeRefusee,
 } from '../lib/api';
@@ -18,6 +19,26 @@ export interface QcmADemarrer {
   nbTentativesMax: number | null;
   nbTentativesPassees: number;
   dateFermeture: string | null;
+  // US-QCM-12 — QCM surveillé par webcam : consentement demandé avant de commencer.
+  surveillanceWebcam?: boolean;
+}
+
+/**
+ * US-QCM-12 — Vérifie qu'une caméra est disponible et autorisée, puis la
+ * relâche aussitôt (la page de passage la rouvrira pour les captures).
+ */
+async function cameraDisponible(): Promise<boolean> {
+  if (typeof navigator === 'undefined' || !navigator.mediaDevices?.getUserMedia) return false;
+  try {
+    const flux = await navigator.mediaDevices.getUserMedia({
+      video: { width: 320, height: 240 },
+      audio: false,
+    });
+    flux.getTracks().forEach((piste) => piste.stop());
+    return true;
+  } catch {
+    return false;
+  }
 }
 
 /**
@@ -45,6 +66,16 @@ export function DemarrageTentative({
 }): JSX.Element {
   const [enCours, setEnCours] = useState(false);
   const [erreur, setErreur] = useState<string | null>(null);
+  // US-QCM-12 : consentement coché, et message de refus (procédure alternative).
+  const [consentement, setConsentement] = useState(false);
+  const [refus, setRefus] = useState<string | null>(null);
+  const surveille = qcm.surveillanceWebcam === true;
+
+  const refuser = async (motif: 'REFUS' | 'CAMERA_INDISPONIBLE'): Promise<void> => {
+    setEnCours(true);
+    setRefus(await refuserSurveillance(qcm.id, motif));
+    setEnCours(false);
+  };
 
   // La tentative ne dépasse jamais la fermeture du QCM (règle serveur, D5).
   const finAvantDuree =
@@ -55,8 +86,16 @@ export function DemarrageTentative({
   const confirmer = async (): Promise<void> => {
     setEnCours(true);
     setErreur(null);
+    if (surveille && !(await cameraDisponible())) {
+      // Caméra refusée par le navigateur ou absente : pas de tentative.
+      setRefus(await refuserSurveillance(qcm.id, 'CAMERA_INDISPONIBLE'));
+      setEnCours(false);
+      return;
+    }
     try {
-      onDemarree(await demarrerTentative(qcm.id));
+      onDemarree(
+        await demarrerTentative(qcm.id, surveille ? { consentementSurveillance: true } : {}),
+      );
     } catch (error) {
       if (error instanceof TentativeRefusee && error.raison === 'session_active_ailleurs') {
         // US-QCM-10 — tentative déjà en cours sur un autre appareil.
@@ -114,6 +153,36 @@ export function DemarrageTentative({
             </div>
           )}
         </dl>
+        {surveille && refus === null && (
+          <section className="surveillance-notice" aria-labelledby="titre-surveillance">
+            <h3 id="titre-surveillance">Surveillance par webcam</h3>
+            <ul>
+              <li>
+                Votre formateur a activé la surveillance de ce QCM : une image de votre caméra est
+                prise au démarrage, puis toutes les 2 minutes environ, pendant le passage seulement.
+              </li>
+              <li>
+                Pas de vidéo, pas de son, aucune analyse automatique du visage. Les images ne sont
+                visibles que par le formateur de la formation et l’administration, et sont supprimées
+                au bout de 30 jours.
+              </li>
+              <li>
+                Si vous refusez ou n’avez pas de caméra, vous ne pourrez pas passer ce QCM en ligne :
+                demandez à votre formateur un passage surveillé en présentiel.
+              </li>
+            </ul>
+            <label className="case">
+              <input
+                type="checkbox"
+                checked={consentement}
+                onChange={(e) => setConsentement(e.target.checked)}
+                disabled={enCours}
+              />
+              J’ai lu ces informations et j’accepte la surveillance par webcam pour ce QCM.
+            </label>
+          </section>
+        )}
+        {refus !== null && <p className="alert alert-error">{refus}</p>}
         <p className="alert alert-info demarrage-avertissement">
           Le chronomètre démarre dès la confirmation et continue même si vous fermez la page.
           {finAvantDuree
@@ -129,13 +198,25 @@ export function DemarrageTentative({
           >
             Annuler
           </button>
+          {surveille && refus === null && (
+            <button
+              type="button"
+              className="btn-sm btn-ghost"
+              onClick={() => void refuser('REFUS')}
+              disabled={enCours}
+            >
+              Je refuse
+            </button>
+          )}
           <button
             type="button"
             className="btn"
             onClick={() => void confirmer()}
-            disabled={enCours || erreur !== null}
+            disabled={
+              enCours || erreur !== null || refus !== null || (surveille && !consentement)
+            }
           >
-            {enCours ? 'Démarrage…' : 'Démarrer'}
+            {enCours ? 'Démarrage…' : surveille ? 'Accepter et démarrer' : 'Démarrer'}
           </button>
         </div>
       </section>

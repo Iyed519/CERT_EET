@@ -112,6 +112,12 @@ export const envValidationSchema = Joi.object({
   LIMITE_ACTIVATION: Joi.number().integer().min(1).max(1000000),
   // US-CPT-02 : worker d'envoi des emails d'activation (comptes importés).
   COMPTES_WORKER: Joi.string().valid('on', 'off').default('on'),
+  // US-QCM-12 : surveillance webcam (interrupteur de plateforme, intervalle
+  // entre deux captures, durée de conservation, purge planifiée).
+  SURVEILLANCE_WEBCAM: Joi.string().valid('on', 'off').default('on'),
+  SURVEILLANCE_INTERVALLE_SECONDES: Joi.number().integer().min(30).max(900).default(120),
+  SURVEILLANCE_CONSERVATION_JOURS: Joi.number().integer().min(1).max(365).default(30),
+  SURVEILLANCE_BALAYAGE_ACTIF: Joi.string().valid('true', 'false').default('true'),
 
   // --- Assistance IA (US-IA-01, ADR-04 / ADR-05) ---
   // Worker d'indexation des supports dans le processus de l'api (« off » le

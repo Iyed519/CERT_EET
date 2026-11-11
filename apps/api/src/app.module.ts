@@ -15,6 +15,7 @@ import { InscriptionsModule } from './modules/inscriptions/inscriptions.module';
 import { QcmModule } from './modules/qcm/qcm.module';
 import { TentativesModule } from './modules/tentatives/tentatives.module';
 import { HistoriqueTentativesModule } from './modules/tentatives/historique/historique-tentatives.module';
+import { SurveillanceModule } from './modules/surveillance/surveillance.module';
 import { AteliersModule } from './modules/ateliers/ateliers.module';
 import { CertificatsModule } from './modules/certificats/certificats.module';
 import { AssistanceIaModule } from './modules/assistance-ia/assistance-ia.module';
@@ -62,6 +63,8 @@ import { RapportsModule } from './modules/rapports/rapports.module';
     QcmModule,
     TentativesModule,
     HistoriqueTentativesModule,
+    // US-QCM-12 : surveillance webcam par captures.
+    SurveillanceModule,
     AteliersModule,
     CertificatsModule,
     AssistanceIaModule,

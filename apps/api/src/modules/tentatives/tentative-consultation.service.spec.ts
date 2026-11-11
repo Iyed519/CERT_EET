@@ -145,6 +145,7 @@ describe('TentativeConsultationService', () => {
       numero: 2,
       nbTentativesMax: 3,
       tentativesRestantes: 1,
+      surveillance: { active: false, intervalleSecondes: 120 },
       maintenant: MAINTENANT,
       nbQuestions: 1,
       questions: QUESTIONS,

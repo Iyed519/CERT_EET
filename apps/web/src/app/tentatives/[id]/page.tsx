@@ -4,6 +4,7 @@ import { useParams } from 'next/navigation';
 import { useCallback, useEffect, useRef, useState } from 'react';
 import { ConfirmationModal } from '../../../components/ConfirmationModal';
 import { CorrigeTentative } from '../../../components/CorrigeTentative';
+import SurveillanceWebcam from '../../../components/SurveillanceWebcam';
 import {
   AdminError,
   CONSEIL_SESSION_AILLEURS,
@@ -472,6 +473,14 @@ export default function TentativePage(): JSX.Element {
           {dateHeureFr(tentative.dateLimite)}
         </span>
       </section>
+
+      {/* US-QCM-12 — captures webcam pendant le passage d'un QCM surveillé. */}
+      {enCours && tentative.surveillance?.active && (
+        <SurveillanceWebcam
+          tentativeId={tentative.id}
+          intervalleSecondes={tentative.surveillance.intervalleSecondes}
+        />
+      )}
 
       {enCours && (
         <>

@@ -1278,6 +1278,8 @@ export interface EspaceFormationVue {
       nbTentativesMax: number | null;
       nbTentativesPassees: number;
       tentativeEnCoursId: string | null;
+      // US-QCM-12 — surveillance webcam activée par le formateur.
+      surveillanceWebcam: boolean;
     }>;
     // US-ATEL-03 — ateliers publiés du module (sans énoncé).
     ateliers: AtelierEspace[];
@@ -1537,7 +1539,9 @@ export type RaisonRefusTentative =
   | 'tentatives_epuisees'
   | 'delai_non_respecte'
   // US-QCM-10 — la tentative EN_COURS est ouverte sur un autre appareil.
-  | 'session_active_ailleurs';
+  | 'session_active_ailleurs'
+  // US-QCM-12 — QCM surveillé : consentement requis.
+  | 'consentement_surveillance_requis';
 
 /**
  * US-QCM-10 — Conseil affiché après le message du serveur quand la tentative
@@ -1573,6 +1577,9 @@ export interface QuestionTentative {
 
 /** Réponse de GET /api/tentatives/:id — `maintenant` = heure du serveur. */
 export interface TentativeConsultee {
+  // US-QCM-12 — surveillance webcam de cette tentative (capture au démarrage
+  // puis toutes les `intervalleSecondes`).
+  surveillance?: { active: boolean; intervalleSecondes: number };
   id: string;
   qcmId: string;
   qcmTitre: string;
@@ -1622,8 +1629,15 @@ export class TentativeRefusee extends AdminError {
  *   - 404 -> QCM introuvable ou non publié ;
  *   - 409 -> TentativeRefusee : hors fenêtre, tentatives épuisées, délai.
  */
-export async function demarrerTentative(qcmId: string): Promise<TentativeDemarree> {
-  const response = await apiFetch(`/api/qcm/${qcmId}/tentatives`, { method: 'POST' });
+export async function demarrerTentative(
+  qcmId: string,
+  options: { consentementSurveillance?: boolean } = {},
+): Promise<TentativeDemarree> {
+  const response = await apiFetch(`/api/qcm/${qcmId}/tentatives`, {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify(options),
+  });
   const data = (await response.json().catch(() => ({}))) as {
     message?: string | string[];
     raison?: RaisonRefusTentative;
@@ -4010,4 +4024,65 @@ export async function anonymiserCompte(
     throw new AdminError(messageErreur(data) ?? 'Impossible d’anonymiser ce compte.', response.status);
   }
   return { id: data.id ?? userId, statut: data.statut ?? 'ANONYMISE', nom: data.nom ?? '' };
+}
+
+// ---------------------------------------------------------------------------
+// US-QCM-12 — Surveillance webcam par captures.
+// ---------------------------------------------------------------------------
+
+/** POST /api/qcm/:id/surveillance/refus — refus ou caméra absente (journalisé). */
+export async function refuserSurveillance(
+  qcmId: string,
+  motif: 'REFUS' | 'CAMERA_INDISPONIBLE',
+): Promise<string> {
+  const response = await apiFetch(`/api/qcm/${qcmId}/surveillance/refus`, {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ motif }),
+  });
+  const data = (await response.json().catch(() => ({}))) as { message?: string | string[] };
+  return (
+    messageErreur(data) ??
+    'Sans caméra, demandez à votre formateur un passage surveillé en présentiel.'
+  );
+}
+
+/** POST /api/tentatives/:id/captures — dépôt d'une capture (image JPEG). */
+export async function deposerCapture(tentativeId: string, image: Blob): Promise<boolean> {
+  const corps = new FormData();
+  corps.append('capture', image, 'capture.jpg');
+  const response = await apiFetch(`/api/tentatives/${tentativeId}/captures`, {
+    method: 'POST',
+    body: corps,
+  });
+  return response.ok;
+}
+
+export interface CapturesTentative {
+  tentativeId: string;
+  consentementLe: string | null;
+  conservationJours: number;
+  captures: Array<{ id: string; priseLe: string; tailleOctets: number }>;
+}
+
+/** GET /api/tentatives/:id/captures — formateur affecté ou administrateur. */
+export async function getCapturesTentative(tentativeId: string): Promise<CapturesTentative> {
+  const response = await apiFetch(`/api/tentatives/${tentativeId}/captures`);
+  const data = (await response.json().catch(() => ({}))) as CapturesTentative & {
+    message?: string | string[];
+  };
+  if (!response.ok) {
+    throw new AdminError(messageErreur(data) ?? 'Impossible de charger les captures.', response.status);
+  }
+  return data;
+}
+
+/** POST /api/captures/:id/lien — lien signé (2 min) vers l'image. */
+export async function lienCapture(captureId: string): Promise<string> {
+  const response = await apiFetch(`/api/captures/${captureId}/lien`, { method: 'POST' });
+  const data = (await response.json().catch(() => ({}))) as { url?: string; message?: string | string[] };
+  if (!response.ok || !data.url) {
+    throw new AdminError(messageErreur(data) ?? 'Impossible d’ouvrir la capture.', response.status);
+  }
+  return data.url;
 }

@@ -349,6 +349,26 @@ export function ConfigurationModal({
             </div>
           </fieldset>
 
+          {/* US-QCM-12 — surveillance webcam : appliquée, désactivée par défaut. */}
+          <fieldset className="groupe-config" disabled={fige}>
+            <legend className="field-label">Surveillance</legend>
+            <label className="case">
+              <input
+                type="checkbox"
+                checked={c.proctoringWebcam}
+                onChange={coche('proctoringWebcam')}
+              />
+              Surveillance par webcam (captures)
+            </label>
+            <span className="field-hint">
+              Désactivée par défaut. Si vous l’activez, chaque apprenant doit consentir avant de
+              commencer ; une image est prise au démarrage puis toutes les 2 minutes environ
+              (pas de vidéo, aucune analyse automatique). Vous seul et l’administration voyez les
+              images, supprimées après 30 jours. Sans caméra ou sans consentement : passage
+              surveillé en présentiel à organiser.
+            </span>
+          </fieldset>
+
           <fieldset className="groupe-config" disabled={fige}>
             <legend className="field-label">
               Bientôt actif <span className="badge-bientot">enregistré, pas encore appliqué</span>
@@ -360,14 +380,6 @@ export function ConfigurationModal({
                 onChange={coche('desactiverCopierColler')}
               />
               Désactiver le copier-coller
-            </label>
-            <label className="case">
-              <input
-                type="checkbox"
-                checked={c.proctoringWebcam}
-                onChange={coche('proctoringWebcam')}
-              />
-              Surveillance par webcam (proctoring)
             </label>
           </fieldset>
 

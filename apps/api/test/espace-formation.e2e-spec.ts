@@ -297,6 +297,7 @@ describe('Mon espace dans une formation (e2e) — US-INSC-04', () => {
         nbTentativesMax: 1,
         nbTentativesPassees: 1,
         tentativeEnCoursId: null,
+        surveillanceWebcam: false,
       },
     ]);
     expect(res.body.modules[1].qcms.map((q: { titre: string }) => q.titre)).toEqual([
