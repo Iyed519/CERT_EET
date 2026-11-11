@@ -79,7 +79,7 @@ describe('Fournisseurs LLM (US-IA-03)', () => {
       expect((llm as unknown as { client: { maxRetries: number } }).client.maxRetries).toBe(0);
     });
 
-    it('impose l’outil (JSON strict), consignes en système, délai par appel', async () => {
+    it('propose l’outil en choix auto (refus du choix forcé), consignes en système, délai par appel', async () => {
       const { llm, create } = creer({
         content: [
           { type: 'text', text: 'Voici.' },
@@ -99,7 +99,7 @@ describe('Fournisseurs LLM (US-IA-03)', () => {
         model: 'claude-sonnet-5-5',
         system: p.systeme,
         messages: [{ role: 'user', content: p.utilisateur }],
-        tool_choice: { type: 'tool', name: OUTIL_QUESTIONS },
+        tool_choice: { type: 'auto' },
       });
       expect((corps.tools as Array<Record<string, unknown>>)[0]).toMatchObject({
         name: OUTIL_QUESTIONS,
@@ -143,6 +143,32 @@ describe('Fournisseurs LLM (US-IA-03)', () => {
       expect(traduite).toBeInstanceOf(ErreurLlm);
       expect(traduite.recuperable).toBe(recuperable);
       expect(traduite.message).not.toContain('sk-ant');
+    });
+  });
+
+  describe('traduireErreur : motif d’une requête refusée', () => {
+    const h = new Headers();
+    const refus = (corps: unknown): ErreurLlm =>
+      traduireErreur(new Anthropic.BadRequestError(400, corps as object, 'x', h));
+
+    it('recopie le motif donné par l’API', () => {
+      const motif = 'tool_choice: type "tool" and "any" are not supported for this model.';
+      const e = refus({ type: 'error', error: { type: 'invalid_request_error', message: motif } });
+      expect(e.message).toBe(`Requête refusée par le fournisseur d’IA : ${motif}`);
+      expect(e.recuperable).toBe(false);
+    });
+
+    it('tronque un motif trop long à 200 caractères', () => {
+      const e = refus({ error: { message: `  ${'a'.repeat(500)}  ` } });
+      expect(e.message).toBe(`Requête refusée par le fournisseur d’IA : ${'a'.repeat(200)}`);
+    });
+
+    it.each<[string, unknown]>([
+      ['sans corps', undefined],
+      ['motif vide', { error: { message: '   ' } }],
+      ['motif non textuel', { error: { message: 42 } }],
+    ])('%s : message générique', (_cas, corps) => {
+      expect(refus(corps).message).toBe('Requête refusée par le fournisseur d’IA.');
     });
   });
 
