@@ -73,7 +73,7 @@ describe('US-DASH-03 — règles du tableau de bord du formateur', () => {
       ],
       STATUTS_FORMATION,
     );
-    expect(t.formations).toEqual({ parStatut: { OUVERTE: 2, FERMEE: 0, ARCHIVEE: 1 }, total: 3 });
+    expect(t.formations).toEqual({ parStatut: { BROUILLON: 0, OUVERTE: 2, FERMEE: 0, ARCHIVEE: 1 }, total: 3 });
     expect(t.apprenants).toEqual({ inscrits: 6, actifs: 3, nouveaux: 1 });
     // (100 + 60) / 4 = 40 — et non la moyenne des moyennes (100 + 20) / 2 = 60.
     expect(t.qcm).toEqual({ tentativesNotees: 4, reussies: 1, tauxReussite: 25, scoreMoyen: 40, aEvaluer: 2 });

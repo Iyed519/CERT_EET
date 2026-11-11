@@ -245,7 +245,7 @@ describe('E2E-DASH03 — Tableau de bord du formateur (US-DASH-03)', () => {
     const res = await get('/api/formateur/tableau-de-bord').expect(200);
     const t = res.body;
     expect(t.periode.jours).toBe(30);
-    expect(t.formations).toEqual({ parStatut: { OUVERTE: 1, FERMEE: 0, ARCHIVEE: 1 }, total: 2 });
+    expect(t.formations).toEqual({ parStatut: { BROUILLON: 0, OUVERTE: 1, FERMEE: 0, ARCHIVEE: 1 }, total: 2 });
     expect(t.apprenants).toEqual({ inscrits: 4, actifs: 1, nouveaux: 1 });
     expect(t.qcm).toEqual({ tentativesNotees: 3, reussies: 2, tauxReussite: 66.7, scoreMoyen: 70, aEvaluer: 2 });
     expect(t.ateliers).toEqual({ livrablesAEvaluer: 2 });

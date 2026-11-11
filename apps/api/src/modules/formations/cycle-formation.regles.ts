@@ -14,6 +14,8 @@ import { StatutFormation } from '../../database/enums/statut-formation.enum';
 
 /** Transitions autorisées depuis chaque statut. */
 export const TRANSITIONS: Record<StatutFormation, StatutFormation[]> = {
+  // US-FORM-08 : un brouillon (proposition acceptée) se publie.
+  [StatutFormation.BROUILLON]: [StatutFormation.OUVERTE],
   [StatutFormation.OUVERTE]: [StatutFormation.FERMEE],
   [StatutFormation.FERMEE]: [StatutFormation.ARCHIVEE, StatutFormation.OUVERTE],
   [StatutFormation.ARCHIVEE]: [],
@@ -21,6 +23,7 @@ export const TRANSITIONS: Record<StatutFormation, StatutFormation[]> = {
 
 /** Action d'audit de chaque transition (selon le statut d'arrivée). */
 export const ACTION_AUDIT: Record<StatutFormation, string> = {
+  [StatutFormation.BROUILLON]: 'FORMATION_BROUILLON',
   [StatutFormation.FERMEE]: 'FORMATION_CLOTUREE',
   [StatutFormation.ARCHIVEE]: 'FORMATION_ARCHIVEE',
   [StatutFormation.OUVERTE]: 'FORMATION_ROUVERTE',
@@ -37,6 +40,14 @@ export function messageTransitionRefusee(de: StatutFormation, vers: StatutFormat
   if (de === StatutFormation.ARCHIVEE) return MESSAGE_ARCHIVEE_DEFINITIF;
   if (de === vers) return `La formation est déjà ${libelle(vers)}.`;
   return `Transition impossible : une formation ${libelle(de)} ne peut pas devenir ${libelle(vers)}.`;
+}
+
+/** Action d'audit d'une transition : publier un brouillon n'est pas « rouvrir ». */
+export function actionAudit(de: StatutFormation, vers: StatutFormation): string {
+  if (de === StatutFormation.BROUILLON && vers === StatutFormation.OUVERTE) {
+    return 'FORMATION_PUBLIEE';
+  }
+  return ACTION_AUDIT[vers];
 }
 
 export function transitionAutorisee(de: StatutFormation, vers: StatutFormation): boolean {
@@ -66,6 +77,7 @@ export function confirmationRequise(vers: StatutFormation, e: EvaluationsEnCours
 }
 
 function libelle(s: StatutFormation): string {
+  if (s === StatutFormation.BROUILLON) return 'en brouillon';
   return s === StatutFormation.OUVERTE
     ? 'ouverte'
     : s === StatutFormation.FERMEE

@@ -8,8 +8,12 @@
  *
  * OUVERTE (état initial, inscriptions possibles) -> FERMEE (clôturée) ->
  * ARCHIVEE (figée ; les certificats émis restent vérifiables).
+ *
+ * US-FORM-08 : BROUILLON — formation issue d'une proposition acceptée, hors
+ * catalogue et sans inscription, jusqu'à sa publication (-> OUVERTE).
  */
 export enum StatutFormation {
+  BROUILLON = 'BROUILLON',
   OUVERTE = 'OUVERTE',
   FERMEE = 'FERMEE',
   ARCHIVEE = 'ARCHIVEE',

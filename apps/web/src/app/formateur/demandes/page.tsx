@@ -85,6 +85,9 @@ export default function MesDemandesPage(): JSX.Element {
           </p>
         </div>
         <div className="row-actions">
+          <Link className="btn-sm btn-link" href="/formateur/propositions">
+            Mes propositions
+          </Link>
           <Link className="btn-sm btn-link" href="/formateur/tableau-de-bord">
             Tableau de bord
           </Link>

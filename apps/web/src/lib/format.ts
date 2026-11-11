@@ -348,6 +348,7 @@ export const LIBELLES_STATUT_DEMANDE_FORMATEUR: Record<string, string> = {
 
 /** Statut d'UNE formation (badge), au singulier. */
 export const LIBELLES_STATUT_FORMATION_UN: Record<string, string> = {
+  BROUILLON: 'Brouillon',
   OUVERTE: 'Ouverte',
   FERMEE: 'Fermée',
   ARCHIVEE: 'Archivée',
@@ -360,6 +361,7 @@ export const LIBELLES_ROLE: Record<string, string> = {
   ADMINISTRATEUR: 'Administrateurs',
 };
 export const LIBELLES_STATUT_FORMATION_COURT: Record<string, string> = {
+  BROUILLON: 'Brouillons',
   OUVERTE: 'Ouvertes',
   FERMEE: 'Fermées',
   ARCHIVEE: 'Archivées',

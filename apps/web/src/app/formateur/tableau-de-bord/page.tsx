@@ -81,6 +81,9 @@ export default function TableauDeBordFormateurPage(): JSX.Element {
           <Link className="btn-sm" href="/formateur/demandes">
             Demander une formation
           </Link>
+          <Link className="btn-sm" href="/formateur/propositions">
+            Proposer une formation
+          </Link>
         </div>
       </div>
 

@@ -4,7 +4,7 @@ import { Formation } from '../../database/entities/formation.entity';
 import { StatutFormation } from '../../database/enums/statut-formation.enum';
 import { AuditService } from '../audit/audit.service';
 import {
-  ACTION_AUDIT,
+  actionAudit,
   EvaluationsEnCours,
   MESSAGE_CONFIRMATION_REQUISE,
   TRANSITIONS,
@@ -119,7 +119,7 @@ export class CycleFormationService {
       throw new ConflictException(messageTransitionRefusee(actuel, vers));
     }
     await this.auditService.record({
-      action: ACTION_AUDIT[vers],
+      action: actionAudit(de, vers),
       acteur: adminId,
       cible: formationId,
       adresseIp: contexte.adresseIp,

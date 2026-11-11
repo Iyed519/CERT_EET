@@ -20,7 +20,8 @@ export const MESSAGE_MOTIF = `Le motif doit compter entre ${MOTIF_MIN} et ${MOTI
 export const MESSAGE_DEJA_AFFECTE = 'Vous enseignez déjà cette formation.';
 export const MESSAGE_DEJA_EN_ATTENTE =
   'Vous avez déjà une demande en attente pour cette formation.';
-export const MESSAGE_ARCHIVEE = 'Cette formation est archivée : elle ne peut plus recevoir de formateur.';
+export const MESSAGE_ARCHIVEE =
+  'Cette formation est archivée ou pas encore publiée : elle ne peut pas recevoir de demande.';
 export const MESSAGE_DEJA_TRAITEE = 'Cette demande a déjà été traitée.';
 export const MESSAGE_FORMATEUR_INACTIF =
   "Le demandeur n'est plus un formateur actif : la demande ne peut pas être acceptée.";
@@ -37,7 +38,10 @@ export function modifiable(statut: string): boolean {
   return statut === 'EN_ATTENTE';
 }
 
-/** Une formation archivée ne reçoit plus de demande ni d'affectation. */
+/**
+ * Une formation archivée ne reçoit plus de demande ni d'affectation ; un
+ * brouillon (US-FORM-08) n'est pas encore publié : il n'est pas demandable.
+ */
 export function formationOuverteAuxDemandes(statutFormation: string): boolean {
-  return statutFormation !== 'ARCHIVEE';
+  return statutFormation === 'OUVERTE' || statutFormation === 'FERMEE';
 }

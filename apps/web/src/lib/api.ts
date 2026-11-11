@@ -918,7 +918,8 @@ export async function mfaDisable(code: string): Promise<{ message: string }> {
  * ============================================================ */
 
 /** Cycle de vie d'une formation (l'enum backend reste la source de vérité). */
-export type StatutFormation = 'OUVERTE' | 'FERMEE' | 'ARCHIVEE';
+/** US-FORM-08 : BROUILLON = proposition acceptée, pas encore publiée. */
+export type StatutFormation = 'BROUILLON' | 'OUVERTE' | 'FERMEE' | 'ARCHIVEE';
 
 /** Vue d'une formation (liste, création, modification). Dates en AAAA-MM-JJ. */
 export interface FormationVue {
@@ -3110,7 +3111,7 @@ export interface TableauDeBordGlobal {
   }>;
   alertes: Array<{ code: CodeAlerteSysteme; nombre: number }>;
   /** US-DASH-03 — demandes qui attendent une décision (zéro compris). */
-  demandesEnAttente: { role: number; affectation: number };
+  demandesEnAttente: { role: number; affectation: number; propositions: number };
 }
 
 /**
@@ -4278,4 +4279,87 @@ export async function refuserDemandeAffectation(
     body: JSON.stringify({ motif }),
   });
   return lireReponseFormation<DemandeAffectationAdmin>(response, 'Impossible de refuser la demande.');
+}
+
+// ---------------------------------------------------------------------------
+// US-FORM-08 — Propositions de nouvelles formations (formateur -> admin).
+// ---------------------------------------------------------------------------
+
+export type StatutProposition = 'EN_ATTENTE' | 'A_MODIFIER' | 'ACCEPTEE' | 'REFUSEE';
+
+export interface PropositionFormation {
+  id: string;
+  titre: string;
+  description: string | null;
+  objectifs: string | null;
+  dureeHeures: number | null;
+  capaciteMax: number;
+  publicVise: string | null;
+  motif: string;
+  statut: StatutProposition;
+  commentaireAdmin: string | null;
+  formationId: string | null;
+  version: number;
+  traiteLe: string | null;
+  creeLe: string;
+  modifieLe: string;
+}
+
+export interface PropositionFormationAdmin extends PropositionFormation {
+  formateur: { id: string; email: string; prenom: string | null; nom: string | null };
+  traitePar: string | null;
+}
+
+export interface PropositionFormationSaisie {
+  titre: string;
+  description?: string;
+  objectifs?: string;
+  dureeHeures?: number;
+  capaciteMax: number;
+  publicVise?: string;
+  motif: string;
+}
+
+export async function getMesPropositions(): Promise<PropositionFormation[]> {
+  const response = await apiFetch('/api/formateur/propositions-formation');
+  return lireReponseFormation<PropositionFormation[]>(response, 'Impossible de charger vos propositions.');
+}
+
+/** POST (création) ou PUT /:id (modification et resoumission). */
+export async function enregistrerProposition(
+  saisie: PropositionFormationSaisie,
+  id?: string,
+): Promise<PropositionFormation> {
+  const response = await apiFetch(`/api/formateur/propositions-formation${id ? `/${id}` : ''}`, {
+    method: id ? 'PUT' : 'POST',
+    headers: JSON_HEADERS,
+    body: JSON.stringify(saisie),
+  });
+  return lireReponseFormation<PropositionFormation>(response, 'Impossible d’enregistrer la proposition.');
+}
+
+export async function getAdminPropositions(
+  query: { statut?: StatutProposition; page?: number; limit?: number } = {},
+): Promise<{ items: PropositionFormationAdmin[]; total: number; page: number; limit: number }> {
+  const params = new URLSearchParams();
+  if (query.statut) params.set('statut', query.statut);
+  if (query.page) params.set('page', String(query.page));
+  if (query.limit) params.set('limit', String(query.limit));
+  const qs = params.toString();
+  const response = await apiFetch(`/api/admin/propositions-formation${qs ? `?${qs}` : ''}`);
+  return lireReponseFormation(response, 'Impossible de charger les propositions.');
+}
+
+/** accepter | demander-modifications | refuser (commentaire 10–1000 sauf pour accepter). */
+export async function deciderProposition(
+  id: string,
+  action: 'accepter' | 'demander-modifications' | 'refuser',
+  commentaire?: string,
+): Promise<PropositionFormationAdmin> {
+  const response = await apiFetch(`/api/admin/propositions-formation/${id}/${action}`, {
+    method: 'PATCH',
+    headers: JSON_HEADERS,
+    body: JSON.stringify(commentaire === undefined ? {} : { commentaire }),
+  });
+  return lireReponseFormation<PropositionFormationAdmin>(response, 'Impossible d’enregistrer la décision.');
 }

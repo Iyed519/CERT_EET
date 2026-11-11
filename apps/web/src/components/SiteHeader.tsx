@@ -14,12 +14,14 @@ const LIENS_COMPTE: Record<string, Array<[string, string]>> = {
   ],
   FORMATEUR: [
     ['/formateur/demandes', 'Mes demandes'],
+    ['/formateur/propositions', 'Mes propositions'],
     ['/mon-role', 'Changer de rôle'],
     ['/securite', 'Sécurité du compte'],
   ],
   ADMINISTRATEUR: [
     ['/admin/role-requests', 'Demandes de rôle'],
     ['/admin/demandes-affectation', 'Demandes d’affectation'],
+    ['/admin/propositions-formation', 'Propositions de formation'],
     ['/admin/rapports', 'Rapports'],
     ['/admin/generations-ia', 'Générations IA'],
     ['/admin/audit', "Journal d'audit"],

@@ -51,7 +51,7 @@ describe('TableauDeBordService (US-DASH-01)', () => {
       connectes: 0,
     });
     expect(t.formations).toEqual({
-      parStatut: { OUVERTE: 0, FERMEE: 0, ARCHIVEE: 0 },
+      parStatut: { BROUILLON: 0, OUVERTE: 0, FERMEE: 0, ARCHIVEE: 0 },
       total: 0,
       nouvelles: 0,
     });
@@ -153,7 +153,7 @@ describe('TableauDeBordService (US-DASH-01)', () => {
     expect(t.utilisateurs.nouveaux).toBe(3);
     expect(t.utilisateurs.connectes).toBe(5);
     expect(t.formations).toEqual({
-      parStatut: { OUVERTE: 3, FERMEE: 0, ARCHIVEE: 1 },
+      parStatut: { BROUILLON: 0, OUVERTE: 3, FERMEE: 0, ARCHIVEE: 1 },
       total: 4,
       nouvelles: 1,
     });
