@@ -1203,6 +1203,46 @@ export class MailService {
   }
 
   /**
+   * US-CPT-02 — Lien d'activation d'un compte créé par un administrateur
+   * (import CSV) : le titulaire choisit son mot de passe. Jeton en clair dans
+   * le lien seulement ; l'erreur d'envoi remonte (le worker la rejoue).
+   */
+  async sendActivationCompteEmail(
+    to: string,
+    donnees: { prenom: string | null; lien: string; heures: number },
+  ): Promise<void> {
+    const { from } = this.configService.getOrThrow<MailConfig>('mail');
+    const prenom = donnees.prenom?.trim() ?? '';
+    const salutation = prenom ? `Bonjour ${prenom},` : 'Bonjour,';
+    const text =
+      `${salutation}\n\n` +
+      `Un administrateur vous a créé un compte sur Cert_EET. Pour l'activer, ` +
+      `choisissez votre mot de passe en ouvrant le lien suivant (valable ` +
+      `${donnees.heures} heures, utilisable une seule fois) :\n${donnees.lien}\n\n` +
+      `Si vous ne vous attendiez pas à ce message, ignorez-le : le compte ne sera ` +
+      `pas activé.\n\n` +
+      `— L'équipe Cert_EET`;
+    const html = gabaritEmail({
+      titre: 'Activez votre compte',
+      paragraphesHtml: [
+        echapperHtml(salutation),
+        'Un administrateur vous a créé un compte sur Cert_EET. Pour l’activer, choisissez votre mot de passe.',
+      ],
+      bouton: { libelle: 'Activer mon compte', lien: donnees.lien },
+      mentionHtml: `Ce lien est valable <strong style="color:#1e8449;">${donnees.heures} heures</strong> et ne fonctionne qu'une seule fois.`,
+      piedHtml:
+        "Vous ne vous attendiez pas à ce message&nbsp;? Ignorez-le&nbsp;: le compte ne sera pas activé.",
+    });
+    await this.transporter.sendMail({
+      from,
+      to,
+      subject: 'Cert_EET — Activez votre compte',
+      text,
+      html,
+    });
+    this.logger.log(`Email d'activation envoyé à ${to}`);
+  }
+  /**
    * US-AUTH-06 — Lien de réinitialisation du mot de passe (usage unique,
    * durée limitée). Le lien porte le jeton en clair : il n'apparaît que dans
    * cet email (la base n'en garde que l'empreinte). L'erreur d'envoi remonte ;

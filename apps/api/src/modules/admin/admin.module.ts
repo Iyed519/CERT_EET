@@ -4,6 +4,8 @@ import { User } from '../../database/entities/user.entity';
 import { AuthModule } from '../auth/auth.module';
 import { AdminUsersController } from './admin-users.controller';
 import { AdminUsersService } from './admin-users.service';
+import { ImportComptesController } from './import-comptes/import-comptes.controller';
+import { ImportComptesService } from './import-comptes/import-comptes.service';
 
 /**
  * Module d'administration (US-ROL-01).
@@ -16,8 +18,8 @@ import { AdminUsersService } from './admin-users.service';
  */
 @Module({
   imports: [TypeOrmModule.forFeature([User]), AuthModule],
-  controllers: [AdminUsersController],
-  providers: [AdminUsersService],
+  controllers: [AdminUsersController, ImportComptesController],
+  providers: [AdminUsersService, ImportComptesService],
   // Exporté pour US-ROL-02 : le module role-requests réutilise le cœur du
   // changement de rôle (appliquerChangementRole) sans le réimplémenter.
   exports: [AdminUsersService],

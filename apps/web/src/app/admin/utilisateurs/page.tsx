@@ -4,10 +4,12 @@ import {
   getAdminUsers,
   changeUserRole,
   changeUserStatut,
+  renvoyerActivation,
   AdminUser,
   RoleUtilisateur,
   AdminError,
 } from '../../../lib/api';
+import ImportComptesModal from '../../../components/ImportComptesModal';
 
 /** Libellés FR des rôles (l'enum backend reste la source de vérité). */
 const ROLES: Array<[RoleUtilisateur, string]> = [
@@ -48,6 +50,22 @@ export default function AdminUsersPage(): JSX.Element {
   );
   // Ligne dont une action de statut est en cours (désactive les boutons).
   const [busyId, setBusyId] = useState<string | null>(null);
+  // US-CPT-02 : modale d'import CSV.
+  const [importOuvert, setImportOuvert] = useState(false);
+
+  async function renvoyer(utilisateur: AdminUser): Promise<void> {
+    setSucces(null);
+    setErreur(null);
+    setBusyId(utilisateur.id);
+    try {
+      await renvoyerActivation(utilisateur.id);
+      setSucces(`Un nouvel email d’activation va être envoyé à ${utilisateur.email}.`);
+    } catch (error) {
+      setErreur(error instanceof AdminError ? error.message : 'Une erreur est survenue.');
+    } finally {
+      setBusyId(null);
+    }
+  }
 
   // useCallback : référence stable -> satisfait exhaustive-deps et permet de
   // réutiliser le chargement pour « Actualiser » et après une action.
@@ -101,17 +119,28 @@ export default function AdminUsersPage(): JSX.Element {
         <div>
           <h1 className="page-title">Gestion des utilisateurs</h1>
           <p className="page-subtitle">
-            Consultez les comptes, modifiez leur rôle et gérez leur statut
-            (US-ROL-01, US-CPT-03).
+            Consultez les comptes, importez-en depuis un fichier CSV, modifiez
+            leur rôle et gérez leur statut.
           </p>
         </div>
-        <button
-          className="btn-sm"
-          onClick={() => void chargerUsers()}
-          disabled={chargement}
-        >
-          Actualiser
-        </button>
+        <div className="page-head-actions">
+          <button
+            className="btn-sm"
+            onClick={() => {
+              setSucces(null);
+              setImportOuvert(true);
+            }}
+          >
+            Importer un CSV
+          </button>
+          <button
+            className="btn-sm"
+            onClick={() => void chargerUsers()}
+            disabled={chargement}
+          >
+            Actualiser
+          </button>
+        </div>
       </div>
 
       {succes !== null && <p className="alert alert-success">{succes}</p>}
@@ -180,6 +209,15 @@ export default function AdminUsersPage(): JSX.Element {
                             Désactiver
                           </button>
                         )}
+                        {utilisateur.statut === 'EN_ATTENTE_ACTIVATION' && (
+                          <button
+                            className="btn-sm"
+                            disabled={enCours}
+                            onClick={() => void renvoyer(utilisateur)}
+                          >
+                            Renvoyer l’activation
+                          </button>
+                        )}
                         {utilisateur.statut === 'DESACTIVE' && (
                           <button
                             className="btn-sm"
@@ -204,6 +242,16 @@ export default function AdminUsersPage(): JSX.Element {
             </tbody>
           </table>
         </div>
+      )}
+
+      {importOuvert && (
+        <ImportComptesModal
+          onClose={() => setImportOuvert(false)}
+          onImporte={(message) => {
+            setSucces(message);
+            void chargerUsers();
+          }}
+        />
       )}
 
       {cibleRole !== null && (

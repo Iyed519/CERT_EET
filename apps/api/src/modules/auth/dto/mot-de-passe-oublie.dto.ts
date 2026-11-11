@@ -22,3 +22,16 @@ export class ReinitialiserMotDePasseDto {
   @MotDePasseConforme()
   nouveauMotDePasse: string;
 }
+
+/** US-CPT-02 — Corps de POST /auth/activate (compte importé par l'administrateur). */
+export class ActiverCompteDto {
+  @ApiProperty({ description: 'Jeton reçu dans le lien (base64url, 43 caractères).' })
+  @IsString()
+  @IsNotEmpty({ message: "Le lien d'activation est incomplet." })
+  @Matches(/^[A-Za-z0-9_-]{43}$/, { message: "Le lien d'activation est invalide." })
+  token: string;
+
+  @ApiProperty({ example: 'MonMotDePasse1' })
+  @MotDePasseConforme()
+  nouveauMotDePasse: string;
+}

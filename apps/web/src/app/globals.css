@@ -1368,3 +1368,10 @@ h1, h2, h3 { color: var(--ink); }
 .lien-discret { font-size: 0.85rem; color: var(--primary, #1e8449); text-decoration: none; }
 .lien-discret:hover { text-decoration: underline; }
 .auth-card > .btn { display: block; text-align: center; text-decoration: none; }
+
+/* ===== Import CSV de comptes (US-CPT-02) ===== */
+.import-comptes { max-width: 720px; }
+.import-exemple { margin: 0 0 10px; padding: 10px 12px; border: 1px solid var(--border); border-radius: var(--radius-sm); background: #faf9f6; font-size: 0.82rem; white-space: pre-wrap; overflow-wrap: anywhere; }
+.import-table { max-height: 280px; overflow: auto; margin-bottom: 12px; }
+.cellule-coupable { overflow-wrap: anywhere; }
+.page-head-actions { display: flex; gap: 8px; flex-wrap: wrap; }
