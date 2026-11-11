@@ -398,6 +398,14 @@ export class AuthService {
       throw new UnauthorizedException(GENERIC_REFRESH_ERROR);
     }
     if (!stored.active) {
+      // US-AUTH-17 : un jeton que la rotation vient de brûler est TOUJOURS sur
+      // la denylist (posée avant la désactivation, voir burnRefreshToken). S'il
+      // y est, c'est une requête simultanée arrivée juste après la rotation
+      // (deux onglets, double rechargement) : refus simple, la session reste
+      // vivante. Sinon, c'est un vrai rejeu : toute la famille est révoquée.
+      if (await this.redisService.exists(refreshDenylistKey(tokenHash))) {
+        throw new UnauthorizedException(GENERIC_REFRESH_ERROR);
+      }
       await this.revokeFamille(stored.familleId);
       throw new UnauthorizedException(GENERIC_REFRESH_ERROR);
     }
@@ -417,7 +425,17 @@ export class AuthService {
     const accessToken = await this.signAccessToken(user, stored.familleId);
     const newRefreshToken = await this.signRefreshToken(user);
     await this.persistRefreshToken(user.id, newRefreshToken, stored.familleId, context);
-    await this.burnRefreshToken(stored);
+    // US-AUTH-17 : deux rafraîchissements simultanés avec le même cookie ne
+    // peuvent pas gagner tous les deux. La désactivation est conditionnelle
+    // (active = true) : un seul l'obtient ; le perdant retire le jeton qu'il
+    // vient d'enregistrer et reçoit 401, sans toucher au jeton du gagnant.
+    if (!(await this.burnRefreshToken(stored))) {
+      await this.refreshTokenRepository.update(
+        { tokenHash: this.hashToken(newRefreshToken) },
+        { active: false },
+      );
+      throw new UnauthorizedException(GENERIC_REFRESH_ERROR);
+    }
     return {
       accessToken,
       refreshToken: newRefreshToken,
@@ -866,11 +884,21 @@ export class AuthService {
     await this.refreshTokenRepository.save(session);
   }
   /** Brûle un refresh token : inactif en base + denylist Redis (TTL restant). */
-  private async burnRefreshToken(token: RefreshToken): Promise<void> {
-    token.active = false;
-    await this.refreshTokenRepository.save(token);
+  /**
+   * Brûle un refresh token. US-AUTH-17 : la denylist est posée AVANT la
+   * désactivation (une requête concurrente qui verrait le jeton inactif le
+   * trouve donc toujours sur la denylist), et la désactivation est
+   * conditionnelle : renvoie false si une autre requête l'a déjà brûlé.
+   */
+  private async burnRefreshToken(token: RefreshToken): Promise<boolean> {
     const ttlSeconds = Math.max(1, Math.ceil((token.dateExpiration.getTime() - Date.now()) / 1000));
     await this.redisService.set(refreshDenylistKey(token.tokenHash), '1', ttlSeconds);
+    const resultat = await this.refreshTokenRepository.update(
+      { id: token.id, active: true },
+      { active: false },
+    );
+    token.active = false;
+    return (resultat.affected ?? 0) > 0;
   }
   /** Détection de rejeu : révoque toute la famille (US-AUTH-03). */
   private async revokeFamille(familleId: string): Promise<void> {

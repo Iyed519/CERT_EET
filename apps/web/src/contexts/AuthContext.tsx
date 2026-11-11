@@ -9,6 +9,7 @@ import {
 import {
   LoginResponse,
   registerSessionHandlers,
+  restaurerSessionInitiale,
   setAccessToken,
 } from '../lib/api';
 
@@ -23,6 +24,12 @@ import {
 interface AuthContextValue {
   accessToken: string | null;
   user: LoginResponse['user'] | null;
+  /**
+   * US-AUTH-17 — Vrai tant que la session n'a pas été restaurée (ou écartée)
+   * au chargement de la page. Tant qu'il est vrai, aucune page ne décide
+   * (ni redirection vers /login, ni page publique) : chargement neutre.
+   */
+  chargement: boolean;
   setSession: (session: LoginResponse) => void;
   clearSession: () => void;
 }
@@ -32,17 +39,20 @@ const AuthContext = createContext<AuthContextValue | undefined>(undefined);
 export function AuthProvider({ children }: { children: ReactNode }): JSX.Element {
   const [accessToken, setAccessTokenState] = useState<string | null>(null);
   const [user, setUser] = useState<LoginResponse['user'] | null>(null);
+  const [chargement, setChargement] = useState(true);
 
   function setSession(session: LoginResponse): void {
     setAccessTokenState(session.accessToken);
     setUser(session.user);
     setAccessToken(session.accessToken); // miroir module pour apiFetch
+    setChargement(false);
   }
 
   function clearSession(): void {
     setAccessTokenState(null);
     setUser(null);
     setAccessToken(null);
+    setChargement(false);
   }
 
   /**
@@ -64,10 +74,21 @@ export function AuthProvider({ children }: { children: ReactNode }): JSX.Element
         setAccessToken(null);
       },
     });
+    // US-AUTH-17 : rechargement de page -> la session (en mémoire seulement)
+    // est restaurée par le cookie de refresh. Une seule restauration par
+    // chargement (lib/api) ; une session trouvée arrive par onRefreshed,
+    // enregistré juste au-dessus.
+    let actif = true;
+    void restaurerSessionInitiale().finally(() => {
+      if (actif) setChargement(false);
+    });
+    return () => {
+      actif = false;
+    };
   }, []);
 
   return (
-    <AuthContext.Provider value={{ accessToken, user, setSession, clearSession }}>
+    <AuthContext.Provider value={{ accessToken, user, chargement, setSession, clearSession }}>
       {children}
     </AuthContext.Provider>
   );

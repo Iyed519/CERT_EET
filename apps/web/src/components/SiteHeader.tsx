@@ -3,11 +3,8 @@ import Link from 'next/link';
 import { usePathname, useRouter } from 'next/navigation';
 import { FormEvent, useEffect, useRef, useState } from 'react';
 import { useAuth } from '../contexts/AuthContext';
-import { logout, restaurerSession } from '../lib/api';
+import { logout } from '../lib/api';
 import { LIBELLE_ROLE, LIENS_PAR_ROLE, estActif, initiales } from './navigation';
-
-/** Session restaurée une seule fois par chargement de l'application. */
-let restaurationTentee = false;
 
 /** Liens secondaires du menu de compte, par rôle. */
 const LIENS_COMPTE: Record<string, Array<[string, string]>> = {
@@ -35,7 +32,7 @@ const LIENS_COMPTE: Record<string, Array<[string, string]>> = {
  * RoleRequestNav, SecuriteNav). Purement UI : l'API reste la vraie barrière.
  */
 export function SiteHeader(): JSX.Element {
-  const { user } = useAuth();
+  const { user, chargement } = useAuth();
   const pathname = usePathname();
   const router = useRouter();
   const [menuCompte, setMenuCompte] = useState(false);
@@ -44,13 +41,8 @@ export function SiteHeader(): JSX.Element {
   const [deconnexion, setDeconnexion] = useState(false);
   const compteRef = useRef<HTMLDivElement>(null);
 
-  // Rechargement de page : la session (en mémoire seulement) est restaurée
-  // par le cookie de refresh, sans redirection si le visiteur est anonyme.
-  useEffect(() => {
-    if (user || restaurationTentee) return;
-    restaurationTentee = true;
-    void restaurerSession();
-  }, [user]);
+  // US-AUTH-17 : la session est restaurée par AuthProvider au chargement ;
+  // tant qu'elle ne l'est pas, l'en-tête n'affiche ni compte ni « Se connecter ».
 
   // Changement de page : les menus se ferment.
   useEffect(() => {
@@ -154,7 +146,7 @@ export function SiteHeader(): JSX.Element {
         </nav>
 
         <div className="topbar-droite">
-          {user ? (
+          {chargement ? null : user ? (
             <div className="compte" ref={compteRef}>
               <button
                 type="button"

@@ -41,7 +41,8 @@ describe('AuthService', () => {
     create: jest.fn(),
     save: jest.fn(),
     findOne: jest.fn(),
-    update: jest.fn(),
+    // US-AUTH-17 : la désactivation conditionnelle renvoie le nombre de lignes.
+    update: jest.fn().mockResolvedValue({ affected: 1 }),
   };
   // US-AUTH-12 : AuthService délègue toute écriture d'audit à AuditService.record.
   const mockAuditService = {
@@ -274,6 +275,53 @@ describe('AuthService', () => {
         { familleId: stored.familleId, active: true },
         { active: false },
       );
+    });
+    it('US-AUTH-17 : rafraîchissement concurrent perdu -> 401, nouveau jeton retiré, famille intacte', async () => {
+      mockRefreshTokenRepository.findOne.mockResolvedValue(sessionActive());
+      mockUserRepository.findOne.mockResolvedValue(utilisateurActif());
+      mockRefreshTokenRepository.create.mockReturnValue({});
+      mockRefreshTokenRepository.save.mockResolvedValue({});
+      mockRefreshTokenRepository.update.mockResolvedValueOnce({ affected: 0 });
+      await expect(service.refresh('vieux-refresh-token', contexte)).rejects.toThrow(
+        UnauthorizedException,
+      );
+      expect(mockRefreshTokenRepository.update).toHaveBeenNthCalledWith(
+        1,
+        { id: 'rt-1', active: true },
+        { active: false },
+      );
+      expect(mockRefreshTokenRepository.update).toHaveBeenNthCalledWith(
+        2,
+        { tokenHash: expect.any(String) },
+        { active: false },
+      );
+      expect(mockRefreshTokenRepository.update).not.toHaveBeenCalledWith(
+        expect.objectContaining({ familleId: expect.anything() }),
+        expect.anything(),
+      );
+    });
+    it('US-AUTH-17 : denylist posée AVANT la désactivation conditionnelle', async () => {
+      mockRefreshTokenRepository.findOne.mockResolvedValue(sessionActive());
+      mockUserRepository.findOne.mockResolvedValue(utilisateurActif());
+      mockRefreshTokenRepository.create.mockReturnValue({});
+      mockRefreshTokenRepository.save.mockResolvedValue({});
+      await service.refresh('vieux-refresh-token', contexte);
+      const ordreDenylist = mockRedisService.set.mock.invocationCallOrder[0];
+      const ordreDesactivation = mockRefreshTokenRepository.update.mock.invocationCallOrder[0];
+      expect(mockRedisService.set).toHaveBeenCalledWith(
+        'denylist:refresh:hash-quelconque',
+        '1',
+        expect.any(Number),
+      );
+      expect(ordreDenylist).toBeLessThan(ordreDesactivation);
+    });
+    it('US-AUTH-17 : jeton inactif mais déjà sur la denylist (rotation concurrente) -> 401 sans révoquer la famille', async () => {
+      mockRedisService.exists.mockResolvedValueOnce(false).mockResolvedValueOnce(true);
+      mockRefreshTokenRepository.findOne.mockResolvedValue({ ...sessionActive(), active: false });
+      await expect(service.refresh('token-tout-juste-brule', contexte)).rejects.toThrow(
+        UnauthorizedException,
+      );
+      expect(mockRefreshTokenRepository.update).not.toHaveBeenCalled();
     });
     it('rejette si le token est sur la denylist Redis', async () => {
       mockRedisService.exists.mockResolvedValue(true);

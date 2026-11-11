@@ -1392,3 +1392,8 @@ h1, h2, h3 { color: var(--ink); }
 .captures-grille img { width: 100%; height: auto; border-radius: 8px; border: 1px solid var(--border); background: #f2f4f3; }
 .captures-grille figcaption { font-size: 0.8rem; color: var(--text-muted, #4a5866); }
 .captures-section { margin: 4px 0 14px; }
+
+/* ===== Session restaurée au rechargement (US-AUTH-17) ===== */
+.session-chargement { display: flex; justify-content: center; align-items: center; min-height: 40vh; }
+.session-chargement-rond { width: 28px; height: 28px; border-radius: 50%; border: 3px solid var(--border); border-top-color: var(--primary); animation: spin 0.8s linear infinite; }
+@media (prefers-reduced-motion: reduce) { .session-chargement-rond { animation: none; } }
