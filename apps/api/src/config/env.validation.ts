@@ -16,8 +16,11 @@ export const envValidationSchema = Joi.object({
     .valid('development', 'recette', 'production', 'test')
     .default('development'),
   PORT: Joi.number().port().default(3000),
-  // Origine(s) autorisée(s) pour CORS — le frontend Next.js en dev.
-  CORS_ORIGIN: Joi.string().default('http://localhost:3001'),
+  // Origine(s) autorisée(s) pour CORS — le frontend Next.js en dev. US-AUTH-13 :
+  // les cookies (credentials) interdisent « * » ; liste séparée par des virgules.
+  CORS_ORIGIN: Joi.string()
+    .pattern(/^[^*]+$/, 'origine explicite (jamais « * »)')
+    .default('http://localhost:3001'),
   // Prefixe global de l'API (le reverse proxy route /api -> api en INF03).
   API_PREFIX: Joi.string().default('api'),
 // --- Base de données (branchée en INF04 — désormais requise) ---
@@ -95,6 +98,17 @@ export const envValidationSchema = Joi.object({
   // nginx). Valeur Express « trust proxy » : par défaut les réseaux privés et
   // la boucle locale (le conteneur nginx), jamais Internet.
   TRUST_PROXY: Joi.string().default('loopback, uniquelocal'),
+
+  // --- Limites de débit des routes sensibles (US-AUTH-13) ---
+  // Requêtes par IP et par fenêtre de la route ; facultatives (valeurs par
+  // défaut dans configuration.ts, LIMITES_PAR_DEFAUT).
+  LIMITE_CONNEXION: Joi.number().integer().min(1).max(1000000),
+  LIMITE_MFA: Joi.number().integer().min(1).max(1000000),
+  LIMITE_RAFRAICHISSEMENT: Joi.number().integer().min(1).max(1000000),
+  LIMITE_INSCRIPTION: Joi.number().integer().min(1).max(1000000),
+  LIMITE_VERIFICATION_EMAIL: Joi.number().integer().min(1).max(1000000),
+  LIMITE_MDP_OUBLIE: Joi.number().integer().min(1).max(1000000),
+  LIMITE_MDP_REINITIALISATION: Joi.number().integer().min(1).max(1000000),
 
   // --- Assistance IA (US-IA-01, ADR-04 / ADR-05) ---
   // Worker d'indexation des supports dans le processus de l'api (« off » le

@@ -8,17 +8,22 @@ describe('LimiteRequetesGuard', () => {
   const redis = { incrementer: jest.fn() };
   const audit = { record: jest.fn() };
   const reflector = { getAllAndOverride: jest.fn() };
+  const config = { get: jest.fn() };
   const setHeader = jest.fn();
   const guard = new LimiteRequetesGuard(
     reflector as unknown as Reflector,
     redis as never,
     audit as never,
+    config as never,
   );
   const ctx = {
     getHandler: (): null => null,
     getClass: (): null => null,
     switchToHttp: () => ({
-      getRequest: (): Record<string, string> => ({ ip: '::ffff:10.0.0.7', originalUrl: '/api/auth/forgot-password' }),
+      getRequest: (): Record<string, string> => ({
+        ip: '::ffff:10.0.0.7',
+        originalUrl: '/api/auth/forgot-password',
+      }),
       getResponse: (): { setHeader: jest.Mock } => ({ setHeader }),
     }),
   } as unknown as ExecutionContext;
@@ -27,6 +32,17 @@ describe('LimiteRequetesGuard', () => {
   beforeEach(() => {
     jest.clearAllMocks();
     reflector.getAllAndOverride.mockReturnValue(LIMITE);
+    config.get.mockReturnValue(undefined);
+  });
+
+  it('US-AUTH-13 : la configuration règle le nombre admis (la fenêtre reste celle de la route)', async () => {
+    config.get.mockReturnValue({ 'mdp-oublie': 2 });
+    redis.incrementer.mockResolvedValue({ compte: 3, resteSecondes: 50 });
+    await expect(guard.canActivate(ctx)).rejects.toThrow(HttpException);
+    expect(config.get).toHaveBeenCalledWith('limites');
+    expect(redis.incrementer).toHaveBeenCalledWith('limite:mdp-oublie:10.0.0.7', 900);
+    config.get.mockReturnValue({ autre: 1 });
+    await expect(guard.canActivate(ctx)).resolves.toBe(true);
   });
 
   it('règles : clé normalisée, dépassement strict, premier refus seul', () => {
