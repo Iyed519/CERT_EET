@@ -1,8 +1,9 @@
 import type { Metadata } from 'next';
+import { Suspense } from 'react';
 import './globals.css';
 import { AuthProvider } from '../contexts/AuthContext';
 import { ProfilGate } from '../components/ProfilGate';
-import { SessionPrete } from '../components/SessionPrete';
+import { ChargementSession, SessionPrete } from '../components/SessionPrete';
 import { SiteHeader } from '../components/SiteHeader';
 export const metadata: Metadata = {
   title: 'Cert_EET — Certification numérique vérifiable',
@@ -25,7 +26,9 @@ export default function RootLayout({
         <AuthProvider>
           <SiteHeader />
           <main className="site-main">
-            <SessionPrete>{children}</SessionPrete>
+            <Suspense fallback={<ChargementSession />}>
+              <SessionPrete>{children}</SessionPrete>
+            </Suspense>
           </main>
           <footer className="site-footer">
             <div className="site-footer-inner">

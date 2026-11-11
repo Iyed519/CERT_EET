@@ -1,3 +1,5 @@
+import { lienConnexion } from './acces';
+
 /**
  * Client API du frontend (US-AUTH-01, US-AUTH-03, US-AUTH-04).
  *
@@ -222,14 +224,20 @@ export function restaurerSessionInitiale(): Promise<LoginResponse | null> {
   return restaurationInitiale;
 }
 
-/** Session morte : on efface tout et on renvoie vers /login. */
-function forceLogout(): void {
+/**
+ * Session morte : on efface tout et on renvoie vers /login. US-NAV-01 : une
+ * session expirée en cours de route ramène, après reconnexion, sur la page
+ * où l'on était (`?suite=`) ; une déconnexion volontaire, non.
+ */
+function forceLogout(revenirIci = true): void {
   currentAccessToken = null;
   if (onCleared) {
     onCleared();
   }
   if (typeof window !== 'undefined') {
-    window.location.href = '/login';
+    window.location.href = revenirIci
+      ? lienConnexion(`${window.location.pathname}${window.location.search}`)
+      : '/login';
   }
 }
 
@@ -251,7 +259,7 @@ export async function logout(): Promise<void> {
         : {},
     });
   } finally {
-    forceLogout();
+    forceLogout(false);
   }
 }
 
