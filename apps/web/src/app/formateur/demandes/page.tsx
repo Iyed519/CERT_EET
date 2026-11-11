@@ -165,9 +165,9 @@ export default function MesDemandesPage(): JSX.Element {
               <thead>
                 <tr>
                   <th>Formation</th>
+                  <th>Statut</th>
                   <th>Motif</th>
                   <th>Envoyée le</th>
-                  <th>Statut</th>
                   <th aria-label="Actions" />
                 </tr>
               </thead>
@@ -183,8 +183,6 @@ export default function MesDemandesPage(): JSX.Element {
                         d.formation.titre
                       )}
                     </td>
-                    <td className="demande-motif">{d.motif}</td>
-                    <td>{jourFr(d.creeLe)}</td>
                     <td>
                       <span className={`statut-badge statut-${d.statut}`}>
                         {LIBELLES_STATUT_DEMANDE_FORMATEUR[d.statut]}
@@ -193,6 +191,8 @@ export default function MesDemandesPage(): JSX.Element {
                         <div className="field-hint demande-motif">Motif : {d.motifRefus}</div>
                       )}
                     </td>
+                    <td className="demande-motif">{d.motif}</td>
+                    <td>{jourFr(d.creeLe)}</td>
                     <td>
                       {d.statut === 'EN_ATTENTE' ? (
                         <button className="btn-sm btn-danger" onClick={() => setAAnnuler(d)}>

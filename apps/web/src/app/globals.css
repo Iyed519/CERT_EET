@@ -1403,6 +1403,9 @@ h1, h2, h3 { color: var(--ink); }
 .statut-REFUSEE { background: var(--danger-soft); color: #922b21; }
 .statut-ANNULEE { background: #eceff1; color: #4a5866; }
 .statut-A_MODIFIER { background: #fef3e2; color: var(--accent-dark); }
-.demande-motif { white-space: pre-wrap; overflow-wrap: anywhere; max-width: 42ch; }
+.demande-motif { white-space: pre-wrap; overflow-wrap: break-word; min-width: 22ch; max-width: 42ch; }
 .demande-form { display: grid; gap: 12px; max-width: 720px; }
 .compteur-caracteres { font-size: 0.8rem; color: var(--muted, #5b6b66); text-align: right; }
+.data-table .statut-badge { white-space: nowrap; }
+/* Onglets d'administration : sur grand écran, ils passent à la ligne plutôt que de défiler. */
+@media (min-width: 921px) { .admin-tabs { flex-wrap: wrap; overflow-x: visible; } }

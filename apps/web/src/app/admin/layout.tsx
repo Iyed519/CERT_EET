@@ -18,7 +18,7 @@ const ONGLETS: Array<[string, string]> = [
   ['/admin/tableau-de-bord', 'Tableau de bord'],
   ['/admin/utilisateurs', 'Utilisateurs'],
   ['/admin/role-requests', 'Demandes de rôle'],
-  ['/admin/demandes-affectation', 'Demandes d’affectation'],
+  ['/admin/demandes-affectation', 'Affectations'],
   ['/admin/formations', 'Formations'],
   ['/admin/certificats', 'Certificats'],
   ['/admin/rapports', 'Rapports'],

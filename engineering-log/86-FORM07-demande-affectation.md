@@ -68,7 +68,7 @@ le formateur puisse exprimer un souhait dans la plateforme.
 ## Vérification
 - Migration : run / revert / run (**38 migrations**).
 - Api : lint 0 avertissement, `tsc`, unitaires **116 suites / 1 460 tests**
-  (+ 3), e2e complet en série (voir ci-dessous), dont `E2E-FORM07`
+  (+ 3), e2e complet en série **71 suites / 836 tests** (+ 1 ignoré), dont `E2E-FORM07`
   (13 tests : accès ; formations disponibles ; validations ; création, audit,
   « mes demandes » ; annulation ; acceptation avec affectation, email, audit ;
   refus avec motif ; email en panne ; formation archivée et formateur
@@ -84,7 +84,15 @@ le formateur puisse exprimer un souhait dans la plateforme.
   verrou de création ne change rien d'observable, l'index unique partiel
   donne le même 409 (le verrou évite seulement l'erreur SQL) ; gardé tel quel
   et noté ici.
-- Web : `tsc`, `next lint`, `next build` ; navigateur (voir la PR).
+- Web : `tsc`, `next lint`, `next build`.
+- Navigateur (pile locale derrière nginx), 1280 et 390 px : formateur —
+  tableau de bord -> « Demander une formation », envoi, demande en attente,
+  annulation confirmée, nouvel envoi ; administrateur — tableau de bord ->
+  « Demandes d'affectation », acceptation (la formation apparaît dans « Mes
+  formations » du formateur) et refus avec motif (motif affiché au
+  formateur). Sur mobile, le statut est la deuxième colonne (visible sans
+  défilement) ; onglets d'administration raccourcis (« Affectations ») et
+  passés à la ligne sur grand écran. Scénario US-NAV-01 rejoué : vert.
 
 ## CI
 Voir la PR.
