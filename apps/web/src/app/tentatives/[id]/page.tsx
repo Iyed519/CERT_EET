@@ -2,6 +2,7 @@
 import Link from 'next/link';
 import { useParams } from 'next/navigation';
 import { useCallback, useEffect, useRef, useState } from 'react';
+import { BoutonRapportPdf } from '../../../components/BoutonRapportPdf';
 import { ConfirmationModal } from '../../../components/ConfirmationModal';
 import { CorrigeTentative } from '../../../components/CorrigeTentative';
 import SurveillanceWebcam from '../../../components/SurveillanceWebcam';
@@ -588,16 +589,20 @@ export default function TentativePage(): JSX.Element {
           ) : (
             <p className="field-hint">Votre résultat sera disponible dans votre espace.</p>
           )}
-          {notee && etatCorrige.disponible && corrige === null && (
+          {notee && (
             <p className="corrige-action">
-              <button
-                type="button"
-                className="btn btn-secondaire"
-                onClick={() => void voirCorrige()}
-                disabled={chargementCorrige}
-              >
-                {chargementCorrige ? 'Chargement du corrigé…' : 'Voir le corrigé'}
-              </button>
+              {etatCorrige.disponible && corrige === null && (
+                <button
+                  type="button"
+                  className="btn btn-secondaire"
+                  onClick={() => void voirCorrige()}
+                  disabled={chargementCorrige}
+                >
+                  {chargementCorrige ? 'Chargement du corrigé…' : 'Voir le corrigé'}
+                </button>
+              )}
+              {/* US-QCM-13 — le serveur décide si le corrigé entre dans le PDF. */}
+              <BoutonRapportPdf tentativeId={tentative.id} />
             </p>
           )}
           {attenteCorrige !== null && <p className="corrige-attente">{attenteCorrige}</p>}

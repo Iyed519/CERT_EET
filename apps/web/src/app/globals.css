@@ -1696,3 +1696,19 @@ h3 { font-size: var(--fs-carte); font-weight: var(--fw-carte); }
 .risque-raisons { margin: var(--sp-2) 0 0; padding-left: var(--sp-5); font-size: var(--fs-corps); color: var(--text); }
 .risque-raisons li + li { margin-top: var(--sp-1); }
 .risque-texte { margin: var(--sp-2) 0 0; }
+
+/* ============================================================
+   US-QCM-13 — « Télécharger le rapport (PDF) » d'une tentative notée.
+   ============================================================ */
+.rapport-pdf { display: inline-flex; flex-direction: column; align-items: center; gap: var(--sp-1); max-width: 100%; }
+.rapport-pdf-erreur { font-size: 0.85rem; color: var(--danger-dark); overflow-wrap: anywhere; }
+.corrige-action .rapport-pdf { margin: 0 0 0 var(--sp-2); }
+.historique-rapport { margin: 0 0 var(--sp-3); }
+.cellule-actions { display: flex; gap: var(--sp-2); flex-wrap: wrap; align-items: flex-start; }
+@media (max-width: 640px) {
+  .corrige-action .rapport-pdf { margin: var(--sp-2) 0 0; width: 100%; }
+}
+/* La refonte visuelle redéfinit .btn après .btn-secondaire : le bouton secondaire (« Voir le
+   corrigé », « Télécharger le rapport (PDF) ») devenait plein, texte foncé sur vert, illisible. */
+.btn.btn-secondaire { background: var(--surface); color: var(--primary-dark); border: 1px solid var(--primary); box-shadow: none; }
+.btn.btn-secondaire:hover:not(:disabled) { background: var(--primary-soft); color: var(--primary-dark); box-shadow: none; }

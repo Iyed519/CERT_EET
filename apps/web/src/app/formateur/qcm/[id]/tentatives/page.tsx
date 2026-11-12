@@ -2,6 +2,7 @@
 import Link from 'next/link';
 import { useParams } from 'next/navigation';
 import { useCallback, useEffect, useState } from 'react';
+import { BoutonRapportPdf } from '../../../../../components/BoutonRapportPdf';
 import {
   AdminError,
   DetailHistoriqueFormateur,
@@ -27,6 +28,7 @@ const nomApprenant = (a: LigneHistoriqueFormateur['apprenant']): string =>
  * US-QCM-11 — Tentatives d'un QCM, côté formateur affecté : historique
  * complet en lecture seule (apprenant, rang, dates, durée, score) ; détail
  * d'une tentative avec le corrigé (cochées, bonnes réponses, points).
+ * US-QCM-13 : rapport PDF de chaque tentative notée, corrigé inclus.
  */
 export default function TentativesQcmPage(): JSX.Element {
   const { id } = useParams<{ id: string }>();
@@ -146,9 +148,15 @@ export default function TentativesQcmPage(): JSX.Element {
                         : `${scoreFr(l.score)}${l.estReussie ? ' · réussie' : ' · non réussie'}`}
                     </td>
                     <td>
-                      <button type="button" className="btn-sm" onClick={() => void ouvrir(l.id)}>
-                        Détail
-                      </button>
+                      <span className="cellule-actions">
+                        <button type="button" className="btn-sm" onClick={() => void ouvrir(l.id)}>
+                          Détail
+                        </button>
+                        {/* US-QCM-13 — rapport PDF, corrigé inclus. */}
+                        {l.statut === 'NOTEE' && (
+                          <BoutonRapportPdf tentativeId={l.id} qcmId={id} petit />
+                        )}
+                      </span>
                     </td>
                   </tr>
                 ))}
@@ -178,6 +186,11 @@ export default function TentativesQcmPage(): JSX.Element {
               réponses
               {detail.score !== null ? ` · ${scoreFr(detail.score)}` : ''}
             </p>
+            {detail.statut === 'NOTEE' && (
+              <p className="historique-rapport">
+                <BoutonRapportPdf tentativeId={detail.id} qcmId={id} />
+              </p>
+            )}
             <section className="captures-section" aria-label="Captures webcam">
               {captures === null ? (
                 <button type="button" className="btn-sm" onClick={() => void voirCaptures(detail.id)}>

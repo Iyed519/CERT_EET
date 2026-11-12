@@ -15,6 +15,7 @@ import { InscriptionsModule } from './modules/inscriptions/inscriptions.module';
 import { QcmModule } from './modules/qcm/qcm.module';
 import { TentativesModule } from './modules/tentatives/tentatives.module';
 import { HistoriqueTentativesModule } from './modules/tentatives/historique/historique-tentatives.module';
+import { RapportTentativeModule } from './modules/tentatives/rapport/rapport-tentative.module';
 import { SurveillanceModule } from './modules/surveillance/surveillance.module';
 import { AteliersModule } from './modules/ateliers/ateliers.module';
 import { CertificatsModule } from './modules/certificats/certificats.module';
@@ -68,6 +69,8 @@ import { PredictionRisqueModule } from './modules/prediction-risque/prediction-r
     QcmModule,
     TentativesModule,
     HistoriqueTentativesModule,
+    // US-QCM-13 : rapport PDF détaillé d'une tentative notée.
+    RapportTentativeModule,
     // US-QCM-12 : surveillance webcam par captures.
     SurveillanceModule,
     AteliersModule,
