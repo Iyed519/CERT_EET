@@ -55,3 +55,41 @@ suivront.
 - `ml/risque/variables.py`, `ml/risque/explications.py`
 - `ml/modeles/risque_v1.joblib`, `ml/modeles/risque_v1.json`
 - `ml/requirements-dev.txt` (Python 3.13, versions exactes)
+---
+
+# Étape 11 — Service `ml` (conteneur séparé)
+
+## Ce qui a été fait
+- `ml/service/` : FastAPI qui charge `risque_v1.joblib` et `risque_v1.json` une seule fois au
+  démarrage, et vérifie que les 16 entrées de la fiche sont exactement celles du modèle, dans le même
+  ordre (sinon le service refuse de démarrer).
+  - `GET /sante` → `{statut, version_modele, seuil, nb_entrees}`.
+  - `POST /predire` → `{apprenants: [{identifiant, 16 variables}]}` → pour chacun : probabilité,
+    niveau, 3 raisons. Niveau et raisons : `risque/explications.py` (aucune duplication).
+  - Explications : SHAP natif `predict(X, pred_contrib=True)`, sans la bibliothèque `shap`.
+  - Validation Pydantic stricte : champ inconnu refusé, bornes (taux entre 0 et 1, notes sur 100,
+    compteurs positifs, `a_au_moins_une_note` ∈ {0, 1}), NaN/infini refusés ; seuls `score_moyen`
+    et `tendance_score` peuvent être vides. Lot de 1 à 500 apprenants (`ML_TAILLE_LOT_MAX`).
+    Erreur 422 lisible : `{erreur, details: [{champ, message}]}`, sans renvoyer les valeurs reçues.
+  - Documentation OpenAPI désactivée (service interne).
+- Image Docker (`ml/service/Dockerfile`, contexte `ml/`) : `python:3.13-slim` + `libgomp1`,
+  utilisateur système non root, `HEALTHCHECK` sur `/sante`, seulement `service/`, `risque/`,
+  `modeles/` (`.dockerignore` exclut données, notebooks, tests).
+- `docker-compose.yml` : service `ml` sur `cert_eet_net` uniquement, aucun port publié, système de
+  fichiers en lecture seule, contrôle de santé. L'api **ne dépend pas** de `ml` (`depends_on`
+  inchangé). Recette : `restart: unless-stopped`. Dev : rien de plus (même image).
+- CI : nouveau job « ML (pytest + image) » : pytest, construction de l'image, démarrage, attente de
+  l'état `healthy`, appel de `/sante`, vérification « pas root » et « pas de données ». Les jobs
+  existants ne sont pas modifiés.
+- Tests (`ml/service/tests`, `ml/tests`) : santé, prédiction (valeurs connues, valeurs vides, lot,
+  ordre conservé, lot maximal), validation (8 cas + champ manquant + NaN + lot vide/trop grand),
+  cohérence SHAP (base + contributions = score brut, sigmoïde = probabilité), niveaux, raisons.
+  Le test anti-fuite de `variables.py` est sauté si les CSV OULAD sont absents (cas de la CI).
+
+## Décisions
+| # | Point | Décision |
+|---|---|---|
+| D13 | Versions | scikit-learn 1.9.1, LightGBM 4.7.0, numpy 2.5.4 : identiques à l'entraînement. Reste figé avec `uv pip compile --exclude-newer 2026-10-28` (tout est publié depuis au moins 2 semaines). |
+| D14 | pandas | **Pas dans le service** : pandas 3.1.1 (version d'entraînement) a moins de 2 semaines, et le modèle se charge et prédit sans pandas (matrice numpy dans l'ordre de la fiche ; l'avertissement « feature names » est filtré de façon ciblée). Résultats identiques vérifiés par le test de cohérence. |
+| D15 | Port | 8000, interne. Pas de port publié, même en dev : vérification par `docker compose ps ml` (état `healthy`). |
+| D16 | Image en local | Le registre Docker n'est pas joignable depuis mon environnement de travail : l'image est construite et contrôlée par la CI (job ML). |

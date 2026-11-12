@@ -33,3 +33,7 @@ services:
 
   minio:
     restart: unless-stopped
+
+  # Service ml : construit sur l'hôte depuis ml/ (pas d'image publiée par le CD).
+  ml:
+    restart: unless-stopped
