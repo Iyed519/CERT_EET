@@ -1,6 +1,7 @@
 'use client';
 import Link from 'next/link';
 import { useCallback, useEffect, useState } from 'react';
+import { BoutonRapportPdf } from '../../components/BoutonRapportPdf';
 import {
   AdminError,
   DetailHistoriqueApprenant,
@@ -20,7 +21,8 @@ import {
  * US-QCM-11 — « Mes tentatives » (apprenant) : historique complet, en
  * lecture seule, les plus récentes d'abord. Détail d'une tentative : les
  * questions vues et mes choix — sans bonne réponse ; le corrigé reste sur la
- * page de la tentative, quand il est disponible (US-QCM-09).
+ * page de la tentative, quand il est disponible (US-QCM-09). US-QCM-13 : rapport
+ * PDF de chaque tentative notée (corrigé inclus selon la même règle).
  */
 export default function MesTentativesPage(): JSX.Element {
   const [liste, setListe] = useState<LigneHistorique[] | null>(null);
@@ -97,9 +99,13 @@ export default function MesTentativesPage(): JSX.Element {
                       : `${scoreFr(l.score)}${l.estReussie ? ' · réussie' : ' · non réussie'}`}
                   </td>
                   <td>
-                    <button type="button" className="btn-sm" onClick={() => void ouvrir(l.id)}>
-                      Détail
-                    </button>
+                    <span className="cellule-actions">
+                      <button type="button" className="btn-sm" onClick={() => void ouvrir(l.id)}>
+                        Détail
+                      </button>
+                      {/* US-QCM-13 — rapport PDF d'une tentative notée. */}
+                      {l.statut === 'NOTEE' && <BoutonRapportPdf tentativeId={l.id} petit />}
+                    </span>
                   </td>
                 </tr>
               ))}
@@ -129,6 +135,11 @@ export default function MesTentativesPage(): JSX.Element {
               réponses
               {detail.score !== null ? ` · ${scoreFr(detail.score)}` : ''}
             </p>
+            {detail.statut === 'NOTEE' && (
+              <p className="historique-rapport">
+                <BoutonRapportPdf tentativeId={detail.id} />
+              </p>
+            )}
             {detail.statut === 'EN_COURS' ? (
               <p className="alert">
                 Tentative en cours :{' '}

@@ -3861,6 +3861,47 @@ export async function getTentativeFormateur(
 }
 
 // ===================================================================
+//  US-QCM-13 — Rapport PDF détaillé d'une tentative notée
+// ===================================================================
+
+/** Nom de fichier lu dans `Content-Disposition` (sinon celui par défaut). */
+function nomFichierReponse(response: Response, parDefaut: string): string {
+  const entete = response.headers.get('Content-Disposition') ?? '';
+  const trouve = /filename="([^"]+)"/.exec(entete);
+  return trouve ? trouve[1] : parDefaut;
+}
+
+/**
+ * US-QCM-13 — télécharge le rapport PDF d'une tentative notée (jeton requis :
+ * je le récupère avec apiFetch puis le propose au navigateur).
+ *   - sans `qcmId` : GET /api/tentatives/:id/rapport.pdf (apprenant, sa tentative) ;
+ *   - avec `qcmId` : GET /api/formateur/qcm/:qcmId/tentatives/:id/rapport.pdf
+ *     (formateur affecté ou administrateur, corrigé toujours inclus).
+ *   - 409 -> tentative pas encore notée ; 404 / 403 -> message exact du serveur.
+ */
+export async function telechargerRapportTentative(
+  tentativeId: string,
+  qcmId?: string,
+): Promise<void> {
+  const chemin = qcmId
+    ? `/api/formateur/qcm/${qcmId}/tentatives/${tentativeId}/rapport.pdf`
+    : `/api/tentatives/${tentativeId}/rapport.pdf`;
+  const response = await apiFetch(chemin);
+  if (!response.ok) {
+    await lireReponseFormation<never>(response, 'Impossible de télécharger le rapport.');
+  }
+  const nom = nomFichierReponse(response, 'rapport-tentative.pdf');
+  const url = URL.createObjectURL(await response.blob());
+  const lien = document.createElement('a');
+  lien.href = url;
+  lien.download = nom;
+  document.body.appendChild(lien);
+  lien.click();
+  lien.remove();
+  setTimeout(() => URL.revokeObjectURL(url), 1000);
+}
+
+// ===================================================================
 //  US-IA-05 — Traçabilité des générations IA (administrateur)
 // ===================================================================
 
