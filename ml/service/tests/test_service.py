@@ -176,3 +176,19 @@ def test_raisons_en_francais_et_pertinentes(client):
 def test_fiche_et_modele_coherents(client):
     m = client.app.state.modele
     assert m.entrees[0] == "jours_actifs" and m.entrees[-1] == "coupure" and len(m.entrees) == 16
+
+
+def test_raisons_sans_zero_maladroit():
+    """Une valeur nulle donne « Aucun … », jamais « Seulement 0 … » (raisons lisibles)."""
+    from risque.explications import PHRASES, raisons
+    assert PHRASES["jours_actifs"](0) == "Aucun jour actif depuis le début"
+    assert PHRASES["jours_actifs_14_derniers"](0) == "Aucun jour actif sur les 14 derniers jours"
+    assert PHRASES["taux_jours_actifs"](0) == "Aucun jour actif depuis le début"
+    assert PHRASES["nb_notes"](0) == "Aucune note pour l'instant"
+    assert PHRASES["jours_actifs"](3) == "Seulement 3 jours actifs depuis le début"
+    # Deux variables qui donnent la même phrase ne la répètent pas
+    v = {"jours_actifs": 0, "taux_jours_actifs": 0.0, "nb_notes": 0, "a_au_moins_une_note": 0}
+    c = {"jours_actifs": 0.5, "taux_jours_actifs": 0.4, "nb_notes": 0.3, "a_au_moins_une_note": 0.2}
+    assert raisons(v, c) == ["Aucun jour actif depuis le début", "Aucune note pour l'instant"]
+    texte = " ".join(raisons(DECROCHE, {k: 1.0 for k in DECROCHE if k != "identifiant"}))
+    assert "Seulement 0" not in texte

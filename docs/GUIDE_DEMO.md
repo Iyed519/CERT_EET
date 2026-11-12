@@ -81,6 +81,11 @@ d'affectation (Leïla -> DevOps), 1 proposition de formation (Leïla,
    de période (7 j, 30 j…).
 2. Tableau « Mes formations » -> *Suivi* de « Développement web » : apprenants
    à risque (Ahmed inactif, Mariem en échec).
+   Plus bas, section **Apprenants à risque (IA)** : niveau suggéré par le
+   modèle (Ahmed élevé ; Mariem, Youssef, Yassine moyen ; Sana faible), trois
+   raisons en français et, à côté, les alertes des règles. Rappeler : « le
+   modèle suggère, le formateur décide ». Le premier calcul a lieu une minute
+   après le démarrage de l'api, puis une fois par jour.
 3. *Alertes* : traiter l'alerte d'Ahmed (action, commentaire).
 4. *Mes formations* -> formation -> atelier « API REST de réservation » ->
    corriger le livrable de Youssef avec la grille, finaliser : le feedback
@@ -102,7 +107,11 @@ d'affectation (Leïla -> DevOps), 1 proposition de formation (Leïla,
    renvoie ; puis **accepter** -> formation créée **en brouillon** ; dans
    *Formations*, la **publier** (elle entre au catalogue).
 4. *Demandes de rôle* : approuver Nour comme formatrice.
-5. *Certificats* : supervision ; *Journal d'audit* : toutes les actions
+5. *Prédiction du risque* : même présentation, pour toutes les formations.
+   Pour montrer le repli silencieux : `docker compose … stop ml` ; l'application
+   continue normalement (les règles s'appliquent) et, sans score récent,
+   l'écran affiche « Prédiction indisponible ».
+6. *Certificats* : supervision ; *Journal d'audit* : toutes les actions
    précédentes, filtrables et exportables.
 
 ### 4.5 Sécurité (2 min)
@@ -117,6 +126,7 @@ d'affectation (Leïla -> DevOps), 1 proposition de formation (Leïla,
 | « Connexion … impossible » au chargement | L'api n'est pas encore prête : attendre la fin de `nest start --watch`, relancer `demo:charger`. |
 | Certificats encore « en attente » | Vérifier que le worker tourne (`CERTIFICATS_WORKER=on`) ; ils sont générés en quelques secondes. |
 | Écran de connexion après un rafraîchissement | Vider les cookies de `localhost`, se reconnecter ; vérifier l'heure du PC (jeton signé). |
+| « Prédiction indisponible » partout | Service `ml` arrêté ou calcul pas encore fait : `docker compose … ps ml` (doit être `healthy`), puis attendre une minute après le redémarrage de l'api. |
 | Erreur 429 | Trop de connexions en une minute depuis le même poste : patienter une minute. |
 
 Recette automatique de toute la navigation (avant la démo) :

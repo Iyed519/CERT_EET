@@ -142,3 +142,41 @@ suivront.
 | D20 | Notes | QCM notés (`date_fin`) et corrections terminées (`date_finalisation`) : une note est datée du moment où elle est **connue** (anti-fuite). Échec = note < 40, comme à l'entraînement (le seuil de réussite d'un QCM Cert_EET reste celui des règles). |
 | D21 | Fraîcheur | Un score n'est montré que s'il a moins de 2 intervalles (au moins 26 h) ; sinon « prédiction indisponible ». |
 | D22 | Calcul | Jamais pendant une requête : pas de calcul à la demande, uniquement le minuteur. |
+
+---
+
+# Étape 13 — Interface (`apps/web`)
+
+## Ce qui a été fait
+- `components/PredictionRisque.tsx` (partagé formateur / administrateur) :
+  - résumé par formation (inscrits ; élevé, moyen, faible ; sans prédiction ; alertes des règles) ;
+  - pour la formation choisie (bouton « Voir les apprenants » ou liste « Formation affichée »,
+    utile à 390 px), une carte par apprenant : niveau **en texte** (« Risque élevé / moyen /
+    faible »), les 3 raisons en français, et les alertes ouvertes des règles à côté ;
+  - rappel en tête : « Suggestion du modèle, à valider par le formateur. » ;
+  - « Prédiction indisponible » propre : bandeau d'information + pastille par apprenant, les
+    alertes des règles restent affichées ; erreur de chargement → message d'erreur, rien d'autre
+    ne casse.
+- Tableau de bord **formateur** : section « Apprenants à risque (IA) » sous « Mes formations »
+  (ses formations seulement, l'API filtre).
+- Panneau **administrateur** `/admin/risque` : toutes les formations, même présentation ; onglet
+  « Prédiction du risque » dans la barre admin et le menu du compte, lien depuis le tableau de bord.
+- CSS : un seul bloc ajouté à `globals.css`, uniquement avec les jetons `:root` (pastilles au
+  gabarit `.statut-badge`, mêmes paires de couleurs que les pastilles mesurées au journal 91 :
+  rouge 7,09:1, ambre 5,40:1, vert 5,50:1, gris 6,74:1). Aucune bibliothèque UI, Prettier non lancé.
+- Raisons : « Seulement 0 jour actif » devient « Aucun jour actif… » (`ml/risque/explications.py`,
+  cas zéro seulement ; test ajouté). Pour un niveau faible, les raisons ne sont pas listées
+  (« Pas de signal de risque important ») pour ne pas inquiéter à tort.
+- Jeu de démonstration : historique de connexions passées aux profils variés (idempotent), car
+  les connexions du jour ne comptent pas (anti-fuite) : Ahmed élevé ; Mariem, Youssef, Yassine
+  moyen ; Sana faible. `docs/GUIDE_DEMO.md` complété (montrer la prédiction et le repli).
+
+## Vérification
+- Web : `tsc` et `next lint` 0 avertissement.
+- Captures avant / après (formateur, administrateur, 1280 et 390 px, état « indisponible ») :
+  aucun défilement horizontal de la page ; le tableau de résumé défile dans son cadre, comme les
+  autres tableaux.
+- Pile locale complète (api, web, ml, Postgres, Redis, S3 simulé) : calcul périodique réel avec le
+  modèle, puis service ml arrêté → « Prédiction indisponible », règles toujours affichées.
+- Audit de navigation (`outils/recette/audit-navigation.js`, 5 rôles × 1280 et 390 px, pile
+  locale) : **104 pages, 0 problème**.

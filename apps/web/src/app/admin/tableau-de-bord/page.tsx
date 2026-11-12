@@ -103,6 +103,11 @@ export default function TableauDeBordPage(): JSX.Element {
         Activité de toute la plateforme. Les indicateurs « sur la période » portent sur les jours
         choisis (heure de Tunis) ; les autres sont l’état actuel.
       </p>
+      <p className="suivi-lien">
+        <Link className="btn-sm btn-link" href="/admin/risque">
+          Prédiction du risque (IA)
+        </Link>
+      </p>
 
       <form className="filters tdb-periode" onSubmit={appliquer}>
         <label className="field">

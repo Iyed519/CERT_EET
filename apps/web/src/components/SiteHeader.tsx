@@ -24,6 +24,7 @@ const LIENS_COMPTE: Record<string, Array<[string, string]>> = {
     ['/admin/propositions-formation', 'Propositions de formation'],
     ['/admin/rapports', 'Rapports'],
     ['/admin/generations-ia', 'Générations IA'],
+    ['/admin/risque', 'Prédiction du risque'],
     ['/admin/audit', "Journal d'audit"],
     ['/securite', 'Sécurité du compte'],
   ],

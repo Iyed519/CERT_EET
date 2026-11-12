@@ -3349,6 +3349,61 @@ export async function getCompteurAlertes(): Promise<{ ouvertes: number }> {
 }
 
 // ---------------------------------------------------------------------------
+// IA — Prédiction des apprenants à risque (service ml, suggestion seulement)
+// ---------------------------------------------------------------------------
+
+/** Niveau suggéré par le modèle (jamais affiché par la couleur seule). */
+export type NiveauRisque = 'FAIBLE' | 'MOYEN' | 'ELEVE';
+
+export interface LigneRisque {
+  inscriptionId: string;
+  apprenant: { id: string; prenom: string | null; nom: string | null; email: string };
+  /** null : prédiction indisponible pour cet apprenant. */
+  risque: { niveau: NiveauRisque; raisons: string[]; dateCalcul: string; versionModele: string } | null;
+  /** Alertes ouvertes des règles existantes (complémentarité). */
+  alertesOuvertes: string[];
+}
+
+export interface RisqueFormation {
+  formation: { id: string; titre: string };
+  disponible: boolean;
+  dateCalcul: string | null;
+  versionModele: string | null;
+  rappel: string;
+  apprenants: LigneRisque[];
+}
+
+export interface ResumeRisqueFormation {
+  formation: { id: string; titre: string; statut: string };
+  inscrits: number;
+  eleve: number;
+  moyen: number;
+  faible: number;
+  sansPrediction: number;
+  alertesOuvertes: number;
+  disponible: boolean;
+  dateCalcul: string | null;
+}
+
+/** GET /api/formateur/risque/formations — formateur : ses formations ; administrateur : toutes. */
+export async function getResumeRisque(): Promise<ResumeRisqueFormation[]> {
+  const response = await apiFetch('/api/formateur/risque/formations');
+  return lireReponseFormation<ResumeRisqueFormation[]>(
+    response,
+    'Impossible de charger la prédiction du risque.',
+  );
+}
+
+/** GET /api/formateur/formations/:id/risque — apprenants d'une formation et leur niveau suggéré. */
+export async function getRisqueFormation(formationId: string): Promise<RisqueFormation> {
+  const response = await apiFetch(`/api/formateur/formations/${formationId}/risque`);
+  return lireReponseFormation<RisqueFormation>(
+    response,
+    'Impossible de charger la prédiction du risque.',
+  );
+}
+
+// ---------------------------------------------------------------------------
 // US-SUIVI-03 — Traiter une alerte (action, réouverture, historique).
 // ---------------------------------------------------------------------------
 

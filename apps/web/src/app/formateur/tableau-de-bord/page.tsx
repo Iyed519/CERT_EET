@@ -1,6 +1,7 @@
 'use client';
 import Link from 'next/link';
 import { FormEvent, useCallback, useEffect, useState } from 'react';
+import { SectionRisque } from '../../../components/PredictionRisque';
 import { getTableauDeBordFormateur, TableauDeBordFormateur } from '../../../lib/api';
 import {
   jourFr,
@@ -28,6 +29,8 @@ const sur100 = (n: number | null): string => (n === null ? '—' : `${nombreFr(n
  * Les chiffres « sur la période » portent sur les jours choisis (heure de
  * Tunis) ; les autres sont l'état actuel. Lecture seule ; la sécurité réelle
  * est côté API (403 pour un autre rôle, périmètre limité à ses formations).
+ * IA : la section « Apprenants à risque » montre la suggestion du modèle pour
+ * ses formations seulement, à côté des alertes des règles.
  */
 export default function TableauDeBordFormateurPage(): JSX.Element {
   const [periode, setPeriode] = useState<{ du?: string; au?: string }>({});
@@ -290,6 +293,8 @@ export default function TableauDeBordFormateurPage(): JSX.Element {
               </div>
             )}
           </section>
+
+          <SectionRisque lienSuivi />
         </>
       )}
     </div>
