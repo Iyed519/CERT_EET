@@ -19,6 +19,7 @@ Table des matières
 | 1.6 | Octobre 2026 (Sprint 2) | Décision du 12/10/2026 : le paramètre « proctoring webcam » reste enregistré mais signalé non actif ; ajout de **US-QCM-12** (E3 · Could · 8 pts) — surveillance par captures webcam, Sprint 5+, conditionnée à l'accord de l'encadrant et à une décision sur la protection des données (RGPD, loi 2004-63 / INPDP). |
 | 1.7 | Novembre 2026 (clôture Sprint 2) | Sprint 2 clôturé (réalisé du 05/10 au 07/11/2026, PR #23 → #38) : US-FORM-01, US-FORM-03, US-AUTH-16, US-INSC-01, US-INSC-04, US-QCM-01, US-QCM-03 à US-QCM-08 **livrées** (46 pts engagés) + US-QCM-09 (extension). **US-QCM-09 amendée** : en affichage immédiat, le corrigé n'est révélé qu'une fois que l'apprenant n'a plus de tentative possible (identique à la soumission avec une seule tentative), conformément à UC_Apprenant UC3. Écarts de mise en œuvre assumés tracés sous US-QCM-07 (échéance décidée par PostgreSQL, Redis en miroir) et US-QCM-08 (audit `TENTATIVE_NOTEE`). Reportées en tête du Sprint 3 : US-FORM-04, US-FORM-05, US-FORM-02, US-INSC-02, US-INSC-03, US-QCM-02. Le calendrier réel est décalé par rapport au Gantt (en-tête et L3 inchangés) : re-planification au Sprint 3 Planning. Détail : bloc « Clôture du Sprint 2 » ci-dessous, `docs/Sprint2_Review.md`. |
 | 1.8 | Novembre 2026 (clôture Sprint 3) | Sprint 3 clôturé (réalisé du 08/11 au 09/11/2026, PR #40 → #65) : bloc A **livré** (54 pts) — US-QCM-10, US-ATEL-01 à 04, US-ATEL-06 à 09, US-CERT-01, 03, 04, 05, 06 ; bloc B (IA) **livré** en extension (24 pts) — US-IA-01 à 04 ; **US-FORM-05 et US-FORM-06 livrées** (8 pts, ajoutées en cours de sprint). Écarts de mise en œuvre tracés sous chaque story (« Mise en œuvre (v1.8) »). US-CERT-02 en grande partie couverte par US-CERT-01 ; US-IA-05 et US-IA-06 amorcées. Reportées : US-FORM-04, US-FORM-02, US-INSC-02, US-INSC-03, US-QCM-02, US-QCM-11, US-ATEL-05. Décision LLM (bloc B) : API hébergée Anthropic derrière une interface (ADR-05). Le calendrier réel reste décalé par rapport au Gantt (en-tête et L3 inchangés) : re-planification avec l'encadrant. Détail : bloc « Clôture du Sprint 3 » ci-dessous, `docs/Sprint3_Review.md`. |
+| 2.1 | Novembre 2026 (après le Sprint 6) | Ajout de **US-QCM-13** (E3 · Should · 5 pts) — rapport PDF détaillé du résultat d'une tentative notée, pour l'apprenant (corrigé selon les règles d'US-QCM-09) et le formateur affecté (corrigé toujours inclus) ; livrée le 12/11/2026 (journal 93). Source : `claude/Cert_EET_Revision_v2.1_US-QCM-13.md`. |
 
 ---
 
@@ -356,8 +357,9 @@ Table des matières
 | US-QCM-10 | En tant que système, je veux bloquer les sessions multiples et limiter tentatives/délai afin d’empêcher le brute-force et le passage simultané. | Must | 3 | DS-02 (ét. 1) | NF3 | US-QCM-05, Redis |
 | US-QCM-11 | En tant qu’apprenant et formateur, je veux un historique complet et immuable des tentatives afin de garder une trace certifiante (date, score, durée, détail). | Should | 3 | F1 / état *TentativeQCM* | NF3 | US-QCM-08 |
 | US-QCM-12 | En tant que formateur, je veux que des captures webcam soient prises pendant le passage d'un QCM pour lequel j'ai activé la surveillance, afin de vérifier l'identité de l'apprenant en cas de doute. | Could | 8 | DS-12 (P3) / F1 | NF3, NF4 (données personnelles) | US-QCM-05, US-QCM-07, stockage objet (MinIO) |
+| US-QCM-13 | En tant qu’apprenant, je veux télécharger un rapport PDF détaillé de ma tentative notée afin de garder une trace de mon résultat et de comprendre mes erreurs ; en tant que formateur affecté, je veux ce même rapport pour un apprenant de ma formation afin d’appuyer un entretien ou un bilan. | Should | 5 | UC2 (résultat), UC7 / DS-02 (ét. 5) | NF3 (pas de fuite du corrigé, autorisation par ressource, audit) | US-QCM-08, US-QCM-09, US-AUTH-16, moteur PDF d’US-CERT-01 |
 
-**Total E3 : 12 stories — 49 points.** *(v1.6 : + US-QCM-12.)*
+**Total E3 : 13 stories — 54 points.** *(v1.6 : + US-QCM-12 ; v2.1 : + US-QCM-13.)*
 
 #### Critères d’acceptation (Gherkin français)
 
@@ -386,6 +388,8 @@ Table des matières
 **[US-QCM-11] — Historique des tentatives** - **Nominal :** *Étant donné* des tentatives notées, *Quand* l’apprenant ou le formateur consulte l’historique, *Alors* le système affiche par tentative : date, score, durée effective et détail des réponses, en lecture seule. - **Alternatif / erreur :** *Étant donné* une demande de modification d’une tentative passée, *Quand* elle est émise, *Alors* le système la refuse (immuabilité).
 
 **[US-QCM-12] — Surveillance webcam par captures** - **Nominal :** *Étant donné* un QCM dont la configuration active la surveillance webcam et un apprenant qui a donné son consentement, *Quand* il démarre puis passe sa tentative, *Alors* le système prend des captures à intervalle régulier (et au démarrage), les stocke liées à la tentative, sans URL publique, et le formateur affecté peut les consulter depuis la tentative. - **Alternatif / erreur (refus ou absence de caméra) :** *Étant donné* un apprenant qui refuse l’accès à la caméra ou n’en a pas, *Quand* il démarre la tentative, *Alors* le système refuse le démarrage avec un message clair et la procédure alternative prévue (passage surveillé en présentiel), et journalise le refus. - **Alternatif (conservation) :** *Étant donné* des captures plus anciennes que la durée de conservation fixée, *Quand* la purge planifiée s’exécute, *Alors* elles sont supprimées et la suppression est journalisée. *Règles transverses : accès réservé au formateur affecté et à l’administrateur (`@FormateurDeLaFormation`, audit `ACCES_RESSOURCE_REFUSE` sinon) ; liens de lecture signés à durée courte ; aucune analyse biométrique automatique ; consentement horodaté et journalisé ; paramètre figé dès la première tentative (règle d’US-QCM-03). Condition préalable : accord de l’encadrant et décision sur la protection des données (RGPD, loi 2004-63 / INPDP) — Sprint 5 ou après.*
+
+**[US-QCM-13] — Rapport PDF détaillé d’une tentative** - **Nominal (corrigé disponible) :** *Étant donné* une tentative NOTEE qui m’appartient et dont le corrigé est disponible (règles d’US-QCM-09), *Quand* je clique sur « Télécharger le rapport (PDF) » depuis le résultat ou « Mes évaluations », *Alors* je reçois un PDF avec l’en-tête, la synthèse (score sur 100, seuil, verdict, justes / fausses / sans réponse, points), mes points à revoir (questions ratées, réussite par niveau de difficulté) et le détail par question dans l’ordre du tirage (ma réponse, juste / faux, points, bonne réponse, explication), et l’action est journalisée RAPPORT_QCM_TELECHARGE. - **Alternatif (corrigé pas encore disponible) :** *Étant donné* un corrigé différé avant fermeture ou des tentatives encore possibles, *Quand* je télécharge le rapport, *Alors* il contient score, verdict, mes réponses et juste / faux, mais aucune bonne réponse ni explication, et la date à partir de laquelle le corrigé sera disponible. - **Alternatif (formateur affecté / administrateur) :** *Alors* le rapport est complet, corrigé inclus quel que soit le mode, journalisé avec le formateur comme acteur et l’apprenant comme cible. - **Erreur :** tentative non notée → 409 `tentative_non_notee`, aucun PDF ; tentative d’un autre apprenant → 404 ; formateur non affecté → 403 et ACCES_RESSOURCE_REFUSE. *Règles transverses : lecture seule de la tentative figée (aucun recalcul) ; clôture par le temps affichée « Temps écoulé », sans réponse comptées fausses ; génération synchrone, `Content-Disposition: attachment`, `Cache-Control: no-store`. Rapport agrégé d’une cohorte : hors périmètre (US-RPT-01 ou future US-QCM-14).*
 
 ## E4 Épopée — Ateliers pratiques & correction
 
@@ -679,14 +683,14 @@ Table des matières
 | E0 — Socle & Infrastructure | 8 | 28 |
 | E1 — Authentification & Sécurité | 13 (+2 rév. : AUTH-15/16) | 42 (+6) |
 | E2 — Comptes, rôles & formations | 15 (+1 rév. : ROL-02) | 46 (+3) |
-| E3 — Évaluations QCM anti-fraude | 12 | 49 |
+| E3 — Évaluations QCM anti-fraude | 13 | 54 |
 | E4 — Ateliers pratiques & correction | 9 | 30 |
 | E5 — Certification numérique vérifiable | 8 | 30 |
 | E6 — Assistance IA aux formateurs | 7 | 33 |
 | E7 — Chatbot IA apprenant *(de-scopé)* | 0 | 0 |
 | E8 — Suivi, analytics & reporting | 8 | 29 |
-| **Total (tableaux)** | **80** | **287** |
-| **Total (avec stories de révision AUTH-15/16, ROL-02)** | **83** | **296** |
+| **Total (tableaux)** | **81** | **292** |
+| **Total (avec stories de révision AUTH-15/16, ROL-02)** | **84** | **301** |
 
 ### Par sprint (rattachement Gantt principal)
 

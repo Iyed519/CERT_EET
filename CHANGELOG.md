@@ -13,6 +13,20 @@
 
 ---
 
+## [Après le Sprint 6] — Stories hors sprint
+
+#### US-QCM-13 — Rapport PDF détaillé du résultat d'un QCM — journal `engineering-log/93`
+- **Quoi :** bouton « Télécharger le rapport (PDF) » sur la page de résultat, dans « Mes évaluations »
+  et dans le suivi des tentatives du formateur. Le PDF reprend l'en-tête de la tentative, la synthèse
+  (score sur 100, seuil, verdict, justes / fausses / sans réponse, points), « Vos points à revoir »
+  (questions ratées, réussite par niveau de difficulté) et le détail par question dans l'ordre du tirage. Bonnes réponses et explications seulement si le corrigé est disponible
+  (même règle que la page du corrigé) ; toujours pour le formateur affecté et l'administrateur.
+  Généré à la demande, jamais stocké, journalisé (`RAPPORT_QCM_TELECHARGE`).
+- **Pourquoi :** garder une trace de son résultat et comprendre ses erreurs ; appuyer un entretien
+  ou un bilan pédagogique côté formateur, sans jamais révéler le corrigé trop tôt.
+
+---
+
 ## [Sprint 6] — Prêt pour la démonstration : session stable, navigation par rôle, formateur outillé — ✅ CLÔTURÉ
 
 **Résumé :** 6 stories livrées (26 pts), le 11/11/2026 (PR #97 → #102). **2 310 tests automatisés verts**
