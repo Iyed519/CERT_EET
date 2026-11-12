@@ -71,7 +71,11 @@ describe('RapportTentativeService (US-QCM-13)', () => {
   beforeEach(() => {
     lignes = [TENTATIVE];
     query = jest.fn(async (sql: string) =>
-      sql.startsWith('SELECT now()') ? [{ maintenant: new Date('2026-11-20T00:00:00Z') }] : lignes,
+      sql.startsWith('SELECT now()')
+        ? [{ maintenant: new Date('2026-11-20T00:00:00Z') }]
+        : sql.includes('niveau_difficulte')
+          ? [{ id: 'x', niveau: 'AVANCE' }]
+          : lignes,
     );
     etat = jest.fn(async () => INDISPONIBLE);
     record = jest.fn(async () => undefined);
@@ -169,6 +173,8 @@ describe('RapportTentativeService (US-QCM-13)', () => {
       nbTentativesMax: 3,
       cloture: 'TEMPS_ECOULE',
       synthese: { nbQuestions: 1, nbJustes: 0, nbFausses: 1, nbSansReponse: 0 },
+      aRevoir: [{ rang: 1, enonce: 'Énoncé', repondue: true, pointsPerdus: 1 }],
+      parNiveau: [{ niveau: 'AVANCE', nbJustes: 0, nbQuestions: 1 }],
     });
     expect(rapport).toEqual({
       pdf: Buffer.from('%PDF'),

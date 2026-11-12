@@ -11,7 +11,9 @@ import {
   nombreFr,
   nomFichierRapport,
   phraseCorrigeAbsent,
+  pointsARevoir,
   rapportDisponible,
+  reussiteParNiveau,
   syntheseRapport,
 } from './rapport-tentative.regles';
 
@@ -104,6 +106,7 @@ describe('Règles du rapport de tentative (US-QCM-13)', () => {
         optionsCochees: ['Bonne 1'],
         bonnesReponses: ['Bonne 1'],
         explication: 'Explication 1',
+        niveau: null,
       });
       expect(l2.rang).toBe(2);
     });
@@ -169,6 +172,69 @@ describe('Règles du rapport de tentative (US-QCM-13)', () => {
         pointsObtenus: 0,
         pointsPossibles: 0,
       });
+    });
+  });
+
+  describe('points à revoir (US-QCM-13, pour l’apprenant)', () => {
+    const lignes = (): ReturnType<typeof construireLignesRapport> =>
+      construireLignesRapport(
+        [
+          question(1),
+          question(2, { estCorrecte: false, pointsObtenus: 0.5, ponderation: 2 }),
+          question(3, { repondue: false, estCorrecte: false, pointsObtenus: 0, ponderation: 3 }),
+          question(4, { estCorrecte: false, pointsObtenus: 0 }),
+        ],
+        false,
+        new Map([
+          ['q1', 'DEBUTANT'],
+          ['q2', 'AVANCE'],
+          ['q3', 'AVANCE'],
+        ]),
+      );
+
+    it('niveau recopié depuis la carte, null si absent', () => {
+      expect(lignes().map((l) => l.niveau)).toEqual(['DEBUTANT', 'AVANCE', 'AVANCE', null]);
+    });
+
+    it('pointsARevoir : fausses et sans réponse, dans l’ordre, points perdus ; jamais de bonne réponse', () => {
+      const a = pointsARevoir(lignes());
+      expect(a).toEqual([
+        { rang: 2, enonce: 'Énoncé 2', repondue: true, pointsPerdus: 1.5 },
+        { rang: 3, enonce: 'Énoncé 3', repondue: false, pointsPerdus: 3 },
+        { rang: 4, enonce: 'Énoncé 4', repondue: true, pointsPerdus: 2 },
+      ]);
+      expect(JSON.stringify(a)).not.toContain('Bonne');
+    });
+
+    it('pointsARevoir : vide quand tout est juste', () => {
+      expect(pointsARevoir(construireLignesRapport([question(1), question(2)], true))).toEqual([]);
+    });
+
+    it('reussiteParNiveau : niveaux présents, du plus simple au plus avancé, non précisé en dernier', () => {
+      expect(reussiteParNiveau(lignes())).toEqual([
+        { niveau: 'DEBUTANT', nbJustes: 1, nbQuestions: 1 },
+        { niveau: 'AVANCE', nbJustes: 0, nbQuestions: 2 },
+        { niveau: null, nbJustes: 0, nbQuestions: 1 },
+      ]);
+    });
+
+    it('reussiteParNiveau : vide si aucun niveau renseigné ; niveau inconnu gardé avant « non précisé »', () => {
+      expect(reussiteParNiveau(construireLignesRapport([question(1)], true))).toEqual([]);
+      expect(
+        reussiteParNiveau(
+          construireLignesRapport(
+            [question(1), question(2)],
+            true,
+            new Map([
+              ['q1', 'EXPERT'],
+              ['q2', 'INTERMEDIAIRE'],
+            ]),
+          ),
+        ),
+      ).toEqual([
+        { niveau: 'INTERMEDIAIRE', nbJustes: 1, nbQuestions: 1 },
+        { niveau: 'EXPERT', nbJustes: 1, nbQuestions: 1 },
+      ]);
     });
   });
 

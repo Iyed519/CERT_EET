@@ -152,7 +152,10 @@ describe('Rapport PDF d’une tentative (e2e) — US-QCM-13', () => {
   const soumettre = (cle: string, tentativeId: string): request.Test =>
     appel('post', `/tentatives/${tentativeId}/soumettre`, tokens[cle]);
 
-  /** QCM publié de 4 QCU (pondérations 1, 2, 3, 5 : scores non entiers), questions mélangées. */
+  /**
+   * QCM publié de 4 QCU (pondérations 1, 2, 3, 5 : scores non entiers ; niveaux débutant,
+   * intermédiaire, avancé, avancé), questions mélangées.
+   */
   const creerQcm = async (
     titre: string,
     mode: 'IMMEDIAT' | 'DIFFERE',
@@ -167,8 +170,14 @@ describe('Rapport PDF d’une tentative (e2e) — US-QCM-13', () => {
       const enonce = `${MARQUEUR} ${titre} énoncé ${i}`;
       const explication = `Justification ${titre} ${i}`;
       const q = await un(
-        `INSERT INTO questions (enonce, type, ponderation, explication) VALUES ($1, 'QCU', $2, $3) RETURNING id`,
-        [enonce, i === 4 ? 5 : i, explication],
+        `INSERT INTO questions (enonce, type, ponderation, explication, niveau_difficulte)
+         VALUES ($1, 'QCU', $2, $3, $4) RETURNING id`,
+        [
+          enonce,
+          i === 4 ? 5 : i,
+          explication,
+          ['DEBUTANT', 'INTERMEDIAIRE', 'AVANCE', 'AVANCE'][i - 1],
+        ],
       );
       const bonne = await un(
         `INSERT INTO options (question_id, texte, ordre, est_correcte) VALUES ($1, $2, 1, true) RETURNING id`,
@@ -413,6 +422,21 @@ describe('Rapport PDF d’une tentative (e2e) — US-QCM-13', () => {
       expect(pdf).toContain(`Votre réponse : ${MARQUEUR} BONNE Differe 1`);
       expect(pdf).toContain(`Votre réponse : ${MARQUEUR} FAUSSE Differe 2`);
       expect(pdf).toContain('Faux (sans réponse)');
+      // Ses points à revoir : les questions ratées, sans leur bonne réponse ; réussite par niveau.
+      expect(pdf).toContain('Vos points à revoir');
+      expect(pdf).toMatch(
+        new RegExp(`Question \\d — ${MARQUEUR} Differe énoncé 2 — Faux, 2,00 points perdus`),
+      );
+      expect(pdf).toMatch(
+        new RegExp(
+          `Question \\d — ${MARQUEUR} Differe énoncé 4 — Sans réponse, 5,00 points perdus`,
+        ),
+      );
+      expect(pdf).not.toMatch(new RegExp(`Question \\d — ${MARQUEUR} Differe énoncé 1 —`));
+      expect(pdf).toContain(
+        'Réussite par niveau : Débutant 1 / 1 · Intermédiaire 0 / 1 (à travailler) · Avancé 0 / 2 (à travailler)',
+      );
+      expect(pdf).toContain('le corrigé détaillé sera disponible à la date indiquée plus haut');
       // Ce qui ne doit JAMAIS y être : bonnes réponses non cochées, explications.
       for (const q of D.slice(1)) expect(pdf).not.toContain(`BONNE Differe ${D.indexOf(q) + 1}`);
       for (const q of D) expect(pdf).not.toContain(q.explication);
@@ -452,6 +476,9 @@ describe('Rapport PDF d’une tentative (e2e) — US-QCM-13', () => {
         'justes : 3 · fausses : 1 · sans réponse : 0',
         `Bonne réponse : ${MARQUEUR} BONNE Immediat 2`,
         `Votre réponse : ${MARQUEUR} FAUSSE Immediat 2`,
+        'Réussite par niveau : Débutant 1 / 1 · Intermédiaire 0 / 1 (à travailler) · Avancé 2 / 2',
+        `${MARQUEUR} Immediat énoncé 2 — Faux, 2,00 points perdus`,
+        'Les bonnes réponses et les explications de ces questions sont dans le détail ci-dessous.',
         'Document généré par Cert_EET — ESPRIT Entreprise',
         `Tentative ${t.ai}`,
         'Page 1 / 1',
@@ -484,7 +511,9 @@ describe('Rapport PDF d’une tentative (e2e) — US-QCM-13', () => {
     });
 
     it('questions dans l’ordre du tirage (planTirage), pas dans l’ordre du QCM', async () => {
-      const pdf = await texte(await rapport(t.ai, 'a').expect(200));
+      const complet = await texte(await rapport(t.ai, 'a').expect(200));
+      // Le détail seulement : les points à revoir citent aussi des énoncés.
+      const pdf = complet.slice(complet.indexOf('Détail par question'));
       const { plan } = await enBase(t.ai);
       const enonces = plan.map(
         (p) => questions.Immediat.find((q) => q.id === p.questionId)?.enonce as string,

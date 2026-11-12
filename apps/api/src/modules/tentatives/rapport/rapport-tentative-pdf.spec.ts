@@ -42,7 +42,10 @@ describe('genererPdfRapport (US-QCM-13)', () => {
       optionsCochees: ['A'],
       bonnesReponses: ['A'],
       explication: 'Parce que.',
+      niveau: null,
     })),
+    aRevoir: [{ rang: 2, enonce: 'Une question ratée', repondue: false, pointsPerdus: 1 }],
+    parNiveau: [{ niveau: 'AVANCE', nbJustes: 0, nbQuestions: 1 }],
     corrigeAbsent: null,
     dateGeneration: new Date('2026-11-12T10:00:00Z'),
   });

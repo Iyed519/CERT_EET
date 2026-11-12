@@ -75,6 +75,8 @@ export interface LigneRapport {
   bonnesReponses: string[] | null;
   /** Explication ; null si le corrigé n'est pas inclus (ou s'il n'y en a pas). */
   explication: string | null;
+  /** Niveau de difficulté saisi par le formateur (DEBUTANT, INTERMEDIAIRE, AVANCE), ou null. */
+  niveau: string | null;
 }
 
 /**
@@ -85,6 +87,7 @@ export interface LigneRapport {
 export const construireLignesRapport = (
   questions: QuestionCorrigee[],
   avecCorrige: boolean,
+  niveaux: ReadonlyMap<string, string | null> = new Map(),
 ): LigneRapport[] =>
   questions.map((q, i) => ({
     rang: i + 1,
@@ -97,6 +100,7 @@ export const construireLignesRapport = (
     optionsCochees: q.options.filter((o) => o.cochee).map((o) => o.texte),
     bonnesReponses: avecCorrige ? q.options.filter((o) => o.estCorrecte).map((o) => o.texte) : null,
     explication: avecCorrige ? q.explication : null,
+    niveau: niveaux.get(q.id) ?? null,
   }));
 
 export interface SyntheseRapport {
@@ -119,6 +123,60 @@ export const syntheseRapport = (lignes: LigneRapport[]): SyntheseRapport => ({
   pointsObtenus: arrondi2(lignes.reduce((s, l) => s + l.pointsObtenus, 0)),
   pointsPossibles: arrondi2(lignes.reduce((s, l) => s + l.ponderation, 0)),
 });
+
+/**
+ * « Vos points à revoir » : les questions fausses ou sans réponse, dans
+ * l'ordre du tirage, avec les points perdus. Seulement l'énoncé et le verdict
+ * (jamais la bonne réponse) : la section est la même avec ou sans corrigé.
+ */
+export interface PointARevoir {
+  rang: number;
+  enonce: string;
+  repondue: boolean;
+  pointsPerdus: number;
+}
+export const pointsARevoir = (lignes: LigneRapport[]): PointARevoir[] =>
+  lignes
+    .filter((l) => !l.estCorrecte)
+    .map((l) => ({
+      rang: l.rang,
+      enonce: l.enonce,
+      repondue: l.repondue,
+      pointsPerdus: arrondi2(l.ponderation - l.pointsObtenus),
+    }));
+
+export const ORDRE_NIVEAUX = ['DEBUTANT', 'INTERMEDIAIRE', 'AVANCE'] as const;
+export const LIBELLES_NIVEAU: Record<string, string> = {
+  DEBUTANT: 'Débutant',
+  INTERMEDIAIRE: 'Intermédiaire',
+  AVANCE: 'Avancé',
+};
+
+/** Réussite d'un niveau de difficulté (`niveau` null = non précisé par le formateur). */
+export interface ReussiteNiveau {
+  niveau: string | null;
+  nbJustes: number;
+  nbQuestions: number;
+}
+
+/**
+ * Réussite par niveau de difficulté, pour situer ses points faibles : seuls
+ * les niveaux présents, du plus simple au plus avancé, « non précisé » en
+ * dernier. Vide si aucune question n'a de niveau (la section n'apprendrait rien).
+ */
+export const reussiteParNiveau = (lignes: LigneRapport[]): ReussiteNiveau[] => {
+  if (lignes.every((l) => l.niveau === null)) return [];
+  const connus: Array<string | null> = [...ORDRE_NIVEAUX];
+  const autres = [...new Set(lignes.map((l) => l.niveau))].filter(
+    (n): n is string => n !== null && !connus.includes(n),
+  );
+  return [...connus, ...autres, null]
+    .map((niveau) => {
+      const du = lignes.filter((l) => l.niveau === niveau);
+      return { niveau, nbJustes: du.filter((l) => l.estCorrecte).length, nbQuestions: du.length };
+    })
+    .filter((r) => r.nbQuestions > 0);
+};
 
 const arrondi2 = (n: number): number => Math.round(n * 100) / 100;
 

@@ -16,8 +16,10 @@ import {
   MESSAGE_RAPPORT_NON_NOTEE,
   nomFichierRapport,
   phraseCorrigeAbsent,
+  pointsARevoir,
   RAISON_RAPPORT_NON_NOTEE,
   rapportDisponible,
+  reussiteParNiveau,
   syntheseRapport,
 } from './rapport-tentative.regles';
 
@@ -139,7 +141,11 @@ export class RapportTentativeService {
       tentative.id,
       tentative.planTirage ?? [],
     );
-    const lignes = construireLignesRapport(questions, avecCorrige);
+    const lignes = construireLignesRapport(
+      questions,
+      avecCorrige,
+      await this.niveaux(questions.map((q) => q.id)),
+    );
 
     const pdf = await genererPdfRapport({
       tentativeId: tentative.id,
@@ -158,6 +164,8 @@ export class RapportTentativeService {
       estReussie: tentative.estReussie === true,
       synthese: syntheseRapport(lignes),
       lignes,
+      aRevoir: pointsARevoir(lignes),
+      parNiveau: reussiteParNiveau(lignes),
       corrigeAbsent:
         avecCorrige || etat === null ? null : phraseCorrigeAbsent(etat, dateHeureTunis),
       dateGeneration: new Date(maintenant),
@@ -181,6 +189,19 @@ export class RapportTentativeService {
     });
 
     return { pdf, nomFichier: nomFichierRapport(tentative.qcmTitre, tentative.numero) };
+  }
+
+  /**
+   * Niveau de difficulté de chaque question (saisi par le formateur), pour la
+   * réussite par niveau. Lu à part : la vue du corrigé (US-QCM-09) reste inchangée.
+   */
+  private async niveaux(questionIds: string[]): Promise<Map<string, string | null>> {
+    if (questionIds.length === 0) return new Map();
+    const lignes = (await this.dataSource.query(
+      `SELECT id, niveau_difficulte AS niveau FROM questions WHERE id = ANY($1::uuid[])`,
+      [questionIds],
+    )) as Array<{ id: string; niveau: string | null }>;
+    return new Map(lignes.map((l) => [l.id, l.niveau]));
   }
 
   /**

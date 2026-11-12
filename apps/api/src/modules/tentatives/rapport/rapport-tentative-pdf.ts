@@ -4,9 +4,12 @@ import {
   dureeFr,
   LIBELLES_CLOTURE,
   LIBELLES_TYPE,
+  LIBELLES_NIVEAU,
   LigneRapport,
   MENTION_GENERATEUR,
   nombreFr,
+  PointARevoir,
+  ReussiteNiveau,
   SyntheseRapport,
 } from './rapport-tentative.regles';
 
@@ -28,6 +31,10 @@ export interface ContenuRapport {
   estReussie: boolean;
   synthese: SyntheseRapport;
   lignes: LigneRapport[];
+  /** Questions fausses ou sans réponse (énoncé et verdict seulement). */
+  aRevoir: PointARevoir[];
+  /** Réussite par niveau de difficulté ; vide si aucun niveau n'est renseigné. */
+  parNiveau: ReussiteNiveau[];
   /** Corrigé absent : la phrase qui le dit (et sa date de disponibilité) ; null sinon. */
   corrigeAbsent: string | null;
   dateGeneration: Date;
@@ -90,6 +97,12 @@ export const texteImprimable = (texte: string): string =>
       return EQUIVALENTS[c] ?? '?';
     })
     .join('');
+
+/** Un énoncé long, raccourci pour la liste des points à revoir (le détail le donne en entier). */
+const resume = (texte: string, max = 140): string => {
+  const plat = texte.replace(/\s+/g, ' ').trim();
+  return plat.length <= max ? plat : `${plat.slice(0, max - 1).trimEnd()}…`;
+};
 
 const nomComplet = (a: ContenuRapport['apprenant']): string =>
   [a.prenom, a.nom].filter((x) => x && x.trim() !== '').join(' ') || a.email;
@@ -181,6 +194,56 @@ export function genererPdfRapport(c: ContenuRapport): Promise<Buffer> {
       doc.font('Helvetica-Oblique').fontSize(10).fillColor(GRIS).text(t(c.corrigeAbsent), {
         width: largeur,
       });
+    }
+    filet();
+
+    // --- Vos points à revoir (pour l'apprenant : ses erreurs et ses points faibles) ---
+    doc.font('Helvetica-Bold').fontSize(13).fillColor(ENCRE).text('Vos points à revoir');
+    doc.moveDown(0.3);
+    if (c.parNiveau.length > 0) {
+      doc.font('Helvetica-Bold').fontSize(10).fillColor(GRIS).text('Réussite par niveau : ', {
+        continued: true,
+      });
+      doc
+        .font('Helvetica')
+        .fillColor(ENCRE)
+        .text(
+          c.parNiveau
+            .map(
+              (n) =>
+                `${n.niveau === null ? 'non précisé' : (LIBELLES_NIVEAU[n.niveau] ?? t(n.niveau))} ` +
+                `${n.nbJustes} / ${n.nbQuestions}${
+                  n.nbJustes * 2 < n.nbQuestions ? ' (à travailler)' : ''
+                }`,
+            )
+            .join(' · '),
+          { width: largeur },
+        );
+      doc.moveDown(0.3);
+    }
+    if (c.aRevoir.length === 0) {
+      doc.font('Helvetica').fontSize(10).fillColor(VERT);
+      doc.text('Aucune erreur : toutes les questions sont justes. Bravo !', { width: largeur });
+    } else {
+      doc.font('Helvetica').fontSize(10).fillColor(ENCRE);
+      for (const p of c.aRevoir) {
+        doc.text(
+          `• Question ${p.rang} — ${t(resume(p.enonce))} — ${
+            p.repondue ? 'Faux' : 'Sans réponse'
+          }, ${nombreFr(p.pointsPerdus)} point${p.pointsPerdus > 1 ? 's' : ''} perdu${
+            p.pointsPerdus > 1 ? 's' : ''
+          }`,
+          { width: largeur, indent: 0 },
+        );
+      }
+      doc.moveDown(0.3);
+      doc.font('Helvetica-Oblique').fontSize(9).fillColor(GRIS);
+      doc.text(
+        c.corrigeAbsent === null
+          ? 'Les bonnes réponses et les explications de ces questions sont dans le détail ci-dessous.'
+          : 'Revoyez ces notions dans le cours ; le corrigé détaillé sera disponible à la date indiquée plus haut.',
+        { width: largeur },
+      );
     }
     filet();
 
