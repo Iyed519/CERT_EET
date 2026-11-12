@@ -24,6 +24,7 @@ import { PilotageModule } from './modules/pilotage/pilotage.module';
 import { DemandesAffectationModule } from './modules/demandes-affectation/demandes-affectation.module';
 import { PropositionsFormationModule } from './modules/propositions-formation/propositions-formation.module';
 import { RapportsModule } from './modules/rapports/rapports.module';
+import { PredictionRisqueModule } from './modules/prediction-risque/prediction-risque.module';
 /**
  * Module racine (AppModule).
  *
@@ -46,6 +47,8 @@ import { RapportsModule } from './modules/rapports/rapports.module';
  * RessourcesModule (US-FORM-05) : liens et vidéos de cours des modules.
  * PilotageModule (US-DASH-01, Sprint 4) : tableaux de bord agrégés.
  * RapportsModule (US-RPT-01) : rapports exportés, générés par une file BullMQ.
+ * PredictionRisqueModule (IA) : scores de risque du service ml, en complément
+ * des alertes à règles (repli silencieux si le service est arrêté).
  */
 @Module({
   imports: [
@@ -77,6 +80,7 @@ import { RapportsModule } from './modules/rapports/rapports.module';
     // US-FORM-08 (Sprint 6) : propositions de nouvelles formations.
     PropositionsFormationModule,
     RapportsModule,
+    PredictionRisqueModule,
   ],
 })
 export class AppModule {}

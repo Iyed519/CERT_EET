@@ -172,6 +172,21 @@ export interface AlertesConfig {
   email: boolean;
 }
 
+/**
+ * IA — Prédiction des apprenants à risque : calcul périodique des scores par
+ * le service ml (conteneur séparé). Désactivable par RISQUE_BALAYAGE_ACTIF=false ;
+ * toujours désactivé en test. `delaiMs` : délai court de chaque appel, sans
+ * nouvelle tentative (repli silencieux sur les règles d'alerte).
+ */
+export interface RisqueConfig {
+  balayageActif: boolean;
+  intervalleMinutes: number;
+  /** Délai avant le premier calcul après le démarrage de l'api. */
+  premierCalculSecondes: number;
+  mlUrl: string;
+  delaiMs: number;
+}
+
 /** US-RPT-01 — file de génération des rapports exportés (BullMQ, ADR-04). */
 export interface RapportsConfig {
   workerActif: boolean;
@@ -235,6 +250,7 @@ export default (): {
   stockage: StockageConfig;
   certificats: CertificatsConfig;
   alertes: AlertesConfig;
+  risque: RisqueConfig;
   rapports: RapportsConfig;
   verification: VerificationConfig;
   limites: LimitesConfig;
@@ -308,6 +324,13 @@ export default (): {
     balayageActif: process.env.ALERTES_BALAYAGE_ACTIF !== 'false',
     intervalleMinutes: parseInt(process.env.ALERTES_INTERVALLE_MINUTES ?? '60', 10),
     email: process.env.ALERTES_EMAIL !== 'false',
+  },
+  risque: {
+    balayageActif: process.env.RISQUE_BALAYAGE_ACTIF !== 'false',
+    intervalleMinutes: parseInt(process.env.RISQUE_INTERVALLE_MINUTES ?? '1440', 10),
+    premierCalculSecondes: parseInt(process.env.RISQUE_PREMIER_CALCUL_SECONDES ?? '60', 10),
+    mlUrl: process.env.ML_URL || 'http://ml:8000',
+    delaiMs: parseInt(process.env.ML_DELAI_MS ?? '3000', 10),
   },
   verification: {
     limiteParMinute: parseInt(process.env.VERIFICATION_LIMITE_PAR_MINUTE ?? '20', 10),
