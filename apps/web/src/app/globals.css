@@ -1708,3 +1708,7 @@ h3 { font-size: var(--fs-carte); font-weight: var(--fw-carte); }
 @media (max-width: 640px) {
   .corrige-action .rapport-pdf { margin: var(--sp-2) 0 0; width: 100%; }
 }
+/* La refonte visuelle redéfinit .btn après .btn-secondaire : le bouton secondaire (« Voir le
+   corrigé », « Télécharger le rapport (PDF) ») devenait plein, texte foncé sur vert, illisible. */
+.btn.btn-secondaire { background: var(--surface); color: var(--primary-dark); border: 1px solid var(--primary); box-shadow: none; }
+.btn.btn-secondaire:hover:not(:disabled) { background: var(--primary-soft); color: var(--primary-dark); box-shadow: none; }
