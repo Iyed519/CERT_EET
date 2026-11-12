@@ -30,3 +30,4 @@ Thumbs.db
 ml/donnees/
 ml/.venv/
 .ipynb_checkpoints/
+__pycache__/
