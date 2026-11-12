@@ -180,3 +180,36 @@ suivront.
   modèle, puis service ml arrêté → « Prédiction indisponible », règles toujours affichées.
 - Audit de navigation (`outils/recette/audit-navigation.js`, 5 rôles × 1280 et 390 px, pile
   locale) : **104 pages, 0 problème**.
+
+---
+
+# Étape 14 — Documentation et bilan
+
+## Ce qui a été fait
+- `docs/IA_PREDICTION_RISQUE.md` : démarche en 10 étapes, schéma de l'architecture, résultats
+  chiffrés par date de coupure (règles, régression logistique, LightGBM : rappel, précision,
+  PR-AUC, ROC-AUC), garanties pour l'existant et 12 questions probables du jury avec réponses
+  (fuite, déséquilibre, métriques, seuil, SHAP, équité, décalage de domaine, RGPD / loi 2004-63,
+  conteneur séparé, repli silencieux, choix de LightGBM, erreurs du modèle).
+- `ml/FICHE_MODELE.md` : §12 « Mise en service dans Cert_EET ».
+
+## PR de l'intégration
+| PR | Contenu |
+|---|---|
+| #108 | Données, entraînement, explicabilité, équité (`ml/`) |
+| #109 | Service `ml` (FastAPI, Docker, compose, job CI) |
+| #110 | Intégration NestJS (variables, scores, calcul périodique, accès) |
+| #111 | Interface formateur et administrateur, démonstration |
+| #112 | Documentation (ce bilan) |
+
+## Limites restantes
+- Modèle entraîné sur OULAD : performances non garanties sur Cert_EET (décalage de domaine) ;
+  réentraînement prévu (`ml/FICHE_MODELE.md` §11).
+- Une connexion vaut pour toutes les formations de l'apprenant ; les consultations de ressources
+  ne sont pas encore tracées.
+- Précision d'environ 0,5 (une alerte sur deux est fausse) ; plus de fausses alertes pour les
+  femmes (constat OULAD).
+- Formations plus courtes qu'OULAD : la date de coupure en jours n'a pas le même sens ; les
+  formations de plus de 56 jours sont extrapolées.
+- Le CD ne publie pas encore d'image `ml` sur GHCR : en recette, l'image est construite sur l'hôte.
+- Information des apprenants et déclaration INPDP à faire avant la production.

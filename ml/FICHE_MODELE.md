@@ -96,3 +96,15 @@ module. Le genre, l'âge et le handicap servent **uniquement** à l'audit d'équ
 3. Réentraîner avec le **même code** (`ml/risque/variables.py`), sur un découpage chronologique.
 4. Comparer au modèle actuel et aux règles, refaire l'audit d'équité, puis publier `risque_v2`.
 5. Réévaluer au moins une fois par an.
+## 12. Mise en service dans Cert_EET
+- **Service `ml`** (`ml/service/`, conteneur séparé, réseau interne) : charge ce modèle et cette
+  fiche au démarrage ; `GET /sante`, `POST /predire` (probabilité, niveau, 3 raisons). Versions de
+  scikit-learn (1.9.1), LightGBM (4.7.0) et numpy (2.5.4) identiques à l'entraînement.
+- **Variables côté Cert_EET** : calculées par l'API avec les mêmes définitions que
+  `ml/risque/variables.py` (parité vérifiée : 0 écart sur 1 443 cas) à partir des connexions, des
+  livrables d'atelier, des notes de QCM et d'atelier, de l'inscription et du début de formation.
+- **Calcul** une fois par jour, jamais pendant une requête ; scores conservés 180 jours.
+- **Affichage** : niveau en texte, 3 raisons, alertes des règles à côté, rappel « Suggestion du
+  modèle, à valider par le formateur ». Pour un niveau faible, les raisons ne sont pas listées.
+- **Repli** : service arrêté → aucune prédiction, les règles continuent ; l'écran l'indique.
+- Démarche complète et questions du jury : `docs/IA_PREDICTION_RISQUE.md`.
