@@ -1,0 +1,12 @@
+# Contexte Docker du service ml : seuls service/, risque/ et modeles/ sont utiles.
+donnees/
+notebooks/
+tests/
+service/tests/
+.venv/
+**/__pycache__/
+**/.ipynb_checkpoints/
+.pytest_cache/
+*.md
+requirements-dev.txt
+pytest.ini

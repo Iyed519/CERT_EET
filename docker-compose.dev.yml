@@ -63,6 +63,9 @@ services:
       - /app/node_modules
     ports:
       - "3001:3001"             # http://localhost:3001 hits the web container directly
+  # Service ml : même image qu'en recette, toujours sans port publié (réseau
+  # interne uniquement). Vérifier sa santé :
+  #   docker compose -f docker-compose.yml -f docker-compose.dev.yml ps ml
   # --- Mailhog (US-CPT-05) : serveur SMTP de développement ---
   # Capte tous les emails émis par l'api (aucun email réel ne part) et les
   # affiche dans une UI web. SMTP interne sur 1025, UI sur http://localhost:8025.
