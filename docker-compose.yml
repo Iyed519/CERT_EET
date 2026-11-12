@@ -119,6 +119,14 @@ services:
       LLM_FOURNISSEUR: ${LLM_FOURNISSEUR:-factice}
       LLM_MODELE: ${LLM_MODELE:-}
       ANTHROPIC_API_KEY: ${ANTHROPIC_API_KEY:-}
+      # --- IA : prédiction du risque (service ml, réseau interne) ---
+      # Calcul périodique des scores ; si ml est arrêté, seules les règles
+      # d'alerte s'appliquent. Pas de depends_on : l'api démarre sans ml.
+      ML_URL: http://ml:8000
+      ML_DELAI_MS: ${ML_DELAI_MS:-3000}
+      RISQUE_BALAYAGE_ACTIF: ${RISQUE_BALAYAGE_ACTIF:-true}
+      RISQUE_INTERVALLE_MINUTES: ${RISQUE_INTERVALLE_MINUTES:-1440}
+      RISQUE_PREMIER_CALCUL_SECONDES: ${RISQUE_PREMIER_CALCUL_SECONDES:-60}
     volumes:
       - ./secrets:/run/secrets:ro          # RS256 keys, read-only (INF07)
     depends_on:

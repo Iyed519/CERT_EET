@@ -91,6 +91,14 @@ export const envValidationSchema = Joi.object({
   ALERTES_INTERVALLE_MINUTES: Joi.number().integer().min(5).max(1440).default(60),
   ALERTES_EMAIL: Joi.boolean().default(true),
 
+  // --- IA : prédiction des apprenants à risque (service ml) ---
+  // Calcul périodique (jamais pendant une requête) ; délai court par appel.
+  RISQUE_BALAYAGE_ACTIF: Joi.boolean().default(true),
+  RISQUE_INTERVALLE_MINUTES: Joi.number().integer().min(5).max(10080).default(1440),
+  RISQUE_PREMIER_CALCUL_SECONDES: Joi.number().integer().min(0).max(3600).default(60),
+  ML_URL: Joi.string().uri({ scheme: ['http', 'https'] }).allow('').optional(),
+  ML_DELAI_MS: Joi.number().integer().min(200).max(10000).default(3000),
+
   // --- Vérification publique (US-CERT-05) ---
   // Requêtes par minute et par adresse IP sur /api/verification (DS-05 : 20).
   VERIFICATION_LIMITE_PAR_MINUTE: Joi.number().integer().min(1).max(10000).default(20),

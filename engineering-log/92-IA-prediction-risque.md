@@ -93,3 +93,52 @@ suivront.
 | D14 | pandas | **Pas dans le service** : pandas 3.1.1 (version d'entraînement) a moins de 2 semaines, et le modèle se charge et prédit sans pandas (matrice numpy dans l'ordre de la fiche ; l'avertissement « feature names » est filtré de façon ciblée). Résultats identiques vérifiés par le test de cohérence. |
 | D15 | Port | 8000, interne. Pas de port publié, même en dev : vérification par `docker compose ps ml` (état `healthy`). |
 | D16 | Image en local | Le registre Docker n'est pas joignable depuis mon environnement de travail : l'image est construite et contrôlée par la CI (job ML). |
+
+---
+
+# Étape 12 — Intégration NestJS (`apps/api/src/modules/prediction-risque`)
+
+## Ce qui a été fait
+- **Nouveau module** `prediction-risque` : le module `pilotage` (règles, balayage des alertes,
+  enum `CritereAlerte`) n'est pas modifié.
+- `risque.variables.ts` : les 16 variables en **fonctions pures**, mêmes définitions que
+  `ml/risque/variables.py`. Contrôle de parité ponctuel : même jeu synthétique (300 apprenants,
+  coupures J+3 à J+56, 1 443 cas) passé dans le code Python et dans le code TypeScript → **0 écart**.
+- `client-ml.service.ts` : `fetch` natif (aucune dépendance), délai `ML_DELAI_MS` (3 s), **aucune
+  nouvelle tentative**, réponse vérifiée (nombre, ordre, niveau, bornes). Toute erreur → `null` + un
+  avertissement journalisé, sans les données envoyées.
+- `prediction-risque.service.ts` :
+  - `calculer` : inscriptions EN_COURS des formations OUVERTES commencées (J ≥ 1), comptes actifs ;
+    lit `audit_logs` (LOGIN) et `refresh_tokens` (jours actifs), `ateliers` + `livrables`
+    (remises), `tentatives_qcm` + `corrections` (notes), `inscriptions`, `formations.date_debut` ;
+    lots de 200 ; scores enregistrés dans une transaction ; purge au-delà de 180 jours. Service
+    indisponible → rien n'est écrit.
+  - Lecture : `parFormation` (apprenants, dernier score récent, 3 raisons, alertes ouvertes des
+    règles à côté, rappel « Suggestion du modèle, à valider par le formateur ») et `resume`
+    (une ligne par formation). La probabilité n'est pas exposée (niveaux seulement, D10).
+- `prediction-risque-balayage.service.ts` : **même mécanisme que le balayage des alertes**
+  (`setInterval`, désactivé en test et par `RISQUE_BALAYAGE_ACTIF=false`, jamais deux calculs en
+  même temps) ; premier calcul 60 s après le démarrage, puis toutes les 1 440 min.
+- Migration `1789000000000-AddScoresRisque` : table `scores_risque` (inscription, date de calcul,
+  probabilité, niveau, raisons, variables, version), contraintes, 2 index, `ON DELETE CASCADE`,
+  `down` réversible (vérifié : up → down → up).
+- Endpoints (lecture seule) :
+  - `GET /api/formateur/risque/formations` : formateur → ses formations (`formation_formateurs`),
+    administrateur → toutes ;
+  - `GET /api/formateur/formations/:formationId/risque` : `@FormateurDeLaFormation` (formateur non
+    affecté → 403 + audit `ACCES_RESSOURCE_REFUSE`) ;
+  - apprenant → 403 sur les deux.
+- Compose : `ML_URL=http://ml:8000` et réglages dans l'environnement de l'api ; `.env.example`.
+- Tests : 34 unitaires (variables, client avec faux serveur HTTP : erreurs 500/422, JSON invalide,
+  réponse mal formée, délai dépassé, connexion refusée ; minuteur) et 12 e2e (service simulé ou
+  injoignable, règles toujours actives, accès 401/403/404/400, audit, purge, score périmé).
+
+## Décisions
+| # | Point | Décision |
+|---|---|---|
+| D17 | Temps | Jours entiers depuis `formations.date_debut` à minuit UTC (sinon le jour de l'inscription) ; à l'instant de calcul (jour J), seul ce qui précède le jour J compte, comme à l'entraînement. Le retard se compte en jours (remise un jour après l'échéance). |
+| D18 | Jours actifs | Jour UTC avec une connexion ou un renouvellement de session, à partir du jour de l'inscription (une connexion vaut pour toutes les formations de l'apprenant : limite connue, `AUDIT_DONNEES.md` §5). |
+| D19 | Remises | Ateliers publiés seulement ; date de remise = première soumission (`LEAST(created_at, date_soumission)`), un remplacement ne la change pas. Toutes les échéances passées de la formation comptent, comme dans OULAD. |
+| D20 | Notes | QCM notés (`date_fin`) et corrections terminées (`date_finalisation`) : une note est datée du moment où elle est **connue** (anti-fuite). Échec = note < 40, comme à l'entraînement (le seuil de réussite d'un QCM Cert_EET reste celui des règles). |
+| D21 | Fraîcheur | Un score n'est montré que s'il a moins de 2 intervalles (au moins 26 h) ; sinon « prédiction indisponible ». |
+| D22 | Calcul | Jamais pendant une requête : pas de calcul à la demande, uniquement le minuteur. |
