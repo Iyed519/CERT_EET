@@ -1,7 +1,6 @@
 # Dependencies (dépendances) — JAMAIS poussées sur GitHub
 node_modules/
 **/node_modules/
- 
 # Build outputs (résultats de compilation)
 dist/
 .next/
@@ -26,3 +25,8 @@ npm-debug.log*
 Thumbs.db
 .idea/
 .vscode/
+
+# MODEL AND SETTINGS
+ml/donnees/
+ml/.venv/
+.ipynb_checkpoints/
