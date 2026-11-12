@@ -24,6 +24,7 @@ const ONGLETS: Array<[string, string]> = [
   ['/admin/certificats', 'Certificats'],
   ['/admin/rapports', 'Rapports'],
   ['/admin/generations-ia', 'Générations IA'],
+  ['/admin/risque', 'Prédiction du risque'],
   ['/admin/audit', "Journal d'audit"],
 ];
 

@@ -1670,3 +1670,29 @@ h3 { font-size: var(--fs-carte); font-weight: var(--fw-carte); }
   background: var(--surface-2); box-shadow: none; border-radius: var(--radius-sm);
 }
 .certificat-carte .fiche, .mon-livrable .fiche { margin-bottom: 0; }
+
+/* ============================================================
+   IA — Prédiction des apprenants à risque (suggestion du modèle).
+   Jetons :root seulement ; pastilles au gabarit .statut-badge, toujours
+   avec leur texte (jamais la couleur seule). Contrastes : mêmes paires que
+   les pastilles du journal 91 (rouge 7,09:1, ambre 5,40:1, vert 5,50:1,
+   gris 6,74:1). Cartes imbriquées dans .tdb-bloc : plates (D5).
+   ============================================================ */
+.niveau-ELEVE { background: var(--danger-soft); color: var(--danger-dark); }
+.niveau-MOYEN { background: var(--warning-soft); color: var(--accent-dark); }
+.niveau-FAIBLE { background: var(--success-soft); color: var(--primary-dark); }
+.niveau-AUCUN { background: var(--neutre-soft); color: var(--neutre); }
+.risque-bloc { margin-top: var(--sp-4); }
+.risque-choix { display: block; max-width: 420px; margin-top: var(--sp-4); }
+.risque-entete { display: flex; justify-content: space-between; align-items: center; gap: var(--sp-3); flex-wrap: wrap; }
+.risque-titre { font-size: var(--fs-carte); font-weight: var(--fw-carte); color: var(--ink); margin: 0; overflow-wrap: anywhere; }
+.risque-liste { list-style: none; padding: 0; margin: var(--sp-3) 0 0; display: grid; gap: var(--sp-3); }
+.risque-carte { background: var(--surface-2); border: 1px solid var(--border); border-left: 4px solid var(--border-strong); border-radius: var(--radius-sm); padding: var(--sp-3) var(--sp-4); min-width: 0; }
+.risque-carte-ELEVE { border-left-color: var(--danger); }
+.risque-carte-MOYEN { border-left-color: var(--accent); }
+.risque-carte-FAIBLE { border-left-color: var(--primary); }
+.risque-tete { display: flex; justify-content: space-between; align-items: center; gap: var(--sp-2); flex-wrap: wrap; }
+.risque-nom { color: var(--ink); overflow-wrap: anywhere; }
+.risque-raisons { margin: var(--sp-2) 0 0; padding-left: var(--sp-5); font-size: var(--fs-corps); color: var(--text); }
+.risque-raisons li + li { margin-top: var(--sp-1); }
+.risque-texte { margin: var(--sp-2) 0 0; }

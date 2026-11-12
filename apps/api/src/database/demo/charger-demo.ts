@@ -22,7 +22,9 @@ import { dataSourceOptions } from '../data-source';
  *    l'api (fichier PDF réel dans le stockage objet), à corriger en démo ;
  *  - des certificats générés par le worker (PDF réels, vérifiables) ;
  *  - des alertes de décrochage, une demande de rôle, une demande
- *    d'affectation et une proposition de formation en attente.
+ *    d'affectation et une proposition de formation en attente ;
+ *  - un historique de connexions passées (journal d'audit) aux profils
+ *    variés, pour que la prédiction du risque (IA) ait des signaux à lire.
  *
  * Seules les données SANS logique métier propre (comptes, formations,
  * contenu) sont écrites en SQL, dans une transaction ; tout ce qui a des
@@ -450,6 +452,47 @@ async function certificats(ds: DataSource, ids: Record<string, string>): Promise
   log('Certificats en file : le worker de l’api les générera (vérifier CERTIFICATS_WORKER=on).');
 }
 
+// ---------------------------------------------------------------------------
+// 5. Historique de connexions (IA — prédiction du risque)
+// ---------------------------------------------------------------------------
+/**
+ * Le modèle ne lit que ce qui précède le jour du calcul : les connexions du
+ * jour (celles du script) ne comptent pas. J'ajoute donc des connexions
+ * passées (jours avant aujourd'hui), aux profils variés : Sana régulière,
+ * Yassine hebdomadaire, Youssef qui décroche depuis deux semaines, Mariem
+ * presque absente ; Ahmed, sans aucune connexion, reste le cas le plus
+ * risqué. Une seule fois (marqueur dans les détails).
+ */
+const HISTORIQUE: Record<string, number[]> = {
+  sana: [24, 23, 21, 20, 18, 17, 15, 14, 12, 11, 9, 8, 7, 5, 4, 3, 2, 1],
+  securite: [22, 15, 9, 8, 2],
+  youssef: [24, 22, 21, 19, 17, 16, 15],
+  mariem: [24, 23, 19],
+};
+
+async function historiqueActivite(ds: DataSource, ids: Record<string, string>): Promise<void> {
+  const [deja] = (await ds.query(
+    `SELECT 1 FROM audit_logs WHERE action = 'LOGIN' AND details_avant_apres->>'demo' = 'historique' LIMIT 1`,
+  )) as unknown[];
+  if (deja) {
+    log('Historique de connexions déjà présent.');
+    return;
+  }
+  let n = 0;
+  for (const [cle, jours] of Object.entries(HISTORIQUE)) {
+    for (const j of jours) {
+      await ds.query(
+        `INSERT INTO audit_logs (user_id, action, cible, resultat, details_avant_apres, horodatage)
+         VALUES ($1::uuid, 'LOGIN', $1::text, 'Succès', '{"demo":"historique"}'::jsonb,
+                 now() - make_interval(days => $2) - interval '2 hours')`,
+        [ids[cle], j],
+      );
+      n += 1;
+    }
+  }
+  log(`${n} connexions passées ajoutées (prédiction du risque).`);
+}
+
 async function charger(): Promise<void> {
   const ds = new DataSource(dataSourceOptions);
   await ds.initialize();
@@ -458,6 +501,7 @@ async function charger(): Promise<void> {
     await structure(ds, ids);
     await parcours(ds, ids);
     await certificats(ds, ids);
+    await historiqueActivite(ds, ids);
     log('Jeu de démonstration prêt. Guide : docs/GUIDE_DEMO.md');
   } finally {
     await ds.destroy();

@@ -31,16 +31,19 @@ def _n(v, singulier, pluriel):
 
 PHRASES = {
     "jours_depuis_derniere_activite": lambda v: f"Aucune activité depuis {_n(v, 'jour', 'jours')}",
-    "jours_actifs_14_derniers": lambda v: f"Seulement {_n(v, 'jour actif', 'jours actifs')} sur les 14 derniers jours",
-    "jours_actifs": lambda v: f"Seulement {_n(v, 'jour actif', 'jours actifs')} depuis le début",
-    "taux_jours_actifs": lambda v: f"Actif seulement {v:.0%} des jours depuis le début",
+    "jours_actifs_14_derniers": lambda v: ("Aucun jour actif sur les 14 derniers jours" if v == 0 else
+                                           f"Seulement {_n(v, 'jour actif', 'jours actifs')} sur les 14 derniers jours"),
+    "jours_actifs": lambda v: ("Aucun jour actif depuis le début" if v == 0 else
+                               f"Seulement {_n(v, 'jour actif', 'jours actifs')} depuis le début"),
+    "taux_jours_actifs": lambda v: ("Aucun jour actif depuis le début" if v == 0 else
+                                    f"Actif seulement {v:.0%} des jours depuis le début"),
     "taux_remise": lambda v: ("Aucun travail échu n'a été rendu" if v == 0
                               else f"Seulement {v:.0%} des travaux échus ont été rendus"),
     "nb_non_rendues": lambda v: f"{_n(v, 'travail non rendu', 'travaux non rendus')} après la date limite",
     "nb_remises_en_retard": lambda v: f"{_n(v, 'travail rendu', 'travaux rendus')} en retard",
     "score_moyen": lambda v: "Aucune note pour l'instant" if _vide(v) else f"Moyenne des notes : {v:.0f}/100",
     "a_au_moins_une_note": lambda v: "Aucune note pour l'instant" if v == 0 else None,
-    "nb_notes": lambda v: f"Peu de notes obtenues ({int(v)})",
+    "nb_notes": lambda v: "Aucune note pour l'instant" if v == 0 else f"Peu de notes obtenues ({int(v)})",
     "nb_echecs": lambda v: f"{_n(v, 'note', 'notes')} sous 40/100",
     "echecs_consecutifs_fin": lambda v: f"{_n(v, 'échec consécutif', 'échecs consécutifs')} sur les dernières notes",
     "tendance_score": lambda v: None if _vide(v) else f"Notes en baisse ({v:+.0f} points par rapport aux précédentes)",
