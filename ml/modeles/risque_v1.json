@@ -1,0 +1,87 @@
+{
+  "version": "risque_v1",
+  "date_entrainement": "2026-11-12",
+  "modele": "LightGBM",
+  "entrees": [
+    "jours_actifs",
+    "taux_jours_actifs",
+    "jours_depuis_derniere_activite",
+    "jours_actifs_14_derniers",
+    "delai_inscription",
+    "nb_evaluations_echues",
+    "taux_remise",
+    "nb_non_rendues",
+    "nb_remises_en_retard",
+    "nb_notes",
+    "score_moyen",
+    "nb_echecs",
+    "echecs_consecutifs_fin",
+    "tendance_score",
+    "a_au_moins_une_note",
+    "coupure"
+  ],
+  "seuil": 0.355,
+  "rappel_cible": 0.8,
+  "graine": 42,
+  "reglages": {
+    "learning_rate": 0.05,
+    "min_child_samples": 50,
+    "n_estimators": 200,
+    "num_leaves": 15
+  },
+  "donnees": "OULAD (Kuzilek et al., 2017, CC BY 4.0)",
+  "decoupage": {
+    "entrainement": [
+      "2013B",
+      "2013J",
+      "2014B"
+    ],
+    "test": [
+      "2014J"
+    ]
+  },
+  "resultats_test": [
+    {
+      "modele": "LightGBM",
+      "coupure": 14,
+      "rappel": 0.8675,
+      "precision": 0.4764,
+      "f1": 0.615,
+      "roc_auc": 0.6566,
+      "pr_auc": 0.5373
+    },
+    {
+      "modele": "LightGBM",
+      "coupure": 28,
+      "rappel": 0.7573,
+      "precision": 0.5438,
+      "f1": 0.633,
+      "roc_auc": 0.7152,
+      "pr_auc": 0.5775
+    },
+    {
+      "modele": "LightGBM",
+      "coupure": 42,
+      "rappel": 0.732,
+      "precision": 0.5688,
+      "f1": 0.6402,
+      "roc_auc": 0.7402,
+      "pr_auc": 0.611
+    },
+    {
+      "modele": "LightGBM",
+      "coupure": 56,
+      "rappel": 0.7893,
+      "precision": 0.5603,
+      "f1": 0.6553,
+      "roc_auc": 0.7779,
+      "pr_auc": 0.701
+    }
+  ],
+  "versions": {
+    "python": "3.13.3",
+    "scikit-learn": "1.9.1",
+    "lightgbm": "4.7.0",
+    "pandas": "3.1.1"
+  }
+}
