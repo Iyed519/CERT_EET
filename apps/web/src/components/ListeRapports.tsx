@@ -29,6 +29,9 @@ function libelle(r: Rapport): string {
   if (r.type === 'INSTITUTIONNEL') {
     return `${PORTEES[String(p.modele)] ?? 'Rapport institutionnel'} · du ${jourFr(p.du)} au ${jourFr(p.au)}`;
   }
+  // US-RPT-03 : le titre dit sur qui (apprenant) ou sur quoi (module) porte le rapport.
+  if (p.portee === 'INDIVIDUEL' && r.cible) return r.cible;
+  if (p.portee === 'MODULE' && r.cible) return `Module : ${r.cible}`;
   return PORTEES[String(p.portee)] ?? r.type;
 }
 

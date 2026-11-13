@@ -15,6 +15,12 @@
 
 ## [Après le Sprint 6] — Stories hors sprint
 
+#### US-RPT-03 — Nom de l'apprenant dans le titre de ses rapports — journal `engineering-log/104`
+- **Quoi :** « Mes rapports » affiche « PDF · *Prénom Nom* » pour un rapport individuel et
+  « PDF · Module : *titre* » pour un rapport par module ; l'API renvoie un champ `cible` (lu par
+  jointure, aucune migration).
+- **Pourquoi :** les rapports « PDF · Un apprenant » étaient impossibles à distinguer.
+
 #### US-IA-09 — IA réelle dès qu'une clé est là, erreurs visibles — journal `engineering-log/103`
 - **Quoi :** `ANTHROPIC_API_KEY` dans le `.env` suffit : Claude est appelé même si
   `LLM_FOURNISSEUR` vaut encore `factice` (défaut retiré de `docker-compose.yml` et de

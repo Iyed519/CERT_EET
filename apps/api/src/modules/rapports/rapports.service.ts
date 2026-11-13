@@ -78,6 +78,11 @@ export interface RapportVue {
   statut: StatutRapport;
   parametres: Record<string, unknown>;
   formation: { id: string; titre: string } | null;
+  /**
+   * US-RPT-03 — Sur qui porte le rapport : nom de l'apprenant (portée
+   * INDIVIDUEL) ou titre du module (portée MODULE) ; null sinon.
+   */
+  cible: string | null;
   nomFichier: string | null;
   tailleOctets: number | null;
   empreinteSha256: string | null;
@@ -88,6 +93,7 @@ export interface RapportVue {
 
 interface LigneRapport {
   id: string;
+  cible: string | null;
   type: TypeRapport;
   format: FormatRapport;
   statut: StatutRapport;
@@ -108,8 +114,16 @@ const SELECT_RAPPORT = `
   SELECT r.id, r.type::text AS type, r.format::text AS format, r.statut::text AS statut,
          r.parametres, r.formation_id, f.titre, r.nom_fichier, r.taille_octets,
          r.empreinte_sha256, r.derniere_erreur, r.date_demande, r.date_fin,
-         r.demandeur_id, r.cle_stockage
-    FROM rapports r LEFT JOIN formations f ON f.id = r.formation_id`;
+         r.demandeur_id, r.cle_stockage,
+         CASE r.parametres->>'portee'
+           WHEN 'INDIVIDUEL' THEN COALESCE(NULLIF(trim(concat_ws(' ', ua.prenom, ua.nom)), ''), ua.email)
+           WHEN 'MODULE' THEN mo.titre
+         END AS cible
+    FROM rapports r LEFT JOIN formations f ON f.id = r.formation_id
+    LEFT JOIN users ua
+      ON r.parametres->>'portee' = 'INDIVIDUEL' AND ua.id::text = r.parametres->>'apprenantId'
+    LEFT JOIN modules mo
+      ON r.parametres->>'portee' = 'MODULE' AND mo.id::text = r.parametres->>'moduleId'`;
 
 /**
  * US-RPT-01 — Rapports de session exportés (DS-14 P3).
@@ -618,6 +632,7 @@ function vue(l: LigneRapport): RapportVue {
     statut: l.statut,
     parametres: l.parametres,
     formation: l.formation_id ? { id: l.formation_id, titre: l.titre ?? '' } : null,
+    cible: l.cible ?? null,
     nomFichier: l.nom_fichier,
     tailleOctets: l.taille_octets,
     empreinteSha256: l.empreinte_sha256,

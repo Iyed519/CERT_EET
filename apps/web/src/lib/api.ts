@@ -3575,6 +3575,8 @@ export interface Rapport {
     unknown
   >;
   formation: { id: string; titre: string } | null;
+  /** US-RPT-03 — nom de l'apprenant (INDIVIDUEL) ou titre du module (MODULE). */
+  cible: string | null;
   nomFichier: string | null;
   tailleOctets: number | null;
   empreinteSha256: string | null;
