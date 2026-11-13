@@ -570,6 +570,24 @@ Table des matières
 
 **[US-IA-07] — Notifications temps réel (SSE)** - **Nominal :** *Étant donné* une indexation ou une génération en cours, *Quand* l’état progresse, *Alors* le frontend reçoit des événements SSE et affiche l’avancement sans rechargement. - **Alternatif / erreur :** *Étant donné* une connexion SSE interrompue, *Quand* elle se rétablit, *Alors* l’état courant est récupéré via un appel REST de repli (pas d’information perdue).
 
+## E10 Épopée — Expérience utilisateur & charte ESPRIT *(révision v2.2)*
+
+- **Objectif :** « quand on ouvre l'application, on sait exactement quoi faire et comment » — interface simple, claire et cohérente pour les trois rôles, aux couleurs d'ESPRIT (rouge, noir, gris, blanc). Aucune API ni règle métier modifiée.
+- **Source :** `claude/Cert_EET_Revision_v2.2_IA08_UI.md` (Gherkin complet).
+
+| ID | User story | MoSCoW | Points | État |
+| --- | --- | --- | --- | --- |
+| US-UI-01 | Listes compactes et fiche détaillée en fenêtre (risque, certificats ; fenêtre unique accessible) | Must | 3 | Livrée (journal 95) |
+| US-UI-02 | Charte graphique ESPRIT : jetons, logo, composants de base | Must | 5 | À faire |
+| US-UI-03 | Coque : navigation simple par rôle, accueil « À faire maintenant » | Must | 5 | À faire |
+| US-UI-04 | Parcours apprenant refondu | Must | 5 | À faire |
+| US-UI-05 | Parcours formateur refondu | Must | 5 | À faire |
+| US-UI-06 | Parcours administrateur refondu | Must | 5 | À faire |
+| US-UI-07 | Pages publiques et authentification refondues | Should | 3 | À faire |
+| US-UI-08 | Recette finale : cohérence, accessibilité, guide de style | Must | 3 | À faire |
+
+**Total E10 : 8 stories — 34 points.**
+
 ## E7 Épopée — Chatbot IA apprenant *(hors périmètre — fonctionnalité pivotée)*
 
 - **Statut :** **Won’t (cette version)** — épopée **explicitement de-scopée** par le projet.

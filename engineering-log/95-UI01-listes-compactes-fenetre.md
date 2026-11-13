@@ -27,6 +27,7 @@ empile une grande carte par apprenant sur le tableau de bord formateur et sur `/
 - `apps/web/src/components/Fenetre.tsx` (nouveau), `ConfirmationModal.tsx`, `PredictionRisque.tsx`
   (`trierRisque`, `facteurPrincipal`, `ListeRisque`, `FicheRisque` ; l'ancienne carte est retirée),
   `ImportFichierModal.tsx`
+- `docs/projet/v3_2026-11-09/1_backlog/Cert_EET_Backlog_Produit.md` (épopée E10), `CHANGELOG.md`
 - `apps/web/src/app/mes-certificats/page.tsx`, `mes-tentatives/page.tsx`,
   `formateur/qcm/[id]/tentatives/page.tsx`, `globals.css` (section US-UI-01)
 
