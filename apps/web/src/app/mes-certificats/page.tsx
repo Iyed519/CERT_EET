@@ -6,6 +6,7 @@ import {
   MonCertificat,
   telechargerMonCertificat,
 } from '../../lib/api';
+import { Fenetre } from '../../components/Fenetre';
 import { jourFr, LIBELLES_MOTIF_REVOCATION, nombreFr } from '../../lib/format';
 
 /** Libellés d'état, côté titulaire. */
@@ -37,12 +38,15 @@ const nomFichier = (titre: string): string => {
  * (copiable). En préparation : un message ; révoqué : plus de
  * téléchargement. La liste se rafraîchit seule tant qu'un certificat se
  * prépare.
+ * US-UI-01 — Liste compacte (une ligne par certificat) ; le lien de
+ * vérification, l'empreinte et la révocation s'ouvrent dans une fiche.
  */
 export default function MesCertificatsPage(): JSX.Element {
   const [liste, setListe] = useState<MonCertificat[] | null>(null);
   const [erreur, setErreur] = useState<string | null>(null);
   const [enCours, setEnCours] = useState<string | null>(null);
   const [copie, setCopie] = useState<string | null>(null);
+  const [fiche, setFiche] = useState<MonCertificat | null>(null);
 
   const charger = useCallback(async (): Promise<void> => {
     try {
@@ -110,70 +114,126 @@ export default function MesCertificatsPage(): JSX.Element {
           les évaluations d’une formation.
         </p>
       ) : (
-        <ul className="certificats-liste">
-          {liste.map((c) => (
-            <li key={c.id} className={`certificat-carte certificat-carte-${c.statut}`}>
-              <div className="certificat-carte-tete">
-                <div>
-                  <p className="certificat-carte-formation">{c.formation.titre}</p>
-                  <p className="field-hint">
-                    {c.organismeEmetteur} · {nombreFr(c.scoreFinal)} / 100 · mention {c.mention}
-                    {c.dateGeneration ? ` · délivré le ${jourFr(c.dateGeneration)}` : ''}
-                    {c.dateExpiration && c.statut === 'EXPIRE' ? ` · expiré le ${jourFr(c.dateExpiration)}` : ''}
-                    {c.dateExpiration && c.statut === 'ACTIF' ? ` · valable jusqu’au ${jourFr(c.dateExpiration)}` : ''}
-                  </p>
-                </div>
-                <span className={`statut-badge certificat-${c.statut}`}>{ETATS[c.statut]}</span>
+        <div className="table-wrap table-wrap-compacte">
+          <table className="data-table table-compacte">
+            <caption className="sr-only">Mes certificats</caption>
+            <thead>
+              <tr>
+                <th scope="col">Formation</th>
+                <th scope="col">Résultat</th>
+                <th scope="col">Date</th>
+                <th scope="col">État</th>
+                <th scope="col">
+                  <span className="sr-only">Actions</span>
+                </th>
+              </tr>
+            </thead>
+            <tbody>
+              {liste.map((c) => {
+                const disponible = c.statut === 'ACTIF' || c.statut === 'EXPIRE';
+                return (
+                  <tr key={c.id}>
+                    <th scope="row" data-libelle="Formation">
+                      <button type="button" className="lien-bouton ligne-ouvrir" onClick={() => setFiche(c)}>
+                        {c.formation.titre}
+                      </button>
+                    </th>
+                    <td data-libelle="Résultat">
+                      {nombreFr(c.scoreFinal)} / 100 · {c.mention}
+                    </td>
+                    <td data-libelle="Date">{c.dateGeneration ? jourFr(c.dateGeneration) : '—'}</td>
+                    <td data-libelle="État">
+                      <span className={`statut-badge certificat-${c.statut}`}>{ETATS[c.statut]}</span>
+                    </td>
+                    <td>
+                      <span className="liste-compacte-actions">
+                        {disponible && (
+                          <button
+                            type="button"
+                            className="btn-sm btn-primary-sm"
+                            onClick={() => void telecharger(c)}
+                            disabled={enCours !== null}
+                          >
+                            {enCours === c.id ? 'Téléchargement…' : 'Télécharger le PDF'}
+                          </button>
+                        )}
+                        <button type="button" className="btn-sm" onClick={() => setFiche(c)}>
+                          Détails
+                        </button>
+                      </span>
+                    </td>
+                  </tr>
+                );
+              })}
+            </tbody>
+          </table>
+        </div>
+      )}
+
+      {fiche && (
+        <Fenetre
+          titre={fiche.formation.titre}
+          sousTitre={`${fiche.organismeEmetteur} · ${nombreFr(fiche.scoreFinal)} / 100 · mention ${fiche.mention}`}
+          onClose={() => setFiche(null)}
+          occupe={enCours !== null}
+          actions={
+            <>
+              {fiche.urlVerification && (
+                <button type="button" className="btn btn-secondaire" onClick={() => void copier(fiche)}>
+                  {copie === fiche.id ? 'Lien copié ✓' : 'Copier le lien de vérification'}
+                </button>
+              )}
+              {(fiche.statut === 'ACTIF' || fiche.statut === 'EXPIRE') && (
+                <button
+                  type="button"
+                  className="btn"
+                  onClick={() => void telecharger(fiche)}
+                  disabled={enCours !== null}
+                >
+                  {enCours === fiche.id ? 'Téléchargement…' : 'Télécharger le PDF'}
+                </button>
+              )}
+            </>
+          }
+        >
+          <p>
+            <span className={`statut-badge certificat-${fiche.statut}`}>{ETATS[fiche.statut]}</span>
+            <span className="field-hint">
+              {fiche.dateGeneration ? ` Délivré le ${jourFr(fiche.dateGeneration)}` : ''}
+              {fiche.dateExpiration && fiche.statut === 'EXPIRE' ? ` · expiré le ${jourFr(fiche.dateExpiration)}` : ''}
+              {fiche.dateExpiration && fiche.statut === 'ACTIF' ? ` · valable jusqu’au ${jourFr(fiche.dateExpiration)}` : ''}
+            </span>
+          </p>
+          {(fiche.statut === 'EN_ATTENTE_GENERATION' || fiche.statut === 'EN_GENERATION') && (
+            <p className="field-hint">Votre certificat est en cours d’émission : il sera disponible dans quelques instants.</p>
+          )}
+          {fiche.statut === 'REVOQUE' && (
+            <p className="field-hint texte-erreur">
+              {fiche.revocation
+                ? `Révoqué le ${jourFr(fiche.revocation.date)} — ${LIBELLES_MOTIF_REVOCATION[fiche.revocation.motif]}. `
+                : 'Révoqué. '}
+              Il n’est plus téléchargeable ; pour toute question, contactez ESPRIT Entreprise.
+            </p>
+          )}
+          {fiche.urlVerification && (
+            <dl className="fiche certificat-carte-fiche">
+              <div className="fiche-large">
+                <dt>Lien public de vérification</dt>
+                <dd>
+                  <a className="table-link lien-externe" href={fiche.urlVerification} target="_blank" rel="noopener noreferrer">
+                    {fiche.urlVerification}
+                  </a>
+                </dd>
               </div>
-
-              {(c.statut === 'ACTIF' || c.statut === 'EXPIRE') && (
-                <div className="certificat-carte-actions">
-                  <button
-                    type="button"
-                    className="btn-sm btn-primary-sm"
-                    onClick={() => void telecharger(c)}
-                    disabled={enCours !== null}
-                  >
-                    {enCours === c.id ? 'Téléchargement…' : 'Télécharger le PDF'}
-                  </button>
-                  <button type="button" className="btn-sm" onClick={() => void copier(c)}>
-                    {copie === c.id ? 'Lien copié ✓' : 'Copier le lien de vérification'}
-                  </button>
-                </div>
-              )}
-              {(c.statut === 'EN_ATTENTE_GENERATION' || c.statut === 'EN_GENERATION') && (
-                <p className="field-hint">Votre certificat est en cours d’émission : il sera disponible dans quelques instants.</p>
-              )}
-              {c.statut === 'REVOQUE' && (
-                <p className="field-hint texte-erreur">
-                  {c.revocation
-                    ? `Révoqué le ${jourFr(c.revocation.date)} — ${LIBELLES_MOTIF_REVOCATION[c.revocation.motif]}. `
-                    : 'Révoqué. '}
-                  Il n’est plus téléchargeable ; pour toute question, contactez ESPRIT Entreprise.
-                </p>
-              )}
-
-              {c.urlVerification && (
-                <dl className="fiche certificat-carte-fiche">
-                  <div className="fiche-large">
-                    <dt>Lien public de vérification</dt>
-                    <dd>
-                      <a className="table-link lien-externe" href={c.urlVerification} target="_blank" rel="noopener noreferrer">
-                        {c.urlVerification}
-                      </a>
-                    </dd>
-                  </div>
-                  <div className="fiche-large">
-                    <dt>Empreinte SHA-256 du PDF</dt>
-                    <dd>
-                      <code className="empreinte">{c.empreinteSha256}</code>
-                    </dd>
-                  </div>
-                </dl>
-              )}
-            </li>
-          ))}
-        </ul>
+              <div className="fiche-large">
+                <dt>Empreinte SHA-256 du PDF</dt>
+                <dd>
+                  <code className="empreinte">{fiche.empreinteSha256}</code>
+                </dd>
+              </div>
+            </dl>
+          )}
+        </Fenetre>
       )}
     </>
   );

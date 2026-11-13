@@ -1712,6 +1712,32 @@ h3 { font-size: var(--fs-carte); font-weight: var(--fw-carte); }
 .risque-raisons li + li { margin-top: var(--sp-1); }
 .risque-texte { margin: var(--sp-2) 0 0; }
 
+/* US-UI-01 — Listes compactes + fiche en fenêtre (Fenetre.tsx) */
+.table-compacte th[scope='row'] { font-weight: 600; text-align: left; text-transform: none; letter-spacing: normal; color: var(--ink); background: transparent; font-size: inherit; }
+.table-compacte .ligne-ouvrir { font-weight: 600; text-align: left; }
+.table-compacte .cellule-facteur { color: var(--text-2); max-width: 46ch; }
+.table-compacte tr.ligne-risque-ELEVE th[scope='row'] { box-shadow: inset 4px 0 0 var(--danger); }
+.table-compacte tr.ligne-risque-MOYEN th[scope='row'] { box-shadow: inset 4px 0 0 var(--accent); }
+.fiche-risque .section-title { font-size: var(--fs-corps); margin: var(--sp-4) 0 var(--sp-2); }
+.fiche-risque > p:first-child { margin-top: 0; }
+.fenetre:focus { outline: none; }
+.liste-compacte-actions { display: flex; gap: var(--sp-2); flex-wrap: wrap; justify-content: flex-end; }
+@media (max-width: 640px) {
+  .table-wrap-compacte { overflow: visible; border: none; box-shadow: none; background: none; }
+  .table-compacte thead { position: absolute; width: 1px; height: 1px; overflow: hidden; clip: rect(0 0 0 0); }
+  .table-compacte, .table-compacte tbody, .table-compacte tr, .table-compacte th, .table-compacte td { display: block; width: 100%; }
+  .table-compacte tr { background: var(--surface); border: 1px solid var(--border); border-radius: var(--radius-sm); padding: var(--sp-2) var(--sp-3); margin-bottom: var(--sp-2); }
+  .table-compacte th, .table-compacte td { border: none; padding: 4px 0; }
+  .table-compacte td[data-libelle]::before { content: attr(data-libelle) ' : '; color: var(--muted); font-size: 0.8rem; }
+  .table-compacte tr.ligne-risque-ELEVE, .table-compacte tr.ligne-risque-MOYEN { border-left-width: 4px; }
+  .table-compacte tr.ligne-risque-ELEVE { border-left-color: var(--danger); }
+  .table-compacte tr.ligne-risque-MOYEN { border-left-color: var(--accent); }
+  .table-compacte tr th[scope='row'] { box-shadow: none !important; }
+  .table-compacte .liste-compacte-actions { justify-content: flex-start; }
+  .profil-overlay:has(> .fenetre) { padding: 0; place-items: stretch; }
+  .profil-card.fenetre { max-width: none; min-height: 100%; border-radius: 0; border: none; }
+}
+
 /* ============================================================
    US-QCM-13 — « Télécharger le rapport (PDF) » d'une tentative notée.
    ============================================================ */

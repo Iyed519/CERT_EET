@@ -1,13 +1,14 @@
 'use client';
 import { useState } from 'react';
 import { AdminError } from '../lib/api';
-import { CroixFermeture } from './CroixFermeture';
+import { Fenetre } from './Fenetre';
 
 /**
  * Modale de confirmation d'une action irréversible (US-QCM-01 : supprimer un
  * QCM ou une question). Même présentation que les autres modales : croix
  * rouge, « Annuler » rouge, bouton d'action à droite. Si l'action échoue, le
  * message exact du serveur s'affiche dans la modale.
+ * US-UI-01 : bâtie sur `Fenetre` (Échap, clic extérieur, focus).
  */
 export function ConfirmationModal({
   titre,
@@ -37,13 +38,12 @@ export function ConfirmationModal({
   };
 
   return (
-    <div className="profil-overlay" role="dialog" aria-modal="true">
-      <section className="profil-card modal-closable">
-        <CroixFermeture onClose={onClose} disabled={enCours} />
-        <h2 className="auth-title">{titre}</h2>
-        {erreur !== null && <p className="alert alert-error">{erreur}</p>}
-        <p className="auth-subtitle">{message}</p>
-        <div className="modal-actions">
+    <Fenetre
+      titre={titre}
+      onClose={onClose}
+      occupe={enCours}
+      actions={
+        <>
           <button
             type="button"
             className="btn btn-danger-solid"
@@ -60,8 +60,11 @@ export function ConfirmationModal({
           >
             {enCours ? 'En cours…' : libelleAction}
           </button>
-        </div>
-      </section>
-    </div>
+        </>
+      }
+    >
+      {erreur !== null && <p className="alert alert-error">{erreur}</p>}
+      <p className="auth-subtitle">{message}</p>
+    </Fenetre>
   );
 }

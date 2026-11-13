@@ -1,5 +1,6 @@
 'use client';
 import Link from 'next/link';
+import { Fenetre } from '../../components/Fenetre';
 import { useCallback, useEffect, useState } from 'react';
 import { BoutonRapportPdf } from '../../components/BoutonRapportPdf';
 import {
@@ -115,26 +116,20 @@ export default function MesTentativesPage(): JSX.Element {
       )}
 
       {detail && (
-        <div className="profil-overlay" role="dialog" aria-modal="true">
-          <section className="profil-card modal-closable modal-wide">
-            <button
-              type="button"
-              className="modal-close"
-              aria-label="Fermer"
-              onClick={() => setDetail(null)}
-            >
-              ×
-            </button>
-            <h2 className="auth-title">
-              {detail.qcmTitre} — tentative n° {detail.numero}
-            </h2>
-            <p className="auth-subtitle">
+        <Fenetre
+          taille="large"
+          titre={`${detail.qcmTitre} — tentative n° ${detail.numero}`}
+          sousTitre={
+            <>
               {LIBELLES_TENTATIVE[detail.statut]} · commencée le {dateHeureFr(detail.dateDebut)}
               {detail.dateFin ? ` · terminée le ${dateHeureFr(detail.dateFin)}` : ''} · durée{' '}
               {dureeSecondesFr(detail.dureeSecondes)} · {detail.nbRepondues} / {detail.nbQuestions}{' '}
               réponses
               {detail.score !== null ? ` · ${scoreFr(detail.score)}` : ''}
-            </p>
+            </>
+          }
+          onClose={() => setDetail(null)}
+        >
             {detail.statut === 'NOTEE' && (
               <p className="historique-rapport">
                 <BoutonRapportPdf tentativeId={detail.id} />
@@ -186,8 +181,7 @@ export default function MesTentativesPage(): JSX.Element {
                 );
               })}
             </ol>
-          </section>
-        </div>
+        </Fenetre>
       )}
     </>
   );
