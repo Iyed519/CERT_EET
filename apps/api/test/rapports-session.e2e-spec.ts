@@ -424,6 +424,31 @@ describe('Rapports de session (e2e) — US-RPT-01', () => {
       await get('/api/rapports?formationId=abc').expect(400);
     });
 
+    it('US-RPT-03 — chaque rapport dit sur qui ou sur quoi il porte (`cible`)', async () => {
+      const mes = (await get('/api/rapports').expect(200)).body as Array<{
+        id: string;
+        cible: string | null;
+      }>;
+      const cible = (id: string): string | null | undefined => mes.find((r) => r.id === id)?.cible;
+      expect(cible(ids.rIndividuel)).toBe('Amel RapportA');
+      expect(cible(ids.rModule)).toBe('Module 1');
+      expect(cible(ids.rGlobal)).toBeNull();
+      expect((await get(`/api/rapports/${ids.rIndividuel}`).expect(200)).body.cible).toBe(
+        'Amel RapportA',
+      );
+      // Sans nom au profil : l'adresse e-mail ; le nom suit le profil à la lecture.
+      await dataSource.query('UPDATE users SET prenom = NULL, nom = NULL WHERE id = $1', [ids.a]);
+      try {
+        expect((await get(`/api/rapports/${ids.rIndividuel}`).expect(200)).body.cible).toBe(
+          EMAIL.a,
+        );
+      } finally {
+        await dataSource.query(`UPDATE users SET prenom = 'Amel', nom = 'RapportA' WHERE id = $1`, [
+          ids.a,
+        ]);
+      }
+    });
+
     it('409 tant que le rapport n’est pas prêt ; échec définitif -> ECHEC, tracé', async () => {
       const id = await un(
         `INSERT INTO rapports (type, format, demandeur_id, formation_id, parametres)

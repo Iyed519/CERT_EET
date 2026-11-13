@@ -21,6 +21,7 @@ Table des matières
 | 1.8 | Novembre 2026 (clôture Sprint 3) | Sprint 3 clôturé (réalisé du 08/11 au 09/11/2026, PR #40 → #65) : bloc A **livré** (54 pts) — US-QCM-10, US-ATEL-01 à 04, US-ATEL-06 à 09, US-CERT-01, 03, 04, 05, 06 ; bloc B (IA) **livré** en extension (24 pts) — US-IA-01 à 04 ; **US-FORM-05 et US-FORM-06 livrées** (8 pts, ajoutées en cours de sprint). Écarts de mise en œuvre tracés sous chaque story (« Mise en œuvre (v1.8) »). US-CERT-02 en grande partie couverte par US-CERT-01 ; US-IA-05 et US-IA-06 amorcées. Reportées : US-FORM-04, US-FORM-02, US-INSC-02, US-INSC-03, US-QCM-02, US-QCM-11, US-ATEL-05. Décision LLM (bloc B) : API hébergée Anthropic derrière une interface (ADR-05). Le calendrier réel reste décalé par rapport au Gantt (en-tête et L3 inchangés) : re-planification avec l'encadrant. Détail : bloc « Clôture du Sprint 3 » ci-dessous, `docs/Sprint3_Review.md`. |
 | 2.2 | 13 novembre 2026 | Ajout de **US-IA-08** (E6 · Must · 8 pts) — extraction par l'IA des questions d'un document (PDF texte ou scanné, DOCX, TXT/MD, CSV, XLSX, image), relecture humaine obligatoire ; livrée le 13/11/2026 (journal 94). Nouvelle épopée **E10 « Expérience utilisateur & charte ESPRIT »** (US-UI-01 → US-UI-08). Source : `claude/Cert_EET_Revision_v2.2_IA08_UI.md`. |
 | 2.3 | 13 novembre 2026 | Ajout de **US-IA-09** (E6 · Must · 3 pts) — la clé Anthropic prime (plus de réponses d'exemple silencieuses), IA non configurée signalée, erreurs du fournisseur en français dans l'interface ; demande du propriétaire après test, livrée le 13/11/2026 (journal 103). |
+| 2.4 | 13 novembre 2026 | Ajout de **US-RPT-03** (E8 · Must · 1 pt) — nom de l'apprenant (ou du module) dans le titre de chaque rapport ; demande du propriétaire, livrée le 13/11/2026 (journal 104). |
 | 2.1 | Novembre 2026 (après le Sprint 6) | Ajout de **US-QCM-13** (E3 · Should · 5 pts) — rapport PDF détaillé du résultat d'une tentative notée, pour l'apprenant (corrigé selon les règles d'US-QCM-09) et le formateur affecté (corrigé toujours inclus) ; livrée le 12/11/2026 (journal 93). Source : `claude/Cert_EET_Revision_v2.1_US-QCM-13.md`. |
 
 ---
@@ -625,9 +626,10 @@ Table des matières
 | US-DASH-01 | En tant qu’administrateur, je veux un tableau de bord global afin de suivre l’activité de toute la plateforme. | Should | 5 | UC7 Admin / DS-16 (P2) | NF3 | E2, E5 (données) |
 | US-DASH-02 | En tant qu’administrateur, je veux superviser tous les certificats afin de contrôler leur statut et leurs consultations. | Should | 3 | UC5 Admin / DS-16 (P3) | NF3 | E5 |
 | US-RPT-02 | En tant qu’administrateur, je veux exporter des rapports institutionnels afin d’alimenter bilans, audits et financements. | Should | 3 | UC Admin / DS-16 (P4) | NF1 | US-DASH-01, Bull |
+| US-RPT-03 | En tant que formateur, je veux voir le nom de l'apprenant (ou le module) dans le titre de chaque rapport afin de retrouver le bon rapport sans l'ouvrir. | Must | 1 | UC For / DS-14 (P3) | NF1 | US-RPT-01 — Livrée (journal 104) |
 | US-AUDIT-01 | En tant qu’administrateur, je veux consulter les journaux d’audit (filtrables, en lecture seule) afin d’assurer la conformité. | Should | 3 | UC10 Admin / DS-16 (P5) | NF3 | US-AUTH-12 (journal) |
 
-**Total E8 : 8 stories — 29 points.**
+**Total E8 : 9 stories — 30 points.** *(v2.4 : + US-RPT-03.)*
 
 #### Critères d’acceptation (Gherkin français)
 
