@@ -7,6 +7,7 @@ import { StatutTentative } from '../../../database/enums/statut-tentative.enum';
 import { AnalysePointsFaiblesService } from '../../assistance-ia/analyse-points-faibles/analyse-points-faibles.service';
 import { entreeAnalyseTentative } from '../../assistance-ia/analyse-points-faibles/analyse-points-faibles.regles';
 import { AuditService } from '../../audit/audit.service';
+import { LIBELLES_EVENEMENT, TypeEvenement } from '../../surveillance/surveillance.regles';
 import { EtatCorrection } from '../tentative-correction.regles';
 import { TentativeCorrectionService } from '../tentative-correction.service';
 import { dateHeureTunis, genererPdfRapport } from './rapport-tentative-pdf';
@@ -170,6 +171,22 @@ export class RapportTentativeService {
       [tentative.moduleId],
     );
 
+    // US-QCM-15 : alertes de la surveillance par IA, pour le formateur et l'admin.
+    const alertesSurveillance =
+      demandeur.role === Role.APPRENANT
+        ? null
+        : (
+            (await this.dataSource.query(
+              `SELECT type, detecte_le AS "detecteLe", statut FROM evenements_surveillance
+                WHERE tentative_id = $1 ORDER BY detecte_le, id`,
+              [tentative.id],
+            )) as Array<{ type: TypeEvenement; detecteLe: Date; statut: string }>
+          ).map((a) => ({
+            libelle: LIBELLES_EVENEMENT[a.type] ?? a.type,
+            detecteLe: new Date(a.detecteLe),
+            examinee: a.statut === 'EXAMINE',
+          }));
+
     const pdf = await genererPdfRapport({
       tentativeId: tentative.id,
       formationTitre: tentative.formationTitre,
@@ -190,6 +207,7 @@ export class RapportTentativeService {
       aRevoir: pointsARevoir(lignes),
       parNiveau: reussiteParNiveau(lignes),
       analyseIa,
+      alertesSurveillance,
       corrigeAbsent:
         avecCorrige || etat === null ? null : phraseCorrigeAbsent(etat, dateHeureTunis),
       dateGeneration: new Date(maintenant),

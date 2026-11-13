@@ -23,6 +23,7 @@ import { RedisService } from '../../redis/redis.service';
 import { StockageService } from '../../stockage/stockage.service';
 import { AuditService } from '../audit/audit.service';
 import { AutorisationRessourceService } from '../formations/autorisation/autorisation-ressource.service';
+import { SurveillanceAlertesService } from './surveillance-alertes.service';
 import {
   attenteAvantCapture,
   capturesMax,
@@ -81,7 +82,9 @@ const MESSAGE_ACCES =
  *   publique durable.
  * - Purge : captures plus anciennes que la durée de conservation supprimées
  *   (stockage puis base), suppression journalisée ; balayage planifié.
- * - Aucune analyse automatique des images.
+ * - Les captures périodiques ne sont pas analysées ; l'analyse par IA
+ *   (US-QCM-15) se fait dans le navigateur et produit des alertes à part
+ *   (SurveillanceAlertesService), purgées avec les captures.
  */
 @Injectable()
 export class SurveillanceService implements OnModuleInit, OnModuleDestroy {
@@ -95,6 +98,7 @@ export class SurveillanceService implements OnModuleInit, OnModuleDestroy {
     private readonly auditService: AuditService,
     private readonly autorisation: AutorisationRessourceService,
     private readonly configService: ConfigService,
+    private readonly alertes: SurveillanceAlertesService,
   ) {}
 
   private get config(): SurveillanceConfig {
@@ -301,11 +305,19 @@ export class SurveillanceService implements OnModuleInit, OnModuleDestroy {
           `SELECT id, cle_stockage FROM captures_webcam WHERE prise_le < $1`,
           [limiteConservation(new Date(), this.config.conservationJours)],
         )) as Array<{ id: string; cle_stockage: string }>);
-    if (lignes.length === 0) return 0;
-    await this.stockage.supprimer(lignes.map((l) => l.cle_stockage));
-    await this.dataSource.query(`DELETE FROM captures_webcam WHERE id = ANY($1::uuid[])`, [
-      lignes.map((l) => l.id),
-    ]);
+    // US-QCM-15 : les photos des alertes de l'IA suivent la même règle.
+    const nbAlertes = await this.alertes.purger(
+      options.apprenantId
+        ? { apprenantId: options.apprenantId }
+        : { avant: limiteConservation(new Date(), this.config.conservationJours) },
+    );
+    if (lignes.length === 0 && nbAlertes === 0) return 0;
+    if (lignes.length > 0) {
+      await this.stockage.supprimer(lignes.map((l) => l.cle_stockage));
+      await this.dataSource.query(`DELETE FROM captures_webcam WHERE id = ANY($1::uuid[])`, [
+        lignes.map((l) => l.id),
+      ]);
+    }
     await this.auditService.record({
       action: 'CAPTURES_PURGEES',
       acteur: options.acteur ?? null,
@@ -313,6 +325,7 @@ export class SurveillanceService implements OnModuleInit, OnModuleDestroy {
       resultat: 'Succès',
       detailsAvantApres: {
         nbCaptures: lignes.length,
+        nbAlertes,
         cause: options.apprenantId ? 'ANONYMISATION' : 'CONSERVATION',
         conservationJours: this.config.conservationJours,
       },

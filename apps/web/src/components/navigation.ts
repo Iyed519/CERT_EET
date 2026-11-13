@@ -89,6 +89,41 @@ export const SOUS_NAVIGATION_ADMIN: Record<string, Array<[string, string]>> = {
   ],
 };
 
+/**
+ * US-QCM-15 — Sous-navigation des sections du formateur : « Alertes » réunit
+ * le décrochage (US-SUIVI-02) et la surveillance des QCM par IA.
+ */
+export const SOUS_NAVIGATION_FORMATEUR: Record<string, Array<[string, string]>> = {
+  Alertes: [
+    ['/formateur/alertes', 'Décrochage'],
+    ['/formateur/alertes/surveillance', 'Surveillance des QCM'],
+  ],
+};
+
+/** Sous-navigation d'une section, selon le rôle (vide sinon). */
+export function sousNavigation(role: Role, section: string): Array<[string, string]> {
+  const table =
+    role === 'ADMINISTRATEUR'
+      ? SOUS_NAVIGATION_ADMIN
+      : role === 'FORMATEUR'
+        ? SOUS_NAVIGATION_FORMATEUR
+        : {};
+  return table[section] ?? [];
+}
+
+/** Onglet actif d'une sous-navigation : le plus précis qui contient le chemin. */
+export function ongletActif(
+  onglets: Array<[string, string]>,
+  chemin: string | null,
+): [string, string] | null {
+  if (!chemin) return null;
+  return (
+    onglets
+      .filter(([href]) => chemin === href || chemin.startsWith(`${href}/`))
+      .sort((x, y) => y[0].length - x[0].length)[0] ?? null
+  );
+}
+
 /** US-UI-03 — Section du menu qui contient ce chemin (lien actif), ou null. */
 export function sectionDe(role: Role, chemin: string | null): LienNavigation | null {
   return LIENS_PAR_ROLE[role].find((l) => estActif(l, chemin)) ?? null;
@@ -105,9 +140,7 @@ export function filAriane(role: Role, chemin: string | null): Array<{ href: stri
   if (!section) return [];
   const accueil = { href: PAGE_ACCUEIL_PAR_ROLE[role], libelle: 'Accueil' };
   const miettes = [accueil, { href: section.href, libelle: section.libelle }];
-  const page = (SOUS_NAVIGATION_ADMIN[section.libelle] ?? []).find(
-    ([href]) => chemin === href || chemin.startsWith(`${href}/`),
-  );
+  const page = ongletActif(sousNavigation(role, section.libelle), chemin);
   if (page && page[0] !== section.href) miettes.push({ href: page[0], libelle: page[1] });
   return miettes;
 }

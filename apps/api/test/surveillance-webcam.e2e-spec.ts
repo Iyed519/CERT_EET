@@ -289,7 +289,11 @@ describe('E2E-QCM12 — Surveillance webcam par captures (US-QCM-12)', () => {
       .get(`/api/tentatives/${tentativeSurveillee}`)
       .set('Authorization', `Bearer ${jetons.a}`)
       .expect(200);
-    expect(vue.body.surveillance).toEqual({ active: true, intervalleSecondes: 120 });
+    expect(vue.body.surveillance).toEqual({
+      active: true,
+      intervalleSecondes: 120,
+      absenceSecondes: 300,
+    });
 
     const libre = await api()
       .post(`/api/qcm/${qcm.libre}/tentatives`)

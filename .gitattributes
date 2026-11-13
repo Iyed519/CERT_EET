@@ -1,3 +1,5 @@
 * text=auto eol=lf
 # US-IA-08 : jeux d'essai d'extraction gardés octet pour octet (CSV Windows-1252 en CRLF).
 apps/api/test/fixtures/extraction/** -text
+# US-QCM-15 : modèle de détection (binaire, jamais converti).
+*.tflite binary

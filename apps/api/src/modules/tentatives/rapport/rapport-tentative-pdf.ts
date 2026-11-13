@@ -41,6 +41,11 @@ export interface ContenuRapport {
   corrigeAbsent: string | null;
   /** US-IA-10 — Analyse des points faibles par l'IA, ou la cause de son absence. */
   analyseIa: ResultatAnalyse;
+  /**
+   * US-QCM-15 — Alertes de la surveillance par IA (formateur et administrateur
+   * seulement ; null pour l'apprenant). Sans photo dans le PDF.
+   */
+  alertesSurveillance?: Array<{ libelle: string; detecteLe: Date; examinee: boolean }> | null;
   dateGeneration: Date;
 }
 
@@ -202,6 +207,29 @@ export function genererPdfRapport(c: ContenuRapport): Promise<Buffer> {
       });
     }
     filet();
+
+    // --- US-QCM-15 : alertes de la surveillance par IA (formateur, admin) --
+    if (c.alertesSurveillance && c.alertesSurveillance.length > 0) {
+      doc.font('Helvetica-Bold').fontSize(13).fillColor(ENCRE).text('Alertes de surveillance (IA)');
+      doc.moveDown(0.3);
+      doc.font('Helvetica').fontSize(10).fillColor(ENCRE);
+      for (const a of c.alertesSurveillance) {
+        doc.text(
+          `• ${dateHeureTunis(a.detecteLe)} — ${t(a.libelle)} — ${a.examinee ? 'examinée' : 'à examiner'}`,
+          { width: largeur },
+        );
+      }
+      doc.moveDown(0.3);
+      doc
+        .font('Helvetica-Oblique')
+        .fontSize(9)
+        .fillColor(GRIS)
+        .text(
+          'Les photos prises au moment de chaque alerte sont dans Cert_EET (Alertes › Surveillance des QCM). L’IA signale ; le formateur décide.',
+          { width: largeur },
+        );
+      filet();
+    }
 
     // --- US-IA-10 : analyse des points faibles par l'IA ------------------
     dessinerAnalyseIa(doc, c.analyseIa, {

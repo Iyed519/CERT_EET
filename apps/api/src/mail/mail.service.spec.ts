@@ -409,6 +409,41 @@ describe('MailService', () => {
     });
   });
 
+  describe('sendAlerteSurveillanceEmail (US-QCM-15)', () => {
+    it('nomme l’anomalie, l’apprenant et le QCM, mène aux alertes, sans photo', async () => {
+      await service.sendAlerteSurveillanceEmail('sami@cert-eet.local', {
+        prenom: 'Sami',
+        apprenant: 'Amel Abidi',
+        qcm: 'Bases Java',
+        formation: 'Java',
+        anomalie: 'Téléphone détecté',
+      });
+      const message = dernierMessage();
+      expect(message.to).toBe('sami@cert-eet.local');
+      expect(message.subject).toBe('Cert_EET — Alerte de surveillance : Téléphone détecté');
+      expect(message.text).toContain('Bonjour Sami,');
+      expect(message.text).toContain('Téléphone détecté — Amel Abidi, QCM « Bases Java » (Java).');
+      expect(message.text).toContain('http://localhost:3001/formateur/alertes/surveillance');
+      expect(message.html).toContain('href="http://localhost:3001/formateur/alertes/surveillance"');
+      expect(message.html).not.toMatch(/<img/);
+    });
+
+    it('sans prénom ; échappe le HTML ; noms sur une ligne', async () => {
+      await service.sendAlerteSurveillanceEmail('s@cert-eet.local', {
+        prenom: '  ',
+        apprenant: '<b>X</b>\r\nY',
+        qcm: 'Q',
+        formation: 'F',
+        anomalie: 'Absence prolongée',
+      });
+      const message = dernierMessage();
+      expect(message.text).toContain('Bonjour,');
+      expect(message.text).toContain('<b>X</b> Y, QCM');
+      expect(message.html).not.toContain('<b>X</b>');
+      expect(message.html).toContain('&lt;b&gt;X&lt;/b&gt; Y');
+    });
+  });
+
   describe('sendMotDePasseModifieEmail (US-AUTH-08)', () => {
     it('prévient le titulaire, échappe le prénom et mène à la connexion', async () => {
       await service.sendMotDePasseModifieEmail('u@cert-eet.local', { prenom: '<i>Iyed</i>' });

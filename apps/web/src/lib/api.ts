@@ -1619,7 +1619,7 @@ export interface QuestionTentative {
 export interface TentativeConsultee {
   // US-QCM-12 — surveillance webcam de cette tentative (capture au démarrage
   // puis toutes les `intervalleSecondes`).
-  surveillance?: { active: boolean; intervalleSecondes: number };
+  surveillance?: { active: boolean; intervalleSecondes: number; absenceSecondes?: number };
   id: string;
   qcmId: string;
   qcmTitre: string;
@@ -4406,6 +4406,104 @@ export async function lienCapture(captureId: string): Promise<string> {
   if (!response.ok || !data.url) {
     throw new AdminError(messageErreur(data) ?? 'Impossible d’ouvrir la capture.', response.status);
   }
+  return data.url;
+}
+
+// ---------------------------------------------------------------------------
+// US-QCM-15 — Alertes de la surveillance par IA (photo du moment).
+// ---------------------------------------------------------------------------
+
+export type TypeAlerteSurveillance =
+  | 'PERSONNES_MULTIPLES'
+  | 'ABSENCE'
+  | 'TELEPHONE'
+  | 'DOCUMENT'
+  | 'CAMERA_MASQUEE'
+  | 'ONGLET_QUITTE'
+  | 'ANALYSE_INDISPONIBLE';
+export type StatutAlerteSurveillance = 'NOUVEAU' | 'EXAMINE';
+
+export interface AlerteSurveillance {
+  id: string;
+  type: TypeAlerteSurveillance;
+  libelle: string;
+  confiance: number | null;
+  detecteLe: string;
+  statut: StatutAlerteSurveillance;
+  examineLe: string | null;
+  tentativeId: string;
+  qcm: { id: string; titre: string };
+  formation: { id: string; titre: string };
+  apprenant: { prenom: string | null; nom: string | null; email: string };
+}
+
+const lireAlertes = async <T>(response: Response, defaut: string): Promise<T> => {
+  const data = (await response.json().catch(() => ({}))) as T & { message?: string | string[] };
+  if (!response.ok) throw new AdminError(messageErreur(data) ?? defaut, response.status);
+  return data;
+};
+
+/** POST /api/tentatives/:id/alertes-surveillance — l'apprenant, pendant le QCM. */
+export async function deposerAlerteSurveillance(
+  tentativeId: string,
+  type: TypeAlerteSurveillance,
+  confiance: number | null,
+  photo: Blob,
+): Promise<boolean> {
+  const corps = new FormData();
+  corps.append('type', type);
+  if (confiance !== null) corps.append('confiance', String(confiance));
+  corps.append('photo', photo, 'alerte.jpg');
+  const response = await apiFetch(`/api/tentatives/${tentativeId}/alertes-surveillance`, {
+    method: 'POST',
+    body: corps,
+  });
+  return response.ok;
+}
+
+/** GET /api/surveillance/alertes — formations du formateur (toutes pour l'admin). */
+export async function getAlertesSurveillance(
+  statut: StatutAlerteSurveillance | null,
+): Promise<AlerteSurveillance[]> {
+  const response = await apiFetch(
+    `/api/surveillance/alertes${statut ? `?statut=${statut}` : ''}`,
+  );
+  return lireAlertes<AlerteSurveillance[]>(response, 'Impossible de charger les alertes.');
+}
+
+/** GET /api/surveillance/alertes/a-examiner — nombre d'alertes nouvelles. */
+export async function getNombreAlertesSurveillance(): Promise<number> {
+  const response = await apiFetch('/api/surveillance/alertes/a-examiner');
+  return (await lireAlertes<{ nombre: number }>(response, 'Impossible de compter les alertes.'))
+    .nombre;
+}
+
+/** GET /api/tentatives/:id/alertes-surveillance — formateur affecté ou admin. */
+export async function getAlertesTentative(tentativeId: string): Promise<AlerteSurveillance[]> {
+  const response = await apiFetch(`/api/tentatives/${tentativeId}/alertes-surveillance`);
+  return lireAlertes<AlerteSurveillance[]>(response, 'Impossible de charger les alertes.');
+}
+
+/** PATCH /api/surveillance/alertes/:id — examinée, ou à examiner de nouveau. */
+export async function examinerAlerteSurveillance(
+  alerteId: string,
+  statut: StatutAlerteSurveillance,
+): Promise<AlerteSurveillance> {
+  const response = await apiFetch(`/api/surveillance/alertes/${alerteId}`, {
+    method: 'PATCH',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ statut }),
+  });
+  return lireAlertes<AlerteSurveillance>(response, 'Impossible de mettre à jour l’alerte.');
+}
+
+/** POST /api/surveillance/alertes/:id/lien — lien signé (2 min) vers la photo. */
+export async function lienPhotoAlerte(alerteId: string): Promise<string> {
+  const response = await apiFetch(`/api/surveillance/alertes/${alerteId}/lien`, {
+    method: 'POST',
+  });
+  const data = await lireAlertes<{ url?: string }>(response, 'Impossible d’ouvrir la photo.');
+  if (!data.url) throw new AdminError('Impossible d’ouvrir la photo.', 500);
   return data.url;
 }
 

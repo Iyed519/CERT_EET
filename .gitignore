@@ -32,3 +32,6 @@ ml/.venv/
 .ipynb_checkpoints/
 __pycache__/
 .pytest_cache/
+
+# US-QCM-15 : moteur WebAssembly de MediaPipe, copié depuis node_modules avant dev / build
+apps/web/public/mediapipe/wasm/

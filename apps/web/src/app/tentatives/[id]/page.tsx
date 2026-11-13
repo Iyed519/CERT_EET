@@ -478,11 +478,12 @@ export default function TentativePage(): JSX.Element {
       </section>
       )}
 
-      {/* US-QCM-12 — captures webcam pendant le passage d'un QCM surveillé. */}
+      {/* US-QCM-12 / US-QCM-15 — surveillance par caméra (captures et alertes de l'IA). */}
       {enCours && tentative.surveillance?.active && (
         <SurveillanceWebcam
           tentativeId={tentative.id}
           intervalleSecondes={tentative.surveillance.intervalleSecondes}
+          absenceSecondes={tentative.surveillance.absenceSecondes ?? 300}
         />
       )}
 

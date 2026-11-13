@@ -51,3 +51,43 @@ export function attenteAvantCapture(
 export function limiteConservation(maintenant: Date, jours: number): Date {
   return new Date(maintenant.getTime() - jours * 24 * 3600 * 1000);
 }
+
+/** US-QCM-15 — Anomalies détectées par l'IA dans le navigateur. */
+export const TYPES_EVENEMENT = [
+  'PERSONNES_MULTIPLES',
+  'ABSENCE',
+  'TELEPHONE',
+  'DOCUMENT',
+  'CAMERA_MASQUEE',
+  'ONGLET_QUITTE',
+  'ANALYSE_INDISPONIBLE',
+] as const;
+export type TypeEvenement = (typeof TYPES_EVENEMENT)[number];
+
+export const estTypeEvenement = (v: unknown): v is TypeEvenement =>
+  typeof v === 'string' && (TYPES_EVENEMENT as readonly string[]).includes(v);
+
+/** Libellés français (e-mail, PDF, audit). */
+export const LIBELLES_EVENEMENT: Record<TypeEvenement, string> = {
+  PERSONNES_MULTIPLES: 'Plusieurs personnes devant la caméra',
+  ABSENCE: 'Apprenant absent de l’image',
+  TELEPHONE: 'Téléphone détecté',
+  DOCUMENT: 'Livre ou document détecté',
+  CAMERA_MASQUEE: 'Caméra masquée ou image noire',
+  ONGLET_QUITTE: 'Page du QCM quittée',
+  ANALYSE_INDISPONIBLE: 'Analyse automatique indisponible sur ce poste',
+};
+
+/** Photo d'une alerte : 640 × 480 JPEG, 200 Ko au plus. */
+export const TAILLE_MAX_PHOTO_ALERTE = 200 * 1024;
+/** Même anomalie : 30 s au moins entre deux alertes (le navigateur attend 60 s). */
+export const ECART_MIN_MEME_ALERTE_SECONDES = 30;
+/** Alertes au plus par tentative. */
+export const ALERTES_MAX_PAR_TENTATIVE = 60;
+
+/** Score du modèle : nombre entre 0 et 1, sinon null (arrondi à 3 décimales). */
+export function confianceValide(v: unknown): number | null {
+  const n = typeof v === 'string' && v.trim() !== '' ? Number(v) : typeof v === 'number' ? v : NaN;
+  if (!Number.isFinite(n) || n < 0 || n > 1) return null;
+  return Math.round(n * 1000) / 1000;
+}

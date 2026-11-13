@@ -105,8 +105,23 @@ export function aFaireApprenant(espaces: readonly EspaceFormationVue[]): Element
 }
 
 /** Formateur : livrables à corriger et tentatives à évaluer par formation, alertes ouvertes. */
-export function aFaireFormateur(t: TableauDeBordFormateur): ElementAFaire[] {
+export function aFaireFormateur(
+  t: TableauDeBordFormateur,
+  alertesSurveillance = 0,
+): ElementAFaire[] {
   const elements: ElementAFaire[] = [];
+  // US-QCM-15 : alertes de la surveillance par IA, avec leur photo.
+  if (alertesSurveillance > 0) {
+    elements.push({
+      cle: 'surveillance',
+      libelle: `Examiner ${pluriel(alertesSurveillance, 'alerte de surveillance', 'alertes de surveillance')}`,
+      detail: 'Photos prises pendant les QCM',
+      href: '/formateur/alertes/surveillance',
+      action: 'Voir les photos',
+      urgence: 0,
+      echeance: '',
+    });
+  }
   for (const f of t.mesFormations) {
     if (f.livrablesAEvaluer > 0) {
       elements.push({
