@@ -15,6 +15,14 @@
 
 ## [Après le Sprint 6] — Stories hors sprint
 
+#### US-UI-01 — Listes compactes et fiche détaillée en fenêtre — journal `engineering-log/95`
+- **Quoi :** la prédiction du risque affiche une ligne par apprenant (nom, niveau, facteur
+  principal, alertes ouvertes), du risque le plus élevé au plus faible ; le détail s'ouvre dans une
+  fenêtre. « Mes certificats » suit le même modèle. Une seule fenêtre modale accessible
+  (`Fenetre` : Échap, clic à l'extérieur, focus gardé puis rendu, plein écran sur mobile) remplace
+  les fenêtres recopiées (confirmation, détails de tentative, import).
+- **Pourquoi :** voir toute la classe d'un coup d'œil au lieu de faire défiler de longues cartes.
+
 #### US-IA-08 — Importer des questions depuis un fichier (extraction par l'IA) — journal `engineering-log/94`
 - **Quoi :** dans l'éditeur de QCM, « Importer depuis un fichier » : le formateur dépose un ancien
   examen, une banque Excel ou CSV, un sujet Word, un PDF (même scanné) ou la photo d'une feuille ;

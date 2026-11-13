@@ -20,7 +20,7 @@ import {
   toutAccepterExtraction,
 } from '../lib/api';
 import { dateHeureFr, LIBELLES_TYPE_GENERABLE } from '../lib/format';
-import { CroixFermeture } from './CroixFermeture';
+import { Fenetre } from './Fenetre';
 import { QuestionModal } from './QuestionModal';
 
 const LIBELLES_STATUT: Record<StatutExtraction, string> = {
@@ -227,17 +227,14 @@ export function ImportFichierModal({
   const bloque = occupe !== null;
 
   return (
-    <div className="profil-overlay" role="dialog" aria-modal="true" aria-labelledby="import-titre">
-      <section className="profil-card modal-closable suggestions-card">
-        <CroixFermeture onClose={onClose} disabled={bloque} />
-        <h2 className="auth-title" id="import-titre">
-          Importer des questions depuis un fichier
-        </h2>
-        <p className="auth-subtitle">
-          Déposez un ancien examen, une banque Excel ou CSV, un sujet Word, un PDF (même scanné) ou
-          la photo d’une feuille : l’IA recopie les questions qu’il contient, sans en inventer. Vous
-          relisez chacune avant qu’elle n’entre dans le QCM.
-        </p>
+    <>
+      <Fenetre
+        titre="Importer des questions depuis un fichier"
+        sousTitre="Déposez un ancien examen, une banque Excel ou CSV, un sujet Word, un PDF (même scanné) ou la photo d’une feuille : l’IA recopie les questions qu’il contient, sans en inventer. Vous relisez chacune avant qu’elle n’entre dans le QCM."
+        onClose={onClose}
+        occupe={bloque}
+        classe="suggestions-card"
+      >
 
         {erreur !== null && (
           <p className="alert alert-error" role="alert">
@@ -515,7 +512,7 @@ export function ImportFichierModal({
             </div>
           </>
         )}
-      </section>
+      </Fenetre>
 
       {aModifier && (
         <QuestionModal
@@ -534,6 +531,6 @@ export function ImportFichierModal({
           }}
         />
       )}
-    </div>
+    </>
   );
 }

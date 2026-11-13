@@ -10,6 +10,7 @@ import {
   RisqueFormation,
 } from '../lib/api';
 import { dateHeureFr, LIBELLES_CRITERE_ALERTE, nomApprenantFr, nombreFr } from '../lib/format';
+import { Fenetre } from './Fenetre';
 
 /** Libellé toujours affiché : le niveau n'est jamais porté par la couleur seule. */
 export const LIBELLES_NIVEAU_RISQUE: Record<NiveauRisque, string> = {
@@ -19,6 +20,30 @@ export const LIBELLES_NIVEAU_RISQUE: Record<NiveauRisque, string> = {
 };
 
 const RAPPEL = 'Suggestion du modèle, à valider par le formateur.';
+
+const RANG: Record<NiveauRisque, number> = { ELEVE: 0, MOYEN: 1, FAIBLE: 2 };
+
+/**
+ * US-UI-01 — Ordre de la liste compacte : risque élevé, moyen, faible, puis
+ * sans prédiction ; à niveau égal, le plus d'alertes ouvertes d'abord ; puis
+ * le nom.
+ */
+export function trierRisque(lignes: readonly LigneRisque[]): LigneRisque[] {
+  return [...lignes].sort(
+    (a, b) =>
+      (a.risque ? RANG[a.risque.niveau] : 3) - (b.risque ? RANG[b.risque.niveau] : 3) ||
+      b.alertesOuvertes.length - a.alertesOuvertes.length ||
+      nomApprenantFr(a.apprenant).localeCompare(nomApprenantFr(b.apprenant), 'fr'),
+  );
+}
+
+/** US-UI-01 — Facteur principal affiché sur la ligne (la 1re raison du modèle). */
+export function facteurPrincipal(ligne: LigneRisque): string {
+  const r = ligne.risque;
+  if (!r) return 'Prédiction indisponible';
+  if (r.niveau === 'FAIBLE' || r.raisons.length === 0) return 'Pas de signal important';
+  return r.raisons[0];
+}
 
 const messageDe = (e: unknown, defaut: string): string => (e instanceof Error ? e.message : defaut);
 
@@ -184,48 +209,141 @@ export function ApprenantsRisque({
       {donnees.apprenants.length === 0 ? (
         <p className="kpi-sous">Aucun apprenant inscrit en cours.</p>
       ) : (
-        <ul className="risque-liste">
-          {donnees.apprenants.map((l) => (
-            <CarteApprenant key={l.inscriptionId} ligne={l} />
-          ))}
-        </ul>
+        <ListeRisque lignes={donnees.apprenants} formationId={formationId} lienSuivi={lienSuivi} />
       )}
     </div>
   );
 }
 
-function CarteApprenant({ ligne }: { ligne: LigneRisque }): JSX.Element {
+/**
+ * US-UI-01 — Une ligne par apprenant (nom, pastille, facteur principal,
+ * alertes ouvertes), du risque le plus élevé au plus faible ; un clic ouvre
+ * la fiche complète dans une fenêtre.
+ */
+function ListeRisque({
+  lignes,
+  formationId,
+  lienSuivi,
+}: {
+  lignes: LigneRisque[];
+  formationId: string;
+  lienSuivi: boolean;
+}): JSX.Element {
+  const [ouverte, setOuverte] = useState<LigneRisque | null>(null);
+  const triees = trierRisque(lignes);
+  return (
+    <>
+      <div className="table-wrap table-wrap-compacte">
+        <table className="data-table table-compacte">
+          <caption className="sr-only">Apprenants, du risque le plus élevé au plus faible</caption>
+          <thead>
+            <tr>
+              <th scope="col">Apprenant</th>
+              <th scope="col">Niveau suggéré</th>
+              <th scope="col">Facteur principal</th>
+              <th scope="col">Alertes ouvertes</th>
+            </tr>
+          </thead>
+          <tbody>
+            {triees.map((l) => (
+              <tr key={l.inscriptionId} className={l.risque ? `ligne-risque-${l.risque.niveau}` : undefined}>
+                <th scope="row" data-libelle="Apprenant">
+                  <button type="button" className="lien-bouton ligne-ouvrir" onClick={() => setOuverte(l)}>
+                    {nomApprenantFr(l.apprenant)}
+                  </button>
+                </th>
+                <td data-libelle="Niveau suggéré">
+                  {l.risque ? (
+                    <span className={`statut-badge niveau-${l.risque.niveau}`}>
+                      {LIBELLES_NIVEAU_RISQUE[l.risque.niveau]}
+                    </span>
+                  ) : (
+                    <span className="statut-badge niveau-AUCUN">Indisponible</span>
+                  )}
+                </td>
+                <td data-libelle="Facteur principal" className="cellule-facteur">
+                  {facteurPrincipal(l)}
+                </td>
+                <td data-libelle="Alertes ouvertes">{nombreFr(l.alertesOuvertes.length)}</td>
+              </tr>
+            ))}
+          </tbody>
+        </table>
+      </div>
+      {ouverte && (
+        <FicheRisque
+          ligne={ouverte}
+          formationId={formationId}
+          lienSuivi={lienSuivi}
+          onClose={() => setOuverte(null)}
+        />
+      )}
+    </>
+  );
+}
+
+/** US-UI-01 — Fiche d'un apprenant : niveau, toutes les raisons, alertes des règles. */
+function FicheRisque({
+  ligne,
+  formationId,
+  lienSuivi,
+  onClose,
+}: {
+  ligne: LigneRisque;
+  formationId: string;
+  lienSuivi: boolean;
+  onClose: () => void;
+}): JSX.Element {
   const r = ligne.risque;
   return (
-    <li className={`risque-carte${r ? ` risque-carte-${r.niveau}` : ''}`}>
-      <div className="risque-tete">
-        <strong className="risque-nom">{nomApprenantFr(ligne.apprenant)}</strong>
-        {r ? (
-          <span className={`statut-badge niveau-${r.niveau}`}>{LIBELLES_NIVEAU_RISQUE[r.niveau]}</span>
+    <Fenetre
+      titre={nomApprenantFr(ligne.apprenant)}
+      sousTitre={RAPPEL}
+      onClose={onClose}
+      actions={
+        <>
+          {lienSuivi && (
+            <Link className="btn btn-secondaire" href={`/formateur/formations/${formationId}/suivi`}>
+              Suivi pédagogique
+            </Link>
+          )}
+          <button type="button" className="btn" onClick={onClose}>
+            Fermer
+          </button>
+        </>
+      }
+    >
+      <div className="fiche-risque">
+        <p>
+          {r ? (
+            <span className={`statut-badge niveau-${r.niveau}`}>{LIBELLES_NIVEAU_RISQUE[r.niveau]}</span>
+          ) : (
+            <span className="statut-badge niveau-AUCUN">Prédiction indisponible</span>
+          )}
+        </p>
+        <h3 className="section-title">Raisons suggérées par le modèle</h3>
+        {r && r.niveau !== 'FAIBLE' && r.raisons.length > 0 ? (
+          <ul className="risque-raisons">
+            {r.raisons.map((raison) => (
+              <li key={raison}>{raison}</li>
+            ))}
+          </ul>
         ) : (
-          <span className="statut-badge niveau-AUCUN">Prédiction indisponible</span>
+          <p className="kpi-sous">{r ? 'Pas de signal de risque important.' : 'Aucune prédiction pour cet apprenant.'}</p>
         )}
-      </div>
-      {r && r.niveau !== 'FAIBLE' && r.raisons.length > 0 && (
-        <ul className="risque-raisons" aria-label="Raisons suggérées par le modèle">
-          {r.raisons.map((raison) => (
-            <li key={raison}>{raison}</li>
-          ))}
-        </ul>
-      )}
-      {r && (r.niveau === 'FAIBLE' || r.raisons.length === 0) && (
-        <p className="kpi-sous risque-texte">Pas de signal de risque important.</p>
-      )}
-      <p className="kpi-sous risque-texte">
-        Alertes des règles :{' '}
-        {ligne.alertesOuvertes.length === 0
-          ? 'aucune ouverte'
-          : ligne.alertesOuvertes.map((c) => (
+        <h3 className="section-title">Alertes des règles</h3>
+        {ligne.alertesOuvertes.length === 0 ? (
+          <p className="kpi-sous">Aucune alerte ouverte.</p>
+        ) : (
+          <p>
+            {ligne.alertesOuvertes.map((c) => (
               <span key={c} className="badge-alerte">
                 {LIBELLES_CRITERE_ALERTE[c] ?? c}
               </span>
             ))}
-      </p>
-    </li>
+          </p>
+        )}
+      </div>
+    </Fenetre>
   );
 }
