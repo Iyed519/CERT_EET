@@ -29,6 +29,8 @@ const INTROUVABLE: Record<TypeRessource, string> = {
   ressource: 'Ressource introuvable.',
   suggestion: 'Suggestion introuvable.',
   alerte: 'Alerte introuvable.',
+  extraction: 'Extraction introuvable.',
+  questionExtraite: 'Question extraite introuvable.',
 };
 
 /**
@@ -111,6 +113,8 @@ export class FormateurDeLaFormationGuard implements CanActivate {
     if ('ressourceId' in source) return ['ressource', source.ressourceId];
     if ('alerteId' in source) return ['alerte', source.alerteId];
     if ('suggestionId' in source) return ['suggestion', source.suggestionId];
+    if ('extractionId' in source) return ['extraction', source.extractionId];
+    if ('questionExtraiteId' in source) return ['questionExtraite', source.questionExtraiteId];
     return ['qcm', source.qcmId];
   }
 

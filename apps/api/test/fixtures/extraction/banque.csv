@@ -1,0 +1,4 @@
+Question;Option A;Option B;Option C;Bonne réponse;Explication
+Quel outil orchestre des conteneurs ?;Kubernetes;Excel;Paint;A;Kubernetes orchestre.
+Quelle commande crée une image Docker ?;docker build;docker rm;docker ps;A;
+Que signifie « CI » ?;Intégration continue;Code inutile;Clé interne;;

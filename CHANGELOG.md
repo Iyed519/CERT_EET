@@ -15,6 +15,17 @@
 
 ## [Après le Sprint 6] — Stories hors sprint
 
+#### US-IA-08 — Importer des questions depuis un fichier (extraction par l'IA) — journal `engineering-log/94`
+- **Quoi :** dans l'éditeur de QCM, « Importer depuis un fichier » : le formateur dépose un ancien
+  examen, une banque Excel ou CSV, un sujet Word, un PDF (même scanné) ou la photo d'une feuille ;
+  l'IA recopie les questions en tâche de fond (sans en inventer ; « bonne réponse à choisir » si le
+  document ne la donne pas), puis il relit chaque question : accepter telle quelle ou retouchée,
+  rejeter, ou tout accepter pour les questions complètes. Fichier contrôlé sur son contenu (400 sans
+  appel à l'IA), supprimé du stockage dès la fin, gardé en cas d'échec pour la relance ; tout est
+  journalisé.
+- **Pourquoi :** ne plus ressaisir à la main des questions qui existent déjà dans des documents,
+  tout en gardant le contrôle humain sur ce qui entre dans un QCM certifiant.
+
 #### US-QCM-13 — Rapport PDF détaillé du résultat d'un QCM — journal `engineering-log/93`
 - **Quoi :** bouton « Télécharger le rapport (PDF) » sur la page de résultat, dans « Mes évaluations »
   et dans le suivi des tentatives du formateur. Le PDF reprend l'en-tête de la tentative, la synthèse

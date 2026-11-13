@@ -1,11 +1,18 @@
 import {
+  DemandeExtraction,
   ErreurLlm,
   FournisseurLlm,
   OptionsAppelLlm,
+  OUTIL_EXTRACTION,
   OUTIL_QUESTIONS,
   PromptGeneration,
+  SCHEMA_EXTRACTION,
   SCHEMA_QUESTIONS,
 } from './fournisseur-llm';
+
+/** US-IA-08 : ce fournisseur ne reçoit que du texte. */
+export const MESSAGE_VISION_NON_PRISE_EN_CHARGE =
+  'Ce fournisseur d’IA ne lit pas les images ni les PDF scannés : déposez un document texte (PDF texte, DOCX, CSV, XLSX, TXT).';
 
 /**
  * US-IA-06 — Fournisseur « compatible OpenAI » : tout service qui expose
@@ -29,6 +36,43 @@ export class LlmCompatibleOpenAi implements FournisseurLlm {
   }
 
   async genererQuestions(prompt: PromptGeneration, options: OptionsAppelLlm): Promise<unknown> {
+    return this.appeler(
+      prompt.systeme,
+      prompt.utilisateur,
+      OUTIL_QUESTIONS,
+      'Enregistre les questions proposées, au format imposé.',
+      SCHEMA_QUESTIONS,
+      options,
+    );
+  }
+
+  /**
+   * US-IA-08 — Extraction : même appel, outil `extraire_questions`. Texte
+   * seulement : une image ou un PDF scanné est refusé (erreur non
+   * récupérable, message clair) ; aucune requête n'est envoyée.
+   */
+  async extraireQuestions(demande: DemandeExtraction, options: OptionsAppelLlm): Promise<unknown> {
+    if (demande.fichier || demande.texte === undefined) {
+      throw new ErreurLlm(MESSAGE_VISION_NON_PRISE_EN_CHARGE, false);
+    }
+    return this.appeler(
+      demande.systeme,
+      `${demande.consigne}\n\n${demande.texte}`,
+      OUTIL_EXTRACTION,
+      'Enregistre les questions recopiées du document, au format imposé.',
+      SCHEMA_EXTRACTION,
+      options,
+    );
+  }
+
+  private async appeler(
+    systeme: string,
+    utilisateur: string,
+    outil: string,
+    description: string,
+    schema: unknown,
+    options: OptionsAppelLlm,
+  ): Promise<unknown> {
     let reponse: Response;
     try {
       reponse = await fetch(`${this.url}/chat/completions`, {
@@ -41,20 +85,11 @@ export class LlmCompatibleOpenAi implements FournisseurLlm {
           model: this.modele,
           temperature: 0.2,
           messages: [
-            { role: 'system', content: prompt.systeme },
-            { role: 'user', content: prompt.utilisateur },
+            { role: 'system', content: systeme },
+            { role: 'user', content: utilisateur },
           ],
-          tools: [
-            {
-              type: 'function',
-              function: {
-                name: OUTIL_QUESTIONS,
-                description: 'Enregistre les questions proposées, au format imposé.',
-                parameters: SCHEMA_QUESTIONS,
-              },
-            },
-          ],
-          tool_choice: { type: 'function', function: { name: OUTIL_QUESTIONS } },
+          tools: [{ type: 'function', function: { name: outil, description, parameters: schema } }],
+          tool_choice: { type: 'function', function: { name: outil } },
         }),
         signal: AbortSignal.timeout(options.delaiMs),
       });
@@ -74,7 +109,7 @@ export class LlmCompatibleOpenAi implements FournisseurLlm {
     } catch {
       throw new ErreurLlm('Réponse illisible du fournisseur d’IA.', true);
     }
-    return argumentsDeLOutil(corps);
+    return argumentsDeLOutil(corps, outil);
   }
 }
 
@@ -94,8 +129,8 @@ export function erreurHttp(statut: number): ErreurLlm {
   return new ErreurLlm('Requête refusée par le fournisseur d’IA.', false);
 }
 
-/** Argument de l'appel à `proposer_questions` (objet JSON), sinon ErreurLlm récupérable. */
-export function argumentsDeLOutil(corps: unknown): unknown {
+/** Argument de l'appel à l'outil (objet JSON), sinon ErreurLlm récupérable. */
+export function argumentsDeLOutil(corps: unknown, outil: string = OUTIL_QUESTIONS): unknown {
   const appels = (
     corps as {
       choices?: Array<{
@@ -103,7 +138,7 @@ export function argumentsDeLOutil(corps: unknown): unknown {
       }>;
     }
   )?.choices?.[0]?.message?.tool_calls;
-  const appel = appels?.find((a) => a.function?.name === OUTIL_QUESTIONS);
+  const appel = appels?.find((a) => a.function?.name === outil);
   if (!appel) throw new ErreurLlm('Le modèle n’a renvoyé aucune question.', true);
   const brut = appel.function?.arguments;
   if (typeof brut !== 'string') return brut;

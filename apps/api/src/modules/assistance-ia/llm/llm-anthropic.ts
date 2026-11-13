@@ -1,15 +1,50 @@
 import Anthropic from '@anthropic-ai/sdk';
 import {
+  DemandeExtraction,
   ErreurLlm,
   FournisseurLlm,
   OptionsAppelLlm,
+  OUTIL_EXTRACTION,
   OUTIL_QUESTIONS,
   PromptGeneration,
+  SCHEMA_EXTRACTION,
   SCHEMA_QUESTIONS,
 } from './fournisseur-llm';
 
 /** Jetons de sortie maximum : 20 questions détaillées tiennent largement. */
 const JETONS_SORTIE_MAX = 8000;
+/** US-IA-08 : jusqu'à 100 questions recopiées avec leurs options. */
+const JETONS_SORTIE_EXTRACTION = 16000;
+
+/**
+ * Contenu du message de l'utilisateur pour une extraction (US-IA-08) : le
+ * document d'abord (bloc `image` ou `document` base64 pour une lecture
+ * visuelle, ou texte), puis la consigne. Exporté pour les tests.
+ */
+export function contenuExtraction(demande: DemandeExtraction): Anthropic.ContentBlockParam[] {
+  const blocs: Anthropic.ContentBlockParam[] = [];
+  if (demande.fichier?.nature === 'image') {
+    blocs.push({
+      type: 'image',
+      source: {
+        type: 'base64',
+        media_type: demande.fichier.typeMedia as 'image/png' | 'image/jpeg' | 'image/webp',
+        data: demande.fichier.base64,
+      },
+    });
+  } else if (demande.fichier?.nature === 'document') {
+    blocs.push({
+      type: 'document',
+      source: { type: 'base64', media_type: 'application/pdf', data: demande.fichier.base64 },
+    });
+  }
+  blocs.push({
+    type: 'text',
+    text:
+      demande.texte !== undefined ? `${demande.consigne}\n\n${demande.texte}` : demande.consigne,
+  });
+  return blocs;
+}
 
 /**
  * Fournisseur Anthropic (Claude) — décision du 09/11/2026 : API hébergée pour
@@ -35,31 +70,65 @@ export class LlmAnthropic implements FournisseurLlm {
   }
 
   async genererQuestions(prompt: PromptGeneration, options: OptionsAppelLlm): Promise<unknown> {
+    return this.appeler(
+      {
+        model: this.modele,
+        max_tokens: JETONS_SORTIE_MAX,
+        system: prompt.systeme,
+        messages: [{ role: 'user', content: prompt.utilisateur }],
+        tools: [
+          {
+            name: OUTIL_QUESTIONS,
+            description: 'Enregistre les questions proposées, au format imposé.',
+            input_schema: SCHEMA_QUESTIONS as unknown as Anthropic.Tool.InputSchema,
+          },
+        ],
+        tool_choice: { type: 'auto' },
+      },
+      OUTIL_QUESTIONS,
+      options,
+    );
+  }
+
+  /**
+   * US-IA-08 — Extraction : texte, image (vision) ou PDF (lecture visuelle),
+   * outil `extraire_questions`, choix d'outil `auto` pour la même raison que
+   * la génération.
+   */
+  async extraireQuestions(demande: DemandeExtraction, options: OptionsAppelLlm): Promise<unknown> {
+    return this.appeler(
+      {
+        model: this.modele,
+        max_tokens: JETONS_SORTIE_EXTRACTION,
+        system: demande.systeme,
+        messages: [{ role: 'user', content: contenuExtraction(demande) }],
+        tools: [
+          {
+            name: OUTIL_EXTRACTION,
+            description: 'Enregistre les questions recopiées du document, au format imposé.',
+            input_schema: SCHEMA_EXTRACTION as unknown as Anthropic.Tool.InputSchema,
+          },
+        ],
+        tool_choice: { type: 'auto' },
+      },
+      OUTIL_EXTRACTION,
+      options,
+    );
+  }
+
+  private async appeler(
+    corps: Anthropic.MessageCreateParamsNonStreaming,
+    outil: string,
+    options: OptionsAppelLlm,
+  ): Promise<unknown> {
     let reponse: Anthropic.Message;
     try {
-      reponse = await this.client.messages.create(
-        {
-          model: this.modele,
-          max_tokens: JETONS_SORTIE_MAX,
-          system: prompt.systeme,
-          messages: [{ role: 'user', content: prompt.utilisateur }],
-          tools: [
-            {
-              name: OUTIL_QUESTIONS,
-              description: 'Enregistre les questions proposées, au format imposé.',
-              input_schema: SCHEMA_QUESTIONS as unknown as Anthropic.Tool.InputSchema,
-            },
-          ],
-          tool_choice: { type: 'auto' },
-        },
-        { timeout: options.delaiMs },
-      );
+      reponse = await this.client.messages.create(corps, { timeout: options.delaiMs });
     } catch (erreur) {
       throw traduireErreur(erreur);
     }
     const appel = reponse.content.find(
-      (bloc): bloc is Anthropic.ToolUseBlock =>
-        bloc.type === 'tool_use' && bloc.name === OUTIL_QUESTIONS,
+      (bloc): bloc is Anthropic.ToolUseBlock => bloc.type === 'tool_use' && bloc.name === outil,
     );
     if (!appel) throw new ErreurLlm('Le modèle n’a renvoyé aucune question.', true);
     return appel.input;

@@ -205,6 +205,18 @@ describe('FormateurDeLaFormationGuard', () => {
       { suggestionId: QCM },
       'Suggestion introuvable.',
     ],
+    [
+      'extraction',
+      { extractionId: 'extractionId' },
+      { extractionId: QCM },
+      'Extraction introuvable.',
+    ],
+    [
+      'question extraite',
+      { questionExtraiteId: 'questionExtraiteId' },
+      { questionExtraiteId: QCM },
+      'Question extraite introuvable.',
+    ],
   ])(
     'refuse en 404 un %s inconnu',
     async (_libelle, s: SourceFormation, params: Record<string, string>, message) => {
@@ -214,6 +226,25 @@ describe('FormateurDeLaFormationGuard', () => {
       await expect(
         guard.canActivate(contexte(utilisateur(Role.FORMATEUR), params)),
       ).rejects.toThrow(new NotFoundException(message));
+    },
+  );
+
+  it.each([
+    ['extraction', { extractionId: 'extractionId' }, { extractionId: QCM }, 'extraction'],
+    [
+      'questionExtraite',
+      { questionExtraiteId: 'questionExtraiteId' },
+      { questionExtraiteId: QCM },
+      'questionExtraite',
+    ],
+  ])(
+    'remonte d’une %s à sa formation (US-IA-08)',
+    async (_l, s: SourceFormation, params: Record<string, string>, type) => {
+      source(s);
+      await expect(guard.canActivate(contexte(utilisateur(Role.FORMATEUR), params))).resolves.toBe(
+        true,
+      );
+      expect(mockAutorisation.formationDe).toHaveBeenCalledWith(type, QCM);
     },
   );
 

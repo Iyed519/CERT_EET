@@ -24,7 +24,9 @@ export type TypeRessource =
   | 'generation'
   | 'ressource'
   | 'suggestion'
-  | 'alerte';
+  | 'alerte'
+  | 'extraction'
+  | 'questionExtraite';
 
 /**
  * Lectures dont a besoin l'autorisation par ressource (US-AUTH-16) : retrouver
@@ -68,7 +70,9 @@ export class AutorisationRessourceService {
    * un livrable remonte par son atelier (US-ATEL-06) ; un support pédagogique
    * par son module (US-IA-01) ; une génération IA aussi (US-IA-02), et une ressource de module
    * (US-FORM-05) ; une suggestion de question par sa génération (US-IA-04) ;
-   * une alerte de décrochage porte sa formation (US-SUIVI-03).
+   * une alerte de décrochage porte sa formation (US-SUIVI-03) ; une
+   * extraction de questions par son QCM, une question extraite par son
+   * extraction (US-IA-08, requête directe : aucune entité à injecter de plus).
    */
   async formationDe(type: TypeRessource, id: string): Promise<string | null> {
     if (type === 'formation') {
@@ -138,6 +142,20 @@ export class AutorisationRessourceService {
         },
       });
       return suggestion?.generation?.module?.formationId ?? null;
+    }
+    if (type === 'extraction' || type === 'questionExtraite') {
+      const lignes = (await this.qcmRepository.manager.query(
+        type === 'extraction'
+          ? `SELECT m.formation_id FROM extractions_questions_ia e
+               JOIN qcm q ON q.id = e.qcm_id JOIN modules m ON m.id = q.module_id
+              WHERE e.id = $1`
+          : `SELECT m.formation_id FROM questions_extraites_ia x
+               JOIN extractions_questions_ia e ON e.id = x.extraction_id
+               JOIN qcm q ON q.id = e.qcm_id JOIN modules m ON m.id = q.module_id
+              WHERE x.id = $1`,
+        [id],
+      )) as Array<{ formation_id: string }>;
+      return lignes[0]?.formation_id ?? null;
     }
     const qcm = await this.qcmRepository.findOne({
       where: { id },

@@ -6,6 +6,8 @@ import { SuggestionQuestionIa } from '../../database/entities/suggestion-questio
 import { SupportPedagogique } from '../../database/entities/support-pedagogique.entity';
 import { FormationsModule } from '../formations/formations.module';
 import { QcmModule } from '../qcm/qcm.module';
+import { ExtractionQuestionsController } from './extraction-questions/extraction-questions.controller';
+import { ExtractionQuestionsService } from './extraction-questions/extraction-questions.service';
 import { embeddingsProvider } from './embeddings/embeddings.provider';
 import { FileIaService } from './file-ia.service';
 import { GenerationsController } from './generations/generations.controller';
@@ -42,6 +44,9 @@ import { TracabiliteGenerationsService } from './tracabilite/tracabilite-generat
  * US-IA-04 : révision humaine (RevisionSuggestionsService) — accepter (telle
  * quelle ou modifiée, vers un QCM du module, via QcmService) ou rejeter.
  *
+ * US-IA-08 : extraction des questions d'un document (ExtractionQuestionsService,
+ * worker de `ia-extraction`) et leur revue (accepter, rejeter, tout accepter).
+ *
  * Importe FormationsModule : le garde @FormateurDeLaFormation et
  * FormationsService (formation archivée -> 409).
  */
@@ -62,6 +67,7 @@ import { TracabiliteGenerationsService } from './tracabilite/tracabilite-generat
     RevisionSuggestionsController,
     TracabiliteGenerationsController,
     SuiviTempsReelController,
+    ExtractionQuestionsController,
   ],
   providers: [
     SupportsService,
@@ -70,6 +76,7 @@ import { TracabiliteGenerationsService } from './tracabilite/tracabilite-generat
     RevisionSuggestionsService,
     TracabiliteGenerationsService,
     SuiviTempsReelService,
+    ExtractionQuestionsService,
     FileIaService,
     embeddingsProvider,
     llmProvider,
