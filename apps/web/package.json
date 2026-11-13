@@ -5,10 +5,13 @@
   "private": true,
   "license": "UNLICENSED",
   "scripts": {
+    "predev": "node scripts/copier-mediapipe.mjs",
     "dev": "next dev -p 3001",
+    "prebuild": "node scripts/copier-mediapipe.mjs",
     "build": "next build",
     "start": "next start -p 3001",
-    "lint": "next lint"
+    "lint": "next lint",
+    "test:regles": "node --experimental-strip-types --test src/lib/surveillance-regles.test.ts"
   },
   "dependencies": {
     "next": "^14.2.13",
@@ -16,6 +19,7 @@
     "react-dom": "^18.3.1"
   },
   "devDependencies": {
+    "@mediapipe/tasks-vision": "1.2.0",
     "@types/node": "^20.16.10",
     "@types/react": "^18.3.10",
     "@types/react-dom": "^18.3.0",

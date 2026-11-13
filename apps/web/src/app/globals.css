@@ -1450,9 +1450,17 @@ h3 { font-size: var(--fs-carte); font-weight: var(--fw-carte); }
 .surveillance-notice { margin: 0 0 12px; padding: 12px 14px; border: 1px solid var(--border); border-radius: var(--radius-sm); background: var(--surface-2); }
 .surveillance-notice h3 { margin: 0 0 6px; font-size: 1rem; }
 .surveillance-notice ul { margin: 0 0 10px; padding-left: 18px; display: grid; gap: 4px; font-size: 0.9rem; }
-.surveillance-bandeau { display: flex; align-items: center; gap: 10px; flex-wrap: wrap; margin: 0 0 14px; padding: 8px 12px; border: 1px solid var(--border); border-radius: var(--radius-sm); background: var(--primary-soft); font-size: 0.9rem; }
-.surveillance-bandeau video { width: 64px; height: 48px; border-radius: 6px; background: #1b2631; object-fit: cover; }
-.surveillance-bandeau.alerte { background: #fdecea; }
+/* US-QCM-15 — Bandeau de surveillance (l'apprenant ne voit pas sa vidéo). */
+.surveillance-video { position: fixed; left: 0; bottom: 0; width: 2px; height: 2px; opacity: 0; pointer-events: none; }
+.surveillance-active { display: flex; align-items: flex-start; gap: 12px; margin: 0 0 16px; padding: 12px 16px; border: 1px solid var(--border); border-left: 4px solid var(--ink); border-radius: var(--radius-sm); background: var(--surface); font-size: var(--fs-petit); color: var(--muted); }
+.surveillance-active strong { display: block; color: var(--ink); font-size: var(--fs-corps); margin-bottom: 2px; }
+.surveillance-active--alerte { border-left-color: var(--danger); background: var(--danger-soft); }
+.surveillance-active--alerte strong { color: var(--danger); }
+.surveillance-point { flex: 0 0 auto; width: 10px; height: 10px; margin-top: 6px; border-radius: 50%; background: var(--muted); }
+.surveillance-point--actif { background: var(--primary); box-shadow: 0 0 0 0 rgba(227, 6, 19, 0.45); animation: surveillance-pulse 2s ease-out infinite; }
+.surveillance-active--alerte .surveillance-point { background: var(--danger); }
+@keyframes surveillance-pulse { 0% { box-shadow: 0 0 0 0 rgba(227, 6, 19, 0.45); } 70% { box-shadow: 0 0 0 8px rgba(227, 6, 19, 0); } 100% { box-shadow: 0 0 0 0 rgba(227, 6, 19, 0); } }
+@media (prefers-reduced-motion: reduce) { .surveillance-point--actif { animation: none; } }
 .captures-grille { display: grid; grid-template-columns: repeat(auto-fill, minmax(150px, 1fr)); gap: 10px; margin-top: 10px; }
 .captures-grille figure { margin: 0; }
 .captures-grille img { width: 100%; height: auto; border-radius: 8px; border: 1px solid var(--border); background: var(--surface-3); }
@@ -1817,3 +1825,43 @@ a.btn.btn-lien { display: inline-flex; align-items: center; justify-content: cen
 /* US-IA-09 — État de l'IA et échec d'une génération, bien visibles. */
 .etat-ia { margin-bottom: var(--sp-3); }
 .generation-erreur { margin: var(--sp-2) 0 0; font-size: var(--fs-petit); overflow-wrap: anywhere; }
+
+/* ============================================================
+   US-QCM-15 — Surveillance des QCM par IA (formateur)
+   ============================================================ */
+.onglet-compteur { display: inline-flex; align-items: center; justify-content: center; min-width: 20px; height: 20px; margin-left: 8px; padding: 0 6px; border-radius: 999px; background: var(--primary); color: #fff; font-size: var(--fs-etiquette); font-weight: 700; line-height: 1; }
+.surv-grille { list-style: none; margin: 16px 0 0; padding: 0; display: grid; grid-template-columns: repeat(auto-fill, minmax(290px, 1fr)); gap: 16px; }
+.surv-carte { display: flex; flex-direction: column; background: var(--surface); border: 1px solid var(--border); border-radius: var(--radius); overflow: hidden; box-shadow: var(--shadow-sm, 0 1px 2px rgba(16, 24, 40, 0.06)); }
+.surv-carte--nouvelle { border-color: var(--primary); box-shadow: 0 0 0 1px var(--primary); }
+.surv-carte-photo { display: block; width: 100%; padding: 0; border: 0; background: none; cursor: zoom-in; }
+.surv-carte-photo:focus-visible { outline: 3px solid var(--primary); outline-offset: -3px; }
+.surv-photo { position: relative; width: 100%; aspect-ratio: 4 / 3; background: #1d1d1b; display: flex; align-items: center; justify-content: center; overflow: hidden; }
+.surv-photo img { width: 100%; height: 100%; object-fit: cover; display: block; }
+.surv-photo--grande { max-width: 640px; margin: 0 auto 16px; border-radius: var(--radius-sm); }
+.surv-photo--grande img { object-fit: contain; }
+.surv-photo-message { color: #d6d6d9; font-size: var(--fs-petit); }
+.surv-carte-corps { display: flex; flex-direction: column; gap: 6px; padding: 12px 14px 14px; }
+.surv-carte-tete { display: flex; align-items: center; justify-content: space-between; gap: 8px; flex-wrap: wrap; }
+.surv-pastille { display: inline-block; padding: 3px 10px; border-radius: 999px; font-size: var(--fs-etiquette); font-weight: 700; }
+.surv-pastille--forte { background: var(--danger-soft); color: var(--danger); }
+.surv-pastille--moyenne { background: #fff4e0; color: #8a5a00; }
+.surv-pastille--info { background: #f0f0f2; color: var(--muted); }
+.surv-nouvelle { font-size: var(--fs-etiquette); font-weight: 700; color: var(--primary-dark); text-transform: uppercase; letter-spacing: 0.04em; }
+.surv-carte-qui { margin: 0; display: flex; flex-direction: column; gap: 2px; }
+.surv-carte-qui strong { color: var(--ink); }
+.surv-carte-qui span, .surv-carte-quand { color: var(--muted); font-size: var(--fs-petit); }
+.surv-carte-quand { margin: 0; }
+.surv-carte .row-actions { margin-top: 4px; align-items: center; justify-content: flex-start; flex-wrap: wrap; gap: 8px; }
+.surv-tentative + .captures-section { margin-top: 14px; }
+.surv-fiche { display: grid; grid-template-columns: max-content 1fr; gap: 6px 16px; margin: 0 0 12px; }
+.surv-fiche div { display: contents; }
+.surv-fiche dt { color: var(--muted); font-size: var(--fs-petit); }
+.surv-fiche dd { margin: 0; color: var(--ink); }
+.surv-tentative { margin-top: 16px; }
+.surv-tentative h3 { margin: 0 0 4px; font-size: var(--fs-carte); }
+.surv-tentative .surv-grille { grid-template-columns: repeat(auto-fill, minmax(220px, 1fr)); gap: 12px; margin-top: 10px; }
+@media (max-width: 640px) {
+  .surv-grille { grid-template-columns: 1fr; }
+  .surv-fiche { grid-template-columns: 1fr; gap: 2px; }
+  .surv-fiche dd { margin-bottom: 8px; }
+}

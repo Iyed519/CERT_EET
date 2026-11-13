@@ -23,6 +23,7 @@ import {
   pointsFr,
   scoreFr,
 } from '../../../../../lib/format';
+import { AlertesTentative } from '../../../../../components/AlertesSurveillance';
 
 const nomApprenant = (a: LigneHistoriqueFormateur['apprenant']): string =>
   [a.prenom, a.nom].filter(Boolean).join(' ') || a.email;
@@ -70,6 +71,13 @@ export default function TentativesQcmPage(): JSX.Element {
   useEffect(() => {
     void charger();
   }, [charger]);
+
+  // US-QCM-15 : « Voir la tentative » depuis une alerte ouvre directement son détail.
+  useEffect(() => {
+    const demandee = new URLSearchParams(window.location.search).get('tentative');
+    if (demandee) void ouvrir(demandee);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
 
   const ouvrir = async (tentativeId: string): Promise<void> => {
     setErreur(null);
@@ -192,6 +200,8 @@ export default function TentativesQcmPage(): JSX.Element {
                 <BoutonRapportPdf tentativeId={detail.id} qcmId={id} />
               </p>
             )}
+            {/* US-QCM-15 — alertes de l'IA de cette tentative, avec leur photo. */}
+            <AlertesTentative tentativeId={detail.id} />
             <section className="captures-section" aria-label="Captures webcam">
               {captures === null ? (
                 <button type="button" className="btn-sm" onClick={() => void voirCaptures(detail.id)}>
@@ -206,8 +216,9 @@ export default function TentativesQcmPage(): JSX.Element {
                     {captures.consentementLe
                       ? ` · consentement donné le ${dateHeureFr(captures.consentementLe)}`
                       : ''}{' '}
-                    · supprimées {captures.conservationJours} jours après la prise. Aucune analyse
-                    automatique : à consulter seulement en cas de doute.
+                    · supprimées {captures.conservationJours} jours après la prise. Images
+                    périodiques ; les anomalies repérées par l’IA sont dans « Alertes de
+                    surveillance ».
                   </p>
                   <div className="captures-grille">
                     {captures.captures.map((c) => (

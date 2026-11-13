@@ -106,9 +106,20 @@ la charte ESPRIT décrite dans `docs/GUIDE_STYLE.md` (captures dans
    clé, la fenêtre affiche « IA non configurée » et le lancement est bloqué.
    Toute erreur (crédit épuisé, clé refusée, surcharge) s'affiche en français
    dans la carte de l'import ou de la génération.
-6. **Demander une formation** (US-FORM-07) : choisir « Cybersécurité
+6. **Surveillance par IA** (US-QCM-15) : sur un QCM dont la surveillance webcam
+   est activée, l'apprenant accepte, passe le QCM : il ne voit pas sa vidéo,
+   seulement le bandeau « Surveillance par caméra active ». Montrer un
+   téléphone à la caméra (2 s), ou faire entrer une deuxième personne (3 s),
+   ou quitter la page plus de 5 s. Côté Karim : « À faire maintenant » ->
+   « Voir les photos », onglet *Alertes › Surveillance des QCM* : carte avec
+   la photo de l'instant, « Agrandir », « Voir la tentative », « Marquer
+   examinée ». Pour la démonstration de l'absence, mettre
+   `SURVEILLANCE_ABSENCE_SECONDES=60` (5 minutes par défaut). Rappeler :
+   l'analyse tourne sur le poste de l'apprenant, l'IA signale, le formateur
+   décide.
+7. **Demander une formation** (US-FORM-07) : choisir « Cybersécurité
    opérationnelle », motif -> demande en attente.
-7. **Proposer une formation** (US-FORM-08) : remplir le formulaire -> en
+8. **Proposer une formation** (US-FORM-08) : remplir le formulaire -> en
    attente.
 
 ### 4.4 Administrateur (6 min)

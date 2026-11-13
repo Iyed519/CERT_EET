@@ -15,6 +15,18 @@
 
 ## [Après le Sprint 6] — Stories hors sprint
 
+#### US-QCM-15 — Surveillance webcam par IA : alertes avec photo au formateur — journal `engineering-log/106`
+- **Quoi :** pendant un QCM surveillé, un modèle de détection d'objets (MediaPipe EfficientDet-Lite0,
+  Apache-2.0) analyse la caméra **dans le navigateur de l'apprenant**, une fois par seconde : plusieurs
+  personnes, absence de plus de 5 minutes, téléphone, livre ou document, caméra masquée, page quittée.
+  À chaque anomalie, la **photo de l'instant** part avec l'alerte. Le formateur la voit dans
+  « Alertes › Surveillance des QCM » (nouvel onglet), dans « À faire maintenant », dans le détail de la
+  tentative et dans le PDF de la tentative ; il reçoit un e-mail à la première alerte d'une tentative
+  (sans photo). L'apprenant ne voit plus sa vidéo : un bandeau lui dit qu'il est surveillé. L'IA
+  signale, le formateur décide. Modèle et moteur servis par la plateforme : aucune vidéo stockée, aucune
+  requête vers l'extérieur. Migration `1789300000000`, variable `SURVEILLANCE_ABSENCE_SECONDES`.
+- **Pourquoi :** une photo toutes les 2 minutes revue à la main ne suffisait pas à repérer une fraude.
+
 #### US-IA-10 — Analyse des points faibles par Claude dans les rapports — journal `engineering-log/105`
 - **Quoi :** le PDF d'une tentative de QCM (apprenant, formateur, administrateur) et le rapport de
   session individuel contiennent « Analyse de vos points faibles — ce qu'il faut travailler » : une

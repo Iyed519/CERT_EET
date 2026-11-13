@@ -124,6 +124,8 @@ export const envValidationSchema = Joi.object({
   // entre deux captures, durée de conservation, purge planifiée).
   SURVEILLANCE_WEBCAM: Joi.string().valid('on', 'off').default('on'),
   SURVEILLANCE_INTERVALLE_SECONDES: Joi.number().integer().min(30).max(900).default(120),
+  // US-QCM-15 : absence à l'image avant une alerte de l'IA (1 à 30 minutes).
+  SURVEILLANCE_ABSENCE_SECONDES: Joi.number().integer().min(60).max(1800).default(300),
   SURVEILLANCE_CONSERVATION_JOURS: Joi.number().integer().min(1).max(365).default(30),
   SURVEILLANCE_BALAYAGE_ACTIF: Joi.string().valid('true', 'false').default('true'),
 

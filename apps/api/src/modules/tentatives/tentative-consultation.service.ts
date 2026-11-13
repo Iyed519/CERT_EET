@@ -60,7 +60,7 @@ export interface TentativeConsulteeVue {
   // US-QCM-12 — surveillance webcam de cette tentative : la page prend une
   // capture au démarrage puis toutes les `intervalleSecondes` (pendant le
   // temps de passage, consentement enregistré).
-  surveillance: { active: boolean; intervalleSecondes: number };
+  surveillance: { active: boolean; intervalleSecondes: number; absenceSecondes: number };
 }
 
 const MESSAGE_INTROUVABLE = 'Tentative introuvable.';
@@ -176,7 +176,7 @@ export class TentativeConsultationService {
     enPassage: boolean,
     tentative: TentativeQcm,
     proctoring: boolean,
-  ): { active: boolean; intervalleSecondes: number } {
+  ): { active: boolean; intervalleSecondes: number; absenceSecondes: number } {
     const config = this.configService?.get<SurveillanceConfig>('surveillance');
     return {
       active:
@@ -185,6 +185,8 @@ export class TentativeConsultationService {
         config?.active === true &&
         tentative.consentementSurveillanceLe != null,
       intervalleSecondes: config?.intervalleSecondes ?? 120,
+      // US-QCM-15 : seuil d'absence pour l'analyse par IA dans le navigateur.
+      absenceSecondes: config?.absenceSecondes ?? 300,
     };
   }
 

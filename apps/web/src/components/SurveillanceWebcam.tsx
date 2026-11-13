@@ -1,28 +1,38 @@
 'use client';
 import { useEffect, useRef, useState } from 'react';
-import { deposerCapture } from '../lib/api';
+import { deposerAlerteSurveillance, deposerCapture } from '../lib/api';
+import { demarrerAnalyse } from '../lib/surveillance-ia';
 
 /**
- * US-QCM-12 — Captures webcam pendant le passage d'un QCM surveillé (le
- * consentement a été donné au démarrage). Une image au montage, puis une à
- * chaque intervalle : 320 × 240 px, JPEG compressé — le minimum utile. La
- * vidéo n'est jamais envoyée, seulement ces images ; la caméra est relâchée
- * quand la page se ferme ou la tentative se termine.
+ * Surveillance par caméra pendant le passage d'un QCM surveillé (le
+ * consentement a été donné au démarrage).
+ *
+ * - US-QCM-12 : une image au démarrage, puis une à chaque intervalle
+ *   (320 × 240, JPEG compressé).
+ * - US-QCM-15 : analyse par IA dans le navigateur (MediaPipe) ; à chaque
+ *   anomalie, la photo de l'instant part avec l'alerte au formateur.
+ *
+ * L'apprenant ne voit PAS sa vidéo : l'élément vidéo, nécessaire à l'analyse,
+ * est invisible ; seul un bandeau dit que la surveillance est active. Aucune
+ * alerte ne lui est montrée pendant le QCM. La vidéo n'est jamais envoyée ; la
+ * caméra est relâchée quand la page se ferme ou la tentative se termine.
  */
 export default function SurveillanceWebcam({
   tentativeId,
   intervalleSecondes,
+  absenceSecondes,
 }: {
   tentativeId: string;
   intervalleSecondes: number;
+  absenceSecondes: number;
 }): JSX.Element {
   const video = useRef<HTMLVideoElement | null>(null);
   const [etat, setEtat] = useState<'demarrage' | 'active' | 'indisponible'>('demarrage');
-  const [derniere, setDerniere] = useState<Date | null>(null);
 
   useEffect(() => {
     let flux: MediaStream | null = null;
     let minuteur: ReturnType<typeof setInterval> | null = null;
+    let arreterAnalyse: (() => void) | null = null;
     let arrete = false;
 
     const capturer = async (): Promise<void> => {
@@ -33,13 +43,13 @@ export default function SurveillanceWebcam({
       toile.height = 240;
       toile.getContext('2d')?.drawImage(v, 0, 0, 320, 240);
       const image = await new Promise<Blob | null>((ok) => toile.toBlob(ok, 'image/jpeg', 0.6));
-      if (image && (await deposerCapture(tentativeId, image))) setDerniere(new Date());
+      if (image) await deposerCapture(tentativeId, image);
     };
 
     const demarrer = async (): Promise<void> => {
       try {
         flux = await navigator.mediaDevices.getUserMedia({
-          video: { width: 320, height: 240 },
+          video: { width: 640, height: 480 },
           audio: false,
         });
       } catch {
@@ -57,32 +67,57 @@ export default function SurveillanceWebcam({
       // Première image dès que la caméra donne une image, puis à intervalle.
       setTimeout(() => void capturer(), 800);
       minuteur = setInterval(() => void capturer(), intervalleSecondes * 1000);
+      // Analyse par IA : chaque anomalie part avec la photo de l'instant.
+      arreterAnalyse = demarrerAnalyse(video.current, absenceSecondes, (anomalie, photo) => {
+        void deposerAlerteSurveillance(tentativeId, anomalie.type, anomalie.confiance, photo);
+      });
     };
 
     void demarrer();
     return () => {
       arrete = true;
       if (minuteur) clearInterval(minuteur);
+      arreterAnalyse?.();
       flux?.getTracks().forEach((p) => p.stop());
     };
-  }, [tentativeId, intervalleSecondes]);
+  }, [tentativeId, intervalleSecondes, absenceSecondes]);
 
   return (
-    <div className={`surveillance-bandeau${etat === 'indisponible' ? ' alerte' : ''}`} role="status">
-      <video ref={video} muted playsInline aria-label="Aperçu de votre caméra" />
+    <>
+      {/* Invisible : sert seulement à l'analyse ; l'apprenant ne voit pas sa vidéo. */}
+      <video ref={video} className="surveillance-video" muted playsInline aria-hidden="true" />
       {etat === 'indisponible' ? (
-        <span>
-          Caméra indisponible : la surveillance ne fonctionne plus. Réactivez la caméra, ou
-          prévenez votre formateur.
-        </span>
+        <div className="surveillance-active surveillance-active--alerte" role="alert">
+          <span className="surveillance-point" aria-hidden="true" />
+          <div>
+            <strong>Caméra indisponible</strong>
+            <span>
+              La surveillance ne fonctionne plus : réactivez votre caméra, ou prévenez votre
+              formateur.
+            </span>
+          </div>
+        </div>
       ) : (
-        <span>
-          Surveillance webcam active — une image toutes les {Math.round(intervalleSecondes / 60)}{' '}
-          min environ
-          {derniere ? ` (dernière à ${derniere.toLocaleTimeString('fr-FR', { hour: '2-digit', minute: '2-digit' })})` : ''}
-          .
-        </span>
+        <div className="surveillance-active" role="status">
+          <span
+            className={`surveillance-point${etat === 'active' ? ' surveillance-point--actif' : ''}`}
+            aria-hidden="true"
+          />
+          <div>
+            <strong>
+              {etat === 'active'
+                ? 'Surveillance par caméra active'
+                : 'Activation de la caméra…'}
+            </strong>
+            <span>
+              Votre caméra est analysée automatiquement pendant ce QCM. Aucune vidéo n’est
+              enregistrée : une photo est prise en cas d’anomalie (téléphone, autre personne,
+              absence…) et environ toutes les {Math.max(1, Math.round(intervalleSecondes / 60))}{' '}
+              minutes.
+            </span>
+          </div>
+        </div>
       )}
-    </div>
+    </>
   );
 }

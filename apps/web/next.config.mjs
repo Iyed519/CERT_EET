@@ -11,7 +11,9 @@
 const developpement = process.env.NODE_ENV !== 'production';
 const csp = [
   "default-src 'self'",
-  `script-src 'self' 'unsafe-inline'${developpement ? " 'unsafe-eval'" : ''}`,
+  // US-QCM-15 : 'wasm-unsafe-eval' autorise SEULEMENT la compilation WebAssembly
+  // (MediaPipe, servi par la plateforme), pas eval() du JavaScript.
+  `script-src 'self' 'unsafe-inline' 'wasm-unsafe-eval'${developpement ? " 'unsafe-eval'" : ''}`,
   "style-src 'self' 'unsafe-inline'",
   "img-src 'self' data: blob:",
   "media-src 'self' blob:",

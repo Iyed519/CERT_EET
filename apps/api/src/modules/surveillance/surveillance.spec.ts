@@ -63,6 +63,7 @@ describe('SurveillanceService (US-QCM-12)', () => {
   const redis = { set: jest.fn(), get: jest.fn() };
   const audit = { record: jest.fn() };
   const autorisation = { estAffecte: jest.fn() };
+  const alertes = { purger: jest.fn(async () => 0) };
   const config = {
     getOrThrow: (): Record<string, unknown> => ({
       active: true,
@@ -80,6 +81,7 @@ describe('SurveillanceService (US-QCM-12)', () => {
     audit as never,
     autorisation as never,
     config as never,
+    alertes as never,
   );
   const MAINTENANT = new Date('2026-11-11T10:00:00Z');
   const tentative = (extra: Record<string, unknown> = {}): Record<string, unknown> => ({
@@ -240,7 +242,12 @@ describe('SurveillanceService (US-QCM-12)', () => {
     expect(audit.record).toHaveBeenCalledWith(
       expect.objectContaining({
         action: 'CAPTURES_PURGEES',
-        detailsAvantApres: { nbCaptures: 2, cause: 'CONSERVATION', conservationJours: 30 },
+        detailsAvantApres: {
+          nbCaptures: 2,
+          nbAlertes: 0,
+          cause: 'CONSERVATION',
+          conservationJours: 30,
+        },
       }),
     );
     dataSource.query.mockResolvedValueOnce([]);

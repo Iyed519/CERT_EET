@@ -4,7 +4,11 @@ import { AFaireMaintenant } from '../../../components/AFaireMaintenant';
 import { aFaireFormateur } from '../../../lib/a-faire';
 import { FormEvent, useCallback, useEffect, useState } from 'react';
 import { SectionRisque } from '../../../components/PredictionRisque';
-import { getTableauDeBordFormateur, TableauDeBordFormateur } from '../../../lib/api';
+import {
+  getNombreAlertesSurveillance,
+  getTableauDeBordFormateur,
+  TableauDeBordFormateur,
+} from '../../../lib/api';
 import {
   jourFr,
   LIBELLES_STATUT_FORMATION_COURT,
@@ -39,6 +43,7 @@ export default function TableauDeBordFormateurPage(): JSX.Element {
   const [du, setDu] = useState('');
   const [au, setAu] = useState('');
   const [donnees, setDonnees] = useState<TableauDeBordFormateur | null>(null);
+  const [alertesSurveillance, setAlertesSurveillance] = useState(0);
   const [chargement, setChargement] = useState(true);
   const [erreur, setErreur] = useState<string | null>(null);
 
@@ -60,6 +65,13 @@ export default function TableauDeBordFormateurPage(): JSX.Element {
   useEffect(() => {
     void charger();
   }, [charger]);
+
+  // US-QCM-15 : alertes de surveillance à examiner (« À faire maintenant »).
+  useEffect(() => {
+    getNombreAlertesSurveillance()
+      .then(setAlertesSurveillance)
+      .catch(() => setAlertesSurveillance(0));
+  }, []);
 
   const appliquer = (e: FormEvent): void => {
     e.preventDefault();
@@ -94,7 +106,7 @@ export default function TableauDeBordFormateurPage(): JSX.Element {
 
       {/* US-UI-03 : ce qui demande une action d'abord, les indicateurs ensuite. */}
       <AFaireMaintenant
-        elements={t ? aFaireFormateur(t) : []}
+        elements={t ? aFaireFormateur(t, alertesSurveillance) : []}
         chargement={t === null && erreur === null}
         vide={{ texte: 'Aucun livrable à corriger, aucune alerte ouverte. Les indicateurs de vos formations sont ci-dessous.' }}
       />

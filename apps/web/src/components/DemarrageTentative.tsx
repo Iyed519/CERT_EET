@@ -152,9 +152,15 @@ export function DemarrageTentative({
                 prise au démarrage, puis toutes les 2 minutes environ, pendant le passage seulement.
               </li>
               <li>
-                Pas de vidéo, pas de son, aucune analyse automatique du visage. Les images ne sont
-                visibles que par le formateur de la formation et l’administration, et sont supprimées
-                au bout de 30 jours.
+                Votre caméra est aussi analysée automatiquement, sur votre ordinateur : si plusieurs
+                personnes, un téléphone, un livre, une absence de plus de 5 minutes, une caméra
+                masquée ou la page quittée sont détectés, une photo de l’instant est envoyée à votre
+                formateur avec l’alerte. C’est lui qui décide : aucune sanction automatique.
+              </li>
+              <li>
+                Pas de vidéo enregistrée, pas de son, aucune reconnaissance du visage. Les images ne
+                sont visibles que par le formateur de la formation et l’administration, et sont
+                supprimées au bout de 30 jours.
               </li>
               <li>
                 Si vous refusez ou n’avez pas de caméra, vous ne pourrez pas passer ce QCM en ligne :
