@@ -4,9 +4,11 @@ import {
   ErreurLlm,
   FournisseurLlm,
   OptionsAppelLlm,
+  OUTIL_ANALYSE,
   OUTIL_EXTRACTION,
   OUTIL_QUESTIONS,
   PromptGeneration,
+  SCHEMA_ANALYSE,
   SCHEMA_EXTRACTION,
   SCHEMA_QUESTIONS,
 } from './fournisseur-llm';
@@ -15,6 +17,8 @@ import {
 const JETONS_SORTIE_MAX = 8000;
 /** US-IA-08 : jusqu'à 100 questions recopiées avec leurs options. */
 const JETONS_SORTIE_EXTRACTION = 16000;
+/** US-IA-10 : une synthèse et quatre axes au plus. */
+const JETONS_SORTIE_ANALYSE = 3000;
 
 /**
  * Contenu du message de l'utilisateur pour une extraction (US-IA-08) : le
@@ -112,6 +116,31 @@ export class LlmAnthropic implements FournisseurLlm {
         tool_choice: { type: 'auto' },
       },
       OUTIL_EXTRACTION,
+      options,
+    );
+  }
+
+  /** US-IA-10 — Analyse des points faibles d'un apprenant (outil `analyser_points_faibles`). */
+  async analyserPointsFaibles(
+    prompt: PromptGeneration,
+    options: OptionsAppelLlm,
+  ): Promise<unknown> {
+    return this.appeler(
+      {
+        model: this.modele,
+        max_tokens: JETONS_SORTIE_ANALYSE,
+        system: prompt.systeme,
+        messages: [{ role: 'user', content: prompt.utilisateur }],
+        tools: [
+          {
+            name: OUTIL_ANALYSE,
+            description: 'Enregistre l’analyse des points faibles, au format imposé.',
+            input_schema: SCHEMA_ANALYSE as unknown as Anthropic.Tool.InputSchema,
+          },
+        ],
+        tool_choice: { type: 'auto' },
+      },
+      OUTIL_ANALYSE,
       options,
     );
   }

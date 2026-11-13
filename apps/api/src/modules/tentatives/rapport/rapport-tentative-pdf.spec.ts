@@ -1,4 +1,5 @@
 import { TypeQuestion } from '../../../database/enums/type-question.enum';
+import { ResultatAnalyse } from '../../assistance-ia/analyse-points-faibles/analyse-points-faibles.regles';
 import {
   ContenuRapport,
   dateHeureTunis,
@@ -8,7 +9,24 @@ import {
 
 /** Rapport PDF (US-QCM-13) : un vrai document, paginé, produit en mémoire. */
 describe('genererPdfRapport (US-QCM-13)', () => {
-  const contenu = (nbQuestions: number): ContenuRapport => ({
+  const ANALYSE: ResultatAnalyse = {
+    statut: 'OK',
+    source: 'GENEREE',
+    analyse: {
+      synthese: 'Les bases sont là ; la validation des données reste fragile.',
+      axes: [
+        {
+          notion: 'Validation des requêtes',
+          constat: 'Confusion entre CORS et ValidationPipe.',
+          conseil: 'Relisez le passage sur les pipes.',
+          questions: [1, 3],
+        },
+      ],
+      encouragement: 'Vous y êtes presque.',
+      modele: 'claude-sonnet-5-5',
+    },
+  };
+  const contenu = (nbQuestions: number, analyseIa: ResultatAnalyse = ANALYSE): ContenuRapport => ({
     tentativeId: '1b9d6bcd-bbfd-4b2d-9b5d-ab8dfbbd4bed',
     formationTitre: 'Développement back-end',
     moduleTitre: 'Module 1',
@@ -47,15 +65,27 @@ describe('genererPdfRapport (US-QCM-13)', () => {
     aRevoir: [{ rang: 2, enonce: 'Une question ratée', repondue: false, pointsPerdus: 1 }],
     parNiveau: [{ niveau: 'AVANCE', nbJustes: 0, nbQuestions: 1 }],
     corrigeAbsent: null,
+    analyseIa,
     dateGeneration: new Date('2026-11-12T10:00:00Z'),
   });
 
   it('produit un PDF avec ses métadonnées', async () => {
-    const texte = (await genererPdfRapport(contenu(3))).toString('latin1');
+    // Une seule question : en-tête, synthèse, analyse IA et détail tiennent sur une page.
+    const texte = (await genererPdfRapport(contenu(1))).toString('latin1');
     expect(texte.startsWith('%PDF-')).toBe(true);
     expect(texte.trimEnd().endsWith('%%EOF')).toBe(true);
     expect(texte).toContain('Tentative 1b9d6bcd-bbfd-4b2d-9b5d-ab8dfbbd4bed');
     expect(texte.match(/\/Type \/Page\b/g)).toHaveLength(1);
+  });
+
+  it('US-IA-10 : analyse imprimée, ou encadré « indisponible » avec la cause', async () => {
+    const ok = await genererPdfRapport(contenu(3));
+    const ko = await genererPdfRapport(
+      contenu(3, { statut: 'INDISPONIBLE', message: 'Crédit Anthropic épuisé.' }),
+    );
+    expect(ok.subarray(0, 5).toString()).toBe('%PDF-');
+    expect(ko.subarray(0, 5).toString()).toBe('%PDF-');
+    expect(ok.equals(ko)).toBe(false);
   });
 
   it('plusieurs pages quand il y a beaucoup de questions', async () => {

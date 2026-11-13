@@ -20,6 +20,8 @@ import {
   MESSAGE_RAPPORT_NON_PRET,
   RapportsService,
 } from './rapports.service';
+import { AnalysePointsFaiblesService } from '../assistance-ia/analyse-points-faibles/analyse-points-faibles.service';
+import { TentativeCorrectionService } from '../tentatives/tentative-correction.service';
 
 const MOI = 'u0000000-0000-4000-8000-000000000001';
 const AUTRE = 'u0000000-0000-4000-8000-000000000002';
@@ -158,6 +160,9 @@ function monter(o: Options = {}) {
   };
   const record = jest.fn();
   const mail = { sendRapportPretEmail: jest.fn(async () => undefined) };
+  const analyse = {
+    analyser: jest.fn(async () => ({ statut: 'INDISPONIBLE', message: 'IA absente.' })),
+  };
   const service = new RapportsService(
     dataSource,
     file as unknown as FileRapportsService,
@@ -166,8 +171,10 @@ function monter(o: Options = {}) {
     tdb as unknown as TableauDeBordService,
     { record } as unknown as AuditService,
     mail as unknown as MailService,
+    { lireCorrection: jest.fn(async () => []) } as unknown as TentativeCorrectionService,
+    analyse as unknown as AnalysePointsFaiblesService,
   );
-  return { service, query, tx, file, stockage, record, mail, suivi, tdb };
+  return { service, query, tx, file, stockage, record, mail, suivi, tdb, analyse };
 }
 
 describe('RapportsService (US-RPT-01)', () => {

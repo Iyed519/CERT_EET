@@ -22,6 +22,7 @@ Table des matières
 | 2.2 | 13 novembre 2026 | Ajout de **US-IA-08** (E6 · Must · 8 pts) — extraction par l'IA des questions d'un document (PDF texte ou scanné, DOCX, TXT/MD, CSV, XLSX, image), relecture humaine obligatoire ; livrée le 13/11/2026 (journal 94). Nouvelle épopée **E10 « Expérience utilisateur & charte ESPRIT »** (US-UI-01 → US-UI-08). Source : `claude/Cert_EET_Revision_v2.2_IA08_UI.md`. |
 | 2.3 | 13 novembre 2026 | Ajout de **US-IA-09** (E6 · Must · 3 pts) — la clé Anthropic prime (plus de réponses d'exemple silencieuses), IA non configurée signalée, erreurs du fournisseur en français dans l'interface ; demande du propriétaire après test, livrée le 13/11/2026 (journal 103). |
 | 2.4 | 13 novembre 2026 | Ajout de **US-RPT-03** (E8 · Must · 1 pt) — nom de l'apprenant (ou du module) dans le titre de chaque rapport ; demande du propriétaire, livrée le 13/11/2026 (journal 104). |
+| 2.5 | 13 novembre 2026 | Ajout de **US-IA-10** (E6 · Must · 5 pts) — analyse des points faibles par Claude dans le rapport de tentative et le rapport de session individuel ; demande du propriétaire, livrée le 13/11/2026 (journal 105). |
 | 2.1 | Novembre 2026 (après le Sprint 6) | Ajout de **US-QCM-13** (E3 · Should · 5 pts) — rapport PDF détaillé du résultat d'une tentative notée, pour l'apprenant (corrigé selon les règles d'US-QCM-09) et le formateur affecté (corrigé toujours inclus) ; livrée le 12/11/2026 (journal 93). Source : `claude/Cert_EET_Revision_v2.1_US-QCM-13.md`. |
 
 ---
@@ -542,8 +543,9 @@ Table des matières
 | US-IA-07 | En tant que formateur, je veux être notifié en temps réel de l’avancement (indexation/génération) afin de suivre les traitements asynchrones. | Could | 3 | ADR-06 (SSE) / DS-06 | NF1 | US-IA-01, US-IA-02 |
 | US-IA-08 | En tant que formateur affecté, je veux déposer un document qui contient déjà des questions (ancien examen, banque Excel / CSV, sujet Word, PDF scanné, photo) et que l'IA les en extraie, afin de les relire, les corriger et les ajouter à un QCM sans les ressaisir. | Must | 8 | UC10 For / DS-06 (file IA) | NF1, NF3 | US-IA-04, US-IA-06 |
 | US-IA-09 | En tant que formateur, je veux que l'IA réelle (Claude) soit appelée dès que la clé est configurée et que toute erreur du fournisseur (crédit épuisé, clé refusée, surcharge, IA non configurée) s'affiche clairement, afin de ne jamais travailler sur des réponses d'exemple sans le savoir. | Must | 3 | UC10 For | NF1, NF3 | US-IA-06, US-IA-08 — Livrée (journal 103) |
+| US-IA-10 | En tant qu'apprenant (et formateur), je veux que chaque rapport contienne une analyse de mes points faibles par l'IA (notions à travailler, pourquoi, quoi faire, appuyée sur le cours) afin de savoir exactement sur quoi me concentrer pour progresser. | Must | 5 | UC Apprenant / UC For | NF1, NF3 | US-QCM-13, US-RPT-01, US-IA-09 — Livrée (journal 105) |
 
-**Total E6 : 9 stories — 44 points.** *(v2.2 : + US-IA-08 ; v2.3 : + US-IA-09.)*
+**Total E6 : 10 stories — 49 points.** *(v2.2 : + US-IA-08 ; v2.3 : + US-IA-09 ; v2.5 : + US-IA-10.)*
 
 #### Critères d’acceptation (Gherkin français)
 

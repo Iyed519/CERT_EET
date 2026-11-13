@@ -65,6 +65,8 @@ export interface SectionPdf {
   paires?: Array<[string, string]>;
   tableau?: { colonnes: string[]; largeurs: number[]; lignes: string[][] };
   vide?: string;
+  /** US-IA-10 — Contenu libre dessiné sous le titre (analyse IA). */
+  dessin?: (doc: PDFKit.PDFDocument, gauche: number, largeur: number) => void;
 }
 
 /**
@@ -109,6 +111,10 @@ export function pdf(document: {
         .fontSize(13)
         .text(section.titre, gauche);
       doc.moveDown(0.3).fillColor('#222222').font('Helvetica').fontSize(10);
+      if (section.dessin) {
+        section.dessin(doc, gauche, largeurUtile);
+        continue;
+      }
       for (const [cle, valeur] of section.paires ?? []) {
         doc.font('Helvetica-Bold').text(`${cle} : `, gauche, undefined, { continued: true });
         doc.font('Helvetica').text(valeur);

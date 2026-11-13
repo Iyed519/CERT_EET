@@ -1,4 +1,8 @@
 import { Module } from '@nestjs/common';
+import { TypeOrmModule } from '@nestjs/typeorm';
+import { TentativeQcm } from '../../database/entities/tentative-qcm.entity';
+import { AnalyseIaModule } from '../assistance-ia/analyse-points-faibles/analyse-ia.module';
+import { TentativeCorrectionService } from '../tentatives/tentative-correction.service';
 import { FormationsModule } from '../formations/formations.module';
 import { PilotageModule } from '../pilotage/pilotage.module';
 import { FileRapportsService } from './file-rapports.service';
@@ -13,9 +17,15 @@ import { RapportsService } from './rapports.service';
  * FormationsModule le garde @FormateurDeLaFormation.
  */
 @Module({
-  imports: [FormationsModule, PilotageModule],
+  imports: [
+    FormationsModule,
+    PilotageModule,
+    AnalyseIaModule,
+    TypeOrmModule.forFeature([TentativeQcm]),
+  ],
   controllers: [RapportsController],
-  providers: [FileRapportsService, RapportsService],
+  // US-IA-10 : analyse IA du rapport individuel ; corrigé lu comme le rapport de tentative.
+  providers: [FileRapportsService, RapportsService, TentativeCorrectionService],
   exports: [RapportsService],
 })
 export class RapportsModule {}

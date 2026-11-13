@@ -10,6 +10,9 @@
  */
 export const FOURNISSEUR_LLM = Symbol('FOURNISSEUR_LLM');
 
+/** Identifiant du modèle factice (démonstration, tests). */
+export const MODELE_FACTICE = 'factice-v1';
+
 /** Ce qui part au modèle : consignes (système) et demande avec le contexte. */
 export interface PromptGeneration {
   systeme: string;
@@ -47,6 +50,12 @@ export interface FournisseurLlm {
    * extraction-questions.regles.ts.
    */
   extraireQuestions(demande: DemandeExtraction, options: OptionsAppelLlm): Promise<unknown>;
+  /**
+   * US-IA-10 — Analyse les erreurs d'un apprenant (points faibles, quoi
+   * travailler). Renvoie l'objet JSON BRUT (`{ synthese, axes, encouragement }`),
+   * validé ensuite par analyse-points-faibles.regles.ts.
+   */
+  analyserPointsFaibles(prompt: PromptGeneration, options: OptionsAppelLlm): Promise<unknown>;
 }
 
 /**
@@ -181,5 +190,48 @@ export const SCHEMA_EXTRACTION = {
         },
       },
     },
+  },
+} as const;
+
+/** US-IA-10 — Outil imposé pour l'analyse des points faibles. */
+export const OUTIL_ANALYSE = 'analyser_points_faibles';
+
+/** Schéma JSON de l'analyse des points faibles (US-IA-10). */
+export const SCHEMA_ANALYSE = {
+  type: 'object',
+  additionalProperties: false,
+  required: ['synthese', 'axes', 'encouragement'],
+  properties: {
+    synthese: {
+      type: 'string',
+      description: 'Deux ou trois phrases : le niveau global et les faiblesses principales.',
+    },
+    axes: {
+      type: 'array',
+      minItems: 1,
+      maxItems: 4,
+      items: {
+        type: 'object',
+        additionalProperties: false,
+        required: ['notion', 'constat', 'conseil', 'questions'],
+        properties: {
+          notion: { type: 'string', description: 'La notion à travailler, en quelques mots.' },
+          constat: {
+            type: 'string',
+            description: 'Ce que les réponses montrent (l’erreur de raisonnement probable).',
+          },
+          conseil: {
+            type: 'string',
+            description: 'Quoi faire concrètement (passage du cours à relire, exercice, méthode).',
+          },
+          questions: {
+            type: 'array',
+            items: { type: 'integer' },
+            description: 'Numéros des questions concernées.',
+          },
+        },
+      },
+    },
+    encouragement: { type: 'string', description: 'Une phrase pour la suite.' },
   },
 } as const;

@@ -47,6 +47,17 @@ import {
   limiteAtteinte,
   typeMime,
 } from './rapports.regles';
+import { QuestionTiree } from '../../database/entities/tentative-qcm.entity';
+import { AnalysePointsFaiblesService } from '../assistance-ia/analyse-points-faibles/analyse-points-faibles.service';
+import {
+  AtelierAnalyse,
+  QuestionAnalysee,
+  ResultatAnalyse,
+  verdictDe,
+} from '../assistance-ia/analyse-points-faibles/analyse-points-faibles.regles';
+import { construireLignesRapport } from '../tentatives/rapport/rapport-tentative.regles';
+import { nombre } from './rapport-format';
+import { TentativeCorrectionService } from '../tentatives/tentative-correction.service';
 
 export const MESSAGE_RAPPORT_INTROUVABLE = 'Rapport introuvable.';
 export const MESSAGE_RAPPORT_NON_PRET =
@@ -150,6 +161,8 @@ export class RapportsService implements OnApplicationBootstrap {
     private readonly tableauDeBord: TableauDeBordService,
     private readonly auditService: AuditService,
     private readonly mailService: MailService,
+    private readonly correctionService: TentativeCorrectionService,
+    private readonly analyseService: AnalysePointsFaiblesService,
   ) {}
 
   onApplicationBootstrap(): void {
@@ -387,6 +400,15 @@ export class RapportsService implements OnApplicationBootstrap {
     } else {
       const p = ligne.parametres as ParametresSession;
       const contenu = await this.contenu(ligne.formation_id as string, p);
+      // US-IA-10 : PDF individuel -> analyse des points faibles par l'IA (un échec
+      // de l'IA ne fait pas échouer le rapport : la section en donne la cause).
+      if (contenu.portee === 'INDIVIDUEL' && ligne.format === FormatRapport.PDF) {
+        contenu.analyseIa = await this.analyseApprenant(
+          ligne.formation_id as string,
+          p.apprenantId as string,
+          contenu.formation.titre,
+        );
+      }
       titre = contenu.portee === 'GLOBAL' ? contenu.suivi.formation.titre : contenu.formation.titre;
       nom = nomFichier(titre, p.portee, ligne.format, maintenant);
       tampon =
@@ -546,6 +568,98 @@ export class RapportsService implements OnApplicationBootstrap {
       formation,
       donnees: await this.donneesModule(formationId, p.moduleId as string),
     };
+  }
+
+  /**
+   * US-IA-10 — Analyse des points faibles d'un apprenant sur la formation :
+   * dernière tentative notée de chaque QCM (avec corrigé : le lecteur est le
+   * formateur affecté ou l'administrateur) et livrables notés (note,
+   * commentaire général du formateur). Aucune identité envoyée (D8).
+   */
+  private async analyseApprenant(
+    formationId: string,
+    apprenantId: string,
+    formationTitre: string,
+  ): Promise<ResultatAnalyse> {
+    const tentatives = (await this.dataSource.query(
+      `SELECT DISTINCT ON (t.qcm_id) t.id, t.plan_tirage AS "planTirage", t.score::float AS score,
+              t.est_reussie AS "estReussie", q.titre, q.module_id AS "moduleId",
+              c.score_min_validation::float AS seuil
+         FROM tentatives_qcm t
+         JOIN qcm q ON q.id = t.qcm_id
+         JOIN modules m ON m.id = q.module_id
+         LEFT JOIN config_anti_fraude c ON c.qcm_id = q.id
+        WHERE m.formation_id = $1 AND t.apprenant_id = $2 AND t.statut = 'NOTEE'
+        ORDER BY t.qcm_id, t.date_debut DESC, t.id DESC`,
+      [formationId, apprenantId],
+    )) as Array<{
+      id: string;
+      planTirage: QuestionTiree[] | null;
+      score: number | null;
+      estReussie: boolean | null;
+      titre: string;
+      moduleId: string;
+      seuil: number | null;
+    }>;
+    const ateliers = (await this.dataSource.query(
+      `SELECT DISTINCT ON (a.id) a.titre, c.score_total::float AS note, c.commentaire_general AS commentaire
+         FROM livrables l
+         JOIN ateliers a ON a.id = l.atelier_id
+         JOIN modules m ON m.id = a.module_id
+         JOIN corrections c ON c.livrable_id = l.id AND c.statut = 'TERMINEE'
+        WHERE m.formation_id = $1 AND l.apprenant_id = $2
+        ORDER BY a.id, l.version DESC`,
+      [formationId, apprenantId],
+    )) as AtelierAnalyse[];
+
+    const questions: QuestionAnalysee[] = [];
+    const contextes: string[] = [];
+    for (const t of tentatives) {
+      const lignes = construireLignesRapport(
+        await this.correctionService.lireCorrection(
+          this.dataSource.manager,
+          t.id,
+          t.planTirage ?? [],
+        ),
+        true,
+      );
+      for (const l of lignes) {
+        questions.push({
+          numero: questions.length + 1,
+          evaluation: t.titre,
+          enonce: l.enonce,
+          type: l.type,
+          niveau: l.niveau,
+          verdict: verdictDe(l),
+          reponseApprenant: l.optionsCochees,
+          bonnesReponses: l.bonnesReponses,
+          explication: l.explication,
+        });
+      }
+      contextes.push(
+        `« ${t.titre} » : ${nombre(t.score ?? 0)} / 100` +
+          `${t.seuil === null ? '' : ` (seuil ${nombre(t.seuil)})`} — ${t.estReussie ? 'réussi' : 'échoué'}`,
+      );
+    }
+    if (tentatives.length === 0 && ateliers.length === 0) {
+      return {
+        statut: 'INDISPONIBLE',
+        message: 'aucune évaluation notée pour cet apprenant : rien à analyser pour l’instant.',
+      };
+    }
+    return this.analyseService.analyser(
+      {
+        formation: formationTitre,
+        contexte:
+          contextes.length > 0
+            ? `Dernière tentative notée de chaque QCM : ${contextes.join(' ; ')}.`
+            : 'Aucun QCM noté ; ateliers seulement.',
+        avecCorrige: true,
+        questions,
+        ateliers,
+      },
+      [...new Set(tentatives.map((t) => t.moduleId))],
+    );
   }
 
   private async donneesModule(formationId: string, moduleId: string): Promise<DonneesModule> {

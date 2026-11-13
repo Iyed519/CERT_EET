@@ -12,6 +12,8 @@ import {
   ReussiteNiveau,
   SyntheseRapport,
 } from './rapport-tentative.regles';
+import { dessinerAnalyseIa } from '../../assistance-ia/analyse-points-faibles/analyse-ia-pdf';
+import { ResultatAnalyse } from '../../assistance-ia/analyse-points-faibles/analyse-points-faibles.regles';
 
 /** Ce que le rapport imprime (liste blanche : rien d'autre n'entre dans le PDF). */
 export interface ContenuRapport {
@@ -37,6 +39,8 @@ export interface ContenuRapport {
   parNiveau: ReussiteNiveau[];
   /** Corrigé absent : la phrase qui le dit (et sa date de disponibilité) ; null sinon. */
   corrigeAbsent: string | null;
+  /** US-IA-10 — Analyse des points faibles par l'IA, ou la cause de son absence. */
+  analyseIa: ResultatAnalyse;
   dateGeneration: Date;
 }
 
@@ -199,6 +203,17 @@ export function genererPdfRapport(c: ContenuRapport): Promise<Buffer> {
     }
     filet();
 
+    // --- US-IA-10 : analyse des points faibles par l'IA ------------------
+    dessinerAnalyseIa(doc, c.analyseIa, {
+      marge: MARGE,
+      largeur,
+      encre: ENCRE,
+      gris: GRIS,
+      rouge: ROUGE,
+      imprimable: texteImprimable,
+    });
+    filet();
+
     // --- Vos points à revoir (pour l'apprenant : ses erreurs et ses points faibles) ---
     doc.font('Helvetica-Bold').fontSize(13).fillColor(ENCRE).text('Vos points à revoir');
     doc.moveDown(0.3);
@@ -250,6 +265,8 @@ export function genererPdfRapport(c: ContenuRapport): Promise<Buffer> {
     filet();
 
     // --- Détail par question ---------------------------------------------
+    // Pas de titre seul en bas de page : il faut la place d'au moins une question.
+    if (doc.y + 130 > doc.page.height - doc.page.margins.bottom) doc.addPage();
     doc.font('Helvetica-Bold').fontSize(13).fillColor(ENCRE).text('Détail par question');
     doc.moveDown(0.4);
     for (const l of c.lignes) {

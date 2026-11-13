@@ -3,9 +3,11 @@ import {
   ErreurLlm,
   FournisseurLlm,
   OptionsAppelLlm,
+  OUTIL_ANALYSE,
   OUTIL_EXTRACTION,
   OUTIL_QUESTIONS,
   PromptGeneration,
+  SCHEMA_ANALYSE,
   SCHEMA_EXTRACTION,
   SCHEMA_QUESTIONS,
 } from './fournisseur-llm';
@@ -61,6 +63,21 @@ export class LlmCompatibleOpenAi implements FournisseurLlm {
       OUTIL_EXTRACTION,
       'Enregistre les questions recopiées du document, au format imposé.',
       SCHEMA_EXTRACTION,
+      options,
+    );
+  }
+
+  /** US-IA-10 — Analyse des points faibles : même appel, outil `analyser_points_faibles`. */
+  async analyserPointsFaibles(
+    prompt: PromptGeneration,
+    options: OptionsAppelLlm,
+  ): Promise<unknown> {
+    return this.appeler(
+      prompt.systeme,
+      prompt.utilisateur,
+      OUTIL_ANALYSE,
+      'Enregistre l’analyse des points faibles, au format imposé.',
+      SCHEMA_ANALYSE,
       options,
     );
   }

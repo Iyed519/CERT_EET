@@ -40,7 +40,7 @@ export function BoutonRapportPdf({
         onClick={() => void telecharger()}
         disabled={enCours}
       >
-        {enCours ? 'Préparation du rapport…' : 'Télécharger le rapport (PDF)'}
+        {enCours ? 'Analyse par l’IA et préparation du rapport…' : 'Télécharger le rapport (PDF)'}
       </button>
       {erreur !== null && (
         <span className="rapport-pdf-erreur" role="alert">

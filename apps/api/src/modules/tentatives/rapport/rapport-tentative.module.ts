@@ -1,6 +1,7 @@
 import { Module } from '@nestjs/common';
 import { TypeOrmModule } from '@nestjs/typeorm';
 import { TentativeQcm } from '../../../database/entities/tentative-qcm.entity';
+import { AnalyseIaModule } from '../../assistance-ia/analyse-points-faibles/analyse-ia.module';
 import { FormationsModule } from '../../formations/formations.module';
 import { TentativeCorrectionService } from '../tentative-correction.service';
 import {
@@ -17,7 +18,7 @@ import { RapportTentativeService } from './rapport-tentative.service';
  * disponibilité. AuditService est @Global.
  */
 @Module({
-  imports: [FormationsModule, TypeOrmModule.forFeature([TentativeQcm])],
+  imports: [FormationsModule, AnalyseIaModule, TypeOrmModule.forFeature([TentativeQcm])],
   controllers: [RapportApprenantController, RapportFormateurController],
   providers: [RapportTentativeService, TentativeCorrectionService],
 })
