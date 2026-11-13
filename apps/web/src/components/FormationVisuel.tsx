@@ -3,15 +3,16 @@
  * motif déterminés par l'identifiant — toujours les mêmes pour une formation —
  * avec les initiales du titre. Purement décoratif (aria-hidden).
  */
+// US-UI-02 : déclinaisons de la charte ESPRIT (rouge, noir, gris), au lieu d'un arc-en-ciel.
 const PALETTES: Array<[string, string]> = [
-  ['#1e8449', '#0f5132'],
-  ['#2563eb', '#1e3a8a'],
-  ['#7c3aed', '#4c1d95'],
-  ['#db2777', '#831843'],
-  ['#ea580c', '#9a3412'],
-  ['#0891b2', '#164e63'],
-  ['#4f46e5', '#312e81'],
-  ['#b45309', '#78350f'],
+  ['#e30613', '#8f030b'],
+  ['#1d1d1b', '#3f3f46'],
+  ['#3f3f46', '#18181b'],
+  ['#b1040e', '#4a0105'],
+  ['#52525b', '#27272a'],
+  ['#c8102e', '#5c0712'],
+  ['#27272a', '#b1040e'],
+  ['#71717a', '#3f3f46'],
 ];
 
 function empreinte(texte: string): number {

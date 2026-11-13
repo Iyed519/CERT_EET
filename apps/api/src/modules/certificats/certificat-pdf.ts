@@ -13,7 +13,8 @@ export interface ContenuCertificat {
   urlVerification: string;
 }
 
-const VERT = '#1e8449';
+/** Rouge ESPRIT (US-UI-02) : couleur de marque du document. */
+const MARQUE = '#e30613';
 const GRIS = '#56657a';
 const ENCRE = '#1b2631';
 
@@ -61,13 +62,13 @@ export async function genererPdfCertificat(contenu: ContenuCertificat): Promise<
     doc
       .rect(24, 24, width - 48, height - 48)
       .lineWidth(3)
-      .stroke(VERT);
+      .stroke(MARQUE);
     doc
       .rect(32, 32, width - 64, height - 64)
       .lineWidth(0.8)
-      .stroke(VERT);
+      .stroke(MARQUE);
 
-    doc.fillColor(VERT).font('Helvetica-Bold').fontSize(14);
+    doc.fillColor(MARQUE).font('Helvetica-Bold').fontSize(14);
     doc.text(contenu.organismeEmetteur.toUpperCase(), 0, 70, { align: 'center', width });
     doc
       .fillColor(ENCRE)
@@ -80,7 +81,7 @@ export async function genererPdfCertificat(contenu: ContenuCertificat): Promise<
     doc.text(contenu.nomApprenant, 60, 200, { align: 'center', width: width - 120 });
     doc.font('Helvetica').fontSize(14).fillColor(GRIS);
     doc.text('a validé la formation', 0, 250, { align: 'center', width });
-    doc.font('Helvetica-Bold').fontSize(20).fillColor(VERT);
+    doc.font('Helvetica-Bold').fontSize(20).fillColor(MARQUE);
     doc.text(contenu.titreFormation, 80, 275, { align: 'center', width: width - 160 });
 
     doc.font('Helvetica').fontSize(13).fillColor(ENCRE);

@@ -15,6 +15,14 @@
 
 ## [Après le Sprint 6] — Stories hors sprint
 
+#### US-UI-02 — Charte graphique ESPRIT — journal `engineering-log/96`
+- **Quoi :** couleurs d'ESPRIT (rouge de marque, noir, gris, blanc) avec contrastes calculés ;
+  logo ESPRIT dans l'en-tête et le pied de page ; le rouge est réservé à la marque et à l'action
+  principale, la réussite reste verte, l'erreur est un rouge plus sombre avec une icône ; boutons
+  définis une seule fois (fin des redéfinitions qui se contredisaient), messages, focus et état vide
+  communs ; PDF du certificat et du rapport QCM aux couleurs ESPRIT, contenu inchangé.
+- **Pourquoi :** reconnaître immédiatement l'établissement et lire chaque écran sans effort.
+
 #### US-UI-01 — Listes compactes et fiche détaillée en fenêtre — journal `engineering-log/95`
 - **Quoi :** la prédiction du risque affiche une ligne par apprenant (nom, niveau, facteur
   principal, alertes ouvertes), du risque le plus élevé au plus faible ; le détail s'ouvre dans une
