@@ -507,7 +507,7 @@ function LienModal({
         <CroixFermeture onClose={onClose} disabled={envoi} />
         <h2 className="auth-title">{ressource ? 'Modifier la ressource' : 'Nouveau lien ou vidéo'}</h2>
         <p className="auth-subtitle">
-          Module « {moduleTitre} ». Vos apprenants inscrits la verront dans « Mon espace ».
+          Module « {moduleTitre} ». Vos apprenants inscrits la verront dans la page de la formation.
         </p>
         {erreur !== null && <p className="alert alert-error">{erreur}</p>}
         <form className="form" onSubmit={(e) => void envoyer(e)}>

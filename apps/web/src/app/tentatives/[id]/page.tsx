@@ -3,6 +3,7 @@ import Link from 'next/link';
 import { useParams } from 'next/navigation';
 import { useCallback, useEffect, useRef, useState } from 'react';
 import { BoutonRapportPdf } from '../../../components/BoutonRapportPdf';
+import { useMiettes } from '../../../components/TitrePage';
 import { ConfirmationModal } from '../../../components/ConfirmationModal';
 import { CorrigeTentative } from '../../../components/CorrigeTentative';
 import SurveillanceWebcam from '../../../components/SurveillanceWebcam';
@@ -349,14 +350,19 @@ export default function TentativePage(): JSX.Element {
     if (tentative?.statut === 'EN_COURS' && restant <= 0) terminer('temps_ecoule');
   }, [tentative, restant, terminer]);
 
+  // US-UI-04 : fil d'Ariane jusqu'à la tentative (formation › QCM) ; plus de lien « ← ».
+  useMiettes(
+    tentative
+      ? [
+          { href: `/mes-inscriptions/${tentative.formationId}`, libelle: 'La formation' },
+          { libelle: tentative.qcmTitre },
+        ]
+      : null,
+  );
+
   if (ailleurs !== null) {
     return (
       <>
-        <p className="back-link-row">
-          <Link className="back-link" href="/mes-inscriptions">
-            ← Mes inscriptions
-          </Link>
-        </p>
         <section className="carte-ailleurs" aria-labelledby="titre-ailleurs">
           <h1 className="page-title" id="titre-ailleurs">
             Évaluation ouverte sur un autre appareil
@@ -370,7 +376,7 @@ export default function TentativePage(): JSX.Element {
                 tentative ? `/mes-inscriptions/${tentative.formationId}` : '/mes-inscriptions'
               }
             >
-              {tentative ? 'Retour à Mon espace' : 'Retour à mes inscriptions'}
+              {tentative ? 'Retour à la formation' : 'Retour à mes formations'}
             </Link>
           </p>
         </section>
@@ -380,12 +386,12 @@ export default function TentativePage(): JSX.Element {
   if (erreur !== null) {
     return (
       <>
-        <p className="back-link-row">
-          <Link className="back-link" href="/mes-inscriptions">
-            ← Mes inscriptions
+        <p className="alert alert-error">{erreur}</p>
+        <p>
+          <Link className="btn btn-secondaire btn-lien" href="/mes-inscriptions">
+            Retour à mes formations
           </Link>
         </p>
-        <p className="alert alert-error">{erreur}</p>
       </>
     );
   }
@@ -442,12 +448,6 @@ export default function TentativePage(): JSX.Element {
 
   return (
     <>
-      <p className="back-link-row">
-        <Link className="back-link" href={lienEspace}>
-          ← Mon espace
-        </Link>
-      </p>
-
       <div className="page-head">
         <div>
           <h1 className="page-title">{tentative.qcmTitre}</h1>
@@ -461,8 +461,10 @@ export default function TentativePage(): JSX.Element {
         </span>
       </div>
 
+      {/* US-UI-04 : le chronomètre n'a de sens que pendant le passage. */}
+      {enCours && (
       <section
-        className={`chrono${bientotFini ? ' chrono-alerte' : ''}${enCours ? '' : ' chrono-fini'}`}
+        className={`chrono${bientotFini ? ' chrono-alerte' : ''}`}
         aria-label="Temps restant"
       >
         <span className="chrono-libelle">Temps restant</span>
@@ -474,6 +476,7 @@ export default function TentativePage(): JSX.Element {
           {dateHeureFr(tentative.dateLimite)}
         </span>
       </section>
+      )}
 
       {/* US-QCM-12 — captures webcam pendant le passage d'un QCM surveillé. */}
       {enCours && tentative.surveillance?.active && (
@@ -594,7 +597,7 @@ export default function TentativePage(): JSX.Element {
               {etatCorrige.disponible && corrige === null && (
                 <button
                   type="button"
-                  className="btn btn-secondaire"
+                  className="btn"
                   onClick={() => void voirCorrige()}
                   disabled={chargementCorrige}
                 >
@@ -611,8 +614,8 @@ export default function TentativePage(): JSX.Element {
               {erreurCorrige}
             </p>
           )}
-          <Link className="btn passage-fin-lien" href={lienEspace}>
-            Retour à mon espace
+          <Link className="btn btn-secondaire passage-fin-lien" href={lienEspace}>
+            Retour à la formation
           </Link>
         </section>
       )}

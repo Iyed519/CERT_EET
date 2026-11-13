@@ -9,7 +9,7 @@ import {
   TentativeRefusee,
 } from '../lib/api';
 import { dateHeureFr, dureeFr } from '../lib/format';
-import { CroixFermeture } from './CroixFermeture';
+import { Fenetre } from './Fenetre';
 
 /** Ce que la modale affiche d'un QCM (vient de « Mon espace »). */
 export interface QcmADemarrer {
@@ -115,17 +115,7 @@ export function DemarrageTentative({
   };
 
   return (
-    <div
-      className="profil-overlay"
-      role="dialog"
-      aria-modal="true"
-      aria-labelledby="titre-demarrage"
-    >
-      <section className="profil-card modal-closable">
-        <CroixFermeture onClose={onClose} disabled={enCours} />
-        <h2 className="auth-title" id="titre-demarrage">
-          Démarrer l’évaluation
-        </h2>
+    <Fenetre titre="Démarrer l’évaluation" onClose={onClose} occupe={enCours}>
         {erreur !== null && <p className="alert alert-error">{erreur}</p>}
         <p className="auth-subtitle">
           <strong>« {qcm.titre} »</strong>
@@ -219,7 +209,6 @@ export function DemarrageTentative({
             {enCours ? 'Démarrage…' : surveille ? 'Accepter et démarrer' : 'Démarrer'}
           </button>
         </div>
-      </section>
-    </div>
+    </Fenetre>
   );
 }

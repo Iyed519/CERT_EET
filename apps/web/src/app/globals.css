@@ -1800,3 +1800,8 @@ p.alert-info::before { content: 'ℹ\00a0'; font-weight: 700; }
   .a-faire-element { flex-direction: column; align-items: stretch; }
   .a-faire-element .btn-sm { justify-content: center; }
 }
+
+/* US-UI-04 — Bouton plein rendu par un lien (`btn btn-lien`) : texte blanc (la règle
+   `.btn-lien { color: inherit }` le rendait foncé sur rouge, illisible). */
+a.btn.btn-lien:not(.btn-secondaire), a.btn.btn-lien:not(.btn-secondaire):hover { color: #fff; text-decoration: none; }
+a.btn.btn-lien { display: inline-flex; align-items: center; justify-content: center; width: auto; }

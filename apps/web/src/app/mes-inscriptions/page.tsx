@@ -1,7 +1,9 @@
 'use client';
 import Link from 'next/link';
 import { useCallback, useEffect, useState } from 'react';
-import { CroixFermeture } from '../../components/CroixFermeture';
+import { EnTetePage } from '../../components/EnTetePage';
+import { EtatVide } from '../../components/EtatVide';
+import { Fenetre } from '../../components/Fenetre';
 import {
   AdminError,
   ConsequencesDesinscription,
@@ -54,17 +56,15 @@ export default function MesInscriptionsPage(): JSX.Element {
 
   return (
     <>
-      <div className="page-head">
-        <div>
-          <h1 className="page-title">Mes inscriptions</h1>
-          <p className="page-subtitle">Les formations auxquelles vous êtes inscrit.</p>
-        </div>
-        <div className="row-actions">
+      <EnTetePage
+        titre="Mes formations"
+        phrase="Les formations auxquelles vous êtes inscrit : ouvrez-en une pour suivre ses modules et passer ses évaluations."
+        actions={
           <button className="btn-sm" onClick={() => void charger()} disabled={chargement}>
             Actualiser
           </button>
-        </div>
-      </div>
+        }
+      />
 
       {erreur !== null && <p className="alert alert-error">{erreur}</p>}
       {succes !== null && <p className="alert alert-success">{succes}</p>}
@@ -72,10 +72,15 @@ export default function MesInscriptionsPage(): JSX.Element {
       {chargement ? (
         <p className="page-subtitle">Chargement…</p>
       ) : erreur !== null ? null : inscriptions.length === 0 ? (
-        <p className="page-subtitle">
-          Vous n’êtes inscrit à aucune formation pour l’instant.{' '}
-          <Link href="/catalogue">Parcourir le catalogue</Link>
-        </p>
+        <EtatVide
+          titre="Aucune formation pour l’instant"
+          texte="Choisissez une formation dans le catalogue : l’inscription est immédiate."
+          action={
+            <Link className="btn btn-lien" href="/catalogue">
+              Parcourir le catalogue
+            </Link>
+          }
+        />
       ) : (
         <div className="table-wrap">
           <table className="data-table">
@@ -190,11 +195,7 @@ function DesinscriptionModal({
   };
 
   return (
-    <div className="profil-overlay" role="dialog" aria-modal="true">
-      <section className="profil-card modal-closable">
-        <CroixFermeture onClose={onClose} disabled={enCours} />
-        <h1 className="auth-title">Se désinscrire</h1>
-        <p className="auth-subtitle">{inscription.formation.titre}</p>
+    <Fenetre titre="Se désinscrire" sousTitre={inscription.formation.titre} onClose={onClose} occupe={enCours}>
         {erreur !== null && <p className="alert alert-error">{erreur}</p>}
         {infos === null ? (
           erreur === null && <p className="page-subtitle">Chargement…</p>
@@ -214,7 +215,7 @@ function DesinscriptionModal({
               <span>J’ai compris ces conséquences et je confirme ma désinscription.</span>
             </label>
             <div className="modal-actions">
-              <button type="button" className="btn" onClick={onClose} disabled={enCours}>
+              <button type="button" className="btn btn-secondaire" onClick={onClose} disabled={enCours}>
                 Annuler
               </button>
               <button
@@ -228,7 +229,6 @@ function DesinscriptionModal({
             </div>
           </>
         )}
-      </section>
-    </div>
+    </Fenetre>
   );
 }
