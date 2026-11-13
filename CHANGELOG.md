@@ -15,6 +15,14 @@
 
 ## [Après le Sprint 6] — Stories hors sprint
 
+#### US-UI-03 — Coque : navigation simple par rôle, accueil « À faire maintenant » — journal `engineering-log/97`
+- **Quoi :** chaque rôle arrive sur une page qui commence par « À faire maintenant » (apprenant :
+  nouvelle page « Mon espace » — QCM à passer ou à reprendre, livrables à rendre, retours à lire ;
+  formateur : livrables et tentatives à corriger, alertes ; administrateur : demandes en attente,
+  alertes système), chaque élément menant en un clic à l'écran utile ; menus de 5 entrées,
+  « Accueil » en tête ; fil d'Ariane ; l'administration n'empile plus deux barres de navigation.
+- **Pourquoi :** en ouvrant l'application, savoir exactement quoi faire et où cliquer.
+
 #### US-UI-02 — Charte graphique ESPRIT — journal `engineering-log/96`
 - **Quoi :** couleurs d'ESPRIT (rouge de marque, noir, gris, blanc) avec contrastes calculés ;
   logo ESPRIT dans l'en-tête et le pied de page ; le rouge est réservé à la marque et à l'action

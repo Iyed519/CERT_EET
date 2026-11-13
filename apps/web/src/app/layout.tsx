@@ -5,6 +5,7 @@ import { AuthProvider } from '../contexts/AuthContext';
 import { ProfilGate } from '../components/ProfilGate';
 import { ChargementSession, SessionPrete } from '../components/SessionPrete';
 import { SiteHeader } from '../components/SiteHeader';
+import { FilAriane } from '../components/FilAriane';
 export const metadata: Metadata = {
   title: 'Cert_EET — Certification numérique vérifiable',
   description:
@@ -26,6 +27,7 @@ export default function RootLayout({
         <AuthProvider>
           <SiteHeader />
           <main className="site-main">
+            <FilAriane />
             <Suspense fallback={<ChargementSession />}>
               <SessionPrete>{children}</SessionPrete>
             </Suspense>

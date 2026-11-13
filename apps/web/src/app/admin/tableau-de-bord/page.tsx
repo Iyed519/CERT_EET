@@ -1,5 +1,7 @@
 'use client';
 import Link from 'next/link';
+import { AFaireMaintenant } from '../../../components/AFaireMaintenant';
+import { aFaireAdministrateur } from '../../../lib/a-faire';
 import { FormEvent, useCallback, useEffect, useState } from 'react';
 import { getTableauDeBordGlobal, TableauDeBordGlobal } from '../../../lib/api';
 import {
@@ -103,6 +105,12 @@ export default function TableauDeBordPage(): JSX.Element {
         Activité de toute la plateforme. Les indicateurs « sur la période » portent sur les jours
         choisis (heure de Tunis) ; les autres sont l’état actuel.
       </p>
+      {/* US-UI-03 : ce qui demande une décision d'abord, les indicateurs ensuite. */}
+      <AFaireMaintenant
+        elements={t ? aFaireAdministrateur(t) : []}
+        chargement={t === null && erreur === null}
+        vide={{ texte: 'Aucune demande en attente, aucune alerte système. Les indicateurs de la plateforme sont ci-dessous.' }}
+      />
       <p className="suivi-lien">
         <Link className="btn-sm btn-link" href="/admin/risque">
           Prédiction du risque (IA)
@@ -145,7 +153,7 @@ export default function TableauDeBordPage(): JSX.Element {
           </p>
 
           {t.alertes.length > 0 ? (
-            <section className="tdb-alertes" aria-label="Alertes système">
+            <section className="tdb-alertes" id="alertes" aria-label="Alertes système">
               {t.alertes.map((a) => {
                 const [libelle, lien] = LIBELLES_ALERTE_SYSTEME[a.code] ?? [a.code, ''];
                 return (

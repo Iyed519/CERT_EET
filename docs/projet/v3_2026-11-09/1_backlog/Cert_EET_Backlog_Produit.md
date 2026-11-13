@@ -579,7 +579,7 @@ Table des matières
 | --- | --- | --- | --- | --- |
 | US-UI-01 | Listes compactes et fiche détaillée en fenêtre (risque, certificats ; fenêtre unique accessible) | Must | 3 | Livrée (journal 95) |
 | US-UI-02 | Charte graphique ESPRIT : jetons, logo, composants de base | Must | 5 | Livrée (journal 96) |
-| US-UI-03 | Coque : navigation simple par rôle, accueil « À faire maintenant » | Must | 5 | À faire |
+| US-UI-03 | Coque : navigation simple par rôle, accueil « À faire maintenant » | Must | 5 | Livrée (journal 97) |
 | US-UI-04 | Parcours apprenant refondu | Must | 5 | À faire |
 | US-UI-05 | Parcours formateur refondu | Must | 5 | À faire |
 | US-UI-06 | Parcours administrateur refondu | Must | 5 | À faire |

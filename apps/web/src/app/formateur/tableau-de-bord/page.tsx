@@ -1,5 +1,7 @@
 'use client';
 import Link from 'next/link';
+import { AFaireMaintenant } from '../../../components/AFaireMaintenant';
+import { aFaireFormateur } from '../../../lib/a-faire';
 import { FormEvent, useCallback, useEffect, useState } from 'react';
 import { SectionRisque } from '../../../components/PredictionRisque';
 import { getTableauDeBordFormateur, TableauDeBordFormateur } from '../../../lib/api';
@@ -89,6 +91,13 @@ export default function TableauDeBordFormateurPage(): JSX.Element {
           </Link>
         </div>
       </div>
+
+      {/* US-UI-03 : ce qui demande une action d'abord, les indicateurs ensuite. */}
+      <AFaireMaintenant
+        elements={t ? aFaireFormateur(t) : []}
+        chargement={t === null && erreur === null}
+        vide={{ texte: 'Aucun livrable à corriger, aucune alerte ouverte. Les indicateurs de vos formations sont ci-dessous.' }}
+      />
 
       <form className="filters tdb-periode" onSubmit={appliquer}>
         <label className="field">

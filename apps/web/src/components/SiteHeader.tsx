@@ -240,9 +240,6 @@ export function SiteHeader(): JSX.Element {
                 />
               </form>
               <p className="menu-mobile-titre">Navigation</p>
-              <Link href={accueil} className="menu-mobile-lien">
-                Accueil
-              </Link>
               {liens.map((lien) => (
                 <Link
                   key={lien.href}

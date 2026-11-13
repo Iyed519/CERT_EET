@@ -2,55 +2,39 @@
 import Link from 'next/link';
 import { usePathname } from 'next/navigation';
 import { ReactNode } from 'react';
+import { SOUS_NAVIGATION_ADMIN, sectionDe } from '../../components/navigation';
 
 /**
- * Layout des pages d'administration (US-ROL-01, US-CPT-03, US-AUTH-12,
- * US-FORM-01, US-CERT-01 : suivi de l'émission des certificats, US-DASH-01 :
- * tableau de bord global, US-RPT-02 : rapports institutionnels, US-IA-05 :
- * registre des générations IA).
+ * Layout des pages d'administration.
  *
- * Ajoute une barre d'onglets commune pour naviguer entre les écrans admin
- * (Utilisateurs, Demandes de rôle, Formations, Journal d'audit) sans quitter
- * la section. Purement UI : la
- * vraie barrière reste le RolesGuard côté API (@Roles(ADMINISTRATEUR)).
+ * US-UI-03 : la barre de 11 onglets (doublon de l'en-tête) est remplacée par
+ * une sous-navigation qui ne montre que les pages de la section courante
+ * (Utilisateurs, Formations, Pilotage) ; les sections d'une seule page n'en
+ * ont pas. Purement UI : la vraie barrière reste le RolesGuard côté API.
  */
-const ONGLETS: Array<[string, string]> = [
-  ['/admin/tableau-de-bord', 'Tableau de bord'],
-  ['/admin/utilisateurs', 'Utilisateurs'],
-  ['/admin/role-requests', 'Demandes de rôle'],
-  ['/admin/demandes-affectation', 'Affectations'],
-  ['/admin/propositions-formation', 'Propositions'],
-  ['/admin/formations', 'Formations'],
-  ['/admin/certificats', 'Certificats'],
-  ['/admin/rapports', 'Rapports'],
-  ['/admin/generations-ia', 'Générations IA'],
-  ['/admin/risque', 'Prédiction du risque'],
-  ['/admin/audit', "Journal d'audit"],
-];
-
-export default function AdminLayout({
-  children,
-}: {
-  children: ReactNode;
-}): JSX.Element {
+export default function AdminLayout({ children }: { children: ReactNode }): JSX.Element {
   const pathname = usePathname();
+  const section = sectionDe('ADMINISTRATEUR', pathname);
+  const onglets = section ? (SOUS_NAVIGATION_ADMIN[section.libelle] ?? []) : [];
   return (
     <div>
-      <nav className="admin-tabs" aria-label="Administration">
-        {ONGLETS.map(([href, libelle]) => {
-          const actif = pathname?.startsWith(href) ?? false;
-          return (
-            <Link
-              key={href}
-              href={href}
-              className={`admin-tab${actif ? ' admin-tab-active' : ''}`}
-              aria-current={actif ? 'page' : undefined}
-            >
-              {libelle}
-            </Link>
-          );
-        })}
-      </nav>
+      {onglets.length > 1 && (
+        <nav className="admin-tabs" aria-label={`Section ${section?.libelle ?? ''}`}>
+          {onglets.map(([href, libelle]) => {
+            const actif = pathname === href || (pathname?.startsWith(`${href}/`) ?? false);
+            return (
+              <Link
+                key={href}
+                href={href}
+                className={`admin-tab${actif ? ' admin-tab-active' : ''}`}
+                aria-current={actif ? 'page' : undefined}
+              >
+                {libelle}
+              </Link>
+            );
+          })}
+        </nav>
+      )}
       {children}
     </div>
   );

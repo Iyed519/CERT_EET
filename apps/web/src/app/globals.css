@@ -1769,3 +1769,34 @@ p.alert-info::before { content: 'ℹ\00a0'; font-weight: 700; }
 .logo-esprit-sm { height: 26px; }
 .topbar-brand-filet { width: 1px; height: 28px; background: var(--border-strong); }
 .site-footer-marque { display: inline-flex; align-items: center; gap: 10px; }
+
+/* ============================================================
+   US-UI-03 — Coque : « À faire maintenant », fil d'Ariane, mon espace
+   ============================================================ */
+.a-faire { background: var(--surface); border: 1px solid var(--border); border-top: 4px solid var(--primary); border-radius: var(--radius); box-shadow: var(--shadow-card); padding: var(--sp-4) var(--sp-5); margin: 0 0 var(--sp-6); }
+.a-faire-titre { display: flex; align-items: center; gap: var(--sp-2); margin: 0 0 var(--sp-3); font-size: var(--fs-h2); color: var(--ink); }
+.a-faire-compte { min-width: 26px; height: 26px; padding: 0 8px; border-radius: 999px; background: var(--primary); color: #fff; font-size: 0.85rem; display: inline-grid; place-items: center; }
+.a-faire-liste { list-style: none; margin: 0; padding: 0; display: grid; gap: var(--sp-2); }
+.a-faire-element { display: flex; align-items: center; justify-content: space-between; gap: var(--sp-3); padding: var(--sp-3); border: 1px solid var(--border); border-radius: var(--radius-sm); background: var(--surface-2); }
+.a-faire-urgent { border-left: 4px solid var(--primary); }
+.a-faire-texte { display: flex; flex-direction: column; gap: 2px; min-width: 0; }
+.a-faire-libelle { font-weight: 650; color: var(--ink); overflow-wrap: anywhere; }
+.a-faire-detail { font-size: var(--fs-petit); color: var(--muted); overflow-wrap: anywhere; }
+.a-faire .etat-vide { border-style: solid; border-color: var(--border); background: var(--surface-2); padding: var(--sp-4); }
+.fil-ariane { margin: 0 0 var(--sp-3); font-size: var(--fs-petit); }
+.fil-ariane ol { list-style: none; margin: 0; padding: 0; display: flex; flex-wrap: wrap; gap: 4px; }
+.fil-ariane li + li::before { content: '›'; margin-right: 4px; color: var(--muted); }
+.fil-ariane a { color: var(--muted); text-decoration: none; }
+.fil-ariane a:hover { color: var(--primary-dark); text-decoration: underline; }
+.fil-ariane [aria-current='page'] { color: var(--ink); font-weight: 600; }
+.mon-espace-liste { list-style: none; margin: 0; padding: 0; display: grid; gap: var(--sp-3); grid-template-columns: repeat(auto-fill, minmax(280px, 1fr)); }
+.mon-espace-carte { background: var(--surface); border: 1px solid var(--border); border-radius: var(--radius); box-shadow: var(--shadow-card); padding: var(--sp-4); display: flex; flex-direction: column; gap: var(--sp-2); }
+.mon-espace-carte-titre { margin: 0; font-weight: 700; color: var(--ink); }
+.mon-espace-carte-tete { display: flex; flex-direction: column; gap: 2px; }
+.mon-espace-carte-pied { display: flex; justify-content: space-between; align-items: center; gap: var(--sp-2); }
+.admin-tabs { overflow-x: auto; }
+@media (max-width: 640px) {
+  .a-faire { padding: var(--sp-3); }
+  .a-faire-element { flex-direction: column; align-items: stretch; }
+  .a-faire-element .btn-sm { justify-content: center; }
+}

@@ -66,7 +66,7 @@ d'affectation (Leïla -> DevOps), 1 proposition de formation (Leïla,
    demandée (US-NAV-01).
 
 ### 4.2 Apprenante — Sana (4 min)
-1. Connexion -> arrivée directe sur le **catalogue** (page du rôle).
+1. Connexion -> arrivée sur **Mon espace** (page du rôle, US-UI-03) : « À faire maintenant » puis les formations en cours ; le catalogue reste dans le menu. Pour voir des éléments à faire, se connecter avec `demo-apprenant3@cert-eet.local` (QCM à retenter, livrable à rendre).
 2. **F5** : la session est gardée (US-AUTH-17).
 3. *Mes formations* -> « Développement web full-stack » : modules, QCM,
    atelier, avancement.

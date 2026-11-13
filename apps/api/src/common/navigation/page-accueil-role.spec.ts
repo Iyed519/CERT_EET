@@ -5,7 +5,7 @@ describe('pageAccueilDuRole (US-NAV-01)', () => {
   it('donne la page de chaque rôle, identique au web', () => {
     expect(pageAccueilDuRole(Role.ADMINISTRATEUR)).toBe('/admin/tableau-de-bord');
     expect(pageAccueilDuRole(Role.FORMATEUR)).toBe('/formateur/tableau-de-bord');
-    expect(pageAccueilDuRole(Role.APPRENANT)).toBe('/catalogue');
+    expect(pageAccueilDuRole(Role.APPRENANT)).toBe('/mon-espace');
   });
 
   it('couvre tous les rôles par un chemin interne', () => {
