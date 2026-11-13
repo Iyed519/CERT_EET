@@ -1,5 +1,6 @@
 'use client';
 import { useCallback, useEffect, useState, FormEvent } from 'react';
+import { CroixFermeture } from '../../../components/CroixFermeture';
 import {
   getAdminRoleRequests,
   approveRoleRequest,
@@ -93,7 +94,7 @@ export default function AdminRoleRequestsPage(): JSX.Element {
         <div>
           <h1 className="page-title">Demandes de changement de rôle</h1>
           <p className="page-subtitle">
-            Approuvez ou rejetez les demandes des utilisateurs (US-ROL-02).
+            Approuvez ou rejetez les demandes de changement de rôle : le demandeur est prévenu par email.
           </p>
         </div>
         <div className="row-actions">
@@ -255,7 +256,8 @@ function RejeterModal({
 
   return (
     <div className="profil-overlay" role="dialog" aria-modal="true">
-      <section className="profil-card">
+      <section className="profil-card modal-closable">
+        <CroixFermeture onClose={onClose} disabled={enCours} />
         <h1 className="auth-title">Rejeter la demande</h1>
         <p className="auth-subtitle">
           {demande.demandeur.email} — rôle demandé :{' '}
@@ -279,7 +281,7 @@ function RejeterModal({
             />
             <span className="field-hint">
               Obligatoire : ce motif est tracé dans le journal d&apos;audit et
-              communiqué au demandeur (US-ROL-02).
+              communiqué au demandeur.
             </span>
           </div>
           {erreur !== null && <p className="alert alert-error">{erreur}</p>}

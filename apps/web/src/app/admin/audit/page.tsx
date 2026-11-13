@@ -156,9 +156,8 @@ export default function AdminAuditPage(): JSX.Element {
         <div>
           <h1 className="page-title">Journal d&apos;audit</h1>
           <p className="page-subtitle">
-            Trace inviolable des actions sensibles (US-AUTH-12, US-AUDIT-01,
-            NF3). Lecture seule : aucune entrée ne peut être modifiée ni
-            supprimée.
+            Trace inviolable des actions sensibles : qui a fait quoi, quand, avec quel résultat.
+            Lecture seule : aucune entrée ne peut être modifiée ni supprimée.
           </p>
         </div>
         <button

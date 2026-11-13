@@ -96,7 +96,7 @@ export default function MonRolePage(): JSX.Element {
           <h1 className="page-title">Changer de rôle</h1>
           <p className="page-subtitle">
             Demandez à devenir formateur ou administrateur. Un administrateur
-            approuvera ou rejettera votre demande (US-ROL-02).
+            approuvera ou rejettera votre demande.
           </p>
         </div>
       </div>

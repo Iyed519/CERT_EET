@@ -1,5 +1,6 @@
 'use client';
 import Link from 'next/link';
+import { EnTetePage } from '../../../components/EnTetePage';
 import { AFaireMaintenant } from '../../../components/AFaireMaintenant';
 import { aFaireAdministrateur } from '../../../lib/a-faire';
 import { FormEvent, useCallback, useEffect, useState } from 'react';
@@ -100,11 +101,10 @@ export default function TableauDeBordPage(): JSX.Element {
 
   return (
     <main className="page">
-      <h1>Tableau de bord</h1>
-      <p className="page-intro">
-        Activité de toute la plateforme. Les indicateurs « sur la période » portent sur les jours
-        choisis (heure de Tunis) ; les autres sont l’état actuel.
-      </p>
+      <EnTetePage
+        titre="Tableau de bord"
+        phrase="Ce qui attend votre décision, puis l’activité de toute la plateforme. Les indicateurs « sur la période » portent sur les jours choisis (heure de Tunis) ; les autres sont l’état actuel."
+      />
       {/* US-UI-03 : ce qui demande une décision d'abord, les indicateurs ensuite. */}
       <AFaireMaintenant
         elements={t ? aFaireAdministrateur(t) : []}

@@ -1,5 +1,5 @@
 'use client';
-import Link from 'next/link';
+import { useMiettes } from '../../../../../components/TitrePage';
 import { useParams } from 'next/navigation';
 import { FormEvent, useCallback, useEffect, useState } from 'react';
 import { CroixFermeture } from '../../../../../components/CroixFermeture';
@@ -96,13 +96,10 @@ export default function InscriptionsFormationPage(): JSX.Element {
 
   const actives = (inscriptions ?? []).filter((i) => i.statut !== 'SUSPENDUE').length;
 
+  useMiettes([{ libelle: titre ?? 'La formation' }, { libelle: 'Inscriptions' }]);
+
   return (
     <>
-      <p className="back-link-row">
-        <Link className="back-link" href="/admin/formations">
-          ← Formations
-        </Link>
-      </p>
       <div className="page-head">
         <div>
           <h1 className="page-title">Inscriptions</h1>
