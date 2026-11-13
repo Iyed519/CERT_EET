@@ -59,8 +59,14 @@ d'affectation (Leïla -> DevOps), 1 proposition de formation (Leïla,
 
 ## 4. Scénario conseillé
 
+Chaque rôle a au plus cinq entrées de menu, « Accueil » en premier, et son
+accueil commence par **« À faire maintenant »** (US-UI-03). Les écrans suivent
+la charte ESPRIT décrite dans `docs/GUIDE_STYLE.md` (captures dans
+`docs/guide-style/`).
+
 ### 4.1 Visiteur (1 min)
-1. https://localhost : page publique (présentation, atouts).
+1. https://localhost : page publique (présentation, atouts) ; « Se connecter »
+   et « S'inscrire » en haut à droite.
 2. Ouvrir une page protégée, par exemple https://localhost/mes-certificats :
    redirection vers la connexion ; après connexion, retour sur la page
    demandée (US-NAV-01).
@@ -71,14 +77,16 @@ d'affectation (Leïla -> DevOps), 1 proposition de formation (Leïla,
 3. *Mes formations* -> « Développement web full-stack » : modules, QCM,
    atelier, avancement.
 4. *Mes évaluations* : tentative notée 100 / 100 et son corrigé.
-5. *Mes certificats* : certificat DevOps -> télécharger le PDF ; ouvrir la
+5. *Mes certificats* : liste compacte ; ouvrir la fiche du certificat DevOps
+   (fenêtre) -> télécharger le PDF ; ouvrir la
    **page de vérification publique** (lien du certificat) dans la fenêtre
    privée : authenticité vérifiable sans compte.
 
 ### 4.3 Formateur — Karim (6 min)
-1. Connexion -> **tableau de bord formateur** (US-DASH-03) : formations par
-   statut, réussite QCM, 2 livrables à évaluer, 2 alertes, graphique ; filtre
-   de période (7 j, 30 j…).
+1. Connexion -> **Accueil** (tableau de bord formateur, US-DASH-03) : « À faire
+   maintenant » (alertes à traiter, livrables à corriger), puis formations par
+   statut, réussite QCM, graphique ; filtre de période (7 j, 30 j…).
+   Menu : Accueil · Mes formations · Alertes · Rapports · Catalogue.
 2. Tableau « Mes formations » -> *Suivi* de « Développement web » : apprenants
    à risque (Ahmed inactif, Mariem en échec).
    Plus bas, section **Apprenants à risque (IA)** : niveau suggéré par le
@@ -90,28 +98,38 @@ d'affectation (Leïla -> DevOps), 1 proposition de formation (Leïla,
 4. *Mes formations* -> formation -> atelier « API REST de réservation » ->
    corriger le livrable de Youssef avec la grille, finaliser : le feedback
    devient visible à l'apprenant.
-5. **Demander une formation** (US-FORM-07) : choisir « Cybersécurité
+5. **Importer des questions depuis un fichier** (US-IA-08) : *Mes formations*
+   -> formation -> créer un QCM -> « Importer depuis un fichier » (PDF, PDF
+   scanné, DOCX, TXT, CSV, XLSX ou image) ; l'IA recopie les questions, le
+   formateur relit, corrige et choisit celles à ajouter. Sans clé
+   `ANTHROPIC_API_KEY`, le fournisseur factice répond avec un jeu fixe.
+6. **Demander une formation** (US-FORM-07) : choisir « Cybersécurité
    opérationnelle », motif -> demande en attente.
-6. **Proposer une formation** (US-FORM-08) : remplir le formulaire -> en
+7. **Proposer une formation** (US-FORM-08) : remplir le formulaire -> en
    attente.
 
 ### 4.4 Administrateur (6 min)
-1. Connexion -> **tableau de bord global** : utilisateurs par rôle,
-   formations par statut, inscriptions, réussite, certificats, carte
-   **Demandes en attente** (rôle, affectations, propositions).
-2. *Affectations* : accepter la demande de Karim -> il enseigne désormais
+1. Connexion -> **Accueil** (tableau de bord global) : « À faire maintenant »
+   (demandes à décider), utilisateurs par rôle, formations par statut,
+   inscriptions, réussite, certificats.
+   Menu : Accueil · Utilisateurs · Formations · Certificats · Pilotage ; chaque
+   section a ses onglets (Utilisateurs : Comptes, Demandes de rôle ;
+   Formations : Formations, Demandes d'affectation, Propositions ; Pilotage :
+   Rapports, Prédiction du risque, Générations IA, Journal d'audit).
+2. *Formations › Demandes d'affectation* : accepter la demande de Karim -> il enseigne désormais
    « Cybersécurité » (email envoyé, visible dans Mailhog
    http://localhost:8025).
-3. *Propositions* : sur la proposition de Karim, **demander des
+3. *Formations › Propositions* : sur la proposition de Karim, **demander des
    modifications** (commentaire) ; en fenêtre privée, Karim corrige et
    renvoie ; puis **accepter** -> formation créée **en brouillon** ; dans
    *Formations*, la **publier** (elle entre au catalogue).
-4. *Demandes de rôle* : approuver Nour comme formatrice.
-5. *Prédiction du risque* : même présentation, pour toutes les formations.
+4. *Utilisateurs › Demandes de rôle* : approuver Nour comme formatrice.
+5. *Pilotage › Prédiction du risque* : même présentation, pour toutes les formations.
    Pour montrer le repli silencieux : `docker compose … stop ml` ; l'application
    continue normalement (les règles s'appliquent) et, sans score récent,
    l'écran affiche « Prédiction indisponible ».
-6. *Certificats* : supervision ; *Journal d'audit* : toutes les actions
+6. *Certificats* : liste compacte, fiche en fenêtre (croix, Échap ou clic à
+   l'extérieur pour fermer) ; *Pilotage › Journal d'audit* : toutes les actions
    précédentes, filtrables et exportables.
 
 ### 4.5 Sécurité (2 min)

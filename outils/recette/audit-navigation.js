@@ -11,6 +11,8 @@
  *   - erreur de page JavaScript ou erreur dans la console ;
  *   - réponse 5xx (ou 404 d'un appel à l'api) pendant la navigation ;
  *   - défilement horizontal (mise en page cassée) ;
+ *   - texte dont le contraste avec son fond est sous le seuil WCAG 2.1 AA
+ *     (4,5:1, ou 3:1 pour un grand texte ; US-UI-08) ;
  *   - bouton sans effet visible (ni navigation, ni modale, ni changement de la page) ;
  *   - page d'un autre rôle accessible sans redirection propre.
  *
@@ -114,11 +116,86 @@ async function examinerPage(page, ctx) {
       introuvable: /could not be found|page introuvable|404/i.test(document.title + ' ' + texte.slice(0, 300)),
       debordement: document.documentElement.scrollWidth > window.innerWidth + 1,
       liens: Array.from(document.querySelectorAll('a[href]')).map((a) => a.getAttribute('href')),
+      contrastes: contrastesInsuffisants(),
     };
+
+    /**
+     * US-UI-08 — Contraste texte / fond (WCAG 2.1, critère 1.4.3). Pour chaque élément
+     * qui porte du texte visible : couleur du texte composée sur le fond effectif
+     * (premier fond opaque en remontant). Ignorés, faute de fond calculable ou parce
+     * que la norme les exempte : fond en image ou dégradé, opacité réduite (contrôle
+     * inactif, élément décoratif), contrôle désactivé, contenu masqué aux lecteurs d'écran.
+     */
+    function contrastesInsuffisants() {
+      const rgba = (c) => {
+        const m = /^rgba?\(([\d.]+),\s*([\d.]+),\s*([\d.]+)(?:,\s*([\d.]+))?\)$/.exec(c);
+        return m ? [Number(m[1]), Number(m[2]), Number(m[3]), m[4] === undefined ? 1 : Number(m[4])] : null;
+      };
+      const composer = (h, b) => [0, 1, 2].map((i) => h[i] * h[3] + b[i] * (1 - h[3])).concat(1);
+      const lum = (c) => {
+        const [r, g, bl] = c.slice(0, 3).map((v) => { const x = v / 255; return x <= 0.03928 ? x / 12.92 : ((x + 0.055) / 1.055) ** 2.4; });
+        return 0.2126 * r + 0.7152 * g + 0.0722 * bl;
+      };
+      /** Fonds possibles sous l'élément : une couleur, ou chaque couleur d'un dégradé. */
+      const fondsDe = (el) => {
+        const couches = [];
+        let bases = [[255, 255, 255, 1]];
+        for (let e = el; e; e = e.parentElement) {
+          const st = getComputedStyle(e);
+          if (st.backgroundImage !== 'none') {
+            if (/url\(/.test(st.backgroundImage)) return null;
+            const arrets = (st.backgroundImage.match(/rgba?\([^)]*\)/g) || []).map(rgba).filter(Boolean);
+            if (arrets.length === 0) return null;
+            const sous = rgba(st.backgroundColor) || [255, 255, 255, 1];
+            bases = arrets.map((c) => composer(c, sous[3] === 1 ? sous : [255, 255, 255, 1]));
+            break;
+          }
+          const c = rgba(st.backgroundColor);
+          if (c === null) return null;
+          if (c[3] > 0) couches.push(c);
+          if (c[3] === 1) { bases = [c]; couches.pop(); break; }
+        }
+        return bases.map((base) => couches.reduceRight((fond, c) => composer(c, fond), base));
+      };
+      const opaque = (el) => {
+        for (let e = el; e; e = e.parentElement) if (Number(getComputedStyle(e).opacity) < 1) return false;
+        return true;
+      };
+      const vus = [];
+      for (const el of document.body.querySelectorAll('*')) {
+        if (vus.length >= 5) break;
+        const texte = Array.from(el.childNodes).filter((n) => n.nodeType === 3).map((n) => n.textContent).join('').trim();
+        if (!texte || /^[\s·•›|—–-]+$/.test(texte)) continue;
+        if (el.closest('[aria-hidden="true"], :disabled, [aria-disabled="true"], svg, script, style, noscript')) continue;
+        const st = getComputedStyle(el);
+        const r = el.getBoundingClientRect();
+        if (st.visibility !== 'visible' || st.display === 'none' || r.width === 0 || r.height === 0) continue;
+        if (st.clip === 'rect(0px, 0px, 0px, 0px)' || (r.width <= 1 && r.height <= 1)) continue;
+        const couleur = rgba(st.color);
+        const fonds = fondsDe(el);
+        if (couleur === null || fonds === null || !opaque(el)) continue;
+        let ratio = Infinity;
+        let fond = fonds[0];
+        for (const f of fonds) {
+          const [l1, l2] = [lum(composer(couleur, f)), lum(f)].sort((x, y) => y - x);
+          const r = (l1 + 0.05) / (l2 + 0.05);
+          if (r < ratio) { ratio = r; fond = f; }
+        }
+        const taille = parseFloat(st.fontSize);
+        const grand = taille >= 24 || (taille >= 18.66 && Number(st.fontWeight) >= 700);
+        const seuil = grand ? 3 : 4.5;
+        if (ratio < seuil - 0.005) {
+          const classe = typeof el.className === 'string' && el.className ? `.${el.className.trim().split(/\s+/).join('.')}` : '';
+          vus.push(`${el.tagName.toLowerCase()}${classe} « ${texte.slice(0, 30)} » ${ratio.toFixed(2)}:1 < ${seuil}:1 (${st.color} sur rgb(${fond.slice(0, 3).map(Math.round).join(', ')}))`);
+        }
+      }
+      return vus;
+    }
   });
   if (etat.introuvable) signaler(ctx, 'PAGE_INEXISTANTE', '');
   else if (etat.texte < 15) signaler(ctx, 'PAGE_BLANCHE', `(${etat.texte} caractères)`);
   if (etat.debordement) signaler(ctx, 'DEFILEMENT_HORIZONTAL', '');
+  for (const c of etat.contrastes) signaler(ctx, 'CONTRASTE_INSUFFISANT', c);
   return etat.liens;
 }
 
