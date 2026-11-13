@@ -1,5 +1,7 @@
 'use client';
 import Link from 'next/link';
+import { EtatVide } from '../../../../../components/EtatVide';
+import { useMiettes } from '../../../../../components/TitrePage';
 import { useParams } from 'next/navigation';
 import { useCallback, useEffect, useState } from 'react';
 import { BoutonRapportPdf } from '../../../../../components/BoutonRapportPdf';
@@ -89,6 +91,7 @@ export default function TentativesQcmPage(): JSX.Element {
       l.apprenant.email.toLowerCase().includes(recherche),
   );
 
+  useMiettes([{ href: `/formateur/qcm/${id}`, libelle: 'Le QCM' }, { libelle: 'Tentatives' }]);
   return (
     <>
       <div className="page-head">
@@ -108,7 +111,10 @@ export default function TentativesQcmPage(): JSX.Element {
       {liste === null ? (
         <p className="page-subtitle">Chargement…</p>
       ) : liste.length === 0 ? (
-        <p className="carte-ailleurs">Aucune tentative pour l’instant.</p>
+        <EtatVide
+          titre="Aucune tentative pour l’instant"
+          texte="Les tentatives des apprenants apparaîtront ici dès qu’ils auront passé ce QCM, une fois publié."
+        />
       ) : (
         <>
           <input

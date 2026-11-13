@@ -59,7 +59,7 @@ export function Fenetre({
     const touche = (e: KeyboardEvent): void => {
       if (!noeud || !auDessus()) return;
       if (e.key === 'Escape') {
-        e.stopPropagation();
+        e.stopImmediatePropagation();
         if (!bloque.current) fermer.current();
         return;
       }

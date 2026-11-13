@@ -1,5 +1,6 @@
 'use client';
 import Link from 'next/link';
+import { EtatVide } from '../../../components/EtatVide';
 import { useCallback, useEffect, useState } from 'react';
 import {
   AdminError,
@@ -84,10 +85,15 @@ export default function MesFormationsPage(): JSX.Element {
       {chargement ? (
         <p className="page-subtitle">Chargement…</p>
       ) : erreur !== null ? null : formations.length === 0 ? (
-        <p className="page-subtitle">
-          Vous n’êtes affecté à aucune formation pour l’instant. Un administrateur peut vous
-          affecter depuis la page Formations de l’administration.
-        </p>
+        <EtatVide
+          titre="Aucune formation pour l’instant"
+          texte="Un administrateur vous affecte aux formations. Vous pouvez demander à enseigner une formation existante, ou en proposer une nouvelle."
+          action={
+            <Link className="btn btn-lien" href="/formateur/demandes">
+              Demander une formation
+            </Link>
+          }
+        />
       ) : (
         <div className="table-wrap">
           <table className="data-table">

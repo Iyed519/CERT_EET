@@ -1,5 +1,6 @@
 'use client';
 import Link from 'next/link';
+import { EtatVide } from '../../../components/EtatVide';
 import { FormEvent, useCallback, useEffect, useState } from 'react';
 import {
   AdminError,
@@ -228,7 +229,10 @@ export default function MesPropositionsPage(): JSX.Element {
       <section className="tdb-bloc" aria-labelledby="titre-mes-propositions">
         <h2 id="titre-mes-propositions">Mes propositions ({ouvertes} en cours sur {MAX_OUVERTES})</h2>
         {!chargement && propositions.length === 0 ? (
-          <p className="kpi-sous">Vous n’avez encore proposé aucune formation.</p>
+          <EtatVide
+            titre="Aucune proposition envoyée"
+            texte="Décrivez la formation que vous souhaitez créer : acceptée, elle est créée en brouillon et vous y êtes affecté."
+          />
         ) : (
           <div className="table-wrap">
             <table className="data-table">

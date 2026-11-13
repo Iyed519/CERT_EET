@@ -1,5 +1,5 @@
 'use client';
-import Link from 'next/link';
+import { useMiettes } from '../../../../../components/TitrePage';
 import { useParams } from 'next/navigation';
 import { FormEvent, useEffect, useState } from 'react';
 import { ListeRapports } from '../../../../../components/ListeRapports';
@@ -76,17 +76,16 @@ export default function RapportsFormationPage(): JSX.Element {
     }
   };
 
+  useMiettes([{ href: `/formateur/formations/${id}`, libelle: titre ?? 'La formation' }, { libelle: 'Rapports de session' }]);
   return (
     <>
-      <p className="back-link-row">
-        <Link className="back-link" href={`/formateur/formations/${id}/suivi`}>
-          ← Suivi pédagogique
-        </Link>
-      </p>
       <div className="page-head">
         <div>
           <h1 className="page-title">Rapports de session</h1>
-          <p className="page-subtitle">{titre ?? 'Chargement…'}</p>
+          <p className="page-subtitle">
+            Exportez un rapport de la session (vue globale, un apprenant ou un module) : il est
+            préparé en arrière-plan puis listé dans « Rapports ». {titre ?? ''}
+          </p>
         </div>
       </div>
 
