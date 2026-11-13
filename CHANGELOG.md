@@ -15,6 +15,17 @@
 
 ## [Après le Sprint 6] — Stories hors sprint
 
+#### US-IA-09 — IA réelle dès qu'une clé est là, erreurs visibles — journal `engineering-log/103`
+- **Quoi :** `ANTHROPIC_API_KEY` dans le `.env` suffit : Claude est appelé même si
+  `LLM_FOURNISSEUR` vaut encore `factice` (défaut retiré de `docker-compose.yml` et de
+  `.env.example`). Sans clé : « IA non configurée » dans les fenêtres de génération et d'import
+  (lancement bloqué), jamais d'exemples silencieux. Crédit épuisé, surcharge, limite de débit,
+  document trop gros : message français dans la carte ; après les tentatives, la cause reste
+  affichée. Nouveau `GET /api/assistance-ia/etat` (sans secret). Les tests e2e demandent le
+  fournisseur factice explicitement et n'utilisent jamais une clé du `.env`.
+- **Pourquoi :** le propriétaire testait avec sa clé et recevait des questions d'exemple sans
+  le savoir.
+
 #### US-UI-08 — Recette finale : cohérence, accessibilité, guide de style — journal `engineering-log/102`
 - **Quoi :** la recette de navigation contrôle aussi le contraste de chaque texte visible (WCAG 2.1
   AA, dégradés compris) et passe sur toutes les pages de tous les rôles ; nouveau

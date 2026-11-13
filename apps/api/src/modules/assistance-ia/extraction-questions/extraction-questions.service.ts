@@ -31,6 +31,8 @@ import { FileIaService } from '../file-ia.service';
 import {
   DemandeExtraction,
   ErreurLlm,
+  estErreurLlm,
+  motifApresTentatives,
   FOURNISSEUR_LLM,
   FournisseurLlm,
 } from '../llm/fournisseur-llm';
@@ -451,7 +453,12 @@ export class ExtractionQuestionsService implements OnApplicationBootstrap {
       erreur instanceof UnrecoverableError ||
       (erreur as { name?: string } | null)?.name === 'UnrecoverableError';
     const message = erreur instanceof Error ? erreur.message : String(erreur);
-    const motif = definitif ? message : MESSAGE_ECHEC_EXTRACTION;
+    // US-IA-09 : une erreur du fournisseur garde sa cause (message français, sans secret).
+    const motif = definitif
+      ? message
+      : estErreurLlm(erreur)
+        ? motifApresTentatives('Extraction', message)
+        : MESSAGE_ECHEC_EXTRACTION;
     const [, nb] = (await this.dataSource.query(
       `UPDATE extractions_questions_ia
           SET statut = 'ECHEC', derniere_erreur = left($2, 500), date_fin = now(), updated_at = now()
@@ -732,7 +739,11 @@ export class ExtractionQuestionsService implements OnApplicationBootstrap {
   }
 
   private async noterErreur(extractionId: string, erreur: unknown): Promise<void> {
-    const message = erreur instanceof Error ? erreur.message : String(erreur);
+    // US-IA-09 : affichée pendant le nouvel essai ; seule une erreur du fournisseur
+    // (message français, sans secret) est montrée telle quelle.
+    const message = estErreurLlm(erreur)
+      ? (erreur as Error).message
+      : 'Erreur passagère pendant la lecture.';
     await this.dataSource.query(
       `UPDATE extractions_questions_ia SET derniere_erreur = left($2, 500), updated_at = now()
         WHERE id = $1 AND statut = 'EN_COURS'`,

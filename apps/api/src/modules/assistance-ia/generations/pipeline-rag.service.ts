@@ -24,6 +24,7 @@ import {
   texteRequete,
   validerReponse,
 } from './pipeline.regles';
+import { estErreurLlm, motifApresTentatives } from '../llm/fournisseur-llm';
 
 export const MESSAGE_AUCUNE_VALIDE =
   'Le modèle n’a proposé aucune question conforme : relancez une génération, éventuellement avec un autre thème.';
@@ -210,7 +211,9 @@ export class PipelineRagService implements OnApplicationBootstrap {
       ? message
       : message === MESSAGE_AUCUNE_VALIDE
         ? MESSAGE_AUCUNE_VALIDE
-        : MESSAGE_ECHEC_GENERATION;
+        : estErreurLlm(erreur)
+          ? motifApresTentatives('Génération', message)
+          : MESSAGE_ECHEC_GENERATION;
     const [lignes, nb] = (await this.dataSource.query(
       `UPDATE generations_ia
           SET statut = 'ECHEC', derniere_erreur = left($2, 500), date_fin = now(), updated_at = now()

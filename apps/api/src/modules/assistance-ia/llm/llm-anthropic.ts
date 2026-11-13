@@ -135,6 +135,14 @@ export class LlmAnthropic implements FournisseurLlm {
   }
 }
 
+/** US-IA-09 — Messages des erreurs les plus fréquentes, affichés tels quels dans l'interface. */
+export const MESSAGE_CREDIT_EPUISE =
+  'Crédit Anthropic épuisé : rechargez le compte sur console.anthropic.com (Plans & Billing) ou changez de clé.';
+export const MESSAGE_SURCHARGE = 'Claude est surchargé en ce moment (nouvel essai automatique).';
+export const MESSAGE_LIMITE_DEBIT =
+  'Limite de débit du compte Anthropic atteinte (nouvel essai automatique).';
+export const MESSAGE_DOCUMENT_TROP_GROS = 'Document trop volumineux pour le fournisseur d’IA.';
+
 /** Longueur maximale du motif renvoyé par le fournisseur, recopié dans l'erreur. */
 const MOTIF_MAX = 200;
 
@@ -160,8 +168,15 @@ export function traduireErreur(erreur: unknown): ErreurLlm {
   if (erreur instanceof Anthropic.NotFoundError) {
     return new ErreurLlm('Modèle d’IA inconnu : vérifiez LLM_MODELE.', false);
   }
+  if (erreur instanceof Anthropic.APIError && erreur.status === 413) {
+    return new ErreurLlm(MESSAGE_DOCUMENT_TROP_GROS, false);
+  }
   if (erreur instanceof Anthropic.BadRequestError) {
     const motif = motifDuFournisseur(erreur);
+    // US-IA-09 : crédit épuisé, en français et définitif (réessayer ne sert à rien).
+    if (/credit balance|purchase credits|billing/i.test(motif)) {
+      return new ErreurLlm(MESSAGE_CREDIT_EPUISE, false);
+    }
     return new ErreurLlm(
       motif
         ? `Requête refusée par le fournisseur d’IA : ${motif}`
@@ -170,7 +185,10 @@ export function traduireErreur(erreur: unknown): ErreurLlm {
     );
   }
   if (erreur instanceof Anthropic.RateLimitError) {
-    return new ErreurLlm('Fournisseur d’IA saturé (limite de débit).', true);
+    return new ErreurLlm(MESSAGE_LIMITE_DEBIT, true);
+  }
+  if (erreur instanceof Anthropic.APIError && erreur.status === 529) {
+    return new ErreurLlm(MESSAGE_SURCHARGE, true);
   }
   if (erreur instanceof Anthropic.APIConnectionTimeoutError) {
     return new ErreurLlm('Le fournisseur d’IA n’a pas répondu à temps.', true);

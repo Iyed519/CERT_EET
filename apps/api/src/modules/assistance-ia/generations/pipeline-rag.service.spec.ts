@@ -294,8 +294,13 @@ describe('PipelineRagService (US-IA-03)', () => {
         MESSAGE_MODELE_EMBEDDINGS,
       ],
       [
-        'tentatives épuisées : motif générique',
-        new ErreurLlm('Saturé (429) détail', true),
+        'tentatives épuisées, erreur du fournisseur : sa cause est gardée (US-IA-09)',
+        new ErreurLlm('Claude est surchargé en ce moment (nouvel essai automatique).', true),
+        'Génération interrompue après plusieurs tentatives (fournisseur d’IA indisponible : Claude est surchargé en ce moment) : relancez-la.',
+      ],
+      [
+        'tentatives épuisées, autre erreur : motif générique',
+        new Error('ECONNRESET 10.0.0.3:5432'),
         MESSAGE_ECHEC_GENERATION,
       ],
       ['aucune conforme : motif précis', new Error(MESSAGE_AUCUNE_VALIDE), MESSAGE_AUCUNE_VALIDE],

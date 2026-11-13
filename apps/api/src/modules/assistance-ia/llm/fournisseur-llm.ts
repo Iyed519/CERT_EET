@@ -64,6 +64,24 @@ export class ErreurLlm extends Error {
   }
 }
 
+/** US-IA-09 — Erreur du fournisseur d'IA (instance ou objet reçu de la file). */
+export function estErreurLlm(erreur: unknown): boolean {
+  return erreur instanceof ErreurLlm || (erreur as { name?: string } | null)?.name === 'ErreurLlm';
+}
+
+/**
+ * US-IA-09 — Motif d'un travail interrompu après ses tentatives par une erreur
+ * du fournisseur : la cause reste lisible (« … (fournisseur d'IA indisponible :
+ * Claude est surchargé en ce moment) : relancez-la. »).
+ */
+export function motifApresTentatives(travail: 'Extraction' | 'Génération', cause: string): string {
+  const nette = cause
+    .replace(/\s*\(nouvel essai automatique\)/, '')
+    .trim()
+    .replace(/\.$/, '');
+  return `${travail} interrompue après plusieurs tentatives (fournisseur d’IA indisponible : ${nette}) : relancez-la.`;
+}
+
 /** Nom de l'outil imposé au modèle : sa seule sortie possible (JSON au schéma). */
 export const OUTIL_QUESTIONS = 'proposer_questions';
 

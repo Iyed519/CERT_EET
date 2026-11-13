@@ -18,8 +18,10 @@ import {
   StatutSuggestion,
   TAILLE_MAX_EXTRACTION,
   toutAccepterExtraction,
+  EtatIa,
 } from '../lib/api';
 import { dateHeureFr, LIBELLES_TYPE_GENERABLE } from '../lib/format';
+import { EtatIaAlerte, iaIndisponible } from './EtatIaAlerte';
 import { Fenetre } from './Fenetre';
 import { QuestionModal } from './QuestionModal';
 
@@ -222,6 +224,7 @@ export function ImportFichierModal({
   };
 
   const questions = extraction?.questions ?? [];
+  const [etatIa, setEtatIa] = useState<EtatIa | null>(null);
   const aTraiter = questions.filter((q) => q.statut === 'PROPOSEE');
   const completes = aTraiter.filter((q) => q.reponseConnue).length;
   const bloque = occupe !== null;
@@ -236,6 +239,7 @@ export function ImportFichierModal({
         classe="suggestions-card"
       >
 
+        <EtatIaAlerte onEtat={setEtatIa} />
         {erreur !== null && (
           <p className="alert alert-error" role="alert">
             {erreur}
@@ -279,7 +283,7 @@ export function ImportFichierModal({
               <button
                 type="button"
                 className="btn btn-primary"
-                disabled={!fichier || bloque}
+                disabled={!fichier || bloque || iaIndisponible(etatIa)}
                 onClick={() => void deposer()}
               >
                 {occupe === 'depot' ? 'Envoi…' : 'Lancer la lecture'}
@@ -324,6 +328,11 @@ export function ImportFichierModal({
               <p className="field-hint">
                 L’IA lit le document : cela prend en général moins d’une minute. Vous pouvez fermer
                 cette fenêtre, l’import continue et reste listé ici.
+              </p>
+            )}
+            {enCours(extraction.statut) && extraction.derniereErreur && (
+              <p className="alert alert-info" role="status">
+                Nouvel essai en cours après une erreur : {extraction.derniereErreur}
               </p>
             )}
             {extraction.statut === 'ECHEC' && (

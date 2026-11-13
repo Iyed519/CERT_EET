@@ -1,7 +1,21 @@
 import Anthropic from '@anthropic-ai/sdk';
 import { construirePrompt, validerReponse } from '../generations/pipeline.regles';
-import { ErreurLlm, OUTIL_QUESTIONS, PromptGeneration, SCHEMA_QUESTIONS } from './fournisseur-llm';
-import { LlmAnthropic, traduireErreur } from './llm-anthropic';
+import {
+  ErreurLlm,
+  motifApresTentatives,
+  OUTIL_QUESTIONS,
+  PromptGeneration,
+  SCHEMA_QUESTIONS,
+} from './fournisseur-llm';
+import {
+  LlmAnthropic,
+  MESSAGE_CREDIT_EPUISE,
+  MESSAGE_DOCUMENT_TROP_GROS,
+  MESSAGE_LIMITE_DEBIT,
+  MESSAGE_SURCHARGE,
+  traduireErreur,
+} from './llm-anthropic';
+import { LlmNonConfigure, MESSAGE_IA_NON_CONFIGUREE } from './llm-non-configure';
 import { LlmFactice, MODELE_FACTICE } from './llm-factice';
 import { llmProvider } from './llm.provider';
 
@@ -172,6 +186,73 @@ describe('Fournisseurs LLM (US-IA-03)', () => {
     });
   });
 
+  describe('traduireErreur : erreurs fréquentes en français (US-IA-09)', () => {
+    const h = new Headers();
+    it('crédit épuisé : message clair, définitif', () => {
+      const corps = {
+        type: 'error',
+        error: {
+          type: 'invalid_request_error',
+          message:
+            'Your credit balance is too low to access the Anthropic API. Please go to Plans & Billing to upgrade or purchase credits.',
+        },
+      };
+      const e = traduireErreur(new Anthropic.BadRequestError(400, corps, 'x', h));
+      expect(e.message).toBe(MESSAGE_CREDIT_EPUISE);
+      expect(e.recuperable).toBe(false);
+    });
+    it('surcharge (529) : récupérable', () => {
+      const e = traduireErreur(
+        new Anthropic.InternalServerError(529, { error: { type: 'overloaded_error' } }, 'x', h),
+      );
+      expect(e.message).toBe(MESSAGE_SURCHARGE);
+      expect(e.recuperable).toBe(true);
+    });
+    it('limite de débit (429) : récupérable', () => {
+      const e = traduireErreur(new Anthropic.RateLimitError(429, {}, 'x', h));
+      expect(e.message).toBe(MESSAGE_LIMITE_DEBIT);
+      expect(e.recuperable).toBe(true);
+    });
+    it('requête trop volumineuse (413) : définitive', () => {
+      const e = traduireErreur(new Anthropic.APIError(413, {}, 'x', h));
+      expect(e.message).toBe(MESSAGE_DOCUMENT_TROP_GROS);
+      expect(e.recuperable).toBe(false);
+    });
+  });
+
+  describe('motifApresTentatives (US-IA-09)', () => {
+    it.each<['Extraction' | 'Génération', string, string]>([
+      [
+        'Génération',
+        'Claude est surchargé en ce moment (nouvel essai automatique).',
+        'Génération interrompue après plusieurs tentatives (fournisseur d’IA indisponible : Claude est surchargé en ce moment) : relancez-la.',
+      ],
+      [
+        'Extraction',
+        'Erreur du fournisseur d’IA (503).',
+        'Extraction interrompue après plusieurs tentatives (fournisseur d’IA indisponible : Erreur du fournisseur d’IA (503)) : relancez-la.',
+      ],
+    ])('%s / %s', (travail, cause, attendu) => {
+      expect(motifApresTentatives(travail, cause)).toBe(attendu);
+    });
+  });
+
+  describe('LlmNonConfigure (US-IA-09)', () => {
+    it('refuse tout appel, tout de suite, avec le message de configuration', async () => {
+      const llm = new LlmNonConfigure();
+      const appels: (() => Promise<unknown>)[] = [
+        (): Promise<unknown> => llm.genererQuestions(),
+        (): Promise<unknown> => llm.extraireQuestions(),
+      ];
+      for (const appel of appels) {
+        const erreur = await appel().catch((e: unknown) => e);
+        expect(erreur).toBeInstanceOf(ErreurLlm);
+        expect((erreur as ErreurLlm).recuperable).toBe(false);
+        expect((erreur as ErreurLlm).message).toBe(MESSAGE_IA_NON_CONFIGUREE);
+      }
+    });
+  });
+
   describe('llmProvider', () => {
     const fabrique = (llmProvider as unknown as { useFactory: (c: unknown) => unknown }).useFactory;
     it('factice ou Anthropic selon la configuration', () => {
@@ -187,6 +268,9 @@ describe('Fournisseurs LLM (US-IA-03)', () => {
           }),
         }),
       ).toBeInstanceOf(LlmAnthropic);
+      expect(
+        fabrique({ getOrThrow: () => ({ fournisseur: 'non-configure', modele: 'factice-v1' }) }),
+      ).toBeInstanceOf(LlmNonConfigure);
     });
   });
 });

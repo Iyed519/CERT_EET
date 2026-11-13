@@ -215,8 +215,27 @@ export interface IaConfig {
 }
 
 /** US-IA-03 — fournisseur du modèle de langage (ADR-05). */
+/**
+ * US-IA-09 — Fournisseur d'IA réellement utilisé. La clé Anthropic PRIME : dès
+ * qu'elle est présente, Claude est appelé (sauf `compatible-openai` demandé
+ * explicitement). `factice` n'est retenu que s'il est demandé ET sans clé
+ * (tests, CI). Ni clé ni fournisseur : `non-configure` (appels refusés avec un
+ * message clair, jamais de réponse d'exemple silencieuse).
+ */
+export function resoudreFournisseurLlm(
+  demande: string | undefined,
+  cleAnthropic: string | undefined,
+): LlmConfig['fournisseur'] {
+  const voulu = (demande ?? '').trim();
+  const cle = (cleAnthropic ?? '').trim();
+  if (voulu === 'compatible-openai') return 'compatible-openai';
+  if (cle) return 'anthropic';
+  if (voulu === 'factice') return 'factice';
+  return 'non-configure';
+}
+
 export interface LlmConfig {
-  fournisseur: 'anthropic' | 'compatible-openai' | 'factice';
+  fournisseur: 'anthropic' | 'compatible-openai' | 'factice' | 'non-configure';
   modele: string;
   /** Jamais journalisée ni renvoyée ; lue seulement par le fournisseur Anthropic. */
   cleAnthropic: string | undefined;
@@ -362,13 +381,12 @@ export default (): {
     tailleMaxMo: parseInt(process.env.RESSOURCES_TAILLE_MAX_MO ?? '500', 10),
   },
   llm: {
-    fournisseur:
-      process.env.LLM_FOURNISSEUR === 'anthropic' || process.env.LLM_FOURNISSEUR === 'compatible-openai'
-        ? process.env.LLM_FOURNISSEUR
-        : 'factice',
+    fournisseur: resoudreFournisseurLlm(process.env.LLM_FOURNISSEUR, process.env.ANTHROPIC_API_KEY),
     modele:
       process.env.LLM_MODELE ||
-      (process.env.LLM_FOURNISSEUR === 'anthropic' ? 'claude-sonnet-5-5' : 'factice-v1'),
+      (resoudreFournisseurLlm(process.env.LLM_FOURNISSEUR, process.env.ANTHROPIC_API_KEY) === 'anthropic'
+        ? 'claude-sonnet-5-5'
+        : 'factice-v1'),
     cleAnthropic: process.env.ANTHROPIC_API_KEY || undefined,
     urlCompatible: process.env.LLM_URL || undefined,
     cle: process.env.LLM_CLE || undefined,

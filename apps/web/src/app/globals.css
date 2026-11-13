@@ -1813,3 +1813,7 @@ a.btn.btn-lien { display: inline-flex; align-items: center; justify-content: cen
 .hero-carte-logo { display: block; height: 29px; width: auto; }
 .verdict-INCONNU .verification-pastille { background: var(--muted); }
 .verification-suite { margin: var(--sp-4) 0 0; }
+
+/* US-IA-09 — État de l'IA et échec d'une génération, bien visibles. */
+.etat-ia { margin-bottom: var(--sp-3); }
+.generation-erreur { margin: var(--sp-2) 0 0; font-size: var(--fs-petit); overflow-wrap: anywhere; }

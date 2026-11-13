@@ -10,7 +10,8 @@ import { LlmAnthropic } from '../src/modules/assistance-ia/llm/llm-anthropic';
  * Vérifie que le modèle configuré répond par l'outil imposé et que la
  * validation serveur retient des questions conformes.
  */
-const cle = process.env.ANTHROPIC_API_KEY;
+// US-IA-09 : test/setup-env.ts met la clé du shell de côté sous ce nom.
+const cle = process.env.ANTHROPIC_API_KEY_ESSAI_REEL;
 const decrire = cle ? describe : describe.skip;
 
 decrire('Fournisseur Anthropic réel (essai facultatif) — US-IA-03', () => {

@@ -150,9 +150,8 @@ export const envValidationSchema = Joi.object({
   // US-IA-06 : « compatible-openai » = tout service /chat/completions avec appel
   // d'outil (OpenAI, Mistral, modèle hébergé localement) : LLM_URL obligatoire,
   // LLM_CLE facultative (même règle que ANTHROPIC_API_KEY : .env local seulement).
-  LLM_FOURNISSEUR: Joi.string()
-    .valid('anthropic', 'compatible-openai', 'factice')
-    .default('factice'),
+  // US-IA-09 : vide par défaut ; la clé Anthropic prime (voir resoudreFournisseurLlm).
+  LLM_FOURNISSEUR: Joi.string().valid('anthropic', 'compatible-openai', 'factice').allow(''),
   LLM_URL: Joi.when('LLM_FOURNISSEUR', {
     is: 'compatible-openai',
     then: Joi.string().uri({ scheme: ['http', 'https'] }).required().messages({

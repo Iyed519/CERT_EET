@@ -101,8 +101,11 @@ la charte ESPRIT décrite dans `docs/GUIDE_STYLE.md` (captures dans
 5. **Importer des questions depuis un fichier** (US-IA-08) : *Mes formations*
    -> formation -> créer un QCM -> « Importer depuis un fichier » (PDF, PDF
    scanné, DOCX, TXT, CSV, XLSX ou image) ; l'IA recopie les questions, le
-   formateur relit, corrige et choisit celles à ajouter. Sans clé
-   `ANTHROPIC_API_KEY`, le fournisseur factice répond avec un jeu fixe.
+   formateur relit, corrige et choisit celles à ajouter. L'IA réelle (Claude)
+   répond dès que `ANTHROPIC_API_KEY` est dans le `.env` (US-IA-09) ; sans
+   clé, la fenêtre affiche « IA non configurée » et le lancement est bloqué.
+   Toute erreur (crédit épuisé, clé refusée, surcharge) s'affiche en français
+   dans la carte de l'import ou de la génération.
 6. **Demander une formation** (US-FORM-07) : choisir « Cybersécurité
    opérationnelle », motif -> demande en attente.
 7. **Proposer une formation** (US-FORM-08) : remplir le formulaire -> en
