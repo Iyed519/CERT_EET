@@ -15,6 +15,14 @@
 
 ## [Après le Sprint 6] — Stories hors sprint
 
+#### US-UI-07 — Pages publiques et authentification refondues — journal `engineering-log/101`
+- **Quoi :** l'en-tête ne répète plus l'action de la page (« Se connecter » sur la connexion,
+  « S'inscrire » sur l'inscription) ; la connexion et l'inscription n'ont plus qu'une action
+  pleine (GitHub passe en contour comme Google) ; la carte de l'accueil porte le logo ESPRIT ;
+  bordure des champs en gris neutre ; « lien invalide », « certificat introuvable » et « page
+  introuvable » disent quoi faire ensuite, sans jargon.
+- **Pourquoi :** qu'un visiteur ou un recruteur comprenne tout de suite où aller.
+
 #### US-UI-06 — Parcours administrateur refondu — journal `engineering-log/100`
 - **Quoi :** chaque écran d'administration a une phrase d'usage sans code interne, au plus une
   action pleine (« Nouvelle formation »), un fil d'Ariane jusqu'à la page courante (inscriptions

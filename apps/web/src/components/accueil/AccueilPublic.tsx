@@ -56,7 +56,8 @@ export function AccueilPublic(): JSX.Element {
         <div className="hero-visuel" aria-hidden="true">
           <div className="hero-carte">
             <div className="hero-carte-tete">
-              <span className="brand-badge">CE</span>
+              {/* eslint-disable-next-line @next/next/no-img-element */}
+              <img className="hero-carte-logo" src="/logo-esprit-bandeau.webp" alt="" width="70" height="29" />
               <span>Certificat de réussite</span>
             </div>
             <div className="hero-carte-ligne hero-carte-ligne-longue" />

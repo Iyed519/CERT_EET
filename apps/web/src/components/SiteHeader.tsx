@@ -211,12 +211,17 @@ export function SiteHeader(): JSX.Element {
             </div>
           ) : (
             <>
-              <Link href="/login" className="topbar-btn topbar-btn-contour">
-                Se connecter
-              </Link>
-              <Link href="/register" className="topbar-btn topbar-btn-plein">
-                S’inscrire
-              </Link>
+              {/* US-UI-07 : pas de bouton qui répète l'action de la page courante. */}
+              {pathname !== '/login' && (
+                <Link href="/login" className="topbar-btn topbar-btn-contour">
+                  Se connecter
+                </Link>
+              )}
+              {pathname !== '/register' && (
+                <Link href="/register" className="topbar-btn topbar-btn-plein">
+                  S’inscrire
+                </Link>
+              )}
             </>
           )}
         </div>
@@ -269,12 +274,16 @@ export function SiteHeader(): JSX.Element {
               <Link href={accueil} className="menu-mobile-lien">
                 Accueil
               </Link>
-              <Link href="/login" className="menu-mobile-lien">
-                Se connecter
-              </Link>
-              <Link href="/register" className="menu-mobile-lien">
-                Créer un compte
-              </Link>
+              {pathname !== '/login' && (
+                <Link href="/login" className="menu-mobile-lien">
+                  Se connecter
+                </Link>
+              )}
+              {pathname !== '/register' && (
+                <Link href="/register" className="menu-mobile-lien">
+                  Créer un compte
+                </Link>
+              )}
             </>
           )}
         </div>
