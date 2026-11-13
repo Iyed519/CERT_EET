@@ -20,6 +20,10 @@ import { StatutFormation } from '../src/database/enums/statut-formation.enum';
 import { RedisService } from '../src/redis/redis.service';
 import { MESSAGE_ECHEC_EXTRACTION } from '../src/modules/assistance-ia/extraction-questions/extraction-questions.service';
 import {
+  MESSAGE_CREDIT_EPUISE,
+  MESSAGE_SURCHARGE,
+} from '../src/modules/assistance-ia/llm/llm-anthropic';
+import {
   MESSAGE_EXTRACTION_EN_COURS,
   MESSAGE_EXTRACTION_NON_RELANCABLE,
   MESSAGE_EXTRACTION_TROP_GROS,
@@ -713,6 +717,45 @@ describe('Extraction de questions par l’IA (e2e) — US-IA-08', () => {
             fichierConserve: true,
           }),
         );
+      } finally {
+        espion.mockRestore();
+      }
+    });
+
+    it('US-IA-09 — crédit Anthropic épuisé : échec immédiat, message en français', async () => {
+      const espion = jest
+        .spyOn(llm, 'extraireQuestions')
+        .mockRejectedValueOnce(new ErreurLlm(MESSAGE_CREDIT_EPUISE, false));
+      try {
+        const d = await extraire(qcm.A, 'examen-2025.docx');
+        expect(d).toEqual(
+          expect.objectContaining({
+            statut: 'ECHEC',
+            nbTentatives: 1,
+            derniereErreur: MESSAGE_CREDIT_EPUISE,
+          }),
+        );
+      } finally {
+        espion.mockRestore();
+      }
+    });
+
+    it('US-IA-09 — surcharge persistante : ECHEC après les tentatives, la cause est gardée', async () => {
+      const espion = jest
+        .spyOn(llm, 'extraireQuestions')
+        .mockRejectedValue(new ErreurLlm(MESSAGE_SURCHARGE, true));
+      try {
+        const d = await extraire(qcm.A, 'examen-2025.docx');
+        expect(d).toEqual(
+          expect.objectContaining({
+            statut: 'ECHEC',
+            nbTentatives: 2,
+            derniereErreur:
+              'Extraction interrompue après plusieurs tentatives (fournisseur d’IA indisponible : Claude est surchargé en ce moment) : relancez-la.',
+          }),
+        );
+        const [audit] = await audits('QUESTIONS_EXTRACTION_ECHEC', d.id);
+        expect((audit.detailsAvantApres as { detail: string }).detail).toBe(MESSAGE_SURCHARGE);
       } finally {
         espion.mockRestore();
       }

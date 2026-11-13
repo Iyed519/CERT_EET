@@ -16,11 +16,12 @@ describe('envValidationSchema — LLM (US-IA-03)', () => {
     return { erreur: erreurLlm?.message, valeur: value as Record<string, unknown> };
   };
 
-  it('par défaut : factice, sans clé, délai et taille de prompt par défaut', () => {
+  it('par défaut : aucun fournisseur imposé (US-IA-09), délai et taille de prompt par défaut', () => {
     const { erreur, valeur } = valider({});
     expect(erreur).toBeUndefined();
+    expect(valeur.LLM_FOURNISSEUR).toBeUndefined();
+    expect(valider({ LLM_FOURNISSEUR: '' }).erreur).toBeUndefined();
     expect(valeur).toMatchObject({
-      LLM_FOURNISSEUR: 'factice',
       LLM_DELAI_MS: 90000,
       LLM_PROMPT_MAX_CARACTERES: 24000,
     });

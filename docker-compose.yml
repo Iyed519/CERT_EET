@@ -115,8 +115,10 @@ services:
       S3_SECRET_KEY: ${MINIO_ROOT_PASSWORD}
       S3_BUCKET_LIVRABLES: ${S3_BUCKET_LIVRABLES:-livrables}
       # --- Génération de questions par IA (US-IA-03, ADR-05) ---
-      # Clé lue depuis le .env local (jamais commitée) ; « factice » sans clé.
-      LLM_FOURNISSEUR: ${LLM_FOURNISSEUR:-factice}
+      # Clé lue depuis le .env local (jamais commitée). US-IA-09 : la clé prime
+      # (Claude est appelé dès qu'elle est là) ; sans clé, l'IA est signalée
+      # « non configurée » dans l'interface, jamais de réponse d'exemple.
+      LLM_FOURNISSEUR: ${LLM_FOURNISSEUR:-}
       LLM_MODELE: ${LLM_MODELE:-}
       ANTHROPIC_API_KEY: ${ANTHROPIC_API_KEY:-}
       # --- IA : prédiction du risque (service ml, réseau interne) ---

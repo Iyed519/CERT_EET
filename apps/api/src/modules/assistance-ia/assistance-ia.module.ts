@@ -22,6 +22,7 @@ import { SuiviTempsReelController } from './suivi/suivi-temps-reel.controller';
 import { SuiviTempsReelService } from './suivi/suivi-temps-reel.service';
 import { TracabiliteGenerationsController } from './tracabilite/tracabilite-generations.controller';
 import { TracabiliteGenerationsService } from './tracabilite/tracabilite-generations.service';
+import { EtatIaController } from './llm/etat-ia.controller';
 
 /**
  * Assistance IA aux formateurs (E6, F4 ; DS-06, AC-04, ADR-04 / ADR-05).
@@ -68,6 +69,7 @@ import { TracabiliteGenerationsService } from './tracabilite/tracabilite-generat
     TracabiliteGenerationsController,
     SuiviTempsReelController,
     ExtractionQuestionsController,
+    EtatIaController,
   ],
   providers: [
     SupportsService,

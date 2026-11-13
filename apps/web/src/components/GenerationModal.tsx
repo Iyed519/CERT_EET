@@ -2,6 +2,7 @@
 import { FormEvent, useState } from 'react';
 import {
   AdminError,
+  EtatIa,
   GenerationIa,
   lancerGeneration,
   NIVEAUX_GENERATION,
@@ -12,6 +13,7 @@ import {
 } from '../lib/api';
 import { LIBELLES_NIVEAU_GENERATION, LIBELLES_TYPE_GENERABLE } from '../lib/format';
 import { CroixFermeture } from './CroixFermeture';
+import { EtatIaAlerte, iaIndisponible } from './EtatIaAlerte';
 
 const NB_MAX = 20;
 
@@ -38,6 +40,7 @@ export function GenerationModal({
   const [focus, setFocus] = useState('');
   const [erreur, setErreur] = useState<string | null>(null);
   const [envoi, setEnvoi] = useState(false);
+  const [etatIa, setEtatIa] = useState<EtatIa | null>(null);
 
   const basculer = (t: TypeGenerable): void =>
     setTypes((actuels) => (actuels.includes(t) ? actuels.filter((x) => x !== t) : [...actuels, t]));
@@ -76,6 +79,7 @@ export function GenerationModal({
           Source : « {support.titre} ». Les questions seront proposées à votre révision : aucune
           n’est publiée sans votre validation.
         </p>
+        <EtatIaAlerte onEtat={setEtatIa} />
         {erreur !== null && <p className="alert alert-error">{erreur}</p>}
         <form className="form" onSubmit={(e) => void envoyer(e)}>
           <div className="field">
@@ -139,7 +143,7 @@ export function GenerationModal({
             <button type="button" className="btn btn-danger-solid" onClick={onClose} disabled={envoi}>
               Annuler
             </button>
-            <button type="submit" className="btn" disabled={envoi || !valide}>
+            <button type="submit" className="btn" disabled={envoi || !valide || iaIndisponible(etatIa)}>
               {envoi ? 'Lancement…' : 'Générer'}
             </button>
           </div>

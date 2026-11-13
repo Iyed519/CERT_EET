@@ -246,8 +246,10 @@ export function SupportsModule({
                       {(g.nbSuggestions ?? 0) > 1 ? 's' : ''}
                     </div>
                   )}
-                  {g.statut === 'ECHEC' && g.derniereErreur && (
-                    <div className="support-erreur">{g.derniereErreur}</div>
+                  {g.statut === 'ECHEC' && (
+                    <div className="alert alert-error generation-erreur" role="alert">
+                      {g.derniereErreur ?? 'La génération a échoué.'}
+                    </div>
                   )}
                 </div>
                 <span className={`statut-badge generation-${g.statut}`}>

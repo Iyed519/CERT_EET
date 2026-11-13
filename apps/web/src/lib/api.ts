@@ -4586,3 +4586,17 @@ export async function deciderProposition(
   });
   return lireReponseFormation<PropositionFormationAdmin>(response, 'Impossible d’enregistrer la décision.');
 }
+
+/** US-IA-09 — État du fournisseur d'IA (jamais de clé). */
+export interface EtatIa {
+  fournisseur: 'anthropic' | 'compatible-openai' | 'factice' | 'non-configure';
+  modele: string;
+  reel: boolean;
+  message: string | null;
+}
+
+/** GET /api/assistance-ia/etat — formateur, administrateur. */
+export async function getEtatIa(): Promise<EtatIa> {
+  const response = await apiFetch('/api/assistance-ia/etat');
+  return lireReponseFormation<EtatIa>(response, 'Impossible de connaître l’état de l’IA.');
+}
