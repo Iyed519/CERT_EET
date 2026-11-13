@@ -15,6 +15,14 @@
 
 ## [Après le Sprint 6] — Stories hors sprint
 
+#### US-UI-08 — Recette finale : cohérence, accessibilité, guide de style — journal `engineering-log/102`
+- **Quoi :** la recette de navigation contrôle aussi le contraste de chaque texte visible (WCAG 2.1
+  AA, dégradés compris) et passe sur toutes les pages de tous les rôles ; nouveau
+  `docs/GUIDE_STYLE.md` (palette, typographie, composants, règles par rôle, à faire / à éviter,
+  captures) ; `docs/GUIDE_DEMO.md` suit les nouveaux menus et montre l'import de questions
+  depuis un fichier.
+- **Pourquoi :** garder l'interface cohérente et accessible pour les prochains écrans.
+
 #### US-UI-07 — Pages publiques et authentification refondues — journal `engineering-log/101`
 - **Quoi :** l'en-tête ne répète plus l'action de la page (« Se connecter » sur la connexion,
   « S'inscrire » sur l'inscription) ; la connexion et l'inscription n'ont plus qu'une action

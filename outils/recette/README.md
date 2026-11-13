@@ -14,6 +14,14 @@ rôle** (visiteur, apprenant, formateur, administrateur, compte MFA) et **à
 | `BOUTON_SANS_EFFET` | bouton cliqué sans navigation, modale ni changement |
 | `ACCES_MAUVAIS_ROLE` | page d'un autre rôle sans redirection propre |
 | `PAGE_404_NON_TRAITEE` | adresse inconnue sans page « introuvable » en français |
+| `CONTRASTE_INSUFFISANT` | texte visible sous le seuil WCAG 2.1 AA : 4,5:1, ou 3:1 pour un grand texte (US-UI-08) |
+
+Contrastes (US-UI-08) : la couleur du texte est composée sur le fond effectif
+(fonds translucides compris) ; sur un dégradé, le ratio retenu est le plus
+faible des couleurs du dégradé. Exemptés comme le prévoit la norme : contrôle
+désactivé, contenu `aria-hidden`, élément à opacité réduite, texte masqué
+visuellement. L'audit contrôle les pages ; les fenêtres (dialogues) sont
+vérifiées par les scripts Playwright des stories US-UI-01, 05 et 06.
 
 Les boutons qui modifient des données ou la session (supprimer, accepter,
 publier, se déconnecter…) ne sont jamais cliqués.
