@@ -1,5 +1,6 @@
 'use client';
 import Link from 'next/link';
+import { EtatVide } from '../../../components/EtatVide';
 import { FormEvent, useCallback, useEffect, useState } from 'react';
 import { ConfirmationModal } from '../../../components/ConfirmationModal';
 import {
@@ -161,7 +162,10 @@ export default function MesDemandesPage(): JSX.Element {
       <section className="tdb-bloc" aria-labelledby="titre-mes-demandes">
         <h2 id="titre-mes-demandes">Mes demandes d’affectation</h2>
         {!chargement && demandes.length === 0 ? (
-          <p className="kpi-sous">Vous n’avez encore envoyé aucune demande.</p>
+          <EtatVide
+            titre="Aucune demande envoyée"
+            texte="Choisissez une formation ci-dessus et expliquez pourquoi vous souhaitez l’enseigner."
+          />
         ) : (
           <div className="table-wrap">
             <table className="data-table">

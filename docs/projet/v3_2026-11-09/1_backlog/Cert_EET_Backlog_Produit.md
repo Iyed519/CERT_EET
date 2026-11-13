@@ -581,7 +581,7 @@ Table des matières
 | US-UI-02 | Charte graphique ESPRIT : jetons, logo, composants de base | Must | 5 | Livrée (journal 96) |
 | US-UI-03 | Coque : navigation simple par rôle, accueil « À faire maintenant » | Must | 5 | Livrée (journal 97) |
 | US-UI-04 | Parcours apprenant refondu | Must | 5 | Livrée (journal 98) |
-| US-UI-05 | Parcours formateur refondu | Must | 5 | À faire |
+| US-UI-05 | Parcours formateur refondu | Must | 5 | Livrée (journal 99) |
 | US-UI-06 | Parcours administrateur refondu | Must | 5 | À faire |
 | US-UI-07 | Pages publiques et authentification refondues | Should | 3 | À faire |
 | US-UI-08 | Recette finale : cohérence, accessibilité, guide de style | Must | 3 | À faire |

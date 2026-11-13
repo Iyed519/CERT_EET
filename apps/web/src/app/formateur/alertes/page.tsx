@@ -54,11 +54,6 @@ export default function AlertesPage(): JSX.Element {
 
   return (
     <>
-      <p className="back-link-row">
-        <Link className="back-link" href="/formateur/formations">
-          ← Mes formations
-        </Link>
-      </p>
       <div className="page-head">
         <div>
           <h1 className="page-title">Alertes de décrochage</h1>

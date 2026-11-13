@@ -1,5 +1,5 @@
 'use client';
-import Link from 'next/link';
+import { useMiettes } from '../../../../components/TitrePage';
 import { useParams, useRouter } from 'next/navigation';
 import { useCallback, useEffect, useState } from 'react';
 import { AtelierModal } from '../../../../components/AtelierModal';
@@ -69,15 +69,9 @@ export default function AtelierPage(): JSX.Element {
     ? undefined
     : 'Validez d’abord la grille de notation (total de 100 %).';
 
+  useMiettes(atelier ? [{ href: `/formateur/formations/${atelier.formationId}`, libelle: 'La formation' }, { libelle: atelier.titre }] : null);
   return (
     <>
-      {atelier && (
-        <p className="back-link-row">
-          <Link className="back-link" href={`/formateur/formations/${atelier.formationId}`}>
-            ← Retour à la formation
-          </Link>
-        </p>
-      )}
 
       {erreur !== null && <p className="alert alert-error">{erreur}</p>}
 
@@ -88,7 +82,10 @@ export default function AtelierPage(): JSX.Element {
           <div className="page-head">
             <div>
               <h1 className="page-title">{atelier.titre}</h1>
-              <p className="page-subtitle">Atelier · module « {atelier.moduleTitre} »</p>
+              <p className="page-subtitle">
+                Atelier du module « {atelier.moduleTitre} » : définissez l’énoncé et la grille,
+                publiez, puis corrigez les livrables déposés.
+              </p>
             </div>
             <div className="row-actions">
               <span className={`statut-badge statut-${atelier.statut}`}>

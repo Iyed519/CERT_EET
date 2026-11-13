@@ -6,6 +6,7 @@ import { ProfilGate } from '../components/ProfilGate';
 import { ChargementSession, SessionPrete } from '../components/SessionPrete';
 import { SiteHeader } from '../components/SiteHeader';
 import { FilAriane } from '../components/FilAriane';
+import { GestionFenetres } from '../components/GestionFenetres';
 import { MiettesProvider } from '../components/TitrePage';
 export const metadata: Metadata = {
   title: 'Cert_EET — Certification numérique vérifiable',
@@ -51,6 +52,7 @@ export default function RootLayout({
             </div>
           </footer>
           <ProfilGate />
+          <GestionFenetres />
           </MiettesProvider>
         </AuthProvider>
       </body>

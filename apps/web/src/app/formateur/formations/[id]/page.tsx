@@ -1,5 +1,7 @@
 'use client';
 import Link from 'next/link';
+import { EtatVide } from '../../../../components/EtatVide';
+import { useMiettes } from '../../../../components/TitrePage';
 import { useParams, useRouter } from 'next/navigation';
 import { useCallback, useEffect, useState } from 'react';
 import { AtelierModal } from '../../../../components/AtelierModal';
@@ -117,13 +119,9 @@ export default function MaFormationPage(): JSX.Element {
 
   const modifiable = formation !== null && formation.statut !== 'ARCHIVEE';
 
+  useMiettes(formation ? [{ libelle: formation.titre }] : null);
   return (
     <>
-      <p className="back-link-row">
-        <Link className="back-link" href="/formateur/formations">
-          ← Mes formations
-        </Link>
-      </p>
 
       {erreur !== null && <p className="alert alert-error">{erreur}</p>}
 
@@ -135,6 +133,8 @@ export default function MaFormationPage(): JSX.Element {
             <div>
               <h1 className="page-title">{formation.titre}</h1>
               <p className="page-subtitle">
+                Préparez chaque module (QCM, ateliers, ressources, supports pour l’IA) et suivez vos
+                apprenants.{' '}
                 {formation.dateDebut || formation.dateFin
                   ? `${dateFr(formation.dateDebut)} → ${dateFr(formation.dateFin)}`
                   : 'Dates non définies'}
@@ -200,7 +200,10 @@ export default function MaFormationPage(): JSX.Element {
 
           <h2 className="section-title">Modules</h2>
           {formation.modules.length === 0 ? (
-            <p className="page-subtitle">Aucun module pour l’instant.</p>
+            <EtatVide
+              titre="Aucun module pour l’instant"
+              texte="Ajoutez les modules du programme avec « Modifier le contenu » : vous pourrez ensuite y créer QCM et ateliers."
+            />
           ) : (
             <ol className="espace-modules">
               {formation.modules.map((m) => (

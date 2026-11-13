@@ -1,5 +1,6 @@
 'use client';
 import Link from 'next/link';
+import { useMiettes } from '../../../../components/TitrePage';
 import { useParams, useRouter } from 'next/navigation';
 import { useCallback, useEffect, useState } from 'react';
 import { BanqueQuestionsModal } from '../../../../components/BanqueQuestionsModal';
@@ -37,6 +38,19 @@ type Fenetre =
   | { type: 'supprimer' }
   | { type: 'publier' }
   | null;
+
+/**
+ * US-UI-05 — L'étape suivante d'un QCM, seule action pleine de l'éditeur :
+ * ajouter une question, puis configurer, puis publier ; rien une fois publié.
+ */
+function etapeSuivanteQcm(
+  qcm: Pick<QcmDetail, 'nbQuestions' | 'configuration' | 'statut' | 'verrouille'>,
+): 'ajouter' | 'configurer' | 'publier' | null {
+  if (qcm.statut === 'PUBLIE') return null;
+  if (qcm.nbQuestions === 0) return qcm.verrouille ? null : 'ajouter';
+  if (qcm.configuration === null) return 'configurer';
+  return 'publier';
+}
 
 /** Une condition de publication, vérifiée ici pour guider ; le serveur tranche. */
 interface Condition {
@@ -145,16 +159,13 @@ export default function EditeurQcmPage(): JSX.Element {
   // QCM publié : un retrait ne doit laisser ni zéro question, ni moins que le tirage.
   const minimumPublie = Math.max(1, qcm?.configuration?.nbQuestionsTirees ?? 1);
   const retraitBloque = publie && (qcm?.nbQuestions ?? 0) <= minimumPublie;
+  const etape = qcm ? etapeSuivanteQcm(qcm) : null;
+  const classe = (e: 'ajouter' | 'configurer' | 'publier'): string =>
+    etape === e ? 'btn-sm btn-primary-sm' : 'btn-sm';
 
+  useMiettes(qcm ? [{ href: `/formateur/formations/${qcm.formationId}`, libelle: 'La formation' }, { libelle: qcm.titre }] : null);
   return (
     <>
-      {qcm && (
-        <p className="back-link-row">
-          <Link className="back-link" href={`/formateur/formations/${qcm.formationId}`}>
-            ← Retour à la formation
-          </Link>
-        </p>
-      )}
 
       {erreur !== null && <p className="alert alert-error">{erreur}</p>}
 
@@ -166,8 +177,9 @@ export default function EditeurQcmPage(): JSX.Element {
             <div>
               <h1 className="page-title">{qcm.titre}</h1>
               <p className="page-subtitle">
-                {qcm.description ?? 'Sans description'} · {qcm.nbQuestions} question
-                {qcm.nbQuestions > 1 ? 's' : ''}
+                Rédigez ou importez les questions, réglez les paramètres anti-fraude, puis
+                publiez. {qcm.description ? `${qcm.description} · ` : ''}
+                {qcm.nbQuestions} question{qcm.nbQuestions > 1 ? 's' : ''}
               </p>
             </div>
             <div className="row-actions">
@@ -198,7 +210,7 @@ export default function EditeurQcmPage(): JSX.Element {
           <div className="section-tete">
             <h2 className="section-title">Paramètres anti-fraude</h2>
             <button
-              className={qcm.configuration ? 'btn-sm' : 'btn-sm btn-primary-sm'}
+              className={classe('configurer')}
               onClick={() => setFenetre({ type: 'configuration' })}
               disabled={qcm.nbQuestions === 0}
               title={qcm.nbQuestions === 0 ? 'Ajoutez d’abord au moins une question.' : undefined}
@@ -266,7 +278,7 @@ export default function EditeurQcmPage(): JSX.Element {
             <h2 className="section-title">Publication</h2>
             {!publie && (
               <button
-                className="btn-sm btn-primary-sm"
+                className={classe('publier')}
                 onClick={() => setFenetre({ type: 'publier' })}
                 disabled={!publiable}
                 title={publiable ? undefined : 'Toutes les conditions ci-dessous doivent être remplies.'}
@@ -318,7 +330,7 @@ export default function EditeurQcmPage(): JSX.Element {
                 Importer depuis un fichier
               </button>
               <button
-                className="btn-sm btn-primary-sm"
+                className={classe('ajouter')}
                 onClick={() => setFenetre({ type: 'question', question: null })}
                 disabled={fige}
               >

@@ -1,5 +1,7 @@
 'use client';
 import Link from 'next/link';
+import { Fenetre } from '../../../../../components/Fenetre';
+import { useMiettes } from '../../../../../components/TitrePage';
 import { useParams } from 'next/navigation';
 import { useEffect, useMemo, useState } from 'react';
 import {
@@ -112,13 +114,9 @@ export default function SuiviFormationPage(): JSX.Element {
   const maxHisto = suivi ? Math.max(1, ...suivi.histogramme.map((t) => t.effectif)) : 1;
   const k = suivi?.kpis;
 
+  useMiettes([{ href: `/formateur/formations/${id}`, libelle: suivi?.formation.titre ?? 'La formation' }, { libelle: 'Suivi pédagogique' }]);
   return (
     <>
-      <p className="back-link-row">
-        <Link className="back-link" href={`/formateur/formations/${id}`}>
-          ← La formation
-        </Link>
-      </p>
       {erreur !== null && <p className="alert alert-error">{erreur}</p>}
       {!suivi && erreur === null && <p className="page-subtitle">Chargement…</p>}
 
@@ -333,11 +331,17 @@ function FicheModal({
 
   const a = fiche?.apprenant;
   return (
-    <div className="profil-overlay" role="dialog" aria-modal="true" aria-labelledby="titre-fiche-apprenant">
-      <section className="profil-card fiche-certificat">
-        <h1 id="titre-fiche-apprenant" className="auth-title">
-          {a ? nomApprenantFr(a) : 'Fiche de l’apprenant'}
-        </h1>
+    <Fenetre
+      titre={a ? nomApprenantFr(a) : 'Fiche de l’apprenant'}
+      onClose={onClose}
+      taille="large"
+      classe="fiche-certificat"
+      actions={
+        <button type="button" className="btn-sm" onClick={onClose}>
+          Fermer
+        </button>
+      }
+    >
         {erreur !== null && <p className="alert alert-error">{erreur}</p>}
         {!fiche && erreur === null && <p className="page-subtitle">Chargement…</p>}
         {fiche && a && (
@@ -430,12 +434,6 @@ function FicheModal({
             </ul>
           </>
         )}
-        <div className="modal-actions">
-          <button type="button" className="btn-sm" onClick={onClose}>
-            Fermer
-          </button>
-        </div>
-      </section>
-    </div>
+    </Fenetre>
   );
 }

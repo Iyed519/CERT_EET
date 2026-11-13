@@ -15,6 +15,14 @@
 
 ## [Après le Sprint 6] — Stories hors sprint
 
+#### US-UI-05 — Parcours formateur refondu — journal `engineering-log/99`
+- **Quoi :** chaque écran formateur a une phrase d'usage, un fil d'Ariane jusqu'à la page
+  courante et des états vides utiles ; l'éditeur de QCM n'a plus qu'une action pleine, l'étape
+  suivante (ajouter, configurer, publier) ; toutes les anciennes fenêtres de formulaire (question,
+  configuration, banque, atelier, grille, génération…) réagissent comme la fenêtre unique (Échap,
+  clic à l'extérieur, focus gardé puis rendu), y compris empilées.
+- **Pourquoi :** que le formateur prépare, corrige et suive sans chercher.
+
 #### US-UI-04 — Parcours apprenant refondu — journal `engineering-log/98`
 - **Quoi :** chaque écran apprenant (catalogue, fiche, mes formations, page d'une formation,
   atelier, tentative, mes évaluations, mes certificats) a un titre, une phrase qui dit à quoi il

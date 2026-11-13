@@ -1,5 +1,5 @@
 'use client';
-import Link from 'next/link';
+import { useMiettes } from '../../../../components/TitrePage';
 import { ConfirmationModal } from '../../../../components/ConfirmationModal';
 import { useParams } from 'next/navigation';
 import { useCallback, useEffect, useMemo, useState } from 'react';
@@ -245,15 +245,16 @@ export default function CorrectionLivrablePage(): JSX.Element {
         ? 'Le commentaire général est obligatoire.'
         : null;
 
+  useMiettes(
+    livrable
+      ? [
+          { href: `/formateur/ateliers/${livrable.atelier.id}`, libelle: livrable.atelier.titre },
+          { libelle: `Correction — ${nomApprenantFr(livrable.apprenant)}` },
+        ]
+      : null,
+  );
   return (
     <>
-      {livrable && (
-        <p className="back-link-row">
-          <Link className="back-link" href={`/formateur/ateliers/${livrable.atelier.id}`}>
-            ← Retour à l’atelier
-          </Link>
-        </p>
-      )}
 
       {erreur !== null && <p className="alert alert-error">{erreur}</p>}
 
