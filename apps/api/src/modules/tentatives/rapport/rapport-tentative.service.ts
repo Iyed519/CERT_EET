@@ -4,6 +4,8 @@ import { QuestionTiree } from '../../../database/entities/tentative-qcm.entity';
 import { AffichageResultats } from '../../../database/enums/affichage-resultats.enum';
 import { Role } from '../../../database/enums/role.enum';
 import { StatutTentative } from '../../../database/enums/statut-tentative.enum';
+import { AnalysePointsFaiblesService } from '../../assistance-ia/analyse-points-faibles/analyse-points-faibles.service';
+import { entreeAnalyseTentative } from '../../assistance-ia/analyse-points-faibles/analyse-points-faibles.regles';
 import { AuditService } from '../../audit/audit.service';
 import { EtatCorrection } from '../tentative-correction.regles';
 import { TentativeCorrectionService } from '../tentative-correction.service';
@@ -51,6 +53,7 @@ interface TentativeLue {
   planTirage: QuestionTiree[] | null;
   numero: number;
   qcmTitre: string;
+  moduleId: string;
   moduleTitre: string;
   formationTitre: string;
   prenom: string | null;
@@ -80,6 +83,7 @@ export class RapportTentativeService {
     private readonly dataSource: DataSource,
     private readonly correctionService: TentativeCorrectionService,
     private readonly auditService: AuditService,
+    private readonly analyseService: AnalysePointsFaiblesService,
   ) {}
 
   /** L'apprenant, pour SA tentative : celle d'un autre donne le même 404 qu'une inconnue. */
@@ -147,6 +151,25 @@ export class RapportTentativeService {
       await this.niveaux(questions.map((q) => q.id)),
     );
 
+    // US-IA-10 : analyse des points faibles par l'IA (conservée par tentative) ;
+    // sans corrigé, aucune bonne réponse ne part au modèle.
+    const analyseIa = await this.analyseService.pourTentative(
+      tentative.id,
+      entreeAnalyseTentative({
+        formation: tentative.formationTitre,
+        module: tentative.moduleTitre,
+        qcm: tentative.qcmTitre,
+        numero: tentative.numero,
+        nbTentativesMax: tentative.nbTentativesMax,
+        score: tentative.score ?? 0,
+        scoreMinValidation: tentative.scoreMinValidation,
+        estReussie: tentative.estReussie === true,
+        avecCorrige,
+        lignes,
+      }),
+      [tentative.moduleId],
+    );
+
     const pdf = await genererPdfRapport({
       tentativeId: tentative.id,
       formationTitre: tentative.formationTitre,
@@ -166,6 +189,7 @@ export class RapportTentativeService {
       lignes,
       aRevoir: pointsARevoir(lignes),
       parNiveau: reussiteParNiveau(lignes),
+      analyseIa,
       corrigeAbsent:
         avecCorrige || etat === null ? null : phraseCorrigeAbsent(etat, dateHeureTunis),
       dateGeneration: new Date(maintenant),
@@ -185,6 +209,7 @@ export class RapportTentativeService {
         role: demandeur.role,
         corrigeInclus: avecCorrige,
         score: tentative.score,
+        analyseIa: analyseIa.statut === 'OK' ? analyseIa.source : 'INDISPONIBLE',
       },
     });
 
@@ -218,7 +243,7 @@ export class RapportTentativeService {
               (SELECT count(*) FROM tentatives_qcm x
                 WHERE x.apprenant_id = t.apprenant_id AND x.qcm_id = t.qcm_id
                   AND (x.date_debut, x.id) <= (t.date_debut, t.id))::int AS numero,
-              q.titre AS "qcmTitre", m.titre AS "moduleTitre", f.titre AS "formationTitre",
+              q.titre AS "qcmTitre", m.id AS "moduleId", m.titre AS "moduleTitre", f.titre AS "formationTitre",
               u.prenom, u.nom, u.email,
               c.affichage_resultats::text AS "affichageResultats",
               c.date_fermeture AS "dateFermeture", c.nb_tentatives_max AS "nbTentativesMax",

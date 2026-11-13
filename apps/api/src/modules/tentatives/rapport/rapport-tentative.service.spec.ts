@@ -9,6 +9,7 @@ import { EtatCorrection, QuestionCorrigee } from '../tentative-correction.regles
 import { TentativeCorrectionService } from '../tentative-correction.service';
 import * as generateur from './rapport-tentative-pdf';
 import { RapportTentativeService } from './rapport-tentative.service';
+import { AnalysePointsFaiblesService } from '../../assistance-ia/analyse-points-faibles/analyse-points-faibles.service';
 
 /**
  * Service du rapport (US-QCM-13), base et générateur simulés : 404 / 409,
@@ -17,6 +18,7 @@ import { RapportTentativeService } from './rapport-tentative.service';
  */
 describe('RapportTentativeService (US-QCM-13)', () => {
   const TENTATIVE = {
+    moduleId: 'm1',
     id: 't1',
     apprenantId: 'a1',
     qcmId: 'q1',
@@ -65,6 +67,7 @@ describe('RapportTentativeService (US-QCM-13)', () => {
   let query: jest.Mock;
   let etat: jest.Mock;
   let record: jest.Mock;
+  let analyse: jest.Mock;
   let generer: jest.SpyInstance;
   let service: RapportTentativeService;
 
@@ -79,6 +82,7 @@ describe('RapportTentativeService (US-QCM-13)', () => {
     );
     etat = jest.fn(async () => INDISPONIBLE);
     record = jest.fn(async () => undefined);
+    analyse = jest.fn(async () => ({ statut: 'INDISPONIBLE', message: 'IA absente.' }));
     generer = jest.spyOn(generateur, 'genererPdfRapport').mockResolvedValue(Buffer.from('%PDF'));
     service = new RapportTentativeService(
       { query, manager: {} } as unknown as DataSource,
@@ -87,6 +91,7 @@ describe('RapportTentativeService (US-QCM-13)', () => {
         lireCorrection: jest.fn(async () => [QUESTION]),
       } as unknown as TentativeCorrectionService,
       { record } as unknown as AuditService,
+      { pourTentative: analyse } as unknown as AnalysePointsFaiblesService,
     );
   });
   afterEach(() => generer.mockRestore());
@@ -182,6 +187,27 @@ describe('RapportTentativeService (US-QCM-13)', () => {
     });
   });
 
+  it('US-IA-10 : analyse demandée pour la tentative, avec ou sans corrigé selon le lecteur', async () => {
+    await service.pourFormateur(formateur, 'q1', 't1');
+    expect(analyse).toHaveBeenCalledTimes(1);
+    const [tentativeId, entree, modules] = analyse.mock.calls[0];
+    expect(tentativeId).toBe('t1');
+    expect(entree.avecCorrige).toBe(true);
+    expect(entree.questions[0].bonnesReponses).not.toBeNull();
+    expect(modules).toHaveLength(1);
+    analyse.mockClear();
+    await service.pourApprenant(apprenant, 't1');
+    const [, sansCorrige] = analyse.mock.calls[0];
+    expect(sansCorrige.avecCorrige).toBe(false);
+    expect(
+      sansCorrige.questions.every((q: { bonnesReponses: unknown }) => q.bonnesReponses === null),
+    ).toBe(true);
+    expect(generer.mock.calls.at(-1)[0].analyseIa).toEqual({
+      statut: 'INDISPONIBLE',
+      message: 'IA absente.',
+    });
+  });
+
   it('audit RAPPORT_QCM_TELECHARGE : acteur = demandeur, cible = apprenant', async () => {
     await service.pourFormateur(formateur, 'q1', 't1');
     expect(record).toHaveBeenCalledWith({
@@ -196,6 +222,7 @@ describe('RapportTentativeService (US-QCM-13)', () => {
         role: Role.FORMATEUR,
         corrigeInclus: true,
         score: 50,
+        analyseIa: 'INDISPONIBLE',
       },
     });
   });

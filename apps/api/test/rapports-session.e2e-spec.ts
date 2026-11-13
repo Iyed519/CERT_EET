@@ -17,6 +17,10 @@ import {
   RapportsService,
 } from '../src/modules/rapports/rapports.service';
 import { StockageService } from '../src/stockage/stockage.service';
+import { extrairePagesPdf } from '../src/modules/assistance-ia/extraction/extraction-pdf';
+import { ErreurLlm } from '../src/modules/assistance-ia/llm/fournisseur-llm';
+import { LlmFactice } from '../src/modules/assistance-ia/llm/llm-factice';
+import { MESSAGE_CREDIT_EPUISE } from '../src/modules/assistance-ia/llm/llm-anthropic';
 
 /**
  * Tests d'intégration US-RPT-01 — Exporter un rapport de session (DS-14 P3),
@@ -372,6 +376,33 @@ describe('Rapports de session (e2e) — US-RPT-01', () => {
       const f = await telecharger(ids.rIndividuel).expect(200);
       expect(f.headers['content-type']).toBe('application/pdf');
       expect((f.body as Buffer).subarray(0, 5).toString()).toBe('%PDF-');
+      // US-IA-10 : analyse des points faibles (factice en e2e), aucune identité envoyée.
+      const pdfTexte = (await extrairePagesPdf(f.body as Buffer)).join(' ').replace(/\s+/g, ' ');
+      expect(pdfTexte).toContain('Analyse des points faibles (Claude)');
+      expect(pdfTexte).toContain('Analyse de démonstration');
+    });
+
+    it('US-IA-10 — PDF individuel, IA en échec : rapport PRET quand même, encadré avec la cause', async () => {
+      const espion = jest
+        .spyOn(LlmFactice.prototype, 'analyserPointsFaibles')
+        .mockRejectedValue(new ErreurLlm(MESSAGE_CREDIT_EPUISE, false));
+      try {
+        const res = await post(url(), {
+          format: 'PDF',
+          portee: 'INDIVIDUEL',
+          apprenantId: ids.a,
+        }).expect(202);
+        const fin = await attendre(res.body.id);
+        expect(fin.statut).toBe('PRET');
+        const f = await telecharger(res.body.id).expect(200);
+        const pdfTexte = (await extrairePagesPdf(f.body as Buffer)).join(' ').replace(/\s+/g, ' ');
+        expect(pdfTexte).toContain(`Analyse IA indisponible : ${MESSAGE_CREDIT_EPUISE}`);
+        expect(pdfTexte).toContain('Tentatives de QCM');
+        const [prompt] = espion.mock.calls[0] as [{ utilisateur: string }];
+        expect(prompt.utilisateur).not.toMatch(/Amel|RapportA|@cert-eet/);
+      } finally {
+        espion.mockRestore();
+      }
     });
 
     it('CSV par module : une colonne par évaluation publiée, meilleure note', async () => {

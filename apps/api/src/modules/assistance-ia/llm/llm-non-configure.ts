@@ -20,4 +20,8 @@ export class LlmNonConfigure implements FournisseurLlm {
   async extraireQuestions(): Promise<unknown> {
     throw new ErreurLlm(MESSAGE_IA_NON_CONFIGUREE, false);
   }
+
+  async analyserPointsFaibles(): Promise<unknown> {
+    throw new ErreurLlm(MESSAGE_IA_NON_CONFIGUREE, false);
+  }
 }

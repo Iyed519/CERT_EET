@@ -13,6 +13,9 @@ import { extrairePagesPdf } from '../src/modules/assistance-ia/extraction/extrac
 import { TentativeBalayageService } from '../src/modules/tentatives/tentative-balayage.service';
 import { dateHeureTunis } from '../src/modules/tentatives/rapport/rapport-tentative-pdf';
 import { nombreFr } from '../src/modules/tentatives/rapport/rapport-tentative.regles';
+import { ErreurLlm } from '../src/modules/assistance-ia/llm/fournisseur-llm';
+import { LlmFactice } from '../src/modules/assistance-ia/llm/llm-factice';
+import { MESSAGE_CREDIT_EPUISE } from '../src/modules/assistance-ia/llm/llm-anthropic';
 
 /**
  * Tests d'intégration US-QCM-13 — Rapport PDF détaillé d'une tentative de
@@ -437,6 +440,9 @@ describe('Rapport PDF d’une tentative (e2e) — US-QCM-13', () => {
         'Réussite par niveau : Débutant 1 / 1 · Intermédiaire 0 / 1 (à travailler) · Avancé 0 / 2 (à travailler)',
       );
       expect(pdf).toContain('le corrigé détaillé sera disponible à la date indiquée plus haut');
+      // US-IA-10 : analyse des points faibles (fournisseur factice en e2e : démonstration).
+      expect(pdf).toContain('Analyse de vos points faibles');
+      expect(pdf).toContain('Analyse de démonstration');
       // Ce qui ne doit JAMAIS y être : bonnes réponses non cochées, explications.
       for (const q of D.slice(1)) expect(pdf).not.toContain(`BONNE Differe ${D.indexOf(q) + 1}`);
       for (const q of D) expect(pdf).not.toContain(q.explication);
@@ -481,7 +487,7 @@ describe('Rapport PDF d’une tentative (e2e) — US-QCM-13', () => {
         'Les bonnes réponses et les explications de ces questions sont dans le détail ci-dessous.',
         'Document généré par Cert_EET — ESPRIT Entreprise',
         `Tentative ${t.ai}`,
-        'Page 1 / 1',
+        'Page 1 / ',
       ]) {
         expect(pdf).toContain(attendu);
       }
@@ -506,6 +512,7 @@ describe('Rapport PDF d’une tentative (e2e) — US-QCM-13', () => {
           role: 'APPRENANT',
           corrigeInclus: true,
           score: base.score,
+          analyseIa: expect.stringMatching(/^(GENEREE|CACHE)$/),
         },
       });
     });
@@ -606,6 +613,76 @@ describe('Rapport PDF d’une tentative (e2e) — US-QCM-13', () => {
           [ids.differe],
         );
       }
+    });
+  });
+
+  describe('US-IA-10 — Analyse des points faibles par l’IA', () => {
+    const derniereTrace = async (acteur: string, tentativeId: string): Promise<unknown> =>
+      (
+        await sql<{ a: string }>(
+          `SELECT details_avant_apres->>'analyseIa' AS a FROM audit_logs
+            WHERE action = 'RAPPORT_QCM_TELECHARGE' AND user_id = $1
+              AND details_avant_apres->>'tentativeId' = $2
+            ORDER BY horodatage DESC LIMIT 1`,
+          [acteur, tentativeId],
+        )
+      )[0].a;
+    const conservees = async (tentativeId: string): Promise<boolean[]> =>
+      (
+        await sql<{ v: boolean }>(
+          `SELECT avec_corrige AS v FROM analyses_ia_tentatives WHERE tentative_id = $1
+            ORDER BY avec_corrige`,
+          [tentativeId],
+        )
+      ).map((r) => r.v);
+    let espion: jest.SpyInstance;
+    beforeEach(async () => {
+      espion = jest.spyOn(LlmFactice.prototype, 'analyserPointsFaibles');
+      await sql(`DELETE FROM analyses_ia_tentatives WHERE tentative_id = ANY($1)`, [[t.a1, t.ai]]);
+    });
+    afterEach(() => espion.mockRestore());
+
+    it('apprenant sans corrigé : aucune bonne réponse envoyée ; analyse conservée puis réutilisée', async () => {
+      await rapport(t.a1, 'a').expect(200);
+      expect(espion).toHaveBeenCalledTimes(1);
+      const [prompt] = espion.mock.calls[0] as [{ systeme: string; utilisateur: string }];
+      for (const n of [2, 3, 4]) expect(prompt.utilisateur).not.toContain(`BONNE Differe ${n}`);
+      for (const q of questions.Differe) expect(prompt.utilisateur).not.toContain(q.explication);
+      expect(prompt.utilisateur).toContain(`${MARQUEUR} FAUSSE Differe 2`);
+      expect(prompt.systeme).toContain('Ne donne JAMAIS la bonne réponse');
+      expect(prompt.utilisateur).not.toMatch(/PrénomA|@cert-eet\.local/);
+      expect(await derniereTrace(ids.a, t.a1)).toBe('GENEREE');
+      expect(await conservees(t.a1)).toEqual([false]);
+
+      const pdf = await texte(await rapport(t.a1, 'a').expect(200));
+      expect(espion).toHaveBeenCalledTimes(1);
+      expect(await derniereTrace(ids.a, t.a1)).toBe('CACHE');
+      expect(pdf).toContain('Analyse de vos points faibles');
+      expect(pdf).toContain(`${MARQUEUR} Differe énoncé 2`);
+    });
+
+    it('formateur : version avec corrigé, conservée à part', async () => {
+      await rapportFormateur(ids.differe, t.a1, 'formateur').expect(200);
+      const [prompt] = espion.mock.calls[0] as [{ systeme: string; utilisateur: string }];
+      expect(prompt.utilisateur).toContain(`BONNE Differe 2`);
+      expect(prompt.systeme).not.toContain('Ne donne JAMAIS');
+      expect(await conservees(t.a1)).toEqual([true]);
+      await rapport(t.a1, 'a').expect(200);
+      expect(await conservees(t.a1)).toEqual([false, true]);
+    });
+
+    it('IA en échec : PDF produit avec l’encadré et la cause ; rien de conservé ; audit INDISPONIBLE', async () => {
+      espion.mockRejectedValueOnce(new ErreurLlm(MESSAGE_CREDIT_EPUISE, false));
+      const pdf = await texte(await rapport(t.ai, 'a').expect(200));
+      expect(pdf).toContain(`Analyse IA indisponible : ${MESSAGE_CREDIT_EPUISE}`);
+      expect(pdf).toContain('Vos points à revoir');
+      expect(espion).toHaveBeenCalledTimes(1);
+      expect(await conservees(t.ai)).toEqual([]);
+      expect(await derniereTrace(ids.a, t.ai)).toBe('INDISPONIBLE');
+      // Le téléchargement suivant réessaie.
+      await rapport(t.ai, 'a').expect(200);
+      expect(espion).toHaveBeenCalledTimes(2);
+      expect(await conservees(t.ai)).toEqual([true]);
     });
   });
 

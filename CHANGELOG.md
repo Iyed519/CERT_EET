@@ -15,6 +15,16 @@
 
 ## [Après le Sprint 6] — Stories hors sprint
 
+#### US-IA-10 — Analyse des points faibles par Claude dans les rapports — journal `engineering-log/105`
+- **Quoi :** le PDF d'une tentative de QCM (apprenant, formateur, administrateur) et le rapport de
+  session individuel contiennent « Analyse de vos points faibles — ce qu'il faut travailler » : une
+  synthèse, 1 à 4 notions (constat, quoi faire, questions concernées), un encouragement, écrits par
+  Claude à partir des réponses et des passages du cours indexés (RAG). Sans corrigé disponible, aucune
+  bonne réponse n'est envoyée au modèle. Analyse conservée par tentative (migration `1789200000000`).
+  Si l'IA échoue (crédit épuisé, clé refusée…), un encadré le dit avec la cause ; le rapport est
+  produit quand même.
+- **Pourquoi :** le rapport listait les erreurs sans dire à l'apprenant sur quoi se concentrer.
+
 #### US-RPT-03 — Nom de l'apprenant dans le titre de ses rapports — journal `engineering-log/104`
 - **Quoi :** « Mes rapports » affiche « PDF · *Prénom Nom* » pour un rapport individuel et
   « PDF · Module : *titre* » pour un rapport par module ; l'API renvoie un champ `cible` (lu par

@@ -1,6 +1,8 @@
 import { DemandeExtraction, FournisseurLlm, PromptGeneration } from './fournisseur-llm';
 
-export const MODELE_FACTICE = 'factice-v1';
+// US-IA-10 : défini avec l'interface (lu par le rendu PDF sans importer l'adaptateur).
+import { MODELE_FACTICE } from './fournisseur-llm';
+export { MODELE_FACTICE };
 
 /**
  * Fournisseur FACTICE (tests, CI, démonstration sans clé) : déterministe,
@@ -44,6 +46,46 @@ export class LlmFactice implements FournisseurLlm {
       throw new Error('Fournisseur factice : panne simulée.');
     if (document.includes('[factice:vide]')) return { questions: [] };
     return { questions: analyserDocumentFactice(document) };
+  }
+
+  /**
+   * US-IA-10 — Analyse de DÉMONSTRATION, déterministe : lit les données jointes
+   * au prompt (bloc `<donnees>` JSON) et propose un axe par question ratée (trois
+   * au plus). Marqueur `[factice:panne]` dans un énoncé : échoue.
+   */
+  async analyserPointsFaibles(prompt: PromptGeneration): Promise<unknown> {
+    const brut = /<donnees>\n?([\s\S]*?)\n?<\/donnees>/.exec(prompt.utilisateur)?.[1] ?? '{}';
+    const donnees = JSON.parse(brut) as {
+      questions?: Array<{ numero: number; enonce: string; verdict: string }>;
+    };
+    const ratees = (donnees.questions ?? []).filter((q) => q.verdict !== 'JUSTE');
+    if (ratees.some((q) => q.enonce.includes('[factice:panne]'))) {
+      throw new Error('Fournisseur factice : panne simulée.');
+    }
+    if (ratees.length === 0) {
+      return {
+        synthese: 'Analyse de démonstration : aucune erreur sur cette évaluation.',
+        axes: [
+          {
+            notion: 'Consolider les acquis',
+            constat: 'Toutes les réponses sont justes.',
+            conseil: 'Passez aux notions du module suivant.',
+            questions: [],
+          },
+        ],
+        encouragement: 'Continuez ainsi.',
+      };
+    }
+    return {
+      synthese: `Analyse de démonstration : ${ratees.length} question(s) à retravailler.`,
+      axes: ratees.slice(0, 3).map((q) => ({
+        notion: q.enonce.slice(0, 60),
+        constat: `Réponse ${q.verdict === 'SANS_REPONSE' ? 'absente' : 'erronée'} à la question ${q.numero}.`,
+        conseil: 'Relisez le passage du cours correspondant, puis refaites un exercice.',
+        questions: [q.numero],
+      })),
+      encouragement: 'Reprenez ces points avant la prochaine tentative.',
+    };
   }
 
   async genererQuestions(prompt: PromptGeneration): Promise<unknown> {

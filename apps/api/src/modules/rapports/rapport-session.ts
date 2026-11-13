@@ -4,6 +4,9 @@ import {
   SuiviFormation,
 } from '../pilotage/suivi-formation.service';
 import { SectionPdf, csv, dateHeure, jour, nombre, pdf } from './rapport-format';
+import { ResultatAnalyse } from '../assistance-ia/analyse-points-faibles/analyse-points-faibles.regles';
+import { dessinerAnalyseIa } from '../assistance-ia/analyse-points-faibles/analyse-ia-pdf';
+import { texteImprimable } from '../tentatives/rapport/rapport-tentative-pdf';
 
 /**
  * Contenu PUR des rapports de session (US-RPT-01, DS-14 P3) : « global /
@@ -37,7 +40,13 @@ export interface DonneesModule {
 
 export type ContenuSession =
   | { portee: 'GLOBAL'; suivi: SuiviFormation }
-  | { portee: 'INDIVIDUEL'; formation: { titre: string }; fiche: FicheApprenant }
+  | {
+      portee: 'INDIVIDUEL';
+      formation: { titre: string };
+      fiche: FicheApprenant;
+      /** US-IA-10 — Analyse des points faibles (PDF seulement ; absente du CSV). */
+      analyseIa?: ResultatAnalyse;
+    }
   | { portee: 'MODULE'; formation: { titre: string }; donnees: DonneesModule };
 
 const STATUTS: Record<string, string> = {
@@ -245,6 +254,24 @@ export function pdfSession(c: ContenuSession, genereLe: Date): Promise<Buffer> {
             ],
           ],
         },
+        ...(c.analyseIa
+          ? [
+              {
+                titre: 'Analyse des points faibles (Claude) — ce qu’il doit travailler',
+                dessin: (doc: PDFKit.PDFDocument, gauche: number, largeur: number): void =>
+                  dessinerAnalyseIa(doc, c.analyseIa as ResultatAnalyse, {
+                    marge: gauche,
+                    largeur,
+                    encre: '#222222',
+                    gris: '#555555',
+                    rouge: '#b03a2e',
+                    imprimable: texteImprimable,
+                    possessif: 'ses',
+                    avecTitre: false,
+                  }),
+              },
+            ]
+          : []),
         {
           titre: 'Tentatives de QCM',
           vide: 'Aucune tentative.',
@@ -255,7 +282,8 @@ export function pdfSession(c: ContenuSession, genereLe: Date): Promise<Buffer> {
               t.qcmTitre,
               dateHeure(new Date(t.dateDebut)),
               t.statut,
-              t.score === null ? '—' : `${nombre(t.score)}${t.reussie ? ' ✓' : ''}`,
+              // « ✓ » n'existe pas dans les polices standard du PDF (WinAnsi).
+              t.score === null ? '—' : `${nombre(t.score)}${t.reussie ? ' (réussi)' : ''}`,
               t.dureeEffective === null ? '—' : `${Math.round(t.dureeEffective / 60)} min`,
             ]),
           },
