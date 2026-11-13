@@ -12,9 +12,13 @@ export interface LienNavigation {
   actifSur: string[];
 }
 
+/**
+ * US-UI-03 — Menu de chaque rôle : 5 entrées au plus, « Accueil » toujours en
+ * tête, même ordre partout (en-tête, menu mobile).
+ */
 export const LIENS_PAR_ROLE: Record<Role, LienNavigation[]> = {
   APPRENANT: [
-    { href: '/catalogue', libelle: 'Catalogue', actifSur: ['/catalogue'] },
+    { href: '/mon-espace', libelle: 'Accueil', actifSur: ['/mon-espace'] },
     {
       href: '/mes-inscriptions',
       libelle: 'Mes formations',
@@ -22,24 +26,28 @@ export const LIENS_PAR_ROLE: Record<Role, LienNavigation[]> = {
     },
     { href: '/mes-tentatives', libelle: 'Mes évaluations', actifSur: ['/mes-tentatives'] },
     { href: '/mes-certificats', libelle: 'Mes certificats', actifSur: ['/mes-certificats'] },
+    { href: '/catalogue', libelle: 'Catalogue', actifSur: ['/catalogue'] },
   ],
   FORMATEUR: [
-    {
-      href: '/formateur/tableau-de-bord',
-      libelle: 'Tableau de bord',
-      actifSur: ['/formateur/tableau-de-bord'],
-    },
+    { href: '/formateur/tableau-de-bord', libelle: 'Accueil', actifSur: ['/formateur/tableau-de-bord'] },
     {
       href: '/formateur/formations',
       libelle: 'Mes formations',
-      actifSur: ['/formateur/formations', '/formateur/qcm', '/formateur/ateliers', '/formateur/livrables'],
+      actifSur: [
+        '/formateur/formations',
+        '/formateur/qcm',
+        '/formateur/ateliers',
+        '/formateur/livrables',
+        '/formateur/demandes',
+        '/formateur/propositions',
+      ],
     },
     { href: '/formateur/alertes', libelle: 'Alertes', actifSur: ['/formateur/alertes'] },
     { href: '/rapports', libelle: 'Rapports', actifSur: ['/rapports'] },
     { href: '/catalogue', libelle: 'Catalogue', actifSur: ['/catalogue'] },
   ],
   ADMINISTRATEUR: [
-    { href: '/admin/tableau-de-bord', libelle: 'Tableau de bord', actifSur: ['/admin/tableau-de-bord'] },
+    { href: '/admin/tableau-de-bord', libelle: 'Accueil', actifSur: ['/admin/tableau-de-bord'] },
     {
       href: '/admin/utilisateurs',
       libelle: 'Utilisateurs',
@@ -51,9 +59,58 @@ export const LIENS_PAR_ROLE: Record<Role, LienNavigation[]> = {
       actifSur: ['/admin/formations', '/admin/demandes-affectation', '/admin/propositions-formation'],
     },
     { href: '/admin/certificats', libelle: 'Certificats', actifSur: ['/admin/certificats'] },
-    { href: '/catalogue', libelle: 'Catalogue', actifSur: ['/catalogue'] },
+    {
+      href: '/admin/rapports',
+      libelle: 'Pilotage',
+      actifSur: ['/admin/rapports', '/admin/risque', '/admin/generations-ia', '/admin/audit'],
+    },
   ],
 };
+
+/**
+ * US-UI-03 — Sous-navigation des sections d'administration : seules les
+ * pages de la section courante sont montrées (fin des 11 onglets empilés).
+ */
+export const SOUS_NAVIGATION_ADMIN: Record<string, Array<[string, string]>> = {
+  Utilisateurs: [
+    ['/admin/utilisateurs', 'Comptes'],
+    ['/admin/role-requests', 'Demandes de rôle'],
+  ],
+  Formations: [
+    ['/admin/formations', 'Formations'],
+    ['/admin/demandes-affectation', 'Demandes d’affectation'],
+    ['/admin/propositions-formation', 'Propositions'],
+  ],
+  Pilotage: [
+    ['/admin/rapports', 'Rapports'],
+    ['/admin/risque', 'Prédiction du risque'],
+    ['/admin/generations-ia', 'Générations IA'],
+    ['/admin/audit', 'Journal d’audit'],
+  ],
+};
+
+/** US-UI-03 — Section du menu qui contient ce chemin (lien actif), ou null. */
+export function sectionDe(role: Role, chemin: string | null): LienNavigation | null {
+  return LIENS_PAR_ROLE[role].find((l) => estActif(l, chemin)) ?? null;
+}
+
+/**
+ * US-UI-03 — Fil d'Ariane d'un chemin : Accueil › Section › Page (la page
+ * vient de la sous-navigation d'administration quand elle existe). Vide sur
+ * la page d'accueil du rôle et hors des sections connues.
+ */
+export function filAriane(role: Role, chemin: string | null): Array<{ href: string; libelle: string }> {
+  if (!chemin || chemin === PAGE_ACCUEIL_PAR_ROLE[role]) return [];
+  const section = sectionDe(role, chemin);
+  if (!section) return [];
+  const accueil = { href: PAGE_ACCUEIL_PAR_ROLE[role], libelle: 'Accueil' };
+  const miettes = [accueil, { href: section.href, libelle: section.libelle }];
+  const page = (SOUS_NAVIGATION_ADMIN[section.libelle] ?? []).find(
+    ([href]) => chemin === href || chemin.startsWith(`${href}/`),
+  );
+  if (page && page[0] !== section.href) miettes.push({ href: page[0], libelle: page[1] });
+  return miettes;
+}
 
 /**
  * US-NAV-01 — Page d'accueil de chaque rôle : destination après toute
@@ -65,7 +122,8 @@ export const LIENS_PAR_ROLE: Record<Role, LienNavigation[]> = {
 export const PAGE_ACCUEIL_PAR_ROLE: Record<Role, string> = {
   ADMINISTRATEUR: '/admin/tableau-de-bord',
   FORMATEUR: '/formateur/tableau-de-bord',
-  APPRENANT: '/catalogue',
+  // US-UI-03 : l'apprenant arrive sur « Mon espace » (ce qu'il a à faire).
+  APPRENANT: '/mon-espace',
 };
 
 /** Page d'accueil du rôle ; `/` (accueil public) sans rôle connu. */

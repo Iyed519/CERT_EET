@@ -23,6 +23,7 @@ export const PAGES_PROTEGEES: Array<{ prefixe: string; roles: string[] | null }>
   { prefixe: '/admin', roles: ['ADMINISTRATEUR'] },
   { prefixe: '/formateur', roles: ['FORMATEUR', 'ADMINISTRATEUR'] },
   { prefixe: '/rapports', roles: ['FORMATEUR', 'ADMINISTRATEUR'] },
+  { prefixe: '/mon-espace', roles: ['APPRENANT'] },
   { prefixe: '/catalogue', roles: null },
   { prefixe: '/mes-inscriptions', roles: null },
   { prefixe: '/mes-ateliers', roles: null },

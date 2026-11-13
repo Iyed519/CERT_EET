@@ -37,10 +37,10 @@ const SECRET_MFA = 'JBSWY3DPEHPK3PXP';
 
 const ROLES = {
   visiteur: { email: null, accueil: '/' },
-  apprenant: { email: 'demo-apprenant@cert-eet.local', accueil: '/catalogue' },
+  apprenant: { email: 'demo-apprenant@cert-eet.local', accueil: '/mon-espace' },
   formateur: { email: 'demo-formateur@cert-eet.local', accueil: '/formateur/tableau-de-bord' },
   administrateur: { email: 'demo-admin@cert-eet.local', accueil: '/admin/tableau-de-bord' },
-  securite: { email: 'demo-securite@cert-eet.local', accueil: '/catalogue', mfa: true },
+  securite: { email: 'demo-securite@cert-eet.local', accueil: '/mon-espace', mfa: true },
 };
 const ROLES_CHOISIS = (process.env.ROLES || Object.keys(ROLES).join(',')).split(',');
 
@@ -48,7 +48,7 @@ const ROLES_CHOISIS = (process.env.ROLES || Object.keys(ROLES).join(',')).split(
 const INTERDITES = {
   visiteur: ['/catalogue', '/mes-certificats', '/formateur/tableau-de-bord', '/admin/utilisateurs'],
   apprenant: ['/admin/utilisateurs', '/admin/tableau-de-bord', '/formateur/tableau-de-bord', '/rapports'],
-  formateur: ['/admin/utilisateurs', '/admin/demandes-affectation', '/admin/propositions-formation'],
+  formateur: ['/admin/utilisateurs', '/admin/demandes-affectation', '/admin/propositions-formation', '/mon-espace'],
   administrateur: [],
   securite: ['/admin/audit', '/formateur/demandes'],
 };
