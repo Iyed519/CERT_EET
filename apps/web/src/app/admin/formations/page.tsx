@@ -107,7 +107,7 @@ export default function AdminFormationsPage(): JSX.Element {
         <div>
           <h1 className="page-title">Formations</h1>
           <p className="page-subtitle">
-            Créez et configurez l’offre certifiante (US-FORM-01).
+            Créez les formations, leurs modules et leurs formateurs ; ouvrez-les aux inscriptions quand elles sont prêtes.
           </p>
         </div>
         <div className="row-actions">
@@ -132,7 +132,7 @@ export default function AdminFormationsPage(): JSX.Element {
             Actualiser
           </button>
           <button
-            className="btn-sm"
+            className="btn-sm btn-primary-sm"
             onClick={() => {
               setSucces(null);
               setErreur(null);

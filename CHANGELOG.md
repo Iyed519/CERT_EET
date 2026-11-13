@@ -15,6 +15,15 @@
 
 ## [Après le Sprint 6] — Stories hors sprint
 
+#### US-UI-06 — Parcours administrateur refondu — journal `engineering-log/100`
+- **Quoi :** chaque écran d'administration a une phrase d'usage sans code interne, au plus une
+  action pleine (« Nouvelle formation »), un fil d'Ariane jusqu'à la page courante (inscriptions
+  d'une formation comprises) et des états vides utiles ; les fenêtres « changer le rôle »,
+  « désactiver », « anonymiser », « rejeter une demande », « révoquer » et la fiche d'un certificat
+  ont une croix et se ferment par Échap ou un clic à l'extérieur ; la liste des comptes devient
+  des cartes lisibles sur mobile.
+- **Pourquoi :** que l'administrateur gère comptes, formations et certificats sans chercher.
+
 #### US-UI-05 — Parcours formateur refondu — journal `engineering-log/99`
 - **Quoi :** chaque écran formateur a une phrase d'usage, un fil d'Ariane jusqu'à la page
   courante et des états vides utiles ; l'éditeur de QCM n'a plus qu'une action pleine, l'étape

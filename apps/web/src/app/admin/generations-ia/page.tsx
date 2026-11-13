@@ -1,5 +1,6 @@
 'use client';
 import { useCallback, useEffect, useState } from 'react';
+import { EtatVide } from '../../../components/EtatVide';
 import {
   AdminError,
   DetailGenerationTracee,
@@ -124,7 +125,10 @@ export default function GenerationsIaPage(): JSX.Element {
       {donnees === null ? (
         <p className="page-subtitle">Chargement…</p>
       ) : donnees.generations.length === 0 ? (
-        <p className="carte-ailleurs">Aucune génération pour ces critères.</p>
+        <EtatVide
+          titre="Aucune génération"
+          texte="Aucune génération de questions par l’IA ne correspond à ces critères. Élargissez la période ou retirez un filtre."
+        />
       ) : (
         <>
           <div className="table-wrap">

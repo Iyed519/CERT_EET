@@ -45,8 +45,14 @@ export function GestionFenetres(): null {
       if (!carte.hasAttribute('tabindex')) carte.setAttribute('tabindex', '-1');
       if (!overlay.contains(document.activeElement)) carte.focus();
     };
+    // US-UI-06 : sans croix, repli sur un bouton « Annuler » ou « Fermer » actif.
     const fermer = (overlay: HTMLElement): void => {
-      const croix = overlay.querySelector<HTMLButtonElement>('.modal-close');
+      const croix =
+        overlay.querySelector<HTMLButtonElement>('.modal-close') ??
+        Array.from(overlay.querySelectorAll<HTMLButtonElement>('.modal-actions button')).find((b) =>
+          /^(annuler|fermer)$/i.test((b.textContent ?? '').trim()),
+        ) ??
+        null;
       if (croix && !croix.disabled) croix.click();
     };
     const observateur = new MutationObserver(() => {

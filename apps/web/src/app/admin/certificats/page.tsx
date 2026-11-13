@@ -1,5 +1,7 @@
 'use client';
 import { FormEvent, useCallback, useEffect, useState } from 'react';
+import { EtatVide } from '../../../components/EtatVide';
+import { CroixFermeture } from '../../../components/CroixFermeture';
 import { ConfirmationModal } from '../../../components/ConfirmationModal';
 import {
   AdminError,
@@ -193,7 +195,10 @@ export default function CertificatsAdminPage(): JSX.Element {
       {liste === null ? (
         <p className="page-subtitle">Chargement…</p>
       ) : liste.length === 0 ? (
-        <p className="page-subtitle">Aucun certificat dans cette catégorie.</p>
+        <EtatVide
+          titre="Aucun certificat"
+          texte="Aucun certificat dans cette catégorie ou pour cette recherche. Choisissez « Tous » ou modifiez la recherche."
+        />
       ) : (
         <ul className="livrables-liste">
           {liste.map((c) => {
@@ -378,7 +383,8 @@ function FicheModal({ certificatId, onClose }: { certificatId: string; onClose: 
   const c = fiche?.certificat;
   return (
     <div className="profil-overlay" role="dialog" aria-modal="true" aria-labelledby="titre-fiche">
-      <section className="profil-card fiche-certificat">
+      <section className="profil-card modal-closable fiche-certificat">
+        <CroixFermeture onClose={onClose} disabled={false} />
         <h1 id="titre-fiche" className="auth-title">
           Fiche du certificat
         </h1>
@@ -531,7 +537,8 @@ function RevocationModal({
 
   return (
     <div className="profil-overlay" role="dialog" aria-modal="true" aria-labelledby="titre-revocation">
-      <section className="profil-card">
+      <section className="profil-card modal-closable">
+        <CroixFermeture onClose={onClose} disabled={enCours} />
         <h1 id="titre-revocation" className="auth-title">
           Révoquer le certificat
         </h1>

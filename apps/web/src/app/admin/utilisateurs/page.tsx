@@ -1,5 +1,6 @@
 'use client';
 import { useCallback, useEffect, useState, FormEvent } from 'react';
+import { CroixFermeture } from '../../../components/CroixFermeture';
 import {
   getAdminUsers,
   changeUserRole,
@@ -154,8 +155,8 @@ export default function AdminUsersPage(): JSX.Element {
       {chargement ? (
         <p className="page-subtitle">Chargement…</p>
       ) : (
-        <div className="table-wrap">
-          <table className="data-table">
+        <div className="table-wrap table-wrap-compacte">
+          <table className="data-table table-compacte">
             <thead>
               <tr>
                 <th>Utilisateur</th>
@@ -173,16 +174,16 @@ export default function AdminUsersPage(): JSX.Element {
                 const enCours = busyId === utilisateur.id;
                 return (
                   <tr key={utilisateur.id}>
-                    <td>
+                    <th scope="row">
                       {nomComplet || <span className="muted-cell">—</span>}
-                    </td>
-                    <td>{utilisateur.email}</td>
-                    <td>
+                    </th>
+                    <td data-libelle="E-mail">{utilisateur.email}</td>
+                    <td data-libelle="Rôle">
                       <span className={`role-badge role-${utilisateur.role}`}>
                         {libelleRole(utilisateur.role)}
                       </span>
                     </td>
-                    <td>
+                    <td data-libelle="Statut">
                       <span
                         className={`statut-badge statut-${utilisateur.statut}`}
                       >
@@ -359,7 +360,8 @@ function ChangeRoleModal({
 
   return (
     <div className="profil-overlay" role="dialog" aria-modal="true">
-      <section className="profil-card">
+      <section className="profil-card modal-closable">
+        <CroixFermeture onClose={onClose} disabled={enCours} />
         <h1 className="auth-title">Changer le rôle</h1>
         <p className="auth-subtitle">
           {user.email} — rôle actuel : {libelleRole(user.role)}.
@@ -401,7 +403,7 @@ function ChangeRoleModal({
               placeholder="Confirmez votre identité"
             />
             <span className="field-hint">
-              Action sensible : votre mot de passe est requis (US-ROL-01).
+              Action sensible : votre mot de passe est requis.
             </span>
           </div>
           {erreur !== null && <p className="alert alert-error">{erreur}</p>}
@@ -465,7 +467,8 @@ function DesactiverModal({
 
   return (
     <div className="profil-overlay" role="dialog" aria-modal="true">
-      <section className="profil-card">
+      <section className="profil-card modal-closable">
+        <CroixFermeture onClose={onClose} disabled={enCours} />
         <h1 className="auth-title">Désactiver le compte</h1>
         <p className="auth-subtitle">
           {user.email} — l&apos;utilisateur perdra immédiatement l&apos;accès à
@@ -488,8 +491,7 @@ function DesactiverModal({
               placeholder="Ex. : départ de l'entreprise, suspension disciplinaire…"
             />
             <span className="field-hint">
-              Obligatoire : ce motif est conservé dans le journal d&apos;audit
-              (US-CPT-03).
+              Obligatoire : ce motif est conservé dans le journal d&apos;audit.
             </span>
           </div>
           {erreur !== null && <p className="alert alert-error">{erreur}</p>}
