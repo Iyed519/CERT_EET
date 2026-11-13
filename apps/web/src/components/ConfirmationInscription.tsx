@@ -2,7 +2,7 @@
 import { useState } from 'react';
 import { AdminError, FormationVue, inscrireFormation, InscriptionVue } from '../lib/api';
 import { periodeFr } from '../lib/format';
-import { CroixFermeture } from './CroixFermeture';
+import { Fenetre } from './Fenetre';
 
 /**
  * Modale de confirmation d'une inscription (US-INSC-01).
@@ -42,10 +42,7 @@ export function ConfirmationInscription({
   };
 
   return (
-    <div className="profil-overlay" role="dialog" aria-modal="true">
-      <section className="profil-card modal-closable">
-        <CroixFermeture onClose={onClose} disabled={enCours} />
-        <h2 className="auth-title">Confirmer l’inscription</h2>
+    <Fenetre titre="Confirmer l’inscription" onClose={onClose} occupe={enCours}>
         {erreur !== null && <p className="alert alert-error">{erreur}</p>}
         <p className="auth-subtitle">
           Vous allez vous inscrire à la formation <strong>« {formation.titre} »</strong>
@@ -70,7 +67,6 @@ export function ConfirmationInscription({
             {enCours ? 'Inscription…' : 'Confirmer'}
           </button>
         </div>
-      </section>
-    </div>
+    </Fenetre>
   );
 }

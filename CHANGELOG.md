@@ -15,6 +15,15 @@
 
 ## [Après le Sprint 6] — Stories hors sprint
 
+#### US-UI-04 — Parcours apprenant refondu — journal `engineering-log/98`
+- **Quoi :** chaque écran apprenant (catalogue, fiche, mes formations, page d'une formation,
+  atelier, tentative, mes évaluations, mes certificats) a un titre, une phrase qui dit à quoi il
+  sert, au plus une action pleine, un fil d'Ariane jusqu'à la page courante et des états vides qui
+  disent quoi faire ; les mots suivent le menu ; un QCM réussi ne propose plus « Nouvelle
+  tentative » en rouge ; une tentative notée n'affiche plus de chronomètre ; fenêtres de démarrage,
+  d'inscription et de désinscription accessibles au clavier.
+- **Pourquoi :** que l'apprenant accomplisse chaque tâche sans aide.
+
 #### US-UI-03 — Coque : navigation simple par rôle, accueil « À faire maintenant » — journal `engineering-log/97`
 - **Quoi :** chaque rôle arrive sur une page qui commence par « À faire maintenant » (apprenant :
   nouvelle page « Mon espace » — QCM à passer ou à reprendre, livrables à rendre, retours à lire ;

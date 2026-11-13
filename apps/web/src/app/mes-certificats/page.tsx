@@ -1,5 +1,7 @@
 'use client';
+import Link from 'next/link';
 import { useCallback, useEffect, useState } from 'react';
+import { EtatVide } from '../../components/EtatVide';
 import {
   AdminError,
   getMesCertificats,
@@ -109,10 +111,15 @@ export default function MesCertificatsPage(): JSX.Element {
       {liste === null ? (
         <p className="page-subtitle">Chargement…</p>
       ) : liste.length === 0 ? (
-        <p className="carte-ailleurs">
-          Vous n’avez pas encore de certificat. Il apparaîtra ici dès que vous aurez validé toutes
-          les évaluations d’une formation.
-        </p>
+        <EtatVide
+          titre="Pas encore de certificat"
+          texte="Un certificat est émis automatiquement dès que vous avez validé toutes les évaluations d’une formation (chaque QCM réussi, chaque atelier au-dessus du seuil)."
+          action={
+            <Link className="btn btn-secondaire btn-lien" href="/mes-inscriptions">
+              Voir mes formations
+            </Link>
+          }
+        />
       ) : (
         <div className="table-wrap table-wrap-compacte">
           <table className="data-table table-compacte">

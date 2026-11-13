@@ -3,7 +3,10 @@ import Link from 'next/link';
 import { useParams, useRouter } from 'next/navigation';
 import { useCallback, useEffect, useState } from 'react';
 import { DemarrageTentative, QcmADemarrer } from '../../../components/DemarrageTentative';
+import { EnTetePage } from '../../../components/EnTetePage';
+import { EtatVide } from '../../../components/EtatVide';
 import { RessourcesApprenant } from '../../../components/RessourcesCours';
+import { useMiettes } from '../../../components/TitrePage';
 import { AdminError, EspaceFormationVue, getMonEspace, StatutCertificat } from '../../../lib/api';
 import {
   dateFr,
@@ -45,7 +48,9 @@ function actionQcm(q: QcmEspace, inscriptionActive: boolean): ActionQcm {
   if (q.tentativeEnCoursId !== null) {
     return { libelle: 'Reprendre', raisonInactif: null, raisonVisible: false };
   }
-  const libelle = q.nbTentativesPassees > 0 ? 'Nouvelle tentative' : 'Commencer';
+  // US-UI-04 : un QCM échoué se « retente » ; réussi, une nouvelle tentative reste possible.
+  const libelle =
+    q.nbTentativesPassees === 0 ? 'Commencer' : q.avancement === 'ECHOUE' ? 'Retenter' : 'Nouvelle tentative';
   if (!inscriptionActive) {
     return {
       libelle,
@@ -100,8 +105,12 @@ function actionQcm(q: QcmEspace, inscriptionActive: boolean): ActionQcm {
  * US-ATEL-03 — Sous les QCM, les ateliers publiés du module : date limite,
  * état du dépôt (calculé par le serveur) et lien vers leur fiche.
  * US-ATEL-04 — Un atelier où j'ai déposé montre le statut de mon livrable.
+ * US-UI-04 — En-tête commun, fil d'Ariane jusqu'à la formation (plus de lien
+ * « ← »), une action pleine seulement pour ce qui reste à faire (commencer,
+ * reprendre, retenter) ; un QCM réussi garde « Nouvelle tentative » en
+ * secondaire.
  */
-export default function MonEspacePage(): JSX.Element {
+export default function PageFormationApprenant(): JSX.Element {
   const params = useParams<{ formationId: string }>();
   const formationId = params?.formationId ?? '';
   const router = useRouter();
@@ -153,44 +162,40 @@ export default function MonEspacePage(): JSX.Element {
     });
   };
 
+  useMiettes(espace ? [{ libelle: espace.formation.titre }] : null);
   const avancement = espace ? Math.round(espace.inscription.tauxAvancement) : 0;
   const note = espace ? NOTES_FORMATION[espace.formation.statut] : null;
 
   return (
     <>
-      <p className="back-link-row">
-        <Link className="back-link" href="/mes-inscriptions">
-          ← Mes inscriptions
-        </Link>
-      </p>
-
       {erreur !== null && <p className="alert alert-error">{erreur}</p>}
 
       {chargement ? (
         <p className="page-subtitle">Chargement…</p>
       ) : espace === null ? null : (
         <>
-          <div className="page-head">
-            <div>
-              <h1 className="page-title">{espace.formation.titre}</h1>
-              <p className="page-subtitle">
-                {periodeFr(espace.formation.dateDebut, espace.formation.dateFin) ??
-                  'Dates non définies'}
-                {espace.formation.dureeHeures !== null
-                  ? ` · ${espace.formation.dureeHeures} h`
-                  : ''}
-              </p>
-            </div>
-            <span className={`statut-badge statut-${espace.inscription.statut}`}>
-              {LIBELLES_INSCRIPTION[espace.inscription.statut]}
-            </span>
-          </div>
+          <EnTetePage
+            titre={espace.formation.titre}
+            phrase={
+              <>
+                Suivez les modules dans l’ordre, passez les évaluations : le certificat est émis
+                dès qu’elles sont toutes validées.{' '}
+                {periodeFr(espace.formation.dateDebut, espace.formation.dateFin) ?? 'Dates non définies'}
+                {espace.formation.dureeHeures !== null ? ` · ${espace.formation.dureeHeures} h` : ''}
+              </>
+            }
+            statut={
+              <span className={`statut-badge statut-${espace.inscription.statut}`}>
+                {LIBELLES_INSCRIPTION[espace.inscription.statut]}
+              </span>
+            }
+          />
 
           {note && <p className="alert alert-info">{note}</p>}
 
           <section className="progression" aria-label="Ma progression">
             <div className="progression-tete">
-              <span className="progression-libelle">Ma progression</span>
+              <span className="progression-libelle">Avancement dans le programme</span>
               <span className="progression-valeur">{avancement} %</span>
             </div>
             <div
@@ -212,7 +217,10 @@ export default function MonEspacePage(): JSX.Element {
 
           <h2 className="section-title">Modules</h2>
           {espace.modules.length === 0 ? (
-            <p className="page-subtitle">Le programme n’est pas encore publié.</p>
+            <EtatVide
+              titre="Programme pas encore publié"
+              texte="Le formateur prépare les modules de cette formation. Ils apparaîtront ici, avec leurs évaluations."
+            />
           ) : (
             <ol className="espace-modules">
               {espace.modules.map((m) => (
@@ -238,6 +246,7 @@ export default function MonEspacePage(): JSX.Element {
                     <ul className="espace-qcms">
                       {m.qcms.map((q) => {
                         const action = actionQcm(q, inscriptionActive);
+                        const principale = action.raisonInactif === null && q.avancement !== 'REUSSI';
                         return (
                           <li key={q.id} className="espace-qcm">
                             <div className="module-corps">
@@ -256,7 +265,7 @@ export default function MonEspacePage(): JSX.Element {
                             </span>
                             <button
                               type="button"
-                              className={`btn-sm${action.raisonInactif === null ? ' btn-qcm-actif' : ''}`}
+                              className={`btn-sm${principale ? ' btn-qcm-actif' : ''}`}
                               disabled={action.raisonInactif !== null}
                               title={action.raisonInactif ?? undefined}
                               onClick={() => cliquerQcm(q)}

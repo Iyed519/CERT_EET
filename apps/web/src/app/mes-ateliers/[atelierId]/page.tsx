@@ -1,5 +1,5 @@
 'use client';
-import Link from 'next/link';
+import { useMiettes } from '../../../components/TitrePage';
 import { useParams } from 'next/navigation';
 import { useEffect, useState } from 'react';
 import { DepotLivrable } from '../../../components/DepotLivrable';
@@ -50,17 +50,18 @@ export default function MonAtelierPage(): JSX.Element {
     };
   }, [atelierId]);
 
+  // US-UI-04 : fil d'Ariane « Mes formations › formation › atelier » (plus de lien « ← »).
+  useMiettes(
+    atelier
+      ? [
+          { href: `/mes-inscriptions/${atelier.formationId}`, libelle: atelier.formationTitre },
+          { libelle: atelier.titre },
+        ]
+      : null,
+  );
+
   return (
     <>
-      <p className="back-link-row">
-        <Link
-          className="back-link"
-          href={atelier ? `/mes-inscriptions/${atelier.formationId}` : '/mes-inscriptions'}
-        >
-          {atelier ? `← ${atelier.formationTitre}` : '← Mes inscriptions'}
-        </Link>
-      </p>
-
       {erreur !== null && <p className="alert alert-error">{erreur}</p>}
 
       {chargement ? (

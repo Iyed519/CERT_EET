@@ -1,5 +1,6 @@
 'use client';
 import Link from 'next/link';
+import { EtatVide } from '../../components/EtatVide';
 import { Fenetre } from '../../components/Fenetre';
 import { useCallback, useEffect, useState } from 'react';
 import { BoutonRapportPdf } from '../../components/BoutonRapportPdf';
@@ -55,10 +56,10 @@ export default function MesTentativesPage(): JSX.Element {
     <>
       <div className="page-head">
         <div>
-          <h1 className="page-title">Mes tentatives</h1>
+          <h1 className="page-title">Mes évaluations</h1>
           <p className="page-subtitle">
-            Toutes vos tentatives aux QCM, telles qu’enregistrées : elles ne peuvent plus être
-            modifiées.
+            Toutes vos tentatives aux QCM, telles qu’enregistrées : ouvrez-en une pour revoir vos
+            réponses ou télécharger son rapport.
           </p>
         </div>
       </div>
@@ -68,7 +69,15 @@ export default function MesTentativesPage(): JSX.Element {
       {liste === null ? (
         <p className="page-subtitle">Chargement…</p>
       ) : liste.length === 0 ? (
-        <p className="carte-ailleurs">Vous n’avez encore passé aucun QCM.</p>
+        <EtatVide
+          titre="Aucune évaluation passée"
+          texte="Vos tentatives aux QCM s’afficheront ici. Les évaluations ouvertes sont dans « À faire maintenant »."
+          action={
+            <Link className="btn btn-lien" href="/mon-espace">
+              Aller à mon espace
+            </Link>
+          }
+        />
       ) : (
         <div className="table-wrap">
           <table className="data-table">

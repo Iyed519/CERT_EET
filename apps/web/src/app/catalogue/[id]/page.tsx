@@ -1,5 +1,6 @@
 'use client';
 import Link from 'next/link';
+import { useMiettes } from '../../../components/TitrePage';
 import { useParams } from 'next/navigation';
 import { useCallback, useEffect, useState } from 'react';
 import { ActionInscription } from '../../../components/ActionInscription';
@@ -47,19 +48,14 @@ export default function FormationCataloguePage(): JSX.Element {
     void charger();
   }, [charger]);
 
+  useMiettes(formation ? [{ libelle: formation.titre }] : null);
   const periode = formation ? periodeFr(formation.dateDebut, formation.dateFin) : null;
 
   return (
     <>
-      <p className="back-link-row">
-        <Link className="back-link" href="/catalogue">
-          ← Catalogue
-        </Link>
-      </p>
-
       {succes !== null && (
         <p className="alert alert-success">
-          {succes} <Link href="/mes-inscriptions">Voir mes inscriptions</Link>
+          {succes} <Link href="/mes-inscriptions">Voir mes formations</Link>
         </p>
       )}
       {erreur !== null && <p className="alert alert-error">{erreur}</p>}
@@ -92,7 +88,7 @@ export default function FormationCataloguePage(): JSX.Element {
                     className="btn-sm btn-link btn-primary-sm"
                     href={`/mes-inscriptions/${formation.id}`}
                   >
-                    Accéder à mon espace
+                    Accéder à la formation
                   </Link>
                 )}
                 <ActionInscription

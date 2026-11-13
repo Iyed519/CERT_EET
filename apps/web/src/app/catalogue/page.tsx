@@ -1,5 +1,6 @@
 'use client';
 import Link from 'next/link';
+import { EtatVide } from '../../components/EtatVide';
 import { useRouter, useSearchParams } from 'next/navigation';
 import { FormEvent, Suspense, useCallback, useEffect, useState } from 'react';
 import { ActionInscription } from '../../components/ActionInscription';
@@ -125,7 +126,7 @@ function Catalogue(): JSX.Element {
 
       {succes !== null && (
         <p className="alert alert-success">
-          {succes} <Link href="/mes-inscriptions">Voir mes inscriptions</Link>
+          {succes} <Link href="/mes-inscriptions">Voir mes formations</Link>
         </p>
       )}
       {erreur !== null && <p className="alert alert-error">{erreur}</p>}
@@ -137,13 +138,21 @@ function Catalogue(): JSX.Element {
           ))}
         </div>
       ) : erreur !== null ? null : formations.length === 0 ? (
-        <div className="vide">
-          <p>
-            {q
-              ? 'Aucune formation ne correspond à votre recherche.'
-              : 'Aucune formation n’est ouverte aux inscriptions pour l’instant.'}
-          </p>
-        </div>
+        <EtatVide
+          titre={q ? 'Aucun résultat' : 'Aucune formation ouverte pour l’instant'}
+          texte={
+            q
+              ? `Aucune formation ne correspond à « ${q} ». Essayez un autre mot, ou affichez tout le catalogue.`
+              : 'Les prochaines sessions apparaîtront ici dès leur ouverture aux inscriptions.'
+          }
+          action={
+            q ? (
+              <Link className="btn btn-secondaire btn-lien" href="/catalogue">
+                Effacer la recherche
+              </Link>
+            ) : undefined
+          }
+        />
       ) : (
         <>
           <div className="cartes">
