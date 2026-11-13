@@ -33,7 +33,15 @@ export default function RootLayout({
           <footer className="site-footer">
             <div className="site-footer-inner">
               <span className="site-footer-marque">
-                <span className="brand-badge brand-badge-sm">CE</span> Cert_EET — ESPRIT Entreprise
+                {/* eslint-disable-next-line @next/next/no-img-element */}
+                <img
+                  className="logo-esprit logo-esprit-sm"
+                  src="/logo-esprit-bandeau.webp"
+                  alt="ESPRIT — Se former autrement"
+                  width={209}
+                  height={86}
+                />
+                Cert_EET — ESPRIT Entreprise
               </span>
               <span>Certifications numériques vérifiables · données hébergées en Tunisie</span>
             </div>

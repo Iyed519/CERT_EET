@@ -109,8 +109,17 @@ export function SiteHeader(): JSX.Element {
           <span aria-hidden="true" />
         </button>
 
-        <Link href={accueil} className="topbar-brand" aria-label="Cert_EET — accueil">
-          <span className="brand-badge">CE</span>
+        <Link href={accueil} className="topbar-brand" aria-label="ESPRIT · Cert_EET — accueil">
+          {/* US-UI-02 : logo fourni par ESPRIT (fichier du porteur, marges blanches rognées). */}
+          {/* eslint-disable-next-line @next/next/no-img-element */}
+          <img
+            className="logo-esprit"
+            src="/logo-esprit-bandeau.webp"
+            alt="ESPRIT — Se former autrement"
+            width={209}
+            height={86}
+          />
+          <span className="topbar-brand-filet" aria-hidden="true" />
           <span className="brand-name">
             Cert<span className="brand-accent">_EET</span>
           </span>

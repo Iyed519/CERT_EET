@@ -40,7 +40,9 @@ export interface ContenuRapport {
   dateGeneration: Date;
 }
 
-const VERT = '#1e8449';
+const VERT = '#1e7a45';
+/** Rouge ESPRIT (US-UI-02) : en-tête du rapport ; « juste / faux » gardent vert et rouge. */
+const MARQUE = '#e30613';
 const ROUGE = '#b03a2e';
 const GRIS = '#56657a';
 const ENCRE = '#1b2631';
@@ -153,7 +155,7 @@ export function genererPdfRapport(c: ContenuRapport): Promise<Buffer> {
     };
 
     // --- En-tête --------------------------------------------------------
-    doc.font('Helvetica-Bold').fontSize(11).fillColor(VERT).text('ESPRIT ENTREPRISE — CERT_EET');
+    doc.font('Helvetica-Bold').fontSize(11).fillColor(MARQUE).text('ESPRIT ENTREPRISE — CERT_EET');
     doc.moveDown(0.2);
     doc.fontSize(20).fillColor(ENCRE).text('Rapport de tentative de QCM');
     doc.moveDown(0.3);
