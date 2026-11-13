@@ -19,6 +19,7 @@ Table des matières
 | 1.6 | Octobre 2026 (Sprint 2) | Décision du 12/10/2026 : le paramètre « proctoring webcam » reste enregistré mais signalé non actif ; ajout de **US-QCM-12** (E3 · Could · 8 pts) — surveillance par captures webcam, Sprint 5+, conditionnée à l'accord de l'encadrant et à une décision sur la protection des données (RGPD, loi 2004-63 / INPDP). |
 | 1.7 | Novembre 2026 (clôture Sprint 2) | Sprint 2 clôturé (réalisé du 05/10 au 07/11/2026, PR #23 → #38) : US-FORM-01, US-FORM-03, US-AUTH-16, US-INSC-01, US-INSC-04, US-QCM-01, US-QCM-03 à US-QCM-08 **livrées** (46 pts engagés) + US-QCM-09 (extension). **US-QCM-09 amendée** : en affichage immédiat, le corrigé n'est révélé qu'une fois que l'apprenant n'a plus de tentative possible (identique à la soumission avec une seule tentative), conformément à UC_Apprenant UC3. Écarts de mise en œuvre assumés tracés sous US-QCM-07 (échéance décidée par PostgreSQL, Redis en miroir) et US-QCM-08 (audit `TENTATIVE_NOTEE`). Reportées en tête du Sprint 3 : US-FORM-04, US-FORM-05, US-FORM-02, US-INSC-02, US-INSC-03, US-QCM-02. Le calendrier réel est décalé par rapport au Gantt (en-tête et L3 inchangés) : re-planification au Sprint 3 Planning. Détail : bloc « Clôture du Sprint 2 » ci-dessous, `docs/Sprint2_Review.md`. |
 | 1.8 | Novembre 2026 (clôture Sprint 3) | Sprint 3 clôturé (réalisé du 08/11 au 09/11/2026, PR #40 → #65) : bloc A **livré** (54 pts) — US-QCM-10, US-ATEL-01 à 04, US-ATEL-06 à 09, US-CERT-01, 03, 04, 05, 06 ; bloc B (IA) **livré** en extension (24 pts) — US-IA-01 à 04 ; **US-FORM-05 et US-FORM-06 livrées** (8 pts, ajoutées en cours de sprint). Écarts de mise en œuvre tracés sous chaque story (« Mise en œuvre (v1.8) »). US-CERT-02 en grande partie couverte par US-CERT-01 ; US-IA-05 et US-IA-06 amorcées. Reportées : US-FORM-04, US-FORM-02, US-INSC-02, US-INSC-03, US-QCM-02, US-QCM-11, US-ATEL-05. Décision LLM (bloc B) : API hébergée Anthropic derrière une interface (ADR-05). Le calendrier réel reste décalé par rapport au Gantt (en-tête et L3 inchangés) : re-planification avec l'encadrant. Détail : bloc « Clôture du Sprint 3 » ci-dessous, `docs/Sprint3_Review.md`. |
+| 2.2 | 13 novembre 2026 | Ajout de **US-IA-08** (E6 · Must · 8 pts) — extraction par l'IA des questions d'un document (PDF texte ou scanné, DOCX, TXT/MD, CSV, XLSX, image), relecture humaine obligatoire ; livrée le 13/11/2026 (journal 94). Nouvelle épopée **E10 « Expérience utilisateur & charte ESPRIT »** (US-UI-01 → US-UI-08). Source : `claude/Cert_EET_Revision_v2.2_IA08_UI.md`. |
 | 2.1 | Novembre 2026 (après le Sprint 6) | Ajout de **US-QCM-13** (E3 · Should · 5 pts) — rapport PDF détaillé du résultat d'une tentative notée, pour l'apprenant (corrigé selon les règles d'US-QCM-09) et le formateur affecté (corrigé toujours inclus) ; livrée le 12/11/2026 (journal 93). Source : `claude/Cert_EET_Revision_v2.1_US-QCM-13.md`. |
 
 ---
@@ -537,8 +538,9 @@ Table des matières
 | US-IA-05 | En tant qu’institution, je veux tracer chaque génération et l’origine IA des questions afin d’assurer la transparence et l’auditabilité. | Should | 3 | DS-06 / §13.6 | NF3 | US-IA-04 |
 | US-IA-06 | En tant qu’équipe, je veux une couche d’abstraction LLM afin de changer de fournisseur (GPT-4o / Claude / Mistral) sans refondre le code métier. | Should | 3 | ADR-05 | NF8 | US-IA-03 |
 | US-IA-07 | En tant que formateur, je veux être notifié en temps réel de l’avancement (indexation/génération) afin de suivre les traitements asynchrones. | Could | 3 | ADR-06 (SSE) / DS-06 | NF1 | US-IA-01, US-IA-02 |
+| US-IA-08 | En tant que formateur affecté, je veux déposer un document qui contient déjà des questions (ancien examen, banque Excel / CSV, sujet Word, PDF scanné, photo) et que l'IA les en extraie, afin de les relire, les corriger et les ajouter à un QCM sans les ressaisir. | Must | 8 | UC10 For / DS-06 (file IA) | NF1, NF3 | US-IA-04, US-IA-06 |
 
-**Total E6 : 7 stories — 33 points.**
+**Total E6 : 8 stories — 41 points.** *(v2.2 : + US-IA-08.)*
 
 #### Critères d’acceptation (Gherkin français)
 
@@ -561,6 +563,10 @@ Table des matières
 **[US-IA-05] — Traçabilité des générations** - **Nominal :** *Étant donné* un lot de génération, *Quand* il est exécuté, *Alors* le système enregistre formateur, module, modèle LLM, paramètres, date, et le statut final de chaque suggestion ; une question acceptée conserve la mention de son origine IA. - **Alternatif / erreur :** *Étant donné* une demande d’audit, *Quand* l’administrateur la consulte, *Alors* l’historique complet des générations et décisions est disponible.
 
 **[US-IA-06] — Couche d’abstraction LLM** - **Nominal :** *Étant donné* l’interface ILLMProvider, *Quand* on change de fournisseur (variable de configuration), *Alors* aucun module métier n’est modifié (seul l’adaptateur change). - **Alternatif / erreur :** *Étant donné* un fournisseur LLM indisponible, *Quand* une génération est lancée, *Alors* le job entre dans la politique de reprise et le formateur est informé en cas d’échec persistant.
+
+**[US-IA-08] — Extraction des questions d'un document** - **Nominal :** *Étant donné* un formateur affecté et un QCM modifiable, *Quand* il dépose un document (PDF, DOCX, TXT, MD, CSV, XLSX, PNG, JPEG, WEBP ; 10 Mo) et lance la lecture, *Alors* le traitement part en tâche de fond (en attente, en cours, terminé, échec), l'IA recopie les questions sans en inventer (type, options, bonne réponse si le document la donne, explication, niveau), et chaque question attend sa décision (accepter telle quelle ou retouchée, rejeter, tout accepter pour les complètes). - **Alternatif / erreur :** bonne réponse absente → « bonne réponse à choisir », acceptation impossible sans la cocher ; aucune question → « Aucune question trouvée » ; fichier trop lourd, format non pris en charge ou contenu non conforme à l'extension → 400 sans appel à l'IA ; formateur non affecté → 403 + `ACCES_RESSOURCE_REFUSE` ; IA indisponible → échec avec motif, fichier gardé, relance possible.
+
+> *Mise en œuvre (v2.2, journal 94) : tables dédiées `extractions_questions_ia` / `questions_extraites_ia` (migration `1789100000000`) ; file BullMQ `ia-extraction` ; signature vérifiée sur le contenu ; PDF scanné et images lus visuellement (blocs `document` / `image` du SDK Anthropic) ; CSV et XLSX lus sans dépendance ; document dans un bloc de données neutralisé (injection) ; fichier supprimé du stockage dès la fin ; question acceptée par les règles de l'éditeur de QCM, origine `IA` / `IA_MODIFIEE` ; audit `QUESTIONS_EXTRACTION_*`, `QUESTION_EXTRAITE_*`.*
 
 **[US-IA-07] — Notifications temps réel (SSE)** - **Nominal :** *Étant donné* une indexation ou une génération en cours, *Quand* l’état progresse, *Alors* le frontend reçoit des événements SSE et affiche l’avancement sans rechargement. - **Alternatif / erreur :** *Étant donné* une connexion SSE interrompue, *Quand* elle se rétablit, *Alors* l’état courant est récupéré via un appel REST de repli (pas d’information perdue).
 
@@ -686,7 +692,7 @@ Table des matières
 | E3 — Évaluations QCM anti-fraude | 13 | 54 |
 | E4 — Ateliers pratiques & correction | 9 | 30 |
 | E5 — Certification numérique vérifiable | 8 | 30 |
-| E6 — Assistance IA aux formateurs | 7 | 33 |
+| E6 — Assistance IA aux formateurs | 8 | 41 |
 | E7 — Chatbot IA apprenant *(de-scopé)* | 0 | 0 |
 | E8 — Suivi, analytics & reporting | 8 | 29 |
 | **Total (tableaux)** | **81** | **292** |

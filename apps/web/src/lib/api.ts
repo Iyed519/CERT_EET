@@ -2923,6 +2923,120 @@ export async function rejeterSuggestion(
   return lireReponseFormation<SuggestionQuestion>(response, 'Impossible de rejeter la suggestion.');
 }
 
+/* ============================================================
+ * US-IA-08 — Importer des questions depuis un fichier (extraction par l'IA)
+ * ============================================================ */
+
+export type StatutExtraction = 'EN_ATTENTE' | 'EN_COURS' | 'TERMINEE' | 'ECHEC';
+export type ModeLecture = 'TEXTE' | 'TABLEAU' | 'VISION';
+
+/** Formats acceptés (le serveur vérifie aussi la signature du contenu). */
+export const FORMATS_EXTRACTION = ['pdf', 'docx', 'txt', 'md', 'csv', 'xlsx', 'png', 'jpg', 'jpeg', 'webp'];
+export const TAILLE_MAX_EXTRACTION = 10 * 1024 * 1024;
+
+/** Une extraction, vue par le formateur. */
+export interface ExtractionQuestions {
+  id: string;
+  qcmId: string;
+  nomFichier: string;
+  format: string;
+  tailleOctets: number;
+  statut: StatutExtraction;
+  modeLecture: ModeLecture | null;
+  tronque: boolean;
+  modeleLlm: string | null;
+  nbQuestions: number | null;
+  nbEcartees: number | null;
+  nbTentatives: number;
+  derniereErreur: string | null;
+  fichierConserve: boolean;
+  dateLancement: string;
+  dateFin: string | null;
+  formateur: { id: string; prenom: string | null; nom: string | null };
+}
+
+/** Une question recopiée du document, à relire. */
+export interface QuestionExtraite {
+  id: string;
+  extractionId: string;
+  ordre: number;
+  enonce: string;
+  type: TypeGenerable;
+  options: Array<{ texte: string; estCorrecte: boolean }>;
+  /** Faux : le document ne donnait pas la bonne réponse, elle est à choisir. */
+  reponseConnue: boolean;
+  explication: string | null;
+  niveau: NiveauGeneration | null;
+  statut: StatutSuggestion;
+  questionId: string | null;
+  decidePar: string | null;
+  dateDecision: string | null;
+  motifRejet: string | null;
+}
+
+export interface ExtractionDetail extends ExtractionQuestions {
+  questions: QuestionExtraite[];
+}
+
+/** POST /api/qcm/:id/extractions (multipart) — 202, extraction EN_ATTENTE. */
+export async function deposerExtraction(qcmId: string, fichier: File): Promise<ExtractionQuestions> {
+  const corps = new FormData();
+  corps.append('fichier', fichier, fichier.name);
+  const response = await apiFetch(`/api/qcm/${qcmId}/extractions`, { method: 'POST', body: corps });
+  return lireReponseFormation<ExtractionQuestions>(response, 'Impossible de déposer le fichier.');
+}
+
+/** GET /api/qcm/:id/extractions — plus récentes d'abord. */
+export async function getExtractionsDuQcm(qcmId: string): Promise<ExtractionQuestions[]> {
+  const response = await apiFetch(`/api/qcm/${qcmId}/extractions`);
+  return lireReponseFormation<ExtractionQuestions[]>(response, 'Impossible de charger les imports.');
+}
+
+/** GET /api/extractions/:id — état et questions extraites. */
+export async function getExtraction(extractionId: string): Promise<ExtractionDetail> {
+  const response = await apiFetch(`/api/extractions/${extractionId}`);
+  return lireReponseFormation<ExtractionDetail>(response, 'Impossible de charger l’import.');
+}
+
+/** POST /api/extractions/:id/relancer — après un échec. */
+export async function relancerExtraction(extractionId: string): Promise<ExtractionQuestions> {
+  const response = await apiFetch(`/api/extractions/${extractionId}/relancer`, { method: 'POST' });
+  return lireReponseFormation<ExtractionQuestions>(response, 'Impossible de relancer l’import.');
+}
+
+/** POST /api/extractions/:id/tout-accepter — les questions complètes encore à traiter. */
+export async function toutAccepterExtraction(
+  extractionId: string,
+): Promise<{ acceptees: number; ignorees: number; extraction: ExtractionDetail }> {
+  const response = await apiFetch(`/api/extractions/${extractionId}/tout-accepter`, {
+    method: 'POST',
+  });
+  return lireReponseFormation(response, 'Impossible d’accepter les questions.');
+}
+
+/** POST /api/questions-extraites/:id/accepter — telle quelle, ou `question` retouchée. */
+export async function accepterQuestionExtraite(
+  id: string,
+  question?: QuestionInput,
+): Promise<{ questionExtraite: QuestionExtraite; question: QuestionQcm }> {
+  const response = await apiFetch(`/api/questions-extraites/${id}/accepter`, {
+    method: 'POST',
+    headers: JSON_HEADERS,
+    body: JSON.stringify(question ? { question } : {}),
+  });
+  return lireReponseFormation(response, 'Impossible d’accepter la question.');
+}
+
+/** POST /api/questions-extraites/:id/rejeter — motif facultatif. */
+export async function rejeterQuestionExtraite(id: string, motif?: string): Promise<QuestionExtraite> {
+  const response = await apiFetch(`/api/questions-extraites/${id}/rejeter`, {
+    method: 'POST',
+    headers: JSON_HEADERS,
+    body: JSON.stringify(motif ? { motif } : {}),
+  });
+  return lireReponseFormation<QuestionExtraite>(response, 'Impossible de rejeter la question.');
+}
+
 /** GET /api/generations/:id/suggestions — dans l'ordre du modèle. */
 export async function getSuggestionsGeneration(generationId: string): Promise<SuggestionQuestion[]> {
   const response = await apiFetch(`/api/generations/${generationId}/suggestions`);

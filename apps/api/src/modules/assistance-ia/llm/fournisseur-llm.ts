@@ -20,10 +20,33 @@ export interface OptionsAppelLlm {
   delaiMs: number;
 }
 
+/**
+ * US-IA-08 — Ce qui part au modèle pour une extraction : consignes (système),
+ * demande, et le document — soit son TEXTE (PDF texte, DOCX, TXT, CSV, XLSX
+ * rendus en texte), soit le FICHIER lui-même pour une lecture visuelle
+ * (image, PDF scanné), en base64.
+ */
+export interface DemandeExtraction {
+  systeme: string;
+  consigne: string;
+  texte?: string;
+  fichier?: {
+    nature: 'image' | 'document';
+    typeMedia: 'image/png' | 'image/jpeg' | 'image/webp' | 'application/pdf';
+    base64: string;
+  };
+}
+
 export interface FournisseurLlm {
   /** Identifiant du modèle, enregistré sur la génération. */
   readonly modele: string;
   genererQuestions(prompt: PromptGeneration, options: OptionsAppelLlm): Promise<unknown>;
+  /**
+   * US-IA-08 — Recopie les questions présentes dans un document. Renvoie
+   * l'objet JSON BRUT (`{ questions: [...] }`), validé ensuite par
+   * extraction-questions.regles.ts.
+   */
+  extraireQuestions(demande: DemandeExtraction, options: OptionsAppelLlm): Promise<unknown>;
 }
 
 /**
@@ -84,6 +107,59 @@ export const SCHEMA_QUESTIONS = {
             description: 'Numéros des passages qui justifient la question.',
           },
           scoreConfiance: { type: 'number', minimum: 0, maximum: 1 },
+        },
+      },
+    },
+  },
+} as const;
+
+/** US-IA-08 — Outil imposé pour l'extraction : sa seule sortie possible. */
+export const OUTIL_EXTRACTION = 'extraire_questions';
+
+/** Plafond de questions recopiées d'un seul document (US-IA-08). */
+export const MAX_QUESTIONS_EXTRAITES = 100;
+
+/**
+ * Schéma JSON de l'extraction (US-IA-08). `estCorrecte` vaut null quand le
+ * document ne dit pas quelle option est juste : le modèle ne doit pas deviner.
+ */
+export const SCHEMA_EXTRACTION = {
+  type: 'object',
+  additionalProperties: false,
+  required: ['questions'],
+  properties: {
+    questions: {
+      type: 'array',
+      maxItems: MAX_QUESTIONS_EXTRAITES,
+      items: {
+        type: 'object',
+        additionalProperties: false,
+        required: ['enonce', 'type', 'options', 'explication', 'niveau'],
+        properties: {
+          enonce: { type: 'string', description: 'Énoncé recopié du document.' },
+          type: { type: 'string', enum: ['QCU', 'QCM', 'VRAI_FAUX'] },
+          options: {
+            type: 'array',
+            minItems: 2,
+            maxItems: 10,
+            items: {
+              type: 'object',
+              additionalProperties: false,
+              required: ['texte', 'estCorrecte'],
+              properties: {
+                texte: { type: 'string' },
+                estCorrecte: {
+                  type: ['boolean', 'null'],
+                  description: 'null si le document ne donne pas la bonne réponse.',
+                },
+              },
+            },
+          },
+          explication: { type: ['string', 'null'] },
+          niveau: {
+            type: ['string', 'null'],
+            enum: ['DEBUTANT', 'INTERMEDIAIRE', 'AVANCE', null],
+          },
         },
       },
     },

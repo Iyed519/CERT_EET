@@ -5,6 +5,7 @@ import { useCallback, useEffect, useState } from 'react';
 import { BanqueQuestionsModal } from '../../../../components/BanqueQuestionsModal';
 import { ConfigurationModal } from '../../../../components/ConfigurationModal';
 import { ConfirmationModal } from '../../../../components/ConfirmationModal';
+import { ImportFichierModal } from '../../../../components/ImportFichierModal';
 import { QcmInfosModal } from '../../../../components/QcmInfosModal';
 import { QuestionModal } from '../../../../components/QuestionModal';
 import {
@@ -31,6 +32,7 @@ type Fenetre =
   | { type: 'configuration' }
   | { type: 'question'; question: QuestionQcm | null }
   | { type: 'banque' }
+  | { type: 'import' }
   | { type: 'retirer'; question: QuestionQcm }
   | { type: 'supprimer' }
   | { type: 'publier' }
@@ -81,6 +83,9 @@ function conditionsDePublication(qcm: QcmDetail, maintenant: number): Condition[
  * titre du QCM) peut encore changer — le serveur l'impose, la page le montre.
  * US-QCM-03 — Section « Paramètres anti-fraude » : résumé de la
  * configuration et modale pour la saisir (BROUILLON -> NON_PUBLIE).
+ * US-IA-08 — « Importer depuis un fichier » : l'IA recopie les questions d'un
+ * document (fenêtre ImportFichierModal) ; chaque question est relue avant
+ * d'entrer dans le QCM.
  * US-QCM-04 — Section « Publication » : liste des conditions (cochées ou
  * non), bouton « Publier » avec confirmation ; une fois publié, rappel de la
  * fenêtre. Un QCM publié garde au moins une question et au moins son tirage :
@@ -305,6 +310,14 @@ export default function EditeurQcmPage(): JSX.Element {
                 Importer depuis ma banque
               </button>
               <button
+                className="btn-sm"
+                onClick={() => setFenetre({ type: 'import' })}
+                disabled={fige}
+                title={fige ? 'Contenu figé : des apprenants ont déjà passé ce QCM.' : undefined}
+              >
+                Importer depuis un fichier
+              </button>
+              <button
                 className="btn-sm btn-primary-sm"
                 onClick={() => setFenetre({ type: 'question', question: null })}
                 disabled={fige}
@@ -429,6 +442,13 @@ export default function EditeurQcmPage(): JSX.Element {
           qcmId={qcm.id}
           onClose={() => setFenetre(null)}
           onImporte={fermerEtRecharger}
+        />
+      )}
+      {qcm && fenetre?.type === 'import' && (
+        <ImportFichierModal
+          qcmId={qcm.id}
+          onClose={fermerEtRecharger}
+          onAjout={() => void charger()}
         />
       )}
       {qcm && fenetre?.type === 'retirer' && (

@@ -11,6 +11,20 @@ export const TRAVAIL_INDEXER = 'indexer-support';
 export const FILE_IA_GENERATION = 'ia-generation';
 export const TRAVAIL_GENERER = 'generer-questions';
 
+/** File et travail d'extraction de questions d'un document (US-IA-08). */
+export const FILE_IA_EXTRACTION = 'ia-extraction';
+export const TRAVAIL_EXTRAIRE = 'extraire-questions';
+
+export interface DonneesExtraction {
+  extractionId: string;
+}
+
+/** Ce que fait le worker d'extraction, fourni par ExtractionQuestionsService (US-IA-08). */
+export interface TraitementsExtraction {
+  extraire(extractionId: string): Promise<void>;
+  echecDefinitif(extractionId: string, erreur: unknown): Promise<void>;
+}
+
 export interface DonneesGeneration {
   generationId: string;
 }
@@ -51,6 +65,8 @@ export class FileIaService implements OnModuleDestroy {
   private readonly fileGeneration: Queue<DonneesGeneration>;
   private workerIndexation: Worker<DonneesIndexation> | null = null;
   private workerGeneration: Worker<DonneesGeneration> | null = null;
+  private readonly fileExtraction: Queue<DonneesExtraction>;
+  private workerExtraction: Worker<DonneesExtraction> | null = null;
   private readonly config: IaConfig;
   private readonly connexion: { host: string; port: number; maxRetriesPerRequest: null };
 
@@ -64,6 +80,62 @@ export class FileIaService implements OnModuleDestroy {
     this.fileGeneration = new Queue<DonneesGeneration>(FILE_IA_GENERATION, {
       connection: this.connexion,
     });
+    this.fileExtraction = new Queue<DonneesExtraction>(FILE_IA_EXTRACTION, {
+      connection: this.connexion,
+    });
+  }
+
+  /**
+   * US-IA-08 — Ajoute le travail d'extraction ; identifiant = identifiant de
+   * l'extraction (+ suffixe pour une relance) : un seul travail à la fois.
+   */
+  async ajouterExtraction(extractionId: string, suffixe?: string): Promise<void> {
+    await this.fileExtraction.add(
+      TRAVAIL_EXTRAIRE,
+      { extractionId },
+      {
+        jobId: suffixe ? `${extractionId}-${suffixe}` : extractionId,
+        attempts: this.config.tentatives,
+        backoff: { type: 'exponential', delay: this.config.backoffMs },
+        removeOnComplete: 1000,
+        removeOnFail: 1000,
+      },
+    );
+  }
+
+  /**
+   * US-IA-08 — Worker d'extraction, une extraction à la fois (appel au modèle
+   * lent et coûteux) ; même politique d'échec que la génération.
+   */
+  demarrerWorkerExtraction(traitements: TraitementsExtraction): void {
+    if (!this.config.workerActif || this.workerExtraction) return;
+    this.workerExtraction = new Worker<DonneesExtraction>(
+      FILE_IA_EXTRACTION,
+      async (job: Job<DonneesExtraction>) => traitements.extraire(job.data.extractionId),
+      { connection: this.connexion, concurrency: 1 },
+    );
+    this.workerExtraction.on('failed', (job, erreur) => {
+      if (!job) return;
+      const dernier =
+        erreur instanceof UnrecoverableError ||
+        erreur?.name === 'UnrecoverableError' ||
+        job.attemptsMade >= (job.opts.attempts ?? 1);
+      this.logger.warn(
+        `Extraction ${job.data.extractionId} : échec ${job.attemptsMade}/${job.opts.attempts ?? 1} (${erreur.message})`,
+      );
+      if (dernier) {
+        void traitements.echecDefinitif(job.data.extractionId, erreur).catch((e: unknown) => {
+          const detail = e instanceof Error ? e.message : String(e);
+          this.logger.error(
+            `Échec d'extraction non enregistré (${job.data.extractionId}) : ${detail}`,
+          );
+        });
+      }
+    });
+    this.workerExtraction.on('error', (erreur) =>
+      this.logger.error(`Worker d'extraction : ${erreur.message}`),
+    );
+    this.logger.log('Worker d’extraction de questions démarré.');
   }
 
   /**
@@ -178,6 +250,8 @@ export class FileIaService implements OnModuleDestroy {
   }
 
   async onModuleDestroy(): Promise<void> {
+    await this.workerExtraction?.close();
+    await this.fileExtraction.close();
     await this.workerGeneration?.close();
     await this.workerIndexation?.close();
     await this.fileIndexation.close();

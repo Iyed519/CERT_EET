@@ -20,7 +20,11 @@ export const FORMATEUR_FORMATION_KEY = 'formateur_de_la_formation';
  *  - `{ suggestionId: 'suggestionId' }` : une suggestion de question IA -> sa
  *    génération -> son module -> sa formation (US-IA-04) ;
  *  - `{ alerteId: 'alerteId' }` : une alerte de décrochage -> sa formation
- *    (US-SUIVI-03).
+ *    (US-SUIVI-03) ;
+ *  - `{ extractionId: 'extractionId' }` : une extraction de questions -> son
+ *    QCM -> son module -> sa formation (US-IA-08) ;
+ *  - `{ questionExtraiteId: 'questionExtraiteId' }` : une question extraite ->
+ *    son extraction -> … -> sa formation (US-IA-08).
  *
  * Fichier séparé du décorateur et du garde : chacun des deux l'importe, sans
  * que l'un ait à importer l'autre pour cela (pas de dépendance circulaire).
@@ -35,4 +39,6 @@ export type SourceFormation =
   | { generationId: string }
   | { ressourceId: string }
   | { suggestionId: string }
-  | { alerteId: string };
+  | { alerteId: string }
+  | { extractionId: string }
+  | { questionExtraiteId: string };

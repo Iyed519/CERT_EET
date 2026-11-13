@@ -811,6 +811,21 @@ textarea.input { resize: vertical; font-family: inherit; line-height: 1.45; }
 
 /* US-IA-03 — Suggestions de questions (lecture ; relecture : US-IA-04). */
 .suggestions-card { max-width: 720px; }
+
+/* US-IA-08 — Importer des questions depuis un fichier */
+.import-zone { display: flex; flex-direction: column; align-items: center; gap: 8px; margin: 16px 0; padding: 28px 16px; border: 2px dashed var(--border); border-radius: var(--radius-sm); background: var(--surface); text-align: center; }
+.import-zone-survol { border-color: var(--primary); background: var(--primary-soft); }
+.import-zone-titre { margin: 0; font-weight: 600; word-break: break-word; }
+.import-etat { display: flex; align-items: center; gap: 10px; flex-wrap: wrap; margin: 12px 0; }
+.import-statut { font-size: 0.75rem; font-weight: 600; padding: 2px 8px; border-radius: 999px; background: var(--neutre-soft); color: var(--neutre); }
+.import-statut-EN_ATTENTE, .import-statut-EN_COURS { background: var(--info-soft); color: var(--info); }
+.import-statut-TERMINEE { background: var(--success-soft); color: var(--primary-dark); }
+.import-statut-ECHEC { background: var(--danger-soft); color: var(--danger-dark); }
+.import-historique { margin-top: 20px; }
+.import-historique ul { list-style: none; margin: 0; padding: 0; display: grid; gap: 6px; }
+.reponse-a-choisir { margin-left: auto; font-size: 0.75rem; font-weight: 600; padding: 2px 8px; border-radius: 999px; background: var(--warning-soft); color: var(--accent-dark); }
+.lien-bouton { background: none; border: none; padding: 0; color: var(--primary-dark); text-decoration: underline; cursor: pointer; font: inherit; }
+.lien-bouton:focus-visible { outline: 2px solid var(--primary); outline-offset: 2px; }
 .suggestions-liste { list-style: none; margin: 14px 0 0; padding: 0; display: grid; gap: 12px; }
 .suggestion { border: 1px solid var(--border); border-radius: var(--radius-sm); padding: 14px 16px; background: var(--surface-2); }
 .suggestion-tete { display: flex; align-items: center; flex-wrap: wrap; gap: 8px; margin-bottom: 8px; }
