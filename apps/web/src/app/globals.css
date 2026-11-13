@@ -178,8 +178,9 @@ h1.auth-title { font-size: 1.625rem; }
 /* Deux boutons OAuth empilés (Google puis GitHub) : petit espace entre eux. */
 .btn-oauth + .btn-oauth { margin-top: 10px; }
 /* Variante GitHub : bouton sombre, marque Octocat en blanc (US-AUTH-14). */
-.btn-oauth-github { background: #24292f; border-color: #24292f; color: #fff; }
-.btn-oauth-github:hover { background: #1b1f24; border-color: #1b1f24; color: #fff; }
+/* US-UI-07 : GitHub en contour comme Google — une seule action pleine par formulaire. */
+.btn-oauth-github { color: var(--ink); }
+.btn-oauth-github:hover { color: var(--ink); }
 /* --- Carte de complétion du profil apprenant (US-AUTH-15) --- */
 .profil-overlay {
   position: fixed; inset: 0; z-index: 50;
@@ -1579,8 +1580,8 @@ h3 { font-size: var(--fs-carte); font-weight: var(--fw-carte); }
 .fiche-liste li { padding: var(--sp-2) 0; }
 
 /* --- Champs --- */
-.input { border: 1px solid #8e88a6; font-size: var(--fs-corps); }   /* bordure 3,4:1 (critère 1.4.11) */
-.input:hover:not(:disabled):not(:focus) { border-color: #6f6990; }
+.input { border: 1px solid #8a8a8f; font-size: var(--fs-corps); }   /* bordure 3,4:1 (critère 1.4.11), gris neutre US-UI-07 */
+.input:hover:not(:disabled):not(:focus) { border-color: #6b6b70; }
 .input::placeholder { color: var(--placeholder); }
 .input-auto { font-size: var(--fs-petit); }
 .topbar-search-input { border-color: var(--border-strong); background: var(--surface-2); }
@@ -1805,3 +1806,10 @@ p.alert-info::before { content: 'ℹ\00a0'; font-weight: 700; }
    `.btn-lien { color: inherit }` le rendait foncé sur rouge, illisible). */
 a.btn.btn-lien:not(.btn-secondaire), a.btn.btn-lien:not(.btn-secondaire):hover { color: #fff; text-decoration: none; }
 a.btn.btn-lien { display: inline-flex; align-items: center; justify-content: center; width: auto; }
+
+/* ============================================================
+   US-UI-07 — Pages publiques et authentification
+   ============================================================ */
+.hero-carte-logo { display: block; height: 29px; width: auto; }
+.verdict-INCONNU .verification-pastille { background: var(--muted); }
+.verification-suite { margin: var(--sp-4) 0 0; }

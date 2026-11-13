@@ -15,7 +15,7 @@ function VerificationContenu(): JSX.Element {
     dejaLance.current = true;
     if (!token) {
       setEtat('erreur');
-      setMessage('Lien de vérification invalide : jeton manquant.');
+      setMessage('Ce lien est incomplet. Ouvrez le lien reçu par email, en entier.');
       return;
     }
     verifyEmailRequest(token)
@@ -68,7 +68,9 @@ function VerificationContenu(): JSX.Element {
             </span>
             <h1 className="auth-title">Lien invalide</h1>
             <p className="auth-subtitle">{message}</p>
-            <p className="auth-alt"><a href="/register">Créer un compte</a></p>
+            <p className="auth-alt">
+              <a href="/login">Se connecter</a> · <a href="/register">Créer un compte</a>
+            </p>
           </>
         )}
       </section>

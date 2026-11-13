@@ -583,7 +583,7 @@ Table des matières
 | US-UI-04 | Parcours apprenant refondu | Must | 5 | Livrée (journal 98) |
 | US-UI-05 | Parcours formateur refondu | Must | 5 | Livrée (journal 99) |
 | US-UI-06 | Parcours administrateur refondu | Must | 5 | Livrée (journal 100) |
-| US-UI-07 | Pages publiques et authentification refondues | Should | 3 | À faire |
+| US-UI-07 | Pages publiques et authentification refondues | Should | 3 | Livrée (journal 101) |
 | US-UI-08 | Recette finale : cohérence, accessibilité, guide de style | Must | 3 | À faire |
 
 **Total E10 : 8 stories — 34 points.**

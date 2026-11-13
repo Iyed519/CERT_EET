@@ -71,10 +71,18 @@ export default function VerifierPage(): JSX.Element {
 
       {resultat === null && (
         <section className="verification-carte verdict-INCONNU">
-          <h1 className="verification-titre">Certificat introuvable</h1>
-          <p>
-            Aucun certificat ne correspond à ce lien. Vérifiez qu’il a été copié en entier, ou
-            demandez au titulaire de vous le renvoyer.
+          <div className="verification-verdict">
+            <span className="verification-pastille" aria-hidden="true">?</span>
+            <div>
+              <h1 className="verification-titre">Certificat introuvable</h1>
+              <p>
+                Aucun certificat ne correspond à ce lien. Vérifiez qu’il a été copié en entier, ou
+                demandez au titulaire de vous le renvoyer.
+              </p>
+            </div>
+          </div>
+          <p className="verification-suite">
+            <Link href="/">Découvrir Cert_EET</Link>
           </p>
         </section>
       )}
