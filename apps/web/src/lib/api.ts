@@ -4449,16 +4449,20 @@ export async function deposerAlerteSurveillance(
   type: TypeAlerteSurveillance,
   confiance: number | null,
   photo: Blob,
-): Promise<boolean> {
+): Promise<number> {
   const corps = new FormData();
   corps.append('type', type);
   if (confiance !== null) corps.append('confiance', String(confiance));
   corps.append('photo', photo, 'alerte.jpg');
-  const response = await apiFetch(`/api/tentatives/${tentativeId}/alertes-surveillance`, {
-    method: 'POST',
-    body: corps,
-  });
-  return response.ok;
+  try {
+    const response = await apiFetch(`/api/tentatives/${tentativeId}/alertes-surveillance`, {
+      method: 'POST',
+      body: corps,
+    });
+    return response.status;
+  } catch {
+    return 0; // réseau coupé
+  }
 }
 
 /** GET /api/surveillance/alertes — formations du formateur (toutes pour l'admin). */

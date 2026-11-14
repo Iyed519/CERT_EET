@@ -202,23 +202,26 @@ export default function TentativesQcmPage(): JSX.Element {
             )}
             {/* US-QCM-15 — alertes de l'IA de cette tentative, avec leur photo. */}
             <AlertesTentative tentativeId={detail.id} />
-            <section className="captures-section" aria-label="Captures webcam">
+            <section className="captures-section" aria-label="Photos de contrôle">
               {captures === null ? (
                 <button type="button" className="btn-sm" onClick={() => void voirCaptures(detail.id)}>
-                  Voir les captures webcam
+                  Voir les photos de contrôle
                 </button>
               ) : captures.captures.length === 0 ? (
-                <p className="field-hint">Aucune capture webcam pour cette tentative.</p>
+                <p className="field-hint">
+                  Aucune photo de contrôle pour cette tentative : les photos sont prises seulement en
+                  cas d’anomalie (voir « Alertes de surveillance » ci-dessus).
+                </p>
               ) : (
                 <>
                   <p className="field-hint">
-                    {captures.captures.length} capture(s)
+                    {captures.captures.length} photo(s) de contrôle
                     {captures.consentementLe
                       ? ` · consentement donné le ${dateHeureFr(captures.consentementLe)}`
                       : ''}{' '}
-                    · supprimées {captures.conservationJours} jours après la prise. Images
-                    périodiques ; les anomalies repérées par l’IA sont dans « Alertes de
-                    surveillance ».
+                    · supprimées {captures.conservationJours} jours après la prise. Photos prises à
+                    intervalle fixe (réglage de test) ; les anomalies repérées par l’IA sont dans
+                    « Alertes de surveillance ».
                   </p>
                   <div className="captures-grille">
                     {captures.captures.map((c) => (

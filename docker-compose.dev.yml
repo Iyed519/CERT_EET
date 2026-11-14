@@ -36,6 +36,10 @@ services:
       # watchDirectory).
       TSC_WATCHFILE: DynamicPriorityPolling
       TSC_WATCHDIRECTORY: RecursiveDirectoryUsingDynamicPriorityPolling
+      # --- Surveillance par IA (US-QCM-16) : réglage de TEST, dev seulement ---
+      # Une photo de contrôle par minute en plus des photos d'anomalie (en
+      # recette et en production : 0, une photo seulement en cas d'anomalie).
+      SURVEILLANCE_INTERVALLE_SECONDES: "60"
     command: ["npm", "run", "start:dev"]
     # Premier démarrage après `up --build -V` : npm ci dans l'image, puis
     # compilation complète par `nest start --watch` en scrutation (Windows),

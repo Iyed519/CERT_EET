@@ -216,13 +216,22 @@ describe('E2E-QCM15 — Alertes de la surveillance par IA (US-QCM-15)', () => {
     await app.close();
   });
 
-  it('la page de passage reçoit le seuil d’absence (5 min par défaut)', async () => {
+  it('la page de passage reçoit le seuil d’absence (5 min) ; pas de photo de contrôle par défaut (US-QCM-16)', async () => {
     const res = await avec(api().get(`/api/tentatives/${t.a}`), 'a').expect(200);
     expect(res.body.surveillance).toEqual({
       active: true,
-      intervalleSecondes: 120,
+      intervalleSecondes: 0,
       absenceSecondes: 300,
     });
+    const refus = await avec(api().post(`/api/tentatives/${t.a}/captures`), 'a')
+      .attach('capture', JPEG, { filename: 'c.jpg', contentType: 'image/jpeg' })
+      .expect(409);
+    expect(refus.body.message).toBe(
+      'Photos de contrôle désactivées : seules les anomalies repérées par l’IA sont photographiées.',
+    );
+    expect(
+      await sql(`SELECT 1 FROM captures_webcam WHERE tentative_id = $1`, [t.a]),
+    ).toEqual([]);
   });
 
   it('dépôt : alerte et photo enregistrées, journalisées, e-mail au formateur affecté (première alerte)', async () => {

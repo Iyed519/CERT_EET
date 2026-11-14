@@ -116,7 +116,9 @@ la charte ESPRIT décrite dans `docs/GUIDE_STYLE.md` (captures dans
    examinée ». Pour la démonstration de l'absence, mettre
    `SURVEILLANCE_ABSENCE_SECONDES=60` (5 minutes par défaut). Rappeler :
    l'analyse tourne sur le poste de l'apprenant, l'IA signale, le formateur
-   décide.
+   décide. Une photo n'est prise qu'en cas d'anomalie (US-QCM-16) ; en
+   développement, une photo de contrôle par minute en plus et une ligne
+   « Diagnostic » dans le bandeau (scores du modèle) pour vérifier la caméra.
 7. **Demander une formation** (US-FORM-07) : choisir « Cybersécurité
    opérationnelle », motif -> demande en attente.
 8. **Proposer une formation** (US-FORM-08) : remplir le formulaire -> en
