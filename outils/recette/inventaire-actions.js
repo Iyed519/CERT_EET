@@ -178,7 +178,8 @@ async function inventorierPage(page, chemin) {
     actions.push(a);
     return true;
   };
-  const exclureCoque = 'header.topbar, footer, .fil-ariane';
+  // La coque (en-tête, menu latéral, tiroir) est relevée une fois, sous « (coque) ».
+  const exclureCoque = 'header.topbar, footer, .fil-ariane, aside.nav-laterale, .tiroir';
   const initiaux = await relever(page, 'body', exclureCoque);
   for (const e of initiaux) ajouter(e, 0);
 
@@ -238,6 +239,41 @@ async function inventorierPage(page, chemin) {
           : `après « ${normaliserLibelle(c.libelle)} »`;
     const nouveaux = await relever(page, dialogue ? SEL_DIALOGUE : 'body', exclureCoque);
     for (const e of nouveaux) ajouter(e, 1, contexte);
+    // US-UX-04 : un élément de menu sans effet destructeur qui ouvre une fenêtre
+    // (« Nouveau QCM », « Lien ou vidéo »…) : sa fenêtre est relevée à la profondeur 2.
+    if (c.menu && !dialogue) {
+      const elementsMenu = nouveaux
+        .filter((e) => e.type === 'menu' && !e.href && !e.desactive && !BOUTONS_DANGEREUX.test(e.libelle))
+        .slice(0, 8);
+      for (const em of elementsMenu) {
+        await page.keyboard.press('Escape').catch(() => {});
+        await page.waitForTimeout(150);
+        const ouvreur = await relever(page, 'body', exclureCoque);
+        const meme = ouvreur.find((e) => e.type === c.type && normaliserLibelle(e.libelle) === normaliserLibelle(c.libelle));
+        if (!meme) break;
+        try {
+          await page.locator(`[data-inv="${meme.id}"]`).first().click({ timeout: 3000 });
+          await page.waitForTimeout(250);
+          const avantItem = await etatPage(page);
+          await page.getByRole('menuitem', { name: em.libelle, exact: true }).first().click({ timeout: 3000 });
+          await page.waitForTimeout(500);
+          const apresItem = await etatPage(page);
+          if (apresItem.url !== avantItem.url) {
+            await recharger();
+            continue;
+          }
+          if (apresItem.dialogues > 0) {
+            const dansFenetre = await relever(page, SEL_DIALOGUE, exclureCoque);
+            for (const e of dansFenetre) ajouter(e, 2, `fenêtre « ${normaliserLibelle(em.libelle)} »`);
+            await page.keyboard.press('Escape').catch(() => {});
+            await page.waitForTimeout(200);
+            if ((await etatPage(page)).dialogues > 0) await recharger();
+          }
+        } catch {
+          await recharger();
+        }
+      }
+    }
     if (dialogue || c.menu) {
       await page.keyboard.press('Escape').catch(() => {});
       await page.waitForTimeout(200);

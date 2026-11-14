@@ -293,10 +293,19 @@ export function RessourcesFormateur({
   moduleId,
   moduleTitre,
   modifiable,
+  demandeAjout = null,
+  boutonsAjout = true,
+  onCompte,
 }: {
   moduleId: string;
   moduleTitre: string;
   modifiable: boolean;
+  /** US-UX-04 — Ajout demandé par le menu « Ajouter » du module (le jeton change à chaque demande). */
+  demandeAjout?: { type: 'lien' | 'fichier'; jeton: number } | null;
+  /** US-UX-04 — false : les boutons d'ajout sont dans le menu « Ajouter » du module. */
+  boutonsAjout?: boolean;
+  /** US-UX-04 — Nombre de ressources, pour le résumé du module. */
+  onCompte?: (n: number) => void;
 }): JSX.Element {
   const [ressources, setRessources] = useState<RessourceCours[] | null>(null);
   const [erreur, setErreur] = useState<string | null>(null);
@@ -319,6 +328,16 @@ export function RessourcesFormateur({
     void charger();
   }, [charger]);
 
+  useEffect(() => {
+    if (ressources) onCompte?.(ressources.length);
+  }, [ressources, onCompte]);
+
+  useEffect(() => {
+    if (!demandeAjout || !modifiable) return;
+    if (demandeAjout.type === 'lien') setEdition('nouveau');
+    else setDepot(true);
+  }, [demandeAjout, modifiable]);
+
   const deplacer = async (index: number, sens: -1 | 1): Promise<void> => {
     if (!ressources) return;
     const ids = ressources.map((r) => r.id);
@@ -338,7 +357,7 @@ export function RessourcesFormateur({
     <div className="supports-module ressources-formateur">
       <div className="supports-tete">
         <span className="supports-titre">Ressources du cours</span>
-        {modifiable && (
+        {modifiable && boutonsAjout && (
           <div className="supports-boutons">
             <button className="btn-sm" onClick={() => setEdition('nouveau')}>
               + Lien ou vidéo

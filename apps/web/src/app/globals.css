@@ -2120,3 +2120,39 @@ a.indicateur:hover { border-color: var(--border-strong); box-shadow: var(--shado
   .cartes-formation { grid-template-columns: 1fr; }
   .section-page-actions .filtres-pastilles { width: 100%; }
 }
+
+/* ============================================================
+   US-UX-04 — Espace d'une formation : en-tête et onglets, modules
+   repliables et lisibles, éléments par type, brouillons distincts.
+   ============================================================ */
+.entete-formation .page-head { margin-bottom: var(--sp-3); }
+.page-title-onglet { font-size: var(--fs-h2); }
+.modules-lisibles { display: flex; flex-direction: column; gap: var(--sp-4); }
+.module-bloc { padding: 0; overflow: visible; }
+.module-bloc-tete { display: flex; align-items: center; gap: var(--sp-3); padding: var(--sp-3) var(--sp-4); }
+.module-bloc-bascule { display: flex; align-items: center; gap: var(--sp-3); flex: 1 1 auto; min-width: 0; padding: 4px; border: 0; border-radius: var(--radius-sm); background: none; color: inherit; font: inherit; text-align: left; cursor: pointer; }
+.module-bloc-bascule:hover { background: var(--surface-3); }
+.module-bloc-bascule:focus-visible { outline: none; box-shadow: var(--ring); }
+.module-bloc-bascule > .icone { margin-left: auto; color: var(--muted); }
+.module-bloc-titres { display: flex; flex-direction: column; min-width: 0; }
+.module-bloc-titres .module-titre { font-size: var(--fs-carte); font-weight: var(--fw-carte); color: var(--ink); }
+.module-resume { color: var(--muted); font-size: var(--fs-petit); }
+.module-bloc-corps { padding: 0 var(--sp-4) var(--sp-4); border-top: 1px solid var(--border); }
+.module-description { margin: var(--sp-3) 0 0; }
+.module-rubrique { margin: var(--sp-4) 0 var(--sp-2); color: var(--muted); font-size: var(--fs-etiquette); font-weight: 700; letter-spacing: 0.05em; text-transform: uppercase; }
+.element-module { display: flex; align-items: center; gap: var(--sp-3); }
+.element-icone { display: inline-grid; place-items: center; flex-shrink: 0; width: 34px; height: 34px; border-radius: var(--radius-sm); }
+.element-icone-qcm { background: var(--info-soft); color: var(--info); }
+.element-icone-atelier { background: var(--warning-soft); color: var(--accent-dark); }
+/* Brouillon : fond blanc, contour en tirets, icône grise — se distingue d'un coup d'œil. */
+.element-brouillon { background: var(--surface) !important; border: 1px dashed var(--border-strong) !important; }
+.element-brouillon .element-icone { background: var(--surface-3); color: var(--muted); }
+.programme-liste { list-style: none; margin: 0; padding: 0; display: flex; flex-direction: column; gap: var(--sp-2); }
+.programme-liste li { display: flex; align-items: center; gap: var(--sp-3); color: var(--ink); font-weight: 600; }
+@media (max-width: 640px) {
+  .module-bloc-tete { flex-wrap: wrap; padding: var(--sp-3); }
+  .module-bloc-tete .menu-actions { width: 100%; }
+  .module-bloc-tete .menu-actions-bouton { width: 100%; justify-content: center; }
+  .element-module { flex-wrap: wrap; }
+}
+.module-bloc { border-radius: var(--radius); box-shadow: var(--shadow-sm); }

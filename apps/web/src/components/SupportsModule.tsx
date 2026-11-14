@@ -72,10 +72,19 @@ export function SupportsModule({
   moduleId,
   moduleTitre,
   modifiable,
+  demandeAjout = null,
+  boutonsAjout = true,
+  onCompte,
 }: {
   moduleId: string;
   moduleTitre: string;
   modifiable: boolean;
+  /** US-UX-04 — Dépôt demandé par le menu « Ajouter » du module (le jeton change à chaque demande). */
+  demandeAjout?: number | null;
+  /** US-UX-04 — false : le bouton de dépôt est dans le menu « Ajouter » du module. */
+  boutonsAjout?: boolean;
+  /** US-UX-04 — Nombre de supports, pour le résumé du module. */
+  onCompte?: (n: number) => void;
 }): JSX.Element {
   const [supports, setSupports] = useState<SupportPedagogique[] | null>(null);
   const [erreur, setErreur] = useState<string | null>(null);
@@ -99,6 +108,14 @@ export function SupportsModule({
       setErreur(error instanceof AdminError ? error.message : 'Impossible de charger les supports.');
     }
   }, [moduleId]);
+
+  useEffect(() => {
+    if (supports) onCompte?.(supports.length);
+  }, [supports, onCompte]);
+
+  useEffect(() => {
+    if (demandeAjout && modifiable) setDepot(true);
+  }, [demandeAjout, modifiable]);
 
   useEffect(() => {
     void charger();
@@ -178,7 +195,7 @@ export function SupportsModule({
     <div className="supports-module">
       <div className="supports-tete">
         <span className="supports-titre">Supports pour l’IA</span>
-        {modifiable && (
+        {modifiable && boutonsAjout && (
           <button className="btn-sm" onClick={() => setDepot(true)}>
             + Support
           </button>

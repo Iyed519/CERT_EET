@@ -38,3 +38,24 @@ export function avancementMoyen(apprenants: Array<{ statutInscription: string; a
   const somme = enCours.reduce((n, a) => n + Math.min(100, Math.max(0, a.avancement)), 0);
   return Math.round(somme / enCours.length);
 }
+
+/**
+ * US-UX-04 — Résumé d'un module : « 3 QCM dont 1 publié · 1 atelier · 2 ressources ·
+ * 1 support IA ». Ressources et supports absents tant qu'ils ne sont pas chargés.
+ */
+export function resumeModule(m: {
+  qcm: string[];
+  ateliers: number;
+  ressources?: number;
+  supports?: number;
+}): string {
+  const pl = (n: number, un: string, plusieurs: string): string => `${n} ${n > 1 ? plusieurs : un}`;
+  const publies = m.qcm.filter((s) => s === 'PUBLIE').length;
+  const parties = [
+    m.qcm.length === 0 ? '0 QCM' : `${m.qcm.length} QCM dont ${pl(publies, 'publié', 'publiés')}`,
+    pl(m.ateliers, 'atelier', 'ateliers'),
+  ];
+  if (m.ressources !== undefined) parties.push(pl(m.ressources, 'ressource', 'ressources'));
+  if (m.supports !== undefined) parties.push(pl(m.supports, 'support IA', 'supports IA'));
+  return parties.join(' · ');
+}

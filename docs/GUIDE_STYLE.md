@@ -229,6 +229,10 @@ la page** (`onChange` + `PanneauOnglet`, motif ARIA « tabs », flèches gauche 
 une vue. Compteur : gris s'il informe (affiché même à 0), rouge s'il faut agir (`compteurAlerte`,
 masqué à 0).
 
+Exemple : l'espace d'une formation (US-UX-04) — `EnTeteFormation` porte le titre et les onglets à
+adresse « Vue d'ensemble · Contenu · Apprenants · Rapports » ; l'onglet de travail (Contenu) garde
+l'adresse de la formation.
+
 ### Étapes — `Etapes`
 Parcours ordonné (rédiger → paramétrer → publier → suivre) : chaque étape a un état écrit en toutes
 lettres (`fait`, `en cours`, `à faire`, `bloquant`) et un détail court ; l'étape courante est la
