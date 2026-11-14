@@ -4713,3 +4713,54 @@ export async function getEtatIa(): Promise<EtatIa> {
   const response = await apiFetch('/api/assistance-ia/etat');
   return lireReponseFormation<EtatIa>(response, 'Impossible de connaître l’état de l’IA.');
 }
+
+// ---------------------------------------------------------------------------
+// US-UX-02 — Navigation latérale : compteurs et pages d'ensemble du formateur.
+// ---------------------------------------------------------------------------
+
+export type CompteursNavigation =
+  | {
+      role: 'FORMATEUR';
+      alertes: number;
+      alertesDecrochage: number;
+      alertesSurveillance: number;
+      livrablesACorriger: number;
+      tentativesAEvaluer: number;
+    }
+  | { role: 'ADMINISTRATEUR'; demandesRole: number; demandesAffectation: number; propositions: number };
+
+/** GET /api/navigation/compteurs — formateur ou administrateur (lecture seule). */
+export async function getCompteursNavigation(): Promise<CompteursNavigation> {
+  const response = await apiFetch('/api/navigation/compteurs');
+  return lireReponseFormation<CompteursNavigation>(response, 'Impossible de charger les compteurs.');
+}
+
+export interface AtelierAEvaluer {
+  id: string;
+  titre: string;
+  statut: StatutAtelier;
+  moduleTitre: string;
+  formationId: string;
+  formationTitre: string;
+  aCorriger: number;
+  enCorrection: number;
+  notes: number;
+}
+
+export interface QcmAEvaluer {
+  id: string;
+  titre: string;
+  statut: StatutQcm;
+  moduleTitre: string;
+  formationId: string;
+  formationTitre: string;
+  tentatives: number;
+  aEvaluer: number;
+  alertesAExaminer: number;
+}
+
+/** GET /api/formateur/evaluations — ateliers et QCM de mes formations, avec leurs comptes. */
+export async function getEvaluationsFormateur(): Promise<{ ateliers: AtelierAEvaluer[]; qcm: QcmAEvaluer[] }> {
+  const response = await apiFetch('/api/formateur/evaluations');
+  return lireReponseFormation(response, 'Impossible de charger les évaluations.');
+}

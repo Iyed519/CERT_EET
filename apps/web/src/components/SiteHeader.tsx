@@ -1,33 +1,34 @@
 'use client';
 import Link from 'next/link';
 import { usePathname, useRouter } from 'next/navigation';
-import { FormEvent, useEffect, useRef, useState } from 'react';
+import { FormEvent, useCallback, useEffect, useRef, useState } from 'react';
 import { useAuth } from '../contexts/AuthContext';
 import { logout } from '../lib/api';
-import { LIBELLE_ROLE, LIENS_PAR_ROLE, estActif, initiales, pageAccueilDuRole } from './navigation';
+import { NavigationLaterale } from './NavigationLaterale';
+import {
+  LIBELLE_ROLE,
+  LIENS_PAR_ROLE,
+  aNavigationLaterale,
+  estActif,
+  initiales,
+  pageAccueilDuRole,
+} from './navigation';
 
-/** Liens secondaires du menu de compte, par rôle. */
+/**
+ * Liens secondaires du menu de compte, par rôle. US-UX-02 : pour le formateur
+ * et l'administrateur, les autres pages (mêmes adresses) sont des entrées du
+ * menu latéral.
+ */
 const LIENS_COMPTE: Record<string, Array<[string, string]>> = {
   APPRENANT: [
     ['/mon-role', 'Changer de rôle'],
     ['/securite', 'Sécurité du compte'],
   ],
   FORMATEUR: [
-    ['/formateur/demandes', 'Mes demandes'],
-    ['/formateur/propositions', 'Mes propositions'],
     ['/mon-role', 'Changer de rôle'],
     ['/securite', 'Sécurité du compte'],
   ],
-  ADMINISTRATEUR: [
-    ['/admin/role-requests', 'Demandes de rôle'],
-    ['/admin/demandes-affectation', 'Demandes d’affectation'],
-    ['/admin/propositions-formation', 'Propositions de formation'],
-    ['/admin/rapports', 'Rapports'],
-    ['/admin/generations-ia', 'Générations IA'],
-    ['/admin/risque', 'Prédiction du risque'],
-    ['/admin/audit', "Journal d'audit"],
-    ['/securite', 'Sécurité du compte'],
-  ],
+  ADMINISTRATEUR: [['/securite', 'Sécurité du compte']],
 };
 
 /**
@@ -45,6 +46,13 @@ export function SiteHeader(): JSX.Element {
   const [recherche, setRecherche] = useState('');
   const [deconnexion, setDeconnexion] = useState(false);
   const compteRef = useRef<HTMLDivElement>(null);
+  const burgerRef = useRef<HTMLButtonElement>(null);
+  // US-UX-02 : formateur et administrateur ont le menu latéral (tiroir en mobile).
+  const lateral = !!user && aNavigationLaterale(user.role);
+  const fermerTiroir = useCallback(() => {
+    setMenuMobile(false);
+    burgerRef.current?.focus();
+  }, []);
 
   // US-AUTH-17 : la session est restaurée par AuthProvider au chargement ;
   // tant qu'elle ne l'est pas, l'en-tête n'affiche ni compte ni « Se connecter ».
@@ -94,14 +102,16 @@ export function SiteHeader(): JSX.Element {
   }
 
   return (
+    <>
     <header className="topbar">
       <div className="topbar-inner">
         <button
+          ref={burgerRef}
           type="button"
-          className="topbar-burger"
+          className={`topbar-burger${lateral ? ' topbar-burger-lateral' : ''}`}
           aria-label={menuMobile ? 'Fermer le menu' : 'Ouvrir le menu'}
           aria-expanded={menuMobile}
-          aria-controls="menu-mobile"
+          aria-controls={lateral ? 'tiroir-navigation' : 'menu-mobile'}
           onClick={() => setMenuMobile((v) => !v)}
         >
           <span aria-hidden="true" />
@@ -145,6 +155,9 @@ export function SiteHeader(): JSX.Element {
           </form>
         )}
 
+        {lateral ? (
+          <span className="topbar-espace" />
+        ) : (
         <nav className="topbar-nav" aria-label="Navigation principale">
           {liens.map((lien) => {
             const actif = estActif(lien, pathname);
@@ -160,6 +173,7 @@ export function SiteHeader(): JSX.Element {
             );
           })}
         </nav>
+        )}
 
         <div className="topbar-droite">
           {chargement ? null : user ? (
@@ -227,7 +241,7 @@ export function SiteHeader(): JSX.Element {
         </div>
       </div>
 
-      {menuMobile && (
+      {menuMobile && !lateral && (
         <div id="menu-mobile" className="menu-mobile">
           {user ? (
             <>
@@ -289,5 +303,46 @@ export function SiteHeader(): JSX.Element {
         </div>
       )}
     </header>
+    {lateral && user && (
+      <NavigationLaterale
+        role={user.role}
+        tiroirOuvert={menuMobile}
+        fermerTiroir={fermerTiroir}
+        enTeteTiroir={
+          <form className="topbar-search topbar-search-mobile" role="search" onSubmit={rechercher}>
+            <label htmlFor="recherche-catalogue-tiroir" className="sr-only">
+              Rechercher une formation
+            </label>
+            <input
+              id="recherche-catalogue-tiroir"
+              type="search"
+              className="topbar-search-input"
+              placeholder="Rechercher une formation…"
+              value={recherche}
+              onChange={(e) => setRecherche(e.target.value)}
+            />
+          </form>
+        }
+        piedTiroir={
+          <div className="tiroir-compte">
+            <p className="nav-l-groupe">Mon compte</p>
+            {liensCompte.map(([href, libelle]) => (
+              <Link key={href} href={href} className="nav-l-entree">
+                <span className="nav-l-libelle">{libelle}</span>
+              </Link>
+            ))}
+            <button
+              type="button"
+              className="nav-l-entree compte-deconnexion"
+              onClick={() => void seDeconnecter()}
+              disabled={deconnexion}
+            >
+              <span className="nav-l-libelle">{deconnexion ? 'Déconnexion…' : 'Se déconnecter'}</span>
+            </button>
+          </div>
+        }
+      />
+    )}
+    </>
   );
 }

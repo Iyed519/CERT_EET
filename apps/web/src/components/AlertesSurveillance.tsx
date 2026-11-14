@@ -11,6 +11,7 @@ import {
 } from '../lib/api';
 import { dateHeureFr, nomApprenantFr } from '../lib/format';
 import { Fenetre } from './Fenetre';
+import { rafraichirCompteurs } from './NavigationLaterale';
 
 /**
  * US-QCM-15 — Alertes de la surveillance par IA, vues par le formateur :
@@ -124,6 +125,7 @@ function BoutonExamen({
     setErreur(null);
     try {
       onChange(await examinerAlerteSurveillance(alerte.id, nouvelle ? 'EXAMINE' : 'NOUVEAU'));
+      rafraichirCompteurs();
     } catch (e) {
       setErreur(messageDe(e, 'Action impossible.'));
     } finally {

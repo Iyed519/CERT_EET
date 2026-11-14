@@ -3,6 +3,8 @@ import { FormationsModule } from '../formations/formations.module';
 import { AlertesBalayageService } from './alertes-balayage.service';
 import { AlertesDecrochageService } from './alertes-decrochage.service';
 import { AlertesController } from './alertes.controller';
+import { NavigationController } from './navigation.controller';
+import { NavigationService } from './navigation.service';
 import { SuiviFormateurController } from './suivi-formateur.controller';
 import { SuiviFormationService } from './suivi-formation.service';
 import { TableauDeBordAdminController } from './tableau-de-bord-admin.controller';
@@ -19,6 +21,7 @@ import { TraitementAlertesService } from './traitement-alertes.service';
  * US-SUIVI-02 : alertes de décrochage (balayage planifié, listes, badge).
  * US-SUIVI-03 : traitement des alertes (action, réouverture, historique).
  * US-DASH-03 : tableau de bord global du formateur (toutes ses formations).
+ * US-UX-02 : compteurs du menu latéral et pages d'ensemble du formateur (lecture seule).
  */
 @Module({
   imports: [FormationsModule],
@@ -27,6 +30,7 @@ import { TraitementAlertesService } from './traitement-alertes.service';
     TableauDeBordFormateurController,
     SuiviFormateurController,
     AlertesController,
+    NavigationController,
   ],
   providers: [
     TableauDeBordService,
@@ -35,6 +39,7 @@ import { TraitementAlertesService } from './traitement-alertes.service';
     AlertesDecrochageService,
     AlertesBalayageService,
     TraitementAlertesService,
+    NavigationService,
   ],
   exports: [TableauDeBordService, SuiviFormationService, AlertesDecrochageService],
 })

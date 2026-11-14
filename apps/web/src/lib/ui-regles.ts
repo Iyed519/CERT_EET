@@ -14,3 +14,16 @@ export function texteCompteur(o: { compteur?: number | null; compteurAlerte?: bo
 export function etapeCourante(etapes: Array<{ etat: string }>): number {
   return etapes.findIndex((e) => e.etat !== 'fait');
 }
+
+/** US-UX-02 — Regroupe des lignes par formation, dans l'ordre reçu (l'API trie déjà). */
+export function parFormation<T extends { formationId: string; formationTitre: string }>(
+  lignes: T[],
+): Array<{ id: string; titre: string; lignes: T[] }> {
+  const groupes = new Map<string, { id: string; titre: string; lignes: T[] }>();
+  for (const l of lignes) {
+    const g = groupes.get(l.formationId) ?? { id: l.formationId, titre: l.formationTitre, lignes: [] };
+    g.lignes.push(l);
+    groupes.set(l.formationId, g);
+  }
+  return [...groupes.values()];
+}

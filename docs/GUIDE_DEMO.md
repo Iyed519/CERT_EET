@@ -59,8 +59,11 @@ d'affectation (Leïla -> DevOps), 1 proposition de formation (Leïla,
 
 ## 4. Scénario conseillé
 
-Chaque rôle a au plus cinq entrées de menu, « Accueil » en premier, et son
-accueil commence par **« À faire maintenant »** (US-UI-03). Les écrans suivent
+L'apprenant a au plus cinq entrées de menu dans l'en-tête ; le formateur et
+l'administrateur ont un **menu latéral groupé** (US-UX-02), avec une icône par
+entrée et un compteur rouge de ce qui les attend (réductible aux icônes par
+« Réduire le menu », en tiroir sur mobile). Chaque accueil commence par
+**« À faire maintenant »** (US-UI-03). Les écrans suivent
 la charte ESPRIT décrite dans `docs/GUIDE_STYLE.md` (captures dans
 `docs/guide-style/`).
 
@@ -86,7 +89,11 @@ la charte ESPRIT décrite dans `docs/GUIDE_STYLE.md` (captures dans
 1. Connexion -> **Accueil** (tableau de bord formateur, US-DASH-03) : « À faire
    maintenant » (alertes à traiter, livrables à corriger), puis formations par
    statut, réussite QCM, graphique ; filtre de période (7 j, 30 j…).
-   Menu : Accueil · Mes formations · Alertes · Rapports · Catalogue.
+   Menu latéral : Accueil · **Enseigner** (Mes formations, Demander une
+   formation, Proposer une formation) · **Évaluer** (Livrables à corriger,
+   Tentatives des QCM) · **Suivre** (Apprenants, Alertes, Rapports) ·
+   **Explorer** (Catalogue). Montrer les compteurs (« Livrables à corriger »,
+   « Alertes ») : ils baissent sans recharger la page quand on traite.
 2. Tableau « Mes formations » -> *Suivi* de « Développement web » : apprenants
    à risque (Ahmed inactif, Mariem en échec).
    Plus bas, section **Apprenants à risque (IA)** : niveau suggéré par le
@@ -95,7 +102,7 @@ la charte ESPRIT décrite dans `docs/GUIDE_STYLE.md` (captures dans
    modèle suggère, le formateur décide ». Le premier calcul a lieu une minute
    après le démarrage de l'api, puis une fois par jour.
 3. *Alertes* : traiter l'alerte d'Ahmed (action, commentaire).
-4. *Mes formations* -> formation -> atelier « API REST de réservation » ->
+4. *Livrables à corriger* (ou *Mes formations* -> formation) -> atelier « API REST de réservation » ->
    corriger le livrable de Youssef avec la grille, finaliser : le feedback
    devient visible à l'apprenant.
 5. **Importer des questions depuis un fichier** (US-IA-08) : *Mes formations*
@@ -131,24 +138,25 @@ la charte ESPRIT décrite dans `docs/GUIDE_STYLE.md` (captures dans
 1. Connexion -> **Accueil** (tableau de bord global) : « À faire maintenant »
    (demandes à décider), utilisateurs par rôle, formations par statut,
    inscriptions, réussite, certificats.
-   Menu : Accueil · Utilisateurs · Formations · Certificats · Pilotage ; chaque
-   section a ses onglets (Utilisateurs : Comptes, Demandes de rôle ;
-   Formations : Formations, Demandes d'affectation, Propositions ; Pilotage :
-   Rapports, Prédiction du risque, Générations IA, Journal d'audit).
-2. *Formations › Demandes d'affectation* : accepter la demande de Karim -> il enseigne désormais
+   Menu latéral : Accueil · **Personnes** (Comptes, Demandes de rôle) ·
+   **Formations** (Formations, Demandes d'affectation, Propositions) ·
+   **Certificats** · **Pilotage** (Rapports, Prédiction du risque, Générations
+   IA) · **Sécurité** (Journal d'audit) ; les demandes en attente ont leur
+   compteur.
+2. *Demandes d'affectation* : accepter la demande de Karim -> il enseigne désormais
    « Cybersécurité » (email envoyé, visible dans Mailhog
    http://localhost:8025).
-3. *Formations › Propositions* : sur la proposition de Karim, **demander des
+3. *Propositions* : sur la proposition de Karim, **demander des
    modifications** (commentaire) ; en fenêtre privée, Karim corrige et
    renvoie ; puis **accepter** -> formation créée **en brouillon** ; dans
    *Formations*, la **publier** (elle entre au catalogue).
-4. *Utilisateurs › Demandes de rôle* : approuver Nour comme formatrice.
-5. *Pilotage › Prédiction du risque* : même présentation, pour toutes les formations.
+4. *Demandes de rôle* : approuver Nour comme formatrice.
+5. *Prédiction du risque* : même présentation, pour toutes les formations.
    Pour montrer le repli silencieux : `docker compose … stop ml` ; l'application
    continue normalement (les règles s'appliquent) et, sans score récent,
    l'écran affiche « Prédiction indisponible ».
 6. *Certificats* : liste compacte, fiche en fenêtre (croix, Échap ou clic à
-   l'extérieur pour fermer) ; *Pilotage › Journal d'audit* : toutes les actions
+   l'extérieur pour fermer) ; *Journal d'audit* : toutes les actions
    précédentes, filtrables et exportables.
 
 ### 4.5 Sécurité (2 min)

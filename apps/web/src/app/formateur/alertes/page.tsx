@@ -17,6 +17,7 @@ import {
   LIBELLES_CRITERE_ALERTE,
   nomApprenantFr,
 } from '../../../lib/format';
+import { rafraichirCompteurs } from '../../../components/NavigationLaterale';
 
 const STATUTS: Array<[StatutAlerte | '', string]> = [
   ['OUVERTE', 'Ouvertes'],
@@ -128,6 +129,7 @@ function CarteAlerte({
       setSaisie(null);
       setTexte('');
       onChange();
+      rafraichirCompteurs();
     } catch (err) {
       setErreur(messageDe(err, 'Action impossible.'));
     } finally {
