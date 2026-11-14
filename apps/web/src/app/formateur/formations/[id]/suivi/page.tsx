@@ -1,5 +1,6 @@
 'use client';
 import Link from 'next/link';
+import { SignalIA } from '../../../../../components/AlertesSurveillance';
 import { Fenetre } from '../../../../../components/Fenetre';
 import { useMiettes } from '../../../../../components/TitrePage';
 import { useParams } from 'next/navigation';
@@ -27,7 +28,7 @@ import {
 } from '../../../../../lib/format';
 
 type Tri = 'nom' | 'avancement' | 'moyenne' | 'activite';
-type Filtre = 'tous' | 'inactifs' | 'EN_COURS' | 'TERMINEE' | 'SUSPENDUE';
+type Filtre = 'tous' | 'inactifs' | 'signales' | 'EN_COURS' | 'TERMINEE' | 'SUSPENDUE';
 
 const TRIS: Array<[Tri, string]> = [
   ['nom', 'Nom'],
@@ -39,6 +40,7 @@ const TRIS: Array<[Tri, string]> = [
 const FILTRES: Array<[Filtre, string]> = [
   ['tous', 'Tous'],
   ['inactifs', 'Inactifs (> 7 j)'],
+  ['signales', 'Signalés par l’IA (QCM)'],
   ['EN_COURS', 'En cours'],
   ['TERMINEE', 'Terminés'],
   ['SUSPENDUE', 'Suspendus'],
@@ -100,7 +102,9 @@ export default function SuiviFormationPage(): JSX.Element {
           ? true
           : filtre === 'inactifs'
             ? a.risque.inactif
-            : a.statutInscription === filtre,
+            : filtre === 'signales'
+              ? a.surveillance.aExaminer > 0
+              : a.statutInscription === filtre,
       )
       .filter(
         (a) =>
@@ -152,6 +156,12 @@ export default function SuiviFormationPage(): JSX.Element {
                   <span>Alertes de décrochage ouvertes</span>
                   <strong>
                     <Link href="/formateur/alertes">{k.alertesOuvertes}</Link>
+                  </strong>
+                </li>
+                <li>
+                  <span>Alertes de surveillance (IA) à examiner</span>
+                  <strong className={k.surveillanceAExaminer > 0 ? 'tdb-echec' : undefined}>
+                    <Link href="/formateur/alertes/surveillance">{k.surveillanceAExaminer}</Link>
                   </strong>
                 </li>
                 <li>
@@ -261,6 +271,12 @@ export default function SuiviFormationPage(): JSX.Element {
                               {LIBELLES_CRITERE_ALERTE[c] ?? c}
                             </span>
                           ))}
+                          {/* US-QCM-17 — signalé par l'analyse de la caméra pendant un QCM. */}
+                          <SignalIA
+                            alertes={a.surveillance.alertes}
+                            aExaminer={a.surveillance.aExaminer}
+                            href="/formateur/alertes/surveillance"
+                          />
                           {a.risque.inactif && !a.alertes.includes('INACTIVITE') && (
                             <span className="badge-risque" title="Aucune connexion depuis plus de 7 jours">
                               Inactif · {a.risque.joursSansConnexion} j
@@ -357,6 +373,18 @@ function FicheModal({
               <dd>{a.derniereConnexion ? dateHeureFr(a.derniereConnexion) : 'Jamais'}</dd>
               <dt>Avancement</dt>
               <dd>{nombreFr(a.avancement)} %</dd>
+              <dt>Surveillance (IA)</dt>
+              <dd>
+                {a.surveillance.alertes === 0 ? (
+                  'Aucune alerte'
+                ) : (
+                  <SignalIA
+                    alertes={a.surveillance.alertes}
+                    aExaminer={a.surveillance.aExaminer}
+                    href="/formateur/alertes/surveillance"
+                  />
+                )}
+              </dd>
               <dt>Certificat</dt>
               <dd>
                 {fiche.certificat

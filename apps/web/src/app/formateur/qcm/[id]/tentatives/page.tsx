@@ -14,6 +14,7 @@ import {
   lienCapture,
   getTentativesQcm,
   LigneHistoriqueFormateur,
+  LigneTentativeQcm,
   CapturesTentative,
 } from '../../../../../lib/api';
 import {
@@ -23,7 +24,7 @@ import {
   pointsFr,
   scoreFr,
 } from '../../../../../lib/format';
-import { AlertesTentative } from '../../../../../components/AlertesSurveillance';
+import { AlertesTentative, SignalIA } from '../../../../../components/AlertesSurveillance';
 
 const nomApprenant = (a: LigneHistoriqueFormateur['apprenant']): string =>
   [a.prenom, a.nom].filter(Boolean).join(' ') || a.email;
@@ -36,8 +37,10 @@ const nomApprenant = (a: LigneHistoriqueFormateur['apprenant']): string =>
  */
 export default function TentativesQcmPage(): JSX.Element {
   const { id } = useParams<{ id: string }>();
-  const [liste, setListe] = useState<LigneHistoriqueFormateur[] | null>(null);
+  const [liste, setListe] = useState<LigneTentativeQcm[] | null>(null);
   const [filtre, setFiltre] = useState('');
+  // US-QCM-17 — seulement les tentatives signalées par l'IA (alertes à examiner).
+  const [signalees, setSignalees] = useState(false);
   const [detail, setDetail] = useState<DetailHistoriqueFormateur | null>(null);
   // US-QCM-12 — captures webcam de la tentative ouverte (chargées à la demande :
   // chaque consultation est journalisée).
@@ -92,11 +95,13 @@ export default function TentativesQcmPage(): JSX.Element {
   };
 
   const recherche = filtre.trim().toLowerCase();
+  const nbSignalees = (liste ?? []).filter((l) => l.alertesSurveillance.aExaminer > 0).length;
   const visibles = (liste ?? []).filter(
     (l) =>
-      recherche === '' ||
-      nomApprenant(l.apprenant).toLowerCase().includes(recherche) ||
-      l.apprenant.email.toLowerCase().includes(recherche),
+      (!signalees || l.alertesSurveillance.aExaminer > 0) &&
+      (recherche === '' ||
+        nomApprenant(l.apprenant).toLowerCase().includes(recherche) ||
+        l.apprenant.email.toLowerCase().includes(recherche)),
   );
 
   useMiettes([{ href: `/formateur/qcm/${id}`, libelle: 'Le QCM' }, { libelle: 'Tentatives' }]);
@@ -125,14 +130,35 @@ export default function TentativesQcmPage(): JSX.Element {
         />
       ) : (
         <>
-          <input
-            className="input filtre-apprenant"
-            type="search"
-            aria-label="Filtrer par apprenant"
-            placeholder="Filtrer par apprenant"
-            value={filtre}
-            onChange={(e) => setFiltre(e.target.value)}
-          />
+          <div className="tentatives-filtres">
+            <input
+              className="input filtre-apprenant"
+              type="search"
+              aria-label="Filtrer par apprenant"
+              placeholder="Filtrer par apprenant"
+              value={filtre}
+              onChange={(e) => setFiltre(e.target.value)}
+            />
+            {/* US-QCM-17 — tentatives signalées par l'analyse de la caméra. */}
+            <div className="filtres-livrables" role="group" aria-label="Signalement de l’IA">
+              <button
+                type="button"
+                className={`filtre-livrable${!signalees ? ' filtre-livrable-actif' : ''}`}
+                aria-pressed={!signalees}
+                onClick={() => setSignalees(false)}
+              >
+                Toutes ({liste.length})
+              </button>
+              <button
+                type="button"
+                className={`filtre-livrable${signalees ? ' filtre-livrable-actif' : ''}`}
+                aria-pressed={signalees}
+                onClick={() => setSignalees(true)}
+              >
+                Signalées par l’IA ({nbSignalees})
+              </button>
+            </div>
+          </div>
           <div className="table-wrap">
             <table className="data-table">
               <thead>
@@ -147,11 +173,27 @@ export default function TentativesQcmPage(): JSX.Element {
                 </tr>
               </thead>
               <tbody>
+                {visibles.length === 0 && (
+                  <tr>
+                    <td colSpan={7} className="field-hint">
+                      {signalees
+                        ? 'Aucune tentative avec une alerte de l’IA à examiner.'
+                        : 'Aucune tentative ne correspond.'}
+                    </td>
+                  </tr>
+                )}
                 {visibles.map((l) => (
-                  <tr key={l.id}>
+                  <tr
+                    key={l.id}
+                    className={l.alertesSurveillance.aExaminer > 0 ? 'ligne-signalee' : undefined}
+                  >
                     <td>
                       <span className="cellule-titre">{nomApprenant(l.apprenant)}</span>
                       <span className="field-hint">{l.apprenant.email}</span>
+                      <SignalIA
+                        alertes={l.alertesSurveillance.total}
+                        aExaminer={l.alertesSurveillance.aExaminer}
+                      />
                     </td>
                     <td>n° {l.numero}</td>
                     <td>{dateHeureFr(l.dateDebut)}</td>
@@ -193,7 +235,11 @@ export default function TentativesQcmPage(): JSX.Element {
               {detail.score !== null ? ` · ${scoreFr(detail.score)}` : ''}
             </>
           }
-          onClose={() => setDetail(null)}
+          onClose={() => {
+            setDetail(null);
+            // US-QCM-17 : le signal de la ligne suit les alertes examinées.
+            void charger();
+          }}
         >
             {detail.statut === 'NOTEE' && (
               <p className="historique-rapport">
@@ -201,7 +247,7 @@ export default function TentativesQcmPage(): JSX.Element {
               </p>
             )}
             {/* US-QCM-15 — alertes de l'IA de cette tentative, avec leur photo. */}
-            <AlertesTentative tentativeId={detail.id} />
+            <AlertesTentative tentativeId={detail.id} onChange={() => void charger()} />
             <section className="captures-section" aria-label="Photos de contrôle">
               {captures === null ? (
                 <button type="button" className="btn-sm" onClick={() => void voirCaptures(detail.id)}>

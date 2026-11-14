@@ -456,6 +456,69 @@ describe('E2E-QCM15 — Alertes de la surveillance par IA (US-QCM-15)', () => {
     ).expect(404);
   });
 
+  it('US-QCM-17 : listes du formateur — tentatives et suivi portent les alertes ; jamais l’apprenant', async () => {
+    const attendu = async (tentativeId: string): Promise<{ total: number; aExaminer: number }> => {
+      const [c] = await sql<{ total: number; a: number }>(
+        `SELECT count(*)::int AS total, count(*) FILTER (WHERE statut = 'NOUVEAU')::int AS a
+           FROM evenements_surveillance WHERE tentative_id = $1`,
+        [tentativeId],
+      );
+      return { total: c.total, aExaminer: c.a };
+    };
+    // Une alerte de b examinée : le compte « à examiner » baisse, le total non.
+    const [uneDeB] = await sql<{ id: string }>(
+      `SELECT id FROM evenements_surveillance WHERE tentative_id = $1 LIMIT 1`,
+      [t.b],
+    );
+    await avec(api().patch(`/api/surveillance/alertes/${uneDeB.id}`), 'f')
+      .send({ statut: 'EXAMINE' })
+      .expect(200);
+    const ta = await attendu(t.a);
+    const tb = await attendu(t.b);
+    expect(ta).toEqual({ total: 3, aExaminer: 3 });
+    expect(tb.aExaminer).toBe(tb.total - 1);
+
+    const liste = await avec(api().get(`/api/formateur/qcm/${qcm.surveille}/tentatives`), 'f').expect(
+      200,
+    );
+    const parId = new Map(
+      (liste.body as Array<{ id: string; alertesSurveillance: unknown }>).map((l) => [
+        l.id,
+        l.alertesSurveillance,
+      ]),
+    );
+    expect(parId.get(t.a)).toEqual(ta);
+    expect(parId.get(t.b)).toEqual(tb);
+    const libre = await avec(api().get(`/api/formateur/qcm/${qcm.libre}/tentatives`), 'f').expect(200);
+    expect(libre.body[0].alertesSurveillance).toEqual({ total: 0, aExaminer: 0 });
+    await avec(api().get(`/api/formateur/qcm/${qcm.surveille}/tentatives`), 'g').expect(403);
+
+    const suivi = await avec(api().get(`/api/formateur/formations/${formationId}/suivi`), 'f').expect(
+      200,
+    );
+    const parApprenant = new Map(
+      (suivi.body.apprenants as Array<{ id: string; surveillance: unknown }>).map((a) => [
+        a.id,
+        a.surveillance,
+      ]),
+    );
+    expect(parApprenant.get(ids.a)).toEqual({ alertes: ta.total, aExaminer: ta.aExaminer });
+    expect(parApprenant.get(ids.b)).toEqual({ alertes: tb.total, aExaminer: tb.aExaminer });
+    expect(parApprenant.get(ids.c)).toEqual({ alertes: 0, aExaminer: 0 });
+    expect(suivi.body.kpis.surveillanceAExaminer).toBe(ta.aExaminer + tb.aExaminer);
+    const fiche = await avec(
+      api().get(`/api/formateur/formations/${formationId}/apprenants/${ids.b}`),
+      'f',
+    ).expect(200);
+    expect(fiche.body.apprenant.surveillance).toEqual({ alertes: tb.total, aExaminer: tb.aExaminer });
+
+    // L'apprenant ne voit jamais ces comptes dans son historique.
+    const mes = await avec(api().get('/api/mes-tentatives'), 'a').expect(200);
+    expect(JSON.stringify(mes.body)).not.toContain('alertesSurveillance');
+    const ma = await avec(api().get(`/api/mes-tentatives/${t.a}`), 'a').expect(200);
+    expect(ma.body).not.toHaveProperty('alertesSurveillance');
+  });
+
   it('PDF de la tentative : alertes listées pour le formateur, jamais pour l’apprenant', async () => {
     const soumise = await avec(api().post(`/api/tentatives/${t.a}/soumettre`), 'a').expect(200);
     expect(soumise.body.statut).toBe('NOTEE');

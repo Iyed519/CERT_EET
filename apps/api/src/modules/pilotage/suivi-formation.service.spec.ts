@@ -72,6 +72,7 @@ describe('SuiviFormationService (US-SUIVI-01)', () => {
       noteMoyenneAteliers: null,
       certifies: 0,
       alertesOuvertes: 0,
+      surveillanceAExaminer: 0,
       qcmPublies: 2,
       ateliersPublies: 2,
     });
@@ -207,6 +208,30 @@ describe('SuiviFormationService (US-SUIVI-01)', () => {
     expect(s.kpis.alertesOuvertes).toBe(2);
   });
 
+  it('US-QCM-17 : alertes de surveillance par apprenant (toutes, à examiner) ; compteur', async () => {
+    const { ds, query } = source([
+      FORMATION,
+      COMPTEURS,
+      INSCRITS,
+      [
+        'FROM evenements_surveillance e',
+        (): unknown[] => [{ apprenant_id: B, alertes: 3, a_examiner: 2 }],
+      ],
+    ]);
+    const s = await new SuiviFormationService(ds).suivi(F, MAINTENANT);
+    expect(s.apprenants.map((a) => a.surveillance)).toEqual([
+      { alertes: 0, aExaminer: 0 },
+      { alertes: 3, aExaminer: 2 },
+    ]);
+    expect(s.kpis.surveillanceAExaminer).toBe(2);
+    const appel = query.mock.calls.find(([sql]) =>
+      (sql as string).includes('evenements_surveillance'),
+    ) as [string, unknown[]];
+    expect(appel[0]).toContain("count(*) FILTER (WHERE e.statut = 'NOUVEAU')");
+    expect(appel[0]).toContain('m.formation_id = $1');
+    expect(appel[1]).toEqual([F, null]);
+  });
+
   describe('fiche', () => {
     it('apprenant non inscrit -> 404', async () => {
       const { ds } = source([FORMATION]);
@@ -307,6 +332,12 @@ describe('SuiviFormationService (US-SUIVI-01)', () => {
         avancement: 50,
         moyenne: 77.5,
       });
+      // US-QCM-17 : alertes de surveillance de cet apprenant seulement.
+      expect(f.apprenant.surveillance).toEqual({ alertes: 0, aExaminer: 0 });
+      const surv = query.mock.calls.find(([sql]) =>
+        (sql as string).includes('evenements_surveillance'),
+      ) as [string, unknown[]];
+      expect(surv[1]).toEqual([F, A]);
       expect(f.tentatives.map((t) => t.id)).toEqual(['t2', 't1', 't0']);
       expect(f.tentatives[0]).toEqual({
         id: 't2',

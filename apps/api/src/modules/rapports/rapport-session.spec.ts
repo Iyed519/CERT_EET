@@ -24,6 +24,7 @@ function apprenant(p: Partial<ApprenantSuivi> = {}): ApprenantSuivi {
     certificat: null,
     risque: { inactif: false, joursSansConnexion: 0 },
     alertes: [],
+    surveillance: { alertes: 0, aExaminer: 0 },
     ...p,
   };
 }
@@ -42,6 +43,7 @@ function suivi(apprenants: ApprenantSuivi[]): SuiviFormation {
       noteMoyenneAteliers: 80,
       certifies: 0,
       alertesOuvertes: 1,
+      surveillanceAExaminer: 0,
       qcmPublies: 2,
       ateliersPublies: 1,
     },

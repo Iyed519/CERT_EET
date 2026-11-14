@@ -15,6 +15,13 @@
 
 ## [Après le Sprint 6] — Stories hors sprint
 
+#### US-QCM-17 — Apprenants signalés par l'IA dans les listes du formateur — journal `engineering-log/108`
+- **Quoi :** signal rouge « N alertes IA à examiner » sur la ligne de la tentative (liste des
+  tentatives d'un QCM, avec un filtre « Signalées par l'IA ») et sur la ligne de l'apprenant dans le
+  suivi pédagogique (filtre, KPI, fiche) ; gris quand tout est examiné. Fiche : phrase générale
+  quand une alerte de décrochage n'a pas de faits détaillés (plus de « undefined »).
+- **Pourquoi :** le formateur doit repérer l'apprenant signalé en parcourant ses listes.
+
 #### US-QCM-16 — Photos seulement en cas d'anomalie, détection du téléphone fiabilisée — journal `engineering-log/107`
 - **Quoi :** plus de photo toutes les 2 minutes : une photo seulement en cas d'anomalie (une photo de
   contrôle par minute en développement, `SURVEILLANCE_INTERVALLE_SECONDES`). Analyse 2 fois par

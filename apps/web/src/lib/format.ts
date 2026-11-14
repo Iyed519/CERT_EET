@@ -384,15 +384,22 @@ export const LIBELLES_CRITERE_ALERTE: Record<string, string> = {
 /** US-SUIVI-02 — Les faits d'une alerte, en une phrase. */
 export function faitsAlerteFr(critere: string, d: Record<string, unknown>): string {
   switch (critere) {
+    // Faits absents (alerte ancienne ou données de démonstration) : phrase générale.
     case 'INACTIVITE':
-      return `Aucune connexion depuis ${String(d.joursSansConnexion)} jours.`;
+      return typeof d.joursSansConnexion === 'number'
+        ? `Aucune connexion depuis ${d.joursSansConnexion} jours.`
+        : 'Aucune connexion depuis plus de 7 jours.';
     case 'ECHECS_QCM': {
       const t = (d.tentatives as Array<{ titre: string; note: number }> | undefined) ?? [];
-      return `Deux échecs : ${t.map((x) => `${x.titre} (${x.note} / 100)`).join(', ')}.`;
+      return t.length > 0
+        ? `Deux échecs : ${t.map((x) => `${x.titre} (${x.note} / 100)`).join(', ')}.`
+        : 'Deux échecs consécutifs à un QCM.';
     }
     case 'LIVRABLE_EN_RETARD': {
       const a = (d.ateliers as Array<{ titre: string }> | undefined) ?? [];
-      return `Non rendu plus de 48 h après la date limite : ${a.map((x) => x.titre).join(', ')}.`;
+      return a.length > 0
+        ? `Non rendu plus de 48 h après la date limite : ${a.map((x) => x.titre).join(', ')}.`
+        : 'Livrable non rendu plus de 48 h après la date limite.';
     }
     case 'SCORE_EN_CHUTE': {
       const der = d.derniere as { titre: string; note: number } | undefined;

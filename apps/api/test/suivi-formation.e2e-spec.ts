@@ -319,6 +319,7 @@ describe('Suivi pédagogique (e2e) — US-SUIVI-01', () => {
         noteMoyenneAteliers: 90,
         certifies: 1,
         alertesOuvertes: 0,
+        surveillanceAExaminer: 0,
         qcmPublies: 2,
         ateliersPublies: 2,
       });
