@@ -119,6 +119,9 @@ la charte ESPRIT décrite dans `docs/GUIDE_STYLE.md` (captures dans
    décide. Une photo n'est prise qu'en cas d'anomalie (US-QCM-16) ; en
    développement, une photo de contrôle par minute en plus et une ligne
    « Diagnostic » dans le bandeau (scores du modèle) pour vérifier la caméra.
+   Montrer ensuite le signal rouge « alerte IA à examiner » dans la liste
+   des tentatives du QCM (filtre « Signalées par l'IA ») et dans le suivi
+   pédagogique de la formation (US-QCM-17).
 7. **Demander une formation** (US-FORM-07) : choisir « Cybersécurité
    opérationnelle », motif -> demande en attente.
 8. **Proposer une formation** (US-FORM-08) : remplir le formulaire -> en

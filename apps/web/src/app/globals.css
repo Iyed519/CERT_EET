@@ -1852,6 +1852,16 @@ a.btn.btn-lien { display: inline-flex; align-items: center; justify-content: cen
 .surv-pastille--forte { background: var(--danger-soft); color: var(--danger); }
 .surv-pastille--moyenne { background: #fff4e0; color: #8a5a00; }
 .surv-pastille--info { background: #f0f0f2; color: var(--muted); }
+/* US-QCM-17 — signal de l'IA dans les listes du formateur. */
+.signal-ia { display: inline-flex; align-items: center; gap: 6px; margin-top: 6px; padding: 2px 10px 2px 8px; border-radius: 999px; background: #f0f0f2; color: var(--muted); font-size: 0.75rem; font-weight: 600; text-decoration: none; white-space: nowrap; }
+.signal-ia--a-examiner { background: var(--danger-soft); color: var(--danger); }
+a.signal-ia:hover { text-decoration: underline; }
+.signal-ia-icone { display: inline-grid; place-items: center; width: 16px; height: 16px; border-radius: 50%; background: var(--danger); color: #fff; font-size: 11px; font-weight: 800; line-height: 1; }
+td > .signal-ia, td > a.signal-ia { display: flex; width: fit-content; }
+.ligne-signalee > td:first-child { box-shadow: inset 3px 0 0 var(--danger); }
+.tentatives-filtres { display: flex; flex-wrap: wrap; align-items: center; gap: 12px; margin-bottom: 12px; }
+.tentatives-filtres .filtre-apprenant { margin-bottom: 0; }
+.tentatives-filtres .filtres-livrables { margin: 0; }
 .surv-nouvelle { font-size: var(--fs-etiquette); font-weight: 700; color: var(--primary-dark); text-transform: uppercase; letter-spacing: 0.04em; }
 .surv-carte-qui { margin: 0; display: flex; flex-direction: column; gap: 2px; }
 .surv-carte-qui strong { color: var(--ink); }

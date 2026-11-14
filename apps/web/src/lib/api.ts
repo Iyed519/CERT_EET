@@ -3340,6 +3340,8 @@ export interface ApprenantSuivi {
   moyenne: number | null;
   certificat: StatutCertificat | null;
   risque: { inactif: boolean; joursSansConnexion: number };
+  /** US-QCM-17 — alertes de la surveillance par IA (toutes, à examiner). */
+  surveillance: { alertes: number; aExaminer: number };
   /** US-SUIVI-02 — critères des alertes ouvertes. */
   alertes: string[];
 }
@@ -3357,6 +3359,8 @@ export interface SuiviFormation {
     noteMoyenneAteliers: number | null;
     certifies: number;
     alertesOuvertes: number;
+    /** US-QCM-17 — alertes de surveillance par IA à examiner. */
+    surveillanceAExaminer: number;
     qcmPublies: number;
     ateliersPublies: number;
   };
@@ -3923,6 +3927,11 @@ export interface LigneHistoriqueFormateur extends LigneHistorique {
   apprenant: { id: string; prenom: string | null; nom: string | null; email: string };
 }
 
+/** US-QCM-17 — ligne de la liste des tentatives d'un QCM : alertes de l'IA. */
+export interface LigneTentativeQcm extends LigneHistoriqueFormateur {
+  alertesSurveillance: { total: number; aExaminer: number };
+}
+
 /** Détail apprenant : questions vues et options cochées, sans corrigé. */
 export interface DetailHistoriqueApprenant extends LigneHistorique {
   questions: Array<{
@@ -3956,9 +3965,9 @@ export async function getMaTentative(tentativeId: string): Promise<DetailHistori
 }
 
 /** GET /api/formateur/qcm/:qcmId/tentatives — tentatives de mon QCM. */
-export async function getTentativesQcm(qcmId: string): Promise<LigneHistoriqueFormateur[]> {
+export async function getTentativesQcm(qcmId: string): Promise<LigneTentativeQcm[]> {
   const response = await apiFetch(`/api/formateur/qcm/${qcmId}/tentatives`);
-  return lireReponseFormation<LigneHistoriqueFormateur[]>(
+  return lireReponseFormation<LigneTentativeQcm[]>(
     response,
     'Impossible de charger les tentatives.',
   );

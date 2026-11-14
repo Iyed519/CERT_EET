@@ -35,6 +35,11 @@ export interface ApprenantSuivi {
   risque: EtatRisque;
   /** US-SUIVI-02 — critères des alertes de décrochage OUVERTES. */
   alertes: string[];
+  /**
+   * US-QCM-17 — Alertes de la surveillance par IA sur les QCM de cette
+   * formation : toutes, et celles que le formateur n'a pas encore examinées.
+   */
+  surveillance: { alertes: number; aExaminer: number };
 }
 
 /** US-SUIVI-01 — Tableau de bord pédagogique d'une formation. */
@@ -51,6 +56,8 @@ export interface SuiviFormation {
     noteMoyenneAteliers: number | null;
     certifies: number;
     alertesOuvertes: number;
+    /** US-QCM-17 — alertes de surveillance par IA à examiner (toute la formation). */
+    surveillanceAExaminer: number;
     qcmPublies: number;
     ateliersPublies: number;
   };
@@ -126,6 +133,31 @@ const EVALUATIONS = `
           JOIN modules m ON m.id = a.module_id
          WHERE m.formation_id = $1 AND a.statut = 'PUBLIE')`;
 
+/** US-QCM-17 — Alertes de surveillance par IA, par apprenant, sur les QCM de la formation. */
+const SURVEILLANCE_PAR_APPRENANT = `
+  SELECT t.apprenant_id, count(*)::int AS alertes,
+         count(*) FILTER (WHERE e.statut = 'NOUVEAU')::int AS a_examiner
+    FROM evenements_surveillance e
+    JOIN tentatives_qcm t ON t.id = e.tentative_id
+    JOIN qcm q ON q.id = t.qcm_id
+    JOIN modules m ON m.id = q.module_id
+   WHERE m.formation_id = $1 AND ($2::uuid IS NULL OR t.apprenant_id = $2)
+   GROUP BY t.apprenant_id`;
+
+interface LigneSurveillance {
+  apprenant_id: string;
+  alertes: number;
+  a_examiner: number;
+}
+
+const surveillanceDe = (
+  lignes: LigneSurveillance[],
+  apprenantId: string,
+): { alertes: number; aExaminer: number } => {
+  const l = lignes.find((x) => x.apprenant_id === apprenantId);
+  return { alertes: l?.alertes ?? 0, aExaminer: l?.a_examiner ?? 0 };
+};
+
 /**
  * US-SUIVI-01 — Suivi pédagogique d'une formation (formateur affecté ou
  * administrateur ; l'isolation est faite par le garde @FormateurDeLaFormation).
@@ -141,7 +173,7 @@ export class SuiviFormationService {
 
   async suivi(formationId: string, maintenant: Date = new Date()): Promise<SuiviFormation> {
     const formation = await this.formation(formationId);
-    const [inscrits, compteurs, tentatives, livrables, alertes] = await Promise.all([
+    const [inscrits, compteurs, tentatives, livrables, alertes, surveillance] = await Promise.all([
       this.q<LigneInscrit>(
         `SELECT u.id, u.prenom, u.nom, u.email, i.statut::text AS statut, i.date_inscription,
                 u.derniere_connexion, c.statut::text AS certificat
@@ -195,6 +227,7 @@ export class SuiviFormationService {
           ORDER BY critere`,
         [formationId],
       ),
+      this.q<LigneSurveillance>(SURVEILLANCE_PAR_APPRENANT, [formationId, null]),
     ]);
 
     const apprenants = inscrits.map((i) => ({
@@ -206,6 +239,7 @@ export class SuiviFormationService {
         maintenant,
       ),
       alertes: alertes.filter((a) => a.apprenant_id === i.id).map((a) => a.critere),
+      surveillance: surveillanceDe(surveillance, i.id),
     }));
 
     const suivis = apprenants.filter((a) => a.statutInscription !== 'SUSPENDUE');
@@ -228,6 +262,7 @@ export class SuiviFormationService {
         ),
         certifies: apprenants.filter((a) => a.certificat === 'ACTIF').length,
         alertesOuvertes: alertes.length,
+        surveillanceAExaminer: apprenants.reduce((n, a) => n + a.surveillance.aExaminer, 0),
         qcmPublies: compteurs.qcm,
         ateliersPublies: compteurs.ateliers,
       },
@@ -254,7 +289,8 @@ export class SuiviFormationService {
     );
     if (!inscrit) throw new NotFoundException('Apprenant non inscrit à cette formation.');
 
-    const [compteurs, tentatives, livrables, certificats, alertes] = await Promise.all([
+    const [compteurs, tentatives, livrables, certificats, alertes, surveillance] =
+      await Promise.all([
       this.compteurs(formationId),
       this.q<{
         id: string;
@@ -321,6 +357,7 @@ export class SuiviFormationService {
           ORDER BY date_creation DESC, id`,
         [formationId, apprenantId],
       ),
+      this.q<LigneSurveillance>(SURVEILLANCE_PAR_APPRENANT, [formationId, apprenantId]),
     ]);
 
     // Même agrégation que le tableau (évaluations publiées seulement).
@@ -366,6 +403,7 @@ export class SuiviFormationService {
     const apprenant = {
       ...ligneApprenant,
       alertes: alertes.filter((a) => a.statut === 'OUVERTE').map((a) => a.critere),
+      surveillance: surveillanceDe(surveillance, apprenantId),
     };
     const [cert] = certificats;
     const chronologie: EvenementApprenant[] = [
@@ -499,6 +537,7 @@ export class SuiviFormationService {
       certificat: i.certificat,
       risque: etatRisque(i.statut, i.derniere_connexion, i.date_inscription, maintenant),
       alertes: [],
+      surveillance: { alertes: 0, aExaminer: 0 },
     };
   }
 

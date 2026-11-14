@@ -38,6 +38,15 @@ export interface LigneHistoriqueFormateur extends LigneHistorique {
   apprenant: { id: string; prenom: string | null; nom: string | null; email: string };
 }
 
+/**
+ * US-QCM-17 — Ligne de la liste des tentatives d'un QCM (formateur) : avec le
+ * nombre d'alertes de la surveillance par IA, dont celles à examiner. Jamais
+ * dans les réponses de l'apprenant.
+ */
+export interface LigneTentativeQcm extends LigneHistoriqueFormateur {
+  alertesSurveillance: { total: number; aExaminer: number };
+}
+
 /** Détail pour l'apprenant : questions vues et options cochées, SANS juste / faux. */
 export interface DetailHistoriqueApprenant extends LigneHistorique {
   questions: QuestionPresentee[];
@@ -141,11 +150,24 @@ export class HistoriqueTentativesService {
   }
 
   /** Tentatives d'un QCM (toutes, ou d'un apprenant), les plus récentes d'abord. */
-  async tentativesDuQcm(qcmId: string, apprenantId?: string): Promise<LigneHistoriqueFormateur[]> {
-    return this.lire(`t.qcm_id = $1 AND ($2::uuid IS NULL OR t.apprenant_id = $2)`, [
+  async tentativesDuQcm(qcmId: string, apprenantId?: string): Promise<LigneTentativeQcm[]> {
+    const lignes = await this.lire(`t.qcm_id = $1 AND ($2::uuid IS NULL OR t.apprenant_id = $2)`, [
       qcmId,
       apprenantId ?? null,
     ]);
+    if (lignes.length === 0) return [];
+    const comptes = (await this.dataSource.query(
+      `SELECT tentative_id, count(*)::int AS total,
+              count(*) FILTER (WHERE statut = 'NOUVEAU')::int AS a_examiner
+         FROM evenements_surveillance WHERE tentative_id = ANY($1::uuid[])
+        GROUP BY tentative_id`,
+      [lignes.map((l) => l.id)],
+    )) as Array<{ tentative_id: string; total: number; a_examiner: number }>;
+    const parTentative = new Map(comptes.map((c) => [c.tentative_id, c]));
+    return lignes.map((l) => {
+      const c = parTentative.get(l.id);
+      return { ...l, alertesSurveillance: { total: c?.total ?? 0, aExaminer: c?.a_examiner ?? 0 } };
+    });
   }
 
   /** Détail d'une tentative de ce QCM, corrigé compris (formateur). */

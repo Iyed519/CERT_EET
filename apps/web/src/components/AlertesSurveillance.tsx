@@ -279,7 +279,59 @@ export function CarteAlerteSurveillance({
  * Section « Alertes de surveillance » de la fenêtre d'une tentative : les
  * alertes de l'IA de CETTE tentative, avec leur photo.
  */
-export function AlertesTentative({ tentativeId }: { tentativeId: string }): JSX.Element | null {
+/**
+ * US-QCM-17 — Signal d'un apprenant ou d'une tentative dans les listes du
+ * formateur : rouge s'il reste des alertes de l'IA à examiner, discret si
+ * toutes ont été examinées, rien s'il n'y en a aucune.
+ */
+export function SignalIA({
+  alertes,
+  aExaminer,
+  href,
+}: {
+  alertes: number;
+  aExaminer: number;
+  href?: string;
+}): JSX.Element | null {
+  if (alertes <= 0) return null;
+  const texte =
+    aExaminer > 0
+      ? `${aExaminer} alerte${aExaminer > 1 ? 's' : ''} IA à examiner`
+      : `${alertes} alerte${alertes > 1 ? 's' : ''} IA examinée${alertes > 1 ? 's' : ''}`;
+  const classe = `signal-ia${aExaminer > 0 ? ' signal-ia--a-examiner' : ''}`;
+  const titre =
+    aExaminer > 0
+      ? 'L’analyse de la caméra a signalé une anomalie pendant un QCM surveillé.'
+      : 'Alertes de surveillance déjà examinées.';
+  const contenu = (
+    <>
+      {aExaminer > 0 && (
+        <span className="signal-ia-icone" aria-hidden="true">
+          !
+        </span>
+      )}
+      {texte}
+    </>
+  );
+  return href ? (
+    <Link className={classe} href={href} title={titre}>
+      {contenu}
+    </Link>
+  ) : (
+    <span className={classe} title={titre}>
+      {contenu}
+    </span>
+  );
+}
+
+export function AlertesTentative({
+  tentativeId,
+  onChange,
+}: {
+  tentativeId: string;
+  /** US-QCM-17 : prévient la liste quand une alerte change de statut. */
+  onChange?: () => void;
+}): JSX.Element | null {
   const [alertes, setAlertes] = useState<AlerteSurveillance[] | null>(null);
   const [erreur, setErreur] = useState<string | null>(null);
 
@@ -307,7 +359,10 @@ export function AlertesTentative({ tentativeId }: { tentativeId: string }): JSX.
             key={a.id}
             alerte={a}
             compacte
-            onChange={(n) => setAlertes((l) => (l ?? []).map((x) => (x.id === n.id ? n : x)))}
+            onChange={(n) => {
+              setAlertes((l) => (l ?? []).map((x) => (x.id === n.id ? n : x)));
+              onChange?.();
+            }}
           />
         ))}
       </ul>

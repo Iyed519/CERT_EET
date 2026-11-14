@@ -116,12 +116,39 @@ describe('HistoriqueTentativesService (US-QCM-11)', () => {
 
     findOne.mockResolvedValue({ id: 't-1', planTirage: [{ questionId: 'q1', optionIds: [] }] });
     const d = await service.detailFormateur('qcm-1', 't-1');
-    expect(query.mock.calls[1][1]).toEqual(['t-1', 'qcm-1']);
+    expect(query.mock.calls[2][1]).toEqual(['t-1', 'qcm-1']);
     expect(lireCorrection).toHaveBeenCalledWith(expect.anything(), 't-1', [
       { questionId: 'q1', optionIds: [] },
     ]);
     expect(d.questions).toEqual([{ id: 'q1', options: [] }]);
     expect(d.apprenant).toEqual({ id: 'a-1', prenom: 'A', nom: 'B', email: 'a@x' });
+  });
+
+  it('US-QCM-17 : tentativesDuQcm ajoute les alertes de surveillance (toutes, à examiner)', async () => {
+    query
+      .mockResolvedValueOnce([ligne('NOTEE'), { ...ligne('SOUMISE'), id: 't-2' }])
+      .mockResolvedValueOnce([{ tentative_id: 't-2', total: 3, a_examiner: 1 }]);
+    const lignes = await service.tentativesDuQcm('qcm-1');
+    expect(lignes.map((l) => [l.id, l.alertesSurveillance])).toEqual([
+      ['t-1', { total: 0, aExaminer: 0 }],
+      ['t-2', { total: 3, aExaminer: 1 }],
+    ]);
+    expect(query.mock.calls[1][0]).toContain('FROM evenements_surveillance');
+    expect(query.mock.calls[1][0]).toContain("FILTER (WHERE statut = 'NOUVEAU')");
+    expect(query.mock.calls[1][1]).toEqual([['t-1', 't-2']]);
+  });
+
+  it('US-QCM-17 : aucune tentative -> pas de requête sur les alertes', async () => {
+    query.mockResolvedValueOnce([]);
+    await expect(service.tentativesDuQcm('qcm-1')).resolves.toEqual([]);
+    expect(query).toHaveBeenCalledTimes(1);
+  });
+
+  it('US-QCM-17 : l’historique de l’apprenant ne contient jamais les alertes', async () => {
+    query.mockResolvedValueOnce([ligne('NOTEE')]);
+    const mes = await service.mesTentatives('a-1');
+    expect(mes[0]).not.toHaveProperty('alertesSurveillance');
+    expect(query).toHaveBeenCalledTimes(1);
   });
 
   it('detailFormateur : tentative d’un autre QCM -> 404', async () => {

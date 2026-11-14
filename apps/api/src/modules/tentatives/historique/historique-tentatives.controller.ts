@@ -18,7 +18,7 @@ import {
   DetailHistoriqueFormateur,
   HistoriqueTentativesService,
   LigneHistorique,
-  LigneHistoriqueFormateur,
+  LigneTentativeQcm,
 } from './historique-tentatives.service';
 
 const identifiant = (req: AuthenticatedRequest): string => {
@@ -94,7 +94,7 @@ export class HistoriqueFormateurController {
   tentatives(
     @Param('qcmId', ParseUUIDPipe) qcmId: string,
     @Query() filtre: FiltreTentativesQcmDto,
-  ): Promise<LigneHistoriqueFormateur[]> {
+  ): Promise<LigneTentativeQcm[]> {
     return this.historique.tentativesDuQcm(qcmId, filtre.apprenantId);
   }
 
