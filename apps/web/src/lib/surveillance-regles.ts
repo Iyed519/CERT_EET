@@ -1,12 +1,24 @@
 /**
- * US-QCM-15 — Règles PURES de la surveillance par IA (navigateur).
+ * US-QCM-15 / US-QCM-16 — Règles PURES de la surveillance par IA (navigateur).
  *
- * Le détecteur reçoit, une fois par seconde environ, ce que le modèle a vu
- * (nombre de personnes, meilleurs scores « téléphone » et « livre »),
- * la luminosité moyenne de l'image et la visibilité de la page. Il décide
- * quand une anomalie est CONFIRMÉE (elle dure assez longtemps) et ne la
- * signale qu'UNE fois par épisode : l'alerte repart seulement après un retour
- * à la normale, et jamais moins d'une minute après la précédente du même type.
+ * Le détecteur reçoit, deux fois par seconde, ce que le modèle a vu (nombre
+ * de personnes, meilleurs scores « téléphone » et « livre ») et la luminosité
+ * moyenne de l'image. Il décide quand une anomalie est CONFIRMÉE et ne la
+ * signale qu'UNE fois par épisode, jamais moins d'une minute après la
+ * précédente du même type.
+ *
+ * US-QCM-16 : le modèle léger (EfficientDet-Lite0) rate souvent un objet sur
+ * une image puis le retrouve sur la suivante, avec des scores modestes (un
+ * téléphone tenu en main : 0,3 à 0,6). Un épisode tolère donc des trous
+ * courts (`toleranceMs`) et se confirme par un NOMBRE d'images où l'objet est
+ * vu (`minVus`), au lieu d'exiger une présence ininterrompue. Le détecteur
+ * indique aussi, à chaque image, si elle est la MEILLEURE de l'épisode (score
+ * le plus haut) : la photo de l'alerte est celle-là, pour que le téléphone y
+ * soit visible même s'il a déjà disparu au moment de la confirmation.
+ *
+ * La page quittée n'est plus jugée image par image (le navigateur ralentit les
+ * minuteurs d'une page cachée) : `retourSurLaPage` est appelé au retour, avec
+ * la durée pendant laquelle la page était cachée.
  */
 
 export type TypeAnomalie =
@@ -20,7 +32,7 @@ export type TypeAnomalie =
 export interface Observation {
   /** Instant de l'observation (ms). */
   t: number;
-  /** Personnes détectées (score ≥ seuil). */
+  /** Personnes détectées (score ≥ SEUILS.scorePersonne). */
   personnes: number;
   /** Meilleur score « cell phone » (0 si aucun). */
   telephone: number;
@@ -28,8 +40,6 @@ export interface Observation {
   livre: number;
   /** Luminosité moyenne de l'image, 0 (noir) à 255. */
   luminosite: number;
-  /** La page du QCM est-elle visible ? */
-  pageVisible: boolean;
 }
 
 export interface Anomalie {
@@ -38,14 +48,33 @@ export interface Anomalie {
   confiance: number | null;
 }
 
-/** Durées de confirmation (ms) et seuils. */
+/** Ce que renvoie une observation. */
+export interface Verdict {
+  /** Anomalies confirmées à signaler maintenant. */
+  anomalies: Anomalie[];
+  /** Types dont cette image est la meilleure de l'épisode en cours (photo à garder). */
+  meilleures: TypeAnomalie[];
+}
+
+/** Seuils (scores du modèle, durées en ms). */
 export const SEUILS = {
-  scoreObjet: 0.5,
-  personnesMultiplesMs: 3_000,
-  telephoneMs: 2_000,
-  documentMs: 3_000,
+  /** Score minimal demandé au moteur (filtre de base, sous les seuils ci-dessous). */
+  scoreMoteur: 0.25,
+  scorePersonne: 0.5,
+  scoreTelephone: 0.3,
+  scoreLivre: 0.4,
+  /** Téléphone : vu sur 2 images en 1,5 s au plus (≈ 0,5 s de présence). */
+  telephone: { minVus: 2, dureeMs: 500, toleranceMs: 1_500 },
+  /** Livre / document : vu sur 3 images, sur au moins 1,5 s. */
+  document: { minVus: 3, dureeMs: 1_500, toleranceMs: 1_500 },
+  /** Deux personnes ou plus : vues sur 3 images, sur au moins 1,5 s. */
+  personnesMultiples: { minVus: 3, dureeMs: 1_500, toleranceMs: 1_000 },
+  /** Image presque noire pendant 10 s (sans interruption). */
   cameraMasqueeMs: 10_000,
   luminositeNoire: 18,
+  /** Règle continue : deux images au plus 3 s l'une de l'autre (poste lent). */
+  trouMaxContinuMs: 3_000,
+  /** Page cachée plus de 5 s. */
   ongletQuitteMs: 5_000,
   /** Même type : une minute au moins entre deux alertes. */
   ecartMemeTypeMs: 60_000,
@@ -63,17 +92,24 @@ export const LIBELLES_ANOMALIE: Record<TypeAnomalie | 'ANALYSE_INDISPONIBLE', st
 };
 
 interface Episode {
-  debut: number | null;
-  signale: boolean;
+  debut: number;
+  dernierVu: number;
+  vus: number;
   meilleur: number;
+  signale: boolean;
 }
 
-/** Une condition et sa durée de confirmation. */
+/** Une condition, ce qu'il faut pour la confirmer, et sa mesure (meilleure image). */
 interface Regle {
-  type: TypeAnomalie;
+  type: Exclude<TypeAnomalie, 'ONGLET_QUITTE'>;
+  minVus: number;
   dureeMs: number;
+  toleranceMs: number;
   active: (o: Observation) => boolean;
-  score?: (o: Observation) => number;
+  /** Mesure de l'image (plus haut = meilleure photo) ; null : pas de photo à garder. */
+  mesure: ((o: Observation) => number) | null;
+  /** La confiance transmise est le meilleur score (objets seulement). */
+  confiance: boolean;
 }
 
 export class DetecteurAnomalies {
@@ -84,71 +120,113 @@ export class DetecteurAnomalies {
   /** @param absenceMs absence à l'image avant l'alerte (5 min par défaut). */
   constructor(absenceMs = 300_000) {
     const noire = (o: Observation): boolean => o.luminosite < SEUILS.luminositeNoire;
+    // Durée continue : une seule image normale clôt l'épisode.
+    const continu = (dureeMs: number): Pick<Regle, 'minVus' | 'dureeMs' | 'toleranceMs'> => ({
+      minVus: 1,
+      dureeMs,
+      toleranceMs: 0,
+    });
     this.regles = [
-      { type: 'ONGLET_QUITTE', dureeMs: SEUILS.ongletQuitteMs, active: (o) => !o.pageVisible },
-      { type: 'CAMERA_MASQUEE', dureeMs: SEUILS.cameraMasqueeMs, active: noire },
+      {
+        type: 'CAMERA_MASQUEE',
+        ...continu(SEUILS.cameraMasqueeMs),
+        active: noire,
+        mesure: null,
+        confiance: false,
+      },
       // Image noire : l'absence et les objets ne sont pas jugés (pas d'alerte en double).
       {
         type: 'ABSENCE',
-        dureeMs: absenceMs,
+        ...continu(absenceMs),
         active: (o) => !noire(o) && o.personnes === 0,
+        mesure: null,
+        confiance: false,
       },
       {
         type: 'PERSONNES_MULTIPLES',
-        dureeMs: SEUILS.personnesMultiplesMs,
+        ...SEUILS.personnesMultiples,
         active: (o) => !noire(o) && o.personnes >= 2,
+        mesure: (o) => o.personnes,
+        confiance: false,
       },
       {
         type: 'TELEPHONE',
-        dureeMs: SEUILS.telephoneMs,
-        active: (o) => !noire(o) && o.telephone >= SEUILS.scoreObjet,
-        score: (o) => o.telephone,
+        ...SEUILS.telephone,
+        active: (o) => !noire(o) && o.telephone >= SEUILS.scoreTelephone,
+        mesure: (o) => o.telephone,
+        confiance: true,
       },
       {
         type: 'DOCUMENT',
-        dureeMs: SEUILS.documentMs,
-        active: (o) => !noire(o) && o.livre >= SEUILS.scoreObjet,
-        score: (o) => o.livre,
+        ...SEUILS.document,
+        active: (o) => !noire(o) && o.livre >= SEUILS.scoreLivre,
+        mesure: (o) => o.livre,
+        confiance: true,
       },
     ];
   }
 
-  /** Une observation ; renvoie les anomalies confirmées à signaler maintenant. */
-  observer(o: Observation): Anomalie[] {
-    const aSignaler: Anomalie[] = [];
+  /** Une observation : anomalies confirmées et meilleures images de l'instant. */
+  observer(o: Observation): Verdict {
+    const anomalies: Anomalie[] = [];
+    const meilleures: TypeAnomalie[] = [];
     for (const r of this.regles) {
-      const e = this.episodes.get(r.type) ?? { debut: null, signale: false, meilleur: 0 };
+      const ouvert = this.episodes.get(r.type);
       if (!r.active(o)) {
-        // Retour à la normale : l'épisode est clos.
-        this.episodes.set(r.type, { debut: null, signale: false, meilleur: 0 });
+        // Trou plus long que la tolérance : l'épisode est clos.
+        if (ouvert && o.t - ouvert.dernierVu > r.toleranceMs) this.episodes.delete(r.type);
         continue;
       }
-      const debut = e.debut ?? o.t;
-      const meilleur = Math.max(e.meilleur, r.score ? r.score(o) : 0);
-      let signale = e.signale;
+      const mesure = r.mesure ? r.mesure(o) : 0;
+      // Règle continue (tolérance nulle) : une image normale a déjà clos
+      // l'épisode ; seul un trou sans aucune image (poste figé) le rouvre.
+      const trouMax = r.toleranceMs > 0 ? r.toleranceMs : SEUILS.trouMaxContinuMs;
+      const e: Episode =
+        ouvert && o.t - ouvert.dernierVu <= trouMax
+          ? ouvert
+          : { debut: o.t, dernierVu: o.t, vus: 0, meilleur: -1, signale: false };
+      e.vus += 1;
+      e.dernierVu = o.t;
+      if (r.mesure && mesure > e.meilleur) {
+        e.meilleur = mesure;
+        meilleures.push(r.type);
+      }
       const dernier = this.derniersEnvois.get(r.type);
       if (
-        !signale &&
-        o.t - debut >= r.dureeMs &&
+        !e.signale &&
+        e.vus >= r.minVus &&
+        o.t - e.debut >= r.dureeMs &&
         (dernier === undefined || o.t - dernier >= SEUILS.ecartMemeTypeMs)
       ) {
-        signale = true;
+        e.signale = true;
         this.derniersEnvois.set(r.type, o.t);
-        aSignaler.push({
+        anomalies.push({
           type: r.type,
-          confiance: r.score ? Math.round(meilleur * 1000) / 1000 : null,
+          confiance: r.confiance ? Math.round(e.meilleur * 1000) / 1000 : null,
         });
       }
-      this.episodes.set(r.type, { debut, signale, meilleur });
+      this.episodes.set(r.type, e);
     }
-    return aSignaler;
+    return { anomalies, meilleures };
+  }
+
+  /**
+   * Retour sur la page du QCM après `masqueeMs` passées ailleurs (autre onglet,
+   * autre fenêtre). Renvoie l'alerte à signaler, ou null.
+   */
+  retourSurLaPage(t: number, masqueeMs: number): Anomalie | null {
+    if (masqueeMs < SEUILS.ongletQuitteMs) return null;
+    const dernier = this.derniersEnvois.get('ONGLET_QUITTE');
+    if (dernier !== undefined && t - dernier < SEUILS.ecartMemeTypeMs) return null;
+    this.derniersEnvois.set('ONGLET_QUITTE', t);
+    return { type: 'ONGLET_QUITTE', confiance: null };
   }
 }
 
 /** Résumé d'un résultat du modèle : personnes, meilleurs scores téléphone / livre. */
 export function resumerDetections(
   detections: ReadonlyArray<{ categories: ReadonlyArray<{ categoryName: string; score: number }> }>,
-  seuilPersonne = 0.5,
+  seuilPersonne: number = SEUILS.scorePersonne,
 ): { personnes: number; telephone: number; livre: number } {
   let personnes = 0;
   let telephone = 0;

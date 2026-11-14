@@ -116,7 +116,12 @@ describe('E2E-QCM12 — Surveillance webcam par captures (US-QCM-12)', () => {
     );
   };
 
+  // US-QCM-16 : les photos de contrôle sont désactivées par défaut ; ce scénario
+  // (US-QCM-12) les active comme le réglage de test (toutes les 120 s).
+  const intervalleAvant = process.env.SURVEILLANCE_INTERVALLE_SECONDES;
+
   beforeAll(async () => {
+    process.env.SURVEILLANCE_INTERVALLE_SECONDES = '120';
     moduleRef = await Test.createTestingModule({ imports: [AppModule] }).compile();
     app = moduleRef.createNestApplication();
     app.setGlobalPrefix('api', { exclude: ['health'] });
@@ -192,6 +197,8 @@ describe('E2E-QCM12 — Surveillance webcam par captures (US-QCM-12)', () => {
   }, 60_000);
 
   afterAll(async () => {
+    if (intervalleAvant === undefined) delete process.env.SURVEILLANCE_INTERVALLE_SECONDES;
+    else process.env.SURVEILLANCE_INTERVALLE_SECONDES = intervalleAvant;
     const cles = await redis.keys('limite:surveillance-refus:*');
     if (cles.length > 0) await redis.del(...cles);
     await nettoyer();

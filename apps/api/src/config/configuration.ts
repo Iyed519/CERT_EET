@@ -115,6 +115,10 @@ export type LimitesConfig = Record<string, number>;
  */
 export interface SurveillanceConfig {
   active: boolean;
+  /**
+   * US-QCM-16 — Photo de contrôle à intervalle fixe (secondes) ; 0 : aucune,
+   * seules les anomalies repérées par l'IA sont photographiées (défaut).
+   */
   intervalleSecondes: number;
   /** US-QCM-15 — Absence à l'image avant une alerte (secondes). */
   absenceSecondes: number;
@@ -359,7 +363,8 @@ export default (): {
   limites: lireLimites(process.env),
   surveillance: {
     active: (process.env.SURVEILLANCE_WEBCAM ?? 'on') !== 'off',
-    intervalleSecondes: parseInt(process.env.SURVEILLANCE_INTERVALLE_SECONDES ?? '120', 10),
+    // US-QCM-16 : 0 par défaut (photo seulement en cas d'anomalie) ; 60 pour tester.
+    intervalleSecondes: parseInt(process.env.SURVEILLANCE_INTERVALLE_SECONDES ?? '0', 10),
     // US-QCM-15 : absence de l'apprenant à l'image avant une alerte (5 min).
     absenceSecondes: parseInt(process.env.SURVEILLANCE_ABSENCE_SECONDES ?? '300', 10),
     tailleMaxOctets: 100 * 1024,

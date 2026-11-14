@@ -148,14 +148,14 @@ export function DemarrageTentative({
             <h3 id="titre-surveillance">Surveillance par webcam</h3>
             <ul>
               <li>
-                Votre formateur a activé la surveillance de ce QCM : une image de votre caméra est
-                prise au démarrage, puis toutes les 2 minutes environ, pendant le passage seulement.
+                Votre formateur a activé la surveillance de ce QCM : votre caméra est analysée
+                automatiquement, sur votre ordinateur, pendant le passage seulement.
               </li>
               <li>
-                Votre caméra est aussi analysée automatiquement, sur votre ordinateur : si plusieurs
-                personnes, un téléphone, un livre, une absence de plus de 5 minutes, une caméra
-                masquée ou la page quittée sont détectés, une photo de l’instant est envoyée à votre
-                formateur avec l’alerte. C’est lui qui décide : aucune sanction automatique.
+                Une photo est prise uniquement en cas d’anomalie (plusieurs personnes, un téléphone,
+                un livre, une absence de plus de 5 minutes, une caméra masquée ou la page quittée) et
+                envoyée à votre formateur avec l’alerte. C’est lui qui décide : aucune sanction
+                automatique.
               </li>
               <li>
                 Pas de vidéo enregistrée, pas de son, aucune reconnaissance du visage. Les images ne

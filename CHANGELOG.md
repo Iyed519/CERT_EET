@@ -15,6 +15,14 @@
 
 ## [Après le Sprint 6] — Stories hors sprint
 
+#### US-QCM-16 — Photos seulement en cas d'anomalie, détection du téléphone fiabilisée — journal `engineering-log/107`
+- **Quoi :** plus de photo toutes les 2 minutes : une photo seulement en cas d'anomalie (une photo de
+  contrôle par minute en développement, `SURVEILLANCE_INTERVALLE_SECONDES`). Analyse 2 fois par
+  seconde ; un téléphone vu sur 2 images (score ≥ 0,30) suffit, les ratés du modèle sont tolérés ; la
+  photo envoyée est la meilleure image de l'épisode ; page quittée mesurée au retour. Le bandeau dit si
+  l'analyse tourne ; en développement, une ligne de diagnostic montre ce que voit le modèle.
+- **Pourquoi :** au premier essai réel, un téléphone montré à la caméra n'a déclenché aucune alerte.
+
 #### US-QCM-15 — Surveillance webcam par IA : alertes avec photo au formateur — journal `engineering-log/106`
 - **Quoi :** pendant un QCM surveillé, un modèle de détection d'objets (MediaPipe EfficientDet-Lite0,
   Apache-2.0) analyse la caméra **dans le navigateur de l'apprenant**, une fois par seconde : plusieurs

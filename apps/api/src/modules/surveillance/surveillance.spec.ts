@@ -14,7 +14,7 @@ import {
   limiteConservation,
   typeImage,
 } from './surveillance.regles';
-import { SurveillanceService } from './surveillance.service';
+import { MESSAGE_CONTROLE_DESACTIVE, SurveillanceService } from './surveillance.service';
 
 const JPEG = Buffer.concat([Buffer.from([0xff, 0xd8, 0xff, 0xe0]), Buffer.alloc(200, 1)]);
 const PNG = Buffer.concat([
@@ -64,10 +64,11 @@ describe('SurveillanceService (US-QCM-12)', () => {
   const audit = { record: jest.fn() };
   const autorisation = { estAffecte: jest.fn() };
   const alertes = { purger: jest.fn(async () => 0) };
+  let intervalle = 120;
   const config = {
     getOrThrow: (): Record<string, unknown> => ({
       active: true,
-      intervalleSecondes: 120,
+      intervalleSecondes: intervalle,
       tailleMaxOctets: 100 * 1024,
       conservationJours: 30,
       balayageActif: false,
@@ -101,6 +102,7 @@ describe('SurveillanceService (US-QCM-12)', () => {
     // Les réponses « une fois » non consommées d'un test ne fuient pas au suivant.
     em.query.mockReset();
     dataSource.query.mockReset();
+    intervalle = 120;
   });
 
   const preparer = (
@@ -150,6 +152,16 @@ describe('SurveillanceService (US-QCM-12)', () => {
   ])('tentative %s : refus, rien déposé', async (_cas, t, Erreur) => {
     preparer(t);
     await expect(service.deposer('a1', 't1', JPEG)).rejects.toThrow(Erreur);
+    expect(stockage.deposerTampon).not.toHaveBeenCalled();
+  });
+
+  it('US-QCM-16 : photos de contrôle désactivées (intervalle 0) -> 409, rien compté ni déposé', async () => {
+    intervalle = 0;
+    preparer(tentative());
+    await expect(service.deposer('a1', 't1', JPEG)).rejects.toThrow(
+      new ConflictException(MESSAGE_CONTROLE_DESACTIVE),
+    );
+    expect(em.query).toHaveBeenCalledTimes(2);
     expect(stockage.deposerTampon).not.toHaveBeenCalled();
   });
 

@@ -358,14 +358,15 @@ export function ConfigurationModal({
                 checked={c.proctoringWebcam}
                 onChange={coche('proctoringWebcam')}
               />
-              Surveillance par webcam (captures)
+              Surveillance par webcam (analyse par IA)
             </label>
             <span className="field-hint">
               Désactivée par défaut. Si vous l’activez, chaque apprenant doit consentir avant de
-              commencer ; une image est prise au démarrage puis toutes les 2 minutes environ
-              (pas de vidéo, aucune analyse automatique). Vous seul et l’administration voyez les
-              images, supprimées après 30 jours. Sans caméra ou sans consentement : passage
-              surveillé en présentiel à organiser.
+              commencer ; sa caméra est analysée automatiquement sur son poste (plusieurs personnes,
+              téléphone, livre, absence…) et une photo vous est envoyée seulement en cas d’anomalie,
+              dans « Alertes › Surveillance des QCM » (pas de vidéo, aucune reconnaissance du
+              visage). Vous seul et l’administration voyez les photos, supprimées après 30 jours.
+              Sans caméra ou sans consentement : passage surveillé en présentiel à organiser.
             </span>
           </fieldset>
 

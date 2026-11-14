@@ -86,6 +86,10 @@ const MESSAGE_ACCES =
  *   (US-QCM-15) se fait dans le navigateur et produit des alertes à part
  *   (SurveillanceAlertesService), purgées avec les captures.
  */
+
+/** US-QCM-16 — Photo de contrôle refusée : désactivée par la configuration. */
+export const MESSAGE_CONTROLE_DESACTIVE =
+  'Photos de contrôle désactivées : seules les anomalies repérées par l’IA sont photographiées.';
 @Injectable()
 export class SurveillanceService implements OnModuleInit, OnModuleDestroy {
   private readonly logger = new Logger(SurveillanceService.name);
@@ -178,6 +182,11 @@ export class SurveillanceService implements OnModuleInit, OnModuleDestroy {
       }
       if (!t.proctoring_webcam || !config.active || !t.consentement_surveillance_le) {
         throw new ConflictException('Cette tentative n’est pas surveillée.');
+      }
+      // US-QCM-16 : sans réglage de test, aucune photo de contrôle ; seules les
+      // anomalies repérées par l'IA sont photographiées (alertes).
+      if (config.intervalleSecondes <= 0) {
+        throw new ConflictException(MESSAGE_CONTROLE_DESACTIVE);
       }
       const [stats] = (await em.query(
         `SELECT count(*)::int AS n, max(prise_le) AS derniere FROM captures_webcam WHERE tentative_id = $1`,
