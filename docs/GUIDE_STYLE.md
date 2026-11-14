@@ -63,16 +63,31 @@ Espacements sur une échelle 4 / 8 / 12 / 16 / 24 / 32 px (`--sp-1` → `--sp-6`
 
 ## 4. Coque et navigation
 
-- **En-tête** : logo ESPRIT + « Cert_EET », recherche de formation, **cinq entrées au plus** par
-  rôle, la première étant « Accueil », puis le menu du compte. Sous 640 px, menu « burger ».
-  - Apprenant : Accueil · Mes formations · Mes évaluations · Mes certificats · Catalogue
-  - Formateur : Accueil · Mes formations · Alertes · Rapports · Catalogue
-  - Administrateur : Accueil · Utilisateurs · Formations · Certificats · Pilotage, avec une
-    sous-navigation par section (`SOUS_NAVIGATION_ADMIN` dans `components/navigation.ts`)
+- **En-tête** : logo ESPRIT + « Cert_EET », recherche de formation, menu du compte. Sous 920 px
+  (1 024 px pour le formateur et l'administrateur), bouton menu.
+  - Apprenant : **cinq entrées au plus** dans l'en-tête, « Accueil » en premier : Accueil · Mes
+    formations · Mes évaluations · Mes certificats · Catalogue
   - Visiteur : « Se connecter » et « S'inscrire », sauf sur la page qui fait déjà cette action
+- **Menu latéral (formateur, administrateur — US-UX-02)** : `NavigationLaterale`, groupes titrés
+  définis dans `NAVIGATION_LATERALE` (`components/navigation.ts`), une icône par entrée, l'entrée
+  active (sous-pages comprises, motif le plus précis) sur fond rouge pâle avec un filet rouge,
+  **compteur rouge** de ce qui attend (jamais à zéro), réductible aux icônes (infobulle), tiroir
+  sous 1 024 px (Échap, croix, voile).
+  - Formateur : Accueil · Enseigner (Mes formations, Demander une formation, Proposer une
+    formation) · Évaluer (Livrables à corriger, Tentatives des QCM) · Suivre (Apprenants,
+    Alertes, Rapports) · Explorer (Catalogue)
+  - Administrateur : Accueil · Personnes (Comptes, Demandes de rôle) · Formations (Formations,
+    Demandes d'affectation, Propositions) · Certificats · Pilotage (Rapports, Prédiction du
+    risque, Générations IA) · Sécurité (Journal d'audit)
+  - Une nouvelle page de ces rôles reçoit une entrée (ou un motif d'une entrée existante) : jamais
+    de page orpheline.
+
+  ![Menu latéral du formateur](guide-style/nav-laterale-formateur.png)
+  ![Tiroir de navigation à 390 px](guide-style/nav-tiroir-mobile.png)
 - **Accueil du rôle** : « À faire maintenant » (`AFaireMaintenant`, règles dans `lib/a-faire.ts`)
   en tête — chaque ligne a un verbe et un bouton —, puis le contenu courant.
-- **Fil d'Ariane** (`FilAriane`) : « Accueil › Section › … › Page ». Une page profonde ajoute ses
+- **Fil d'Ariane** (`FilAriane`) : « Accueil › Section › … › Page » (section = entrée active du
+  menu latéral pour le formateur et l'administrateur). Une page profonde ajoute ses
   miettes avec `useMiettes([...])` ; plus aucun lien « ← Retour ».
 
 ![Accueil apprenant](guide-style/apprenant-accueil.png)
@@ -236,6 +251,10 @@ titre de groupe en capitales.
 `pastilleDuStatut`) ; `libelle` pour un libellé propre au contexte (« À corriger »). Tons : succès,
 attention, danger, info, neutre, brouillon (contour en tirets : un brouillon se distingue d'un coup
 d'œil d'un élément publié). Toujours couleur + icône + texte.
+
+### Filtres en pastilles — `FiltresPastilles` (US-UX-02)
+Groupe de boutons à bascule (`aria-pressed`), chacun avec son compteur ; le filtre actif est
+**noir** (le rouge reste à l'action principale). Dans une `.barre-filtres` au-dessus de la liste.
 
 ### Libellés humains — `lib/libelles.ts`
 Jamais de code brut à l'écran : `libelleActionAudit('LOGIN')` → « Connexion »,

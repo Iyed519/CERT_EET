@@ -21,6 +21,7 @@ import {
   nombreFr,
   tailleFr,
 } from '../../../../lib/format';
+import { rafraichirCompteurs } from '../../../../components/NavigationLaterale';
 
 /** Saisie en cours d'un critère (les points restent un texte tant qu'on tape). */
 interface Brouillon {
@@ -576,6 +577,7 @@ export default function CorrectionLivrablePage(): JSX.Element {
           libelleAction="Envoyer"
           onConfirmer={async () => {
             appliquer(await finaliserCorrection(livrable.id, commentaireGeneral));
+            rafraichirCompteurs();
             setConfirmation(false);
             setEnvoye(true);
           }}

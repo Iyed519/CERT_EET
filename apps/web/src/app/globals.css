@@ -1996,3 +1996,92 @@ a.indicateur:hover { border-color: var(--border-strong); box-shadow: var(--shado
   .indicateur { padding: var(--sp-3); }
   .indicateur-valeur { font-size: 1.6rem; }
 }
+
+/* ============================================================
+   US-UX-02 — Menu latéral du formateur et de l'administrateur, tiroir en
+   mobile, filtres en pastilles, pages d'ensemble du formateur.
+   ============================================================ */
+:root { --nav-l: 256px; --nav-l-reduite: 72px; }
+.topbar-espace { flex: 1 1 auto; }
+.nav-laterale { display: none; }
+.nav-l-nav { display: flex; flex-direction: column; }
+.nav-l-liste { list-style: none; margin: 0; padding: 0; display: flex; flex-direction: column; gap: 2px; }
+.nav-l-groupe { margin: var(--sp-4) 12px 6px; color: var(--muted); font-size: 0.72rem; font-weight: 700; letter-spacing: 0.06em; text-transform: uppercase; }
+.nav-l-entree { position: relative; display: flex; align-items: center; gap: 12px; width: 100%; padding: 9px 12px; border: 0; border-radius: var(--radius-sm); background: none; color: var(--text-2); font: inherit; font-size: 0.92rem; font-weight: 600; text-align: left; text-decoration: none; cursor: pointer; }
+.nav-l-entree .icone { color: var(--muted); }
+.nav-l-entree:hover { background: var(--surface-3); color: var(--ink); text-decoration: none; }
+.nav-l-entree:hover .icone { color: var(--ink); }
+.nav-l-entree:focus-visible { outline: none; box-shadow: var(--ring); }
+/* Entrée active : fond rouge pâle, texte rouge foncé (6,36:1), filet rouge à gauche. */
+.nav-l-actif, .nav-l-actif:hover { background: var(--primary-soft); color: var(--primary-dark); }
+.nav-l-actif .icone, .nav-l-actif:hover .icone { color: var(--primary-dark); }
+.nav-l-actif::before { content: ''; position: absolute; left: -10px; top: 8px; bottom: 8px; width: 4px; border-radius: 0 4px 4px 0; background: var(--primary); }
+.nav-l-libelle { flex: 1 1 auto; min-width: 0; }
+/* Compteur : blanc sur rouge sombre (8,15:1), jamais affiché à zéro. */
+.nav-l-compteur { display: inline-flex; align-items: center; justify-content: center; min-width: 22px; height: 20px; padding: 0 6px; border-radius: var(--radius-pill); background: var(--danger); color: #fff; font-size: var(--fs-etiquette); font-weight: 700; line-height: 1; }
+.nav-l-reduire { display: flex; align-items: center; gap: 12px; margin-top: auto; padding: 9px 12px; border: 0; border-top: 1px solid var(--border); border-radius: 0; background: none; color: var(--muted); font: inherit; font-size: 0.86rem; font-weight: 600; text-align: left; cursor: pointer; position: relative; }
+.nav-l-reduire:hover { color: var(--ink); background: var(--surface-3); }
+.nav-l-reduire:focus-visible { outline: none; box-shadow: var(--ring); }
+
+@media (min-width: 1024px) {
+  body[data-nav-laterale] { padding-left: var(--nav-l); }
+  body[data-nav-laterale='reduite'] { padding-left: var(--nav-l-reduite); }
+  body[data-nav-laterale] .topbar { margin-left: calc(-1 * var(--nav-l)); }
+  body[data-nav-laterale='reduite'] .topbar { margin-left: calc(-1 * var(--nav-l-reduite)); }
+  .nav-laterale { position: fixed; z-index: 30; top: calc(var(--topbar-h) + 1px); bottom: 0; left: 0; display: flex; flex-direction: column; gap: var(--sp-2); width: var(--nav-l); padding: var(--sp-3) 10px var(--sp-2); background: var(--surface); border-right: 1px solid var(--border); overflow-y: auto; scrollbar-width: thin; }
+  .nav-laterale-reduite { width: var(--nav-l-reduite); overflow: visible; }
+  .nav-laterale-reduite .nav-l-entree, .nav-laterale-reduite .nav-l-reduire { justify-content: center; padding: 10px 0; }
+  .nav-laterale-reduite .nav-l-libelle, .nav-laterale-reduite .nav-l-groupe-texte { position: absolute; width: 1px; height: 1px; overflow: hidden; clip: rect(0 0 0 0); white-space: nowrap; }
+  .nav-laterale-reduite .nav-l-groupe { height: 1px; margin: var(--sp-3) 8px; background: var(--border); }
+  .nav-laterale-reduite .nav-l-compteur { position: absolute; top: 2px; right: 6px; min-width: 18px; height: 18px; padding: 0 4px; font-size: 0.68rem; }
+  /* Infobulle des icônes (menu réduit), au survol et au focus. */
+  .nav-laterale-reduite [data-infobulle]:hover::after, .nav-laterale-reduite [data-infobulle]:focus-visible::after { content: attr(data-infobulle); position: absolute; z-index: 50; left: calc(100% + 12px); top: 50%; transform: translateY(-50%); padding: 6px 10px; border-radius: 8px; background: var(--ink); color: #fff; font-size: 0.82rem; font-weight: 600; white-space: nowrap; box-shadow: var(--shadow-card); pointer-events: none; }
+}
+@media (max-width: 1023px) {
+  .topbar-burger-lateral { display: flex; }
+}
+
+/* Tiroir de navigation (mobile) */
+.tiroir-voile { position: fixed; inset: 0; z-index: 60; background: rgba(17, 17, 17, 0.45); animation: fondu 0.15s ease both; }
+.tiroir { position: fixed; z-index: 61; top: 0; bottom: 0; left: 0; display: flex; flex-direction: column; width: min(320px, 88vw); padding: var(--sp-3) 10px var(--sp-4); background: var(--surface); box-shadow: var(--shadow); overflow-y: auto; animation: tiroir-entree 0.18s ease both; }
+.tiroir-tete { display: flex; align-items: center; justify-content: space-between; padding: 0 4px 0 12px; margin-bottom: var(--sp-2); }
+.tiroir-titre { color: var(--ink); font-weight: 700; }
+.tiroir-croix { display: inline-grid; place-items: center; width: 40px; height: 40px; border: 0; border-radius: var(--radius-sm); background: none; color: var(--ink); cursor: pointer; }
+.tiroir-croix:hover { background: var(--surface-3); }
+.tiroir .topbar-search-mobile { flex: 0 0 auto; margin: 0 4px var(--sp-2); }
+.tiroir-compte { margin-top: var(--sp-2); padding-top: var(--sp-2); border-top: 1px solid var(--border); }
+.tiroir-compte .compte-deconnexion { border-top: 0; margin-top: 0; padding-top: 9px; border-radius: var(--radius-sm); }
+@keyframes tiroir-entree { from { transform: translateX(-24px); opacity: 0; } to { transform: none; opacity: 1; } }
+@keyframes fondu { from { opacity: 0; } to { opacity: 1; } }
+@media (min-width: 1024px) { .tiroir, .tiroir-voile { display: none; } }
+
+/* Filtres en pastilles (avec compteur) */
+.barre-filtres { display: flex; align-items: center; justify-content: space-between; gap: var(--sp-3); flex-wrap: wrap; margin: 0 0 var(--sp-4); }
+.filtres-pastilles { display: flex; flex-wrap: wrap; gap: var(--sp-2); }
+.filtre-pastille { display: inline-flex; align-items: center; gap: 8px; padding: 6px 14px; border: 1px solid var(--border-strong); border-radius: var(--radius-pill); background: var(--surface); color: var(--text-2); font: inherit; font-size: 0.86rem; font-weight: 600; cursor: pointer; }
+.filtre-pastille:hover { border-color: var(--ink); color: var(--ink); }
+.filtre-pastille:focus-visible { outline: none; box-shadow: var(--ring); }
+/* Actif : noir ESPRIT (blanc dessus 16,88:1) — le rouge reste à l'action principale. */
+.filtre-pastille-actif, .filtre-pastille-actif:hover { background: var(--ink); border-color: var(--ink); color: #fff; }
+.filtre-pastille-compteur { display: inline-flex; align-items: center; justify-content: center; min-width: 20px; height: 20px; padding: 0 6px; border-radius: var(--radius-pill); background: var(--neutre-soft); color: var(--neutre); font-size: var(--fs-etiquette); font-weight: 700; }
+.filtre-pastille-actif .filtre-pastille-compteur { background: #fff; color: var(--ink); }
+
+/* Pages d'ensemble du formateur */
+.lien-objet { display: inline-flex; align-items: center; gap: 8px; }
+.lien-objet .icone { color: var(--muted); }
+.ligne-a-traiter > th:first-child { box-shadow: inset 3px 0 0 var(--danger); }
+.cartes-suivi { list-style: none; margin: 0; padding: 0; display: grid; gap: var(--sp-4); grid-template-columns: repeat(auto-fill, minmax(300px, 1fr)); }
+.carte-suivi { display: flex; flex-direction: column; gap: var(--sp-3); padding: var(--sp-4) var(--sp-5); background: var(--surface); border: 1px solid var(--border); border-radius: var(--radius); box-shadow: var(--shadow-card); }
+.carte-suivi-tete { display: flex; align-items: center; gap: var(--sp-3); flex-wrap: wrap; }
+.carte-suivi-titre { flex: 1 1 160px; margin: 0; font-size: var(--fs-carte); font-weight: var(--fw-carte); }
+.carte-suivi-chiffres { display: grid; grid-template-columns: repeat(3, 1fr); gap: var(--sp-2); margin: 0; }
+.carte-suivi-chiffres div { padding: var(--sp-2) var(--sp-3); border-radius: var(--radius-sm); background: var(--surface-2); }
+.carte-suivi-chiffres dt { color: var(--muted); font-size: var(--fs-petit); }
+.carte-suivi-chiffres dd { margin: 0; color: var(--ink); font-size: 1.4rem; font-weight: 750; font-variant-numeric: tabular-nums; }
+.carte-suivi-chiffres .chiffre-alerte { color: var(--danger); }
+.carte-suivi-actions { display: flex; gap: var(--sp-2); flex-wrap: wrap; }
+@media (max-width: 640px) {
+  .ligne-a-traiter { border-left: 4px solid var(--danger) !important; }
+  .ligne-a-traiter > th:first-child { box-shadow: none; }
+}
+.barre-filtres-resume { margin: 0; color: var(--muted); font-size: var(--fs-petit); }

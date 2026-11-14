@@ -614,7 +614,7 @@ Table des matières
 | ID | User story | MoSCoW | Points | État |
 | --- | --- | --- | --- | --- |
 | US-UX-01 | Inventaire des fonctions et socle visuel (icônes, hiérarchie des actions, onglets, étapes, cartes cliquables) | Must | 5 | Livrée (journal 109) |
-| US-UX-02 | Navigation latérale par rôle, groupée, avec icônes et compteurs | Must | 5 | À faire |
+| US-UX-02 | Navigation latérale par rôle, groupée, avec icônes et compteurs | Must | 5 | Livrée (journal 110) |
 | US-UX-03 | Tableau de bord formateur réorganisé | Must | 3 | À faire |
 | US-UX-04 | Espace d'une formation (formateur) en onglets, modules lisibles | Must | 5 | À faire |
 | US-UX-05 | Éditeur de QCM et page d'atelier en étapes et onglets | Must | 5 | À faire |

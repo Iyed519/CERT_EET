@@ -4,7 +4,7 @@
  */
 import assert from 'node:assert/strict';
 import { describe, it } from 'node:test';
-import { etapeCourante, texteCompteur } from './ui-regles.ts';
+import { etapeCourante, parFormation, texteCompteur } from './ui-regles.ts';
 
 describe('texteCompteur', () => {
   it('absent → rien', () => {
@@ -30,5 +30,20 @@ describe('etapeCourante', () => {
   it('tout fait → -1', () => {
     assert.equal(etapeCourante([{ etat: 'fait' }, { etat: 'fait' }]), -1);
     assert.equal(etapeCourante([]), -1);
+  });
+});
+
+describe('parFormation', () => {
+  it('regroupe dans l’ordre reçu, sans perdre de ligne', () => {
+    const lignes = [
+      { id: 1, formationId: 'b', formationTitre: 'B' },
+      { id: 2, formationId: 'a', formationTitre: 'A' },
+      { id: 3, formationId: 'b', formationTitre: 'B' },
+    ];
+    const g = parFormation(lignes);
+    assert.deepEqual(g.map((x) => x.id), ['b', 'a']);
+    assert.deepEqual(g[0].lignes.map((l) => l.id), [1, 3]);
+    assert.equal(g.reduce((n, x) => n + x.lignes.length, 0), 3);
+    assert.deepEqual(parFormation([]), []);
   });
 });

@@ -15,6 +15,16 @@
 
 ## [Après le Sprint 6] — Stories hors sprint
 
+#### US-UX-02 — Navigation latérale par rôle, groupée, avec icônes et compteurs — journal `engineering-log/110`
+- **Quoi :** menu latéral pour le formateur (Enseigner, Évaluer, Suivre, Explorer) et
+  l'administrateur (Personnes, Formations, Certificats, Pilotage, Sécurité) : icône par entrée,
+  entrée active sur les sous-pages, compteurs rouges (alertes, livrables à corriger, tentatives à
+  évaluer, demandes en attente) relus sans recharger la page, réductible aux icônes, tiroir sur
+  mobile. Lecture seule ajoutée : `GET /api/navigation/compteurs`, `GET /api/formateur/evaluations`.
+  Trois pages d'ensemble pour le formateur : *Livrables à corriger*, *Tentatives des QCM*,
+  *Apprenants*. Adresses inchangées ; aucune action perdue (inventaire).
+- **Pourquoi :** savoir où aller et ce qui attend, sans chercher.
+
 #### US-UX-01 — Inventaire des fonctions et socle visuel (épopée E11) — journal `engineering-log/109`
 - **Quoi :** inventaire de toutes les actions des espaces formateur et administrateur
   (`outils/recette/inventaire-actions.js`, référence `docs/ux/inventaire-avant.json`, 297 actions) et

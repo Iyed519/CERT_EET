@@ -117,3 +117,12 @@ test('correspond : liens de destinations différentes et libellés différents �
     false,
   );
 });
+
+test('comparer : lien de page passé dans la coque (menu latéral) → conservé', () => {
+  const avant = inv({ '/admin/formations': { actions: [{ type: 'lien', libelle: 'Propositions', href: '/admin/propositions-formation' }] } });
+  const apres = inv({
+    '(coque)': { actions: [{ type: 'lien', libelle: 'Propositions', href: '/admin/propositions-formation' }] },
+    '/admin/formations': { actions: [] },
+  });
+  assert.equal(comparer(avant, apres).conservees, 1);
+});

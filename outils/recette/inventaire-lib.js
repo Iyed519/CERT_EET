@@ -63,8 +63,8 @@ function correspond(avant, apres, equivalences) {
 
 /**
  * Coût minimal (en clics) pour atteindre une action « avant » dans l'inventaire
- * « après », depuis la même page : profondeur sur la page elle-même, ou 1 +
- * profondeur sur une page liée directement. `null` si elle n'est pas dans ce
+ * « après », depuis la même page : profondeur sur la page elle-même ou dans la
+ * coque (présente partout), ou 1 + profondeur sur une page liée directement. `null` si elle n'est pas dans ce
  * voisinage.
  */
 function coutApres(chemin, action, indexApres, equivalences) {
@@ -80,6 +80,9 @@ function coutApres(chemin, action, indexApres, equivalences) {
     }
   };
   essayer(page.actions, 0);
+  // La coque (en-tête, menu latéral, menu du compte) est présente sur toutes les pages.
+  const coque = indexApres.get('(coque)');
+  if (coque && chemin !== '(coque)') essayer(coque.actions, 0);
   for (const v of page.voisins) {
     const pv = indexApres.get(v);
     if (pv) essayer(pv.actions, 1);
