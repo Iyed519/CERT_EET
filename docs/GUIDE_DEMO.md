@@ -86,15 +86,19 @@ la charte ESPRIT décrite dans `docs/GUIDE_STYLE.md` (captures dans
    privée : authenticité vérifiable sans compte.
 
 ### 4.3 Formateur — Karim (6 min)
-1. Connexion -> **Accueil** (tableau de bord formateur, US-DASH-03) : « À faire
-   maintenant » (alertes à traiter, livrables à corriger), puis formations par
-   statut, réussite QCM, graphique ; filtre de période (7 j, 30 j…).
+1. Connexion -> **Accueil** (tableau de bord formateur, US-DASH-03, réorganisé
+   par US-UX-03) : « À faire maintenant », puis 4 indicateurs cliquables (À
+   corriger, Alertes, Apprenants actifs, Réussite aux QCM), *Mes formations* en
+   cartes (jauge d'avancement, compteurs « à corriger », « alertes », « signalés
+   par l'IA » ; « Vue tableau » pour toutes les colonnes), les apprenants à
+   risque, puis *Activité et statistiques* avec la période (7 j, 30 j, 90 j,
+   1 an, « Personnaliser »).
    Menu latéral : Accueil · **Enseigner** (Mes formations, Demander une
    formation, Proposer une formation) · **Évaluer** (Livrables à corriger,
    Tentatives des QCM) · **Suivre** (Apprenants, Alertes, Rapports) ·
    **Explorer** (Catalogue). Montrer les compteurs (« Livrables à corriger »,
    « Alertes ») : ils baissent sans recharger la page quand on traite.
-2. Tableau « Mes formations » -> *Suivi* de « Développement web » : apprenants
+2. Carte « Développement web » -> *Suivi* (ou menu *Apprenants*) : apprenants
    à risque (Ahmed inactif, Mariem en échec).
    Plus bas, section **Apprenants à risque (IA)** : niveau suggéré par le
    modèle (Ahmed élevé ; Mariem, Youssef, Yassine moyen ; Sana faible), trois

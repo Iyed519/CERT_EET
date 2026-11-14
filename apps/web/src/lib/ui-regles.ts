@@ -27,3 +27,14 @@ export function parFormation<T extends { formationId: string; formationTitre: st
   }
   return [...groupes.values()];
 }
+
+/**
+ * US-UX-03 — Avancement moyen (en %) des apprenants EN COURS d'une formation,
+ * arrondi à l'entier ; null s'il n'y en a aucun.
+ */
+export function avancementMoyen(apprenants: Array<{ statutInscription: string; avancement: number }>): number | null {
+  const enCours = apprenants.filter((a) => a.statutInscription === 'EN_COURS');
+  if (enCours.length === 0) return null;
+  const somme = enCours.reduce((n, a) => n + Math.min(100, Math.max(0, a.avancement)), 0);
+  return Math.round(somme / enCours.length);
+}

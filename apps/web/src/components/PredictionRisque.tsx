@@ -11,6 +11,7 @@ import {
 } from '../lib/api';
 import { dateHeureFr, LIBELLES_CRITERE_ALERTE, nomApprenantFr, nombreFr } from '../lib/format';
 import { Fenetre } from './Fenetre';
+import { Icone } from './Icone';
 
 /** Libellé toujours affiché : le niveau n'est jamais porté par la couleur seule. */
 export const LIBELLES_NIVEAU_RISQUE: Record<NiveauRisque, string> = {
@@ -76,7 +77,12 @@ export function SectionRisque({ lienSuivi = false }: { lienSuivi?: boolean }): J
 
   return (
     <section className="tdb-bloc" aria-labelledby="titre-risque">
-      <h2 id="titre-risque">Apprenants à risque (IA)</h2>
+      <h2 id="titre-risque" className="section-page-titre">
+        <span className="section-page-icone">
+          <Icone nom="risque" taille={20} />
+        </span>
+        Apprenants à risque (IA)
+      </h2>
       <p className="kpi-sous">
         <strong>{RAPPEL}</strong> Le niveau est calculé chaque jour à partir de l’activité, des remises
         et des notes. Il complète les alertes des règles (affichées à côté), sans les remplacer.
