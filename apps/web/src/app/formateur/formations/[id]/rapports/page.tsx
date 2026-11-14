@@ -1,5 +1,6 @@
 'use client';
 import { useMiettes } from '../../../../../components/TitrePage';
+import { EnTeteFormation } from '../../../../../components/EnTeteFormation';
 import { useParams } from 'next/navigation';
 import { FormEvent, useEffect, useState } from 'react';
 import { ListeRapports } from '../../../../../components/ListeRapports';
@@ -79,9 +80,10 @@ export default function RapportsFormationPage(): JSX.Element {
   useMiettes([{ href: `/formateur/formations/${id}`, libelle: titre ?? 'La formation' }, { libelle: 'Rapports de session' }]);
   return (
     <>
+      <EnTeteFormation id={id} actif="rapports" />
       <div className="page-head">
         <div>
-          <h1 className="page-title">Rapports de session</h1>
+          <h2 className="page-title page-title-onglet">Rapports de session</h2>
           <p className="page-subtitle">
             Exportez un rapport de la session (vue globale, un apprenant ou un module) : il est
             préparé en arrière-plan puis listé dans « Rapports ». {titre ?? ''}

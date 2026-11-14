@@ -3,6 +3,7 @@ import Link from 'next/link';
 import { SignalIA } from '../../../../../components/AlertesSurveillance';
 import { Fenetre } from '../../../../../components/Fenetre';
 import { useMiettes } from '../../../../../components/TitrePage';
+import { EnTeteFormation } from '../../../../../components/EnTeteFormation';
 import { useParams } from 'next/navigation';
 import { useEffect, useMemo, useState } from 'react';
 import {
@@ -121,6 +122,7 @@ export default function SuiviFormationPage(): JSX.Element {
   useMiettes([{ href: `/formateur/formations/${id}`, libelle: suivi?.formation.titre ?? 'La formation' }, { libelle: 'Suivi pédagogique' }]);
   return (
     <>
+      <EnTeteFormation id={id} actif="apprenants" />
       {erreur !== null && <p className="alert alert-error">{erreur}</p>}
       {!suivi && erreur === null && <p className="page-subtitle">Chargement…</p>}
 
@@ -128,7 +130,7 @@ export default function SuiviFormationPage(): JSX.Element {
         <>
           <div className="page-head">
             <div>
-              <h1 className="page-title">Suivi pédagogique</h1>
+              <h2 className="page-title page-title-onglet">Suivi pédagogique</h2>
               <p className="page-subtitle">
                 {suivi.formation.titre} · {k.qcmPublies} QCM et {k.ateliersPublies} atelier
                 {k.ateliersPublies > 1 ? 's' : ''} publiés

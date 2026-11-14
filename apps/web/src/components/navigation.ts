@@ -249,10 +249,10 @@ export const NAVIGATION_LATERALE: Partial<Record<Role, GroupeLateral[]>> = {
           href: '/formateur/apprenants',
           libelle: 'Apprenants',
           icone: 'apprenants',
-          motifs: ['/formateur/apprenants/*', '/formateur/formations/:id/suivi/*'],
+          motifs: ['/formateur/apprenants/*'],
         },
         { href: '/formateur/alertes', libelle: 'Alertes', icone: 'alerte', motifs: ['/formateur/alertes/*'], compteur: 'alertes' },
-        { href: '/rapports', libelle: 'Rapports', icone: 'rapport', motifs: ['/rapports/*', '/formateur/formations/:id/rapports/*'] },
+        { href: '/rapports', libelle: 'Rapports', icone: 'rapport', motifs: ['/rapports/*'] },
       ],
     },
     {

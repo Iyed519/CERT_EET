@@ -15,6 +15,14 @@
 
 ## [Après le Sprint 6] — Stories hors sprint
 
+#### US-UX-04 — Espace d'une formation (formateur) en onglets, modules lisibles — journal `engineering-log/112`
+- **Quoi :** onglets à adresse « Vue d'ensemble » (nouvelle : fiche, chiffres clés, programme),
+  « Contenu » (adresse de la formation), « Apprenants » (suivi) et « Rapports » sous un en-tête
+  commun ; modules repliables avec résumé (QCM publiés, ateliers, ressources, supports IA), icône et
+  pastille par élément, brouillons distincts et masquables, un seul bouton « Ajouter » par module
+  (QCM, atelier, lien ou vidéo, fichier, support pour l'IA). Aucune API changée.
+- **Pourquoi :** préparer et suivre une formation sans faire défiler une page interminable.
+
 #### US-UX-03 — Tableau de bord formateur réorganisé — journal `engineering-log/111`
 - **Quoi :** ordre de lecture « À faire maintenant » → 4 indicateurs cliquables → formations en
   cartes (jauge d'avancement moyen, compteurs cliquables « à corriger », « alertes », « signalés par

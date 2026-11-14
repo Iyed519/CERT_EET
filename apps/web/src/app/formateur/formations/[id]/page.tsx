@@ -1,9 +1,14 @@
 'use client';
 import Link from 'next/link';
+import { EnTeteFormation } from '../../../../components/EnTeteFormation';
 import { EtatVide } from '../../../../components/EtatVide';
+import { FiltresPastilles } from '../../../../components/FiltresPastilles';
+import { Icone } from '../../../../components/Icone';
+import { MenuActions } from '../../../../components/MenuActions';
+import { PastilleStatut } from '../../../../components/PastilleStatut';
 import { useMiettes } from '../../../../components/TitrePage';
 import { useParams, useRouter } from 'next/navigation';
-import { useCallback, useEffect, useState } from 'react';
+import { useCallback, useEffect, useMemo, useState } from 'react';
 import { AtelierModal } from '../../../../components/AtelierModal';
 import { ContenuFormationModal } from '../../../../components/ContenuFormationModal';
 import { QcmInfosModal } from '../../../../components/QcmInfosModal';
@@ -16,21 +21,16 @@ import {
   getAteliersDuModule,
   getMaFormation,
   getQcmsDuModule,
+  ModuleVue,
   QcmResume,
   StatutFormation,
 } from '../../../../lib/api';
+import { resumeModule } from '../../../../lib/ui-regles';
 import {
   dateHeureFr,
   LIBELLES_STATUT_ATELIER,
   LIBELLES_STATUT_QCM,
 } from '../../../../lib/format';
-
-const LIBELLES: Record<StatutFormation, string> = {
-  BROUILLON: 'Brouillon',
-  OUVERTE: 'Ouverte',
-  FERMEE: 'Fermée',
-  ARCHIVEE: 'Archivée',
-};
 
 /** Ce que le statut change pour le formateur, en une phrase. */
 const NOTES: Record<StatutFormation, string | null> = {
@@ -39,13 +39,6 @@ const NOTES: Record<StatutFormation, string | null> = {
   OUVERTE: null,
   FERMEE: 'Formation fermée : elle n’accepte plus d’inscriptions.',
   ARCHIVEE: 'Formation archivée : elle est figée, consultation seulement.',
-};
-
-/** AAAA-MM-JJ -> JJ/MM/AAAA, sans passer par Date (pas de décalage horaire). */
-const dateFr = (iso: string | null): string => {
-  if (!iso) return '—';
-  const [annee, mois, jour] = iso.split('-');
-  return `${jour}/${mois}/${annee}`;
 };
 
 /**
@@ -72,7 +65,16 @@ const dateFr = (iso: string | null): string => {
  *
  * US-FORM-04 — « Modifier le contenu » : description, objectifs, prérequis et
  * modules (ajout, renommage, ordre, suppression), formation non archivée.
+ *
+ * US-UX-04 — Onglet « Contenu » de l'espace de la formation (son adresse
+ * reste celle de la formation) : chaque module est un bloc repliable avec son
+ * résumé, une icône et une pastille par élément, les brouillons distincts (et
+ * masquables), et UN bouton « Ajouter » (QCM, atelier, lien ou vidéo, fichier,
+ * support pour l'IA). La fiche (capacité, seuil, description, objectifs,
+ * prérequis) est dans l'onglet « Vue d'ensemble ».
  */
+type Demande = { moduleId: string; type: 'lien' | 'fichier' | 'support'; jeton: number };
+
 export default function MaFormationPage(): JSX.Element {
   const params = useParams<{ id: string }>();
   const id = params?.id ?? '';
@@ -88,6 +90,12 @@ export default function MaFormationPage(): JSX.Element {
   const router = useRouter();
   const [contenuOuvert, setContenuOuvert] = useState(false);
   const [version, setVersion] = useState(0);
+  // US-UX-04 : repli des modules, filtre des brouillons, ajouts demandés par le menu.
+  const [replies, setReplies] = useState<Record<string, boolean>>({});
+  const [brouillons, setBrouillons] = useState<'afficher' | 'masquer'>('afficher');
+  const [demande, setDemande] = useState<Demande | null>(null);
+  const [nbRessources, setNbRessources] = useState<Record<string, number>>({});
+  const [nbSupports, setNbSupports] = useState<Record<string, number>>({});
 
   const chargerQcms = useCallback(async (f: FormationDetailVue): Promise<void> => {
     const [listesQcm, listesAteliers] = await Promise.all([
@@ -118,10 +126,30 @@ export default function MaFormationPage(): JSX.Element {
   }, [id, chargerQcms, version]);
 
   const modifiable = formation !== null && formation.statut !== 'ARCHIVEE';
+  const nbBrouillons = useMemo(
+    () =>
+      Object.values(qcms).flat().filter((q) => q.statut === 'BROUILLON').length +
+      Object.values(ateliers).flat().filter((a) => a.statut === 'BROUILLON').length,
+    [qcms, ateliers],
+  );
+  const toutReplie = formation !== null && formation.modules.length > 0 && formation.modules.every((m) => replies[m.id]);
+
+  const compteRessources = useCallback((moduleId: string, n: number) => {
+    setNbRessources((c) => (c[moduleId] === n ? c : { ...c, [moduleId]: n }));
+  }, []);
+  const compteSupports = useCallback((moduleId: string, n: number) => {
+    setNbSupports((c) => (c[moduleId] === n ? c : { ...c, [moduleId]: n }));
+  }, []);
+
+  const demander = (m: ModuleVue, type: Demande['type']): void => {
+    setReplies((r) => ({ ...r, [m.id]: false }));
+    setDemande({ moduleId: m.id, type, jeton: Date.now() });
+  };
 
   useMiettes(formation ? [{ libelle: formation.titre }] : null);
   return (
     <>
+      <EnTeteFormation id={id} actif="contenu" formation={formation} />
 
       {erreur !== null && <p className="alert alert-error">{erreur}</p>}
 
@@ -129,33 +157,45 @@ export default function MaFormationPage(): JSX.Element {
         <p className="page-subtitle">Chargement…</p>
       ) : formation === null ? null : (
         <>
-          <div className="page-head">
-            <div>
-              <h1 className="page-title">{formation.titre}</h1>
-              <p className="page-subtitle">
-                Préparez chaque module (QCM, ateliers, ressources, supports pour l’IA) et suivez vos
-                apprenants.{' '}
-                {formation.dateDebut || formation.dateFin
-                  ? `${dateFr(formation.dateDebut)} → ${dateFr(formation.dateFin)}`
-                  : 'Dates non définies'}
-                {formation.dureeHeures !== null ? ` · ${formation.dureeHeures} h` : ''}
-              </p>
-            </div>
-            <span className={`statut-badge statut-${formation.statut}`}>
-              {LIBELLES[formation.statut]}
-            </span>
-          </div>
+          {NOTES[formation.statut] !== null && (
+            <p className="alert alert-info">{NOTES[formation.statut]}</p>
+          )}
 
-          <p className="suivi-lien">
-            <Link className="btn btn-sm" href={`/formateur/formations/${id}/suivi`}>
-              Suivi pédagogique des apprenants
-            </Link>
-            {modifiable && (
-              <button className="btn btn-sm" onClick={() => setContenuOuvert(true)}>
-                Modifier le contenu
-              </button>
+          <div className="barre-filtres">
+            {nbBrouillons > 0 ? (
+              <FiltresPastilles<'afficher' | 'masquer'>
+                libelle="Brouillons"
+                valeur={brouillons}
+                onChange={setBrouillons}
+                options={[
+                  { valeur: 'afficher', libelle: 'Tout le contenu' },
+                  { valeur: 'masquer', libelle: 'Masquer les brouillons', compteur: nbBrouillons },
+                ]}
+              />
+            ) : (
+              <span className="barre-filtres-resume">Aucun brouillon : tout le contenu est affiché.</span>
             )}
-          </p>
+            <div className="row-actions">
+              {formation.modules.length > 0 && (
+                <button
+                  type="button"
+                  className="btn-discret"
+                  onClick={() =>
+                    setReplies(Object.fromEntries(formation.modules.map((m) => [m.id, !toutReplie])))
+                  }
+                >
+                  <Icone nom={toutReplie ? 'chevron-bas' : 'chevron-haut'} taille={16} />
+                  {toutReplie ? 'Tout déplier' : 'Tout replier'}
+                </button>
+              )}
+              {modifiable && (
+                <button className="btn-sm" onClick={() => setContenuOuvert(true)}>
+                  <Icone nom="modifier" taille={16} />
+                  Modifier le contenu
+                </button>
+              )}
+            </div>
+          </div>
 
           {contenuOuvert && (
             <ContenuFormationModal
@@ -165,129 +205,138 @@ export default function MaFormationPage(): JSX.Element {
             />
           )}
 
-          {NOTES[formation.statut] !== null && (
-            <p className="alert alert-info">{NOTES[formation.statut]}</p>
-          )}
-
-          <dl className="fiche">
-            <div>
-              <dt>Capacité</dt>
-              <dd>{formation.capaciteMax} apprenants</dd>
-            </div>
-            <div>
-              <dt>Seuil de certification</dt>
-              <dd>{formation.noteMinCertification} %</dd>
-            </div>
-            {formation.description && (
-              <div className="fiche-large">
-                <dt>Description</dt>
-                <dd>{formation.description}</dd>
-              </div>
-            )}
-            {formation.objectifs && (
-              <div className="fiche-large">
-                <dt>Objectifs pédagogiques</dt>
-                <dd>{formation.objectifs}</dd>
-              </div>
-            )}
-            {formation.prerequis && (
-              <div className="fiche-large">
-                <dt>Prérequis</dt>
-                <dd>{formation.prerequis}</dd>
-              </div>
-            )}
-          </dl>
-
-          <h2 className="section-title">Modules</h2>
           {formation.modules.length === 0 ? (
             <EtatVide
               titre="Aucun module pour l’instant"
               texte="Ajoutez les modules du programme avec « Modifier le contenu » : vous pourrez ensuite y créer QCM et ateliers."
             />
           ) : (
-            <ol className="espace-modules">
-              {formation.modules.map((m) => (
-                <li key={m.id} className="espace-module">
-                  <div className="espace-module-tete">
-                    <span className="module-ordre">{m.ordre}</span>
-                    <div className="module-corps">
-                      <div className="module-titre">{m.titre}</div>
-                      {m.description && <div className="field-hint">{m.description}</div>}
+            <ol className="espace-modules modules-lisibles">
+              {formation.modules.map((m) => {
+                const listeQcm = qcms[m.id] ?? [];
+                const listeAteliers = ateliers[m.id] ?? [];
+                const visiblesQcm = brouillons === 'masquer' ? listeQcm.filter((q) => q.statut !== 'BROUILLON') : listeQcm;
+                const visiblesAteliers =
+                  brouillons === 'masquer' ? listeAteliers.filter((a) => a.statut !== 'BROUILLON') : listeAteliers;
+                const replie = replies[m.id] ?? false;
+                const resume = resumeModule({
+                  qcm: listeQcm.map((q) => q.statut),
+                  ateliers: listeAteliers.length,
+                  ressources: nbRessources[m.id],
+                  supports: nbSupports[m.id],
+                });
+                const idCorps = `module-${m.id}`;
+                return (
+                  <li key={m.id} className={`espace-module module-bloc${replie ? ' module-replie' : ''}`}>
+                    <div className="module-bloc-tete">
+                      <button
+                        type="button"
+                        className="module-bloc-bascule"
+                        aria-expanded={!replie}
+                        aria-controls={idCorps}
+                        onClick={() => setReplies((r) => ({ ...r, [m.id]: !replie }))}
+                      >
+                        <span className="module-ordre">{m.ordre}</span>
+                        <span className="module-bloc-titres">
+                          <span className="module-titre">{m.titre}</span>
+                          <span className="module-resume">{resume}</span>
+                        </span>
+                        <Icone nom={replie ? 'chevron-bas' : 'chevron-haut'} taille={20} />
+                      </button>
+                      {modifiable && (
+                        <MenuActions
+                          libelle="Ajouter"
+                          icone="ajouter"
+                          principal
+                          contexte={m.titre}
+                          elements={[
+                            { libelle: 'Nouveau QCM', icone: 'qcm', onClick: () => setNouveauQcm({ id: m.id, titre: m.titre }) },
+                            { libelle: 'Nouvel atelier', icone: 'atelier', onClick: () => setNouvelAtelier({ id: m.id, titre: m.titre }) },
+                            { libelle: 'Lien ou vidéo', icone: 'video', onClick: () => demander(m, 'lien'), separe: true },
+                            { libelle: 'Fichier', icone: 'fichier', onClick: () => demander(m, 'fichier') },
+                            { libelle: 'Support pour l’IA', icone: 'ia', onClick: () => demander(m, 'support'), separe: true },
+                          ]}
+                        />
+                      )}
                     </div>
-                    {modifiable && (
-                      <div className="module-boutons">
-                        <button
-                          className="btn-sm btn-primary-sm"
-                          onClick={() => setNouveauQcm({ id: m.id, titre: m.titre })}
-                        >
-                          + Nouveau QCM
-                        </button>
-                        <button
-                          className="btn-sm btn-primary-sm"
-                          onClick={() => setNouvelAtelier({ id: m.id, titre: m.titre })}
-                        >
-                          + Nouvel atelier
-                        </button>
-                      </div>
-                    )}
-                  </div>
-                  {(qcms[m.id] ?? []).length === 0 ? (
-                    <p className="espace-vide">Aucun QCM dans ce module.</p>
-                  ) : (
-                    <ul className="espace-qcms">
-                      {(qcms[m.id] ?? []).map((q) => (
-                        <li key={q.id} className="espace-qcm">
-                          <div className="module-corps">
-                            <Link className="table-link" href={`/formateur/qcm/${q.id}`}>
-                              QCM · {q.titre}
-                            </Link>
-                            <div className="field-hint">
-                              {q.nbQuestions} question{q.nbQuestions > 1 ? 's' : ''}
-                            </div>
-                          </div>
-                          <span className={`statut-badge statut-${q.statut}`}>
-                            {LIBELLES_STATUT_QCM[q.statut]}
-                          </span>
-                          <Link className="btn-sm btn-link" href={`/formateur/qcm/${q.id}`}>
-                            Ouvrir
-                          </Link>
-                        </li>
-                      ))}
-                    </ul>
-                  )}
-                  {(ateliers[m.id] ?? []).length === 0 ? (
-                    <p className="espace-vide">Aucun atelier dans ce module.</p>
-                  ) : (
-                    <ul className="espace-qcms">
-                      {(ateliers[m.id] ?? []).map((a) => (
-                        <li key={a.id} className="espace-qcm espace-atelier">
-                          <div className="module-corps">
-                            <Link className="table-link" href={`/formateur/ateliers/${a.id}`}>
-                              Atelier · {a.titre}
-                            </Link>
-                            <div className="field-hint">
-                              À rendre avant le {dateHeureFr(a.dateLimite)} ·{' '}
-                              {a.typesLivrables.map((t) => `.${t}`).join(' ')}
-                            </div>
-                          </div>
-                          <span className={`statut-badge statut-${a.statut}`}>
-                            {LIBELLES_STATUT_ATELIER[a.statut]}
-                          </span>
-                          <Link className="btn-sm btn-link" href={`/formateur/ateliers/${a.id}`}>
-                            Ouvrir
-                          </Link>
-                        </li>
-                      ))}
-                    </ul>
-                  )}
-                  <RessourcesFormateur
-                    moduleId={m.id}
-                    moduleTitre={m.titre}
-                    modifiable={modifiable}
-                  />
-                  <SupportsModule moduleId={m.id} moduleTitre={m.titre} modifiable={modifiable} />
-                </li>
-              ))}
+                    <div id={idCorps} className="module-bloc-corps" hidden={replie}>
+                      {m.description && <p className="field-hint module-description">{m.description}</p>}
+                      <p className="module-rubrique">Évaluations</p>
+                      {visiblesQcm.length + visiblesAteliers.length === 0 ? (
+                        <p className="espace-vide">
+                          {listeQcm.length + listeAteliers.length === 0
+                            ? 'Aucun QCM ni atelier dans ce module.'
+                            : 'Seulement des brouillons, masqués par le filtre.'}
+                        </p>
+                      ) : (
+                        <ul className="espace-qcms elements-module">
+                          {visiblesQcm.map((q) => (
+                            <li key={q.id} className={`espace-qcm element-module${q.statut === 'BROUILLON' ? ' element-brouillon' : ''}`}>
+                              <span className="element-icone element-icone-qcm">
+                                <Icone nom="qcm" taille={18} />
+                              </span>
+                              <div className="module-corps">
+                                <Link className="table-link" href={`/formateur/qcm/${q.id}`}>
+                                  <span className="sr-only">QCM · </span>
+                                  {q.titre}
+                                </Link>
+                                <div className="field-hint">
+                                  QCM · {q.nbQuestions} question{q.nbQuestions > 1 ? 's' : ''}
+                                </div>
+                              </div>
+                              <PastilleStatut statut={q.statut} libelle={LIBELLES_STATUT_QCM[q.statut]} />
+                              <Link className="btn-sm btn-link" href={`/formateur/qcm/${q.id}`}>
+                                Ouvrir
+                              </Link>
+                            </li>
+                          ))}
+                          {visiblesAteliers.map((a) => (
+                            <li key={a.id} className={`espace-qcm espace-atelier element-module${a.statut === 'BROUILLON' ? ' element-brouillon' : ''}`}>
+                              <span className="element-icone element-icone-atelier">
+                                <Icone nom="atelier" taille={18} />
+                              </span>
+                              <div className="module-corps">
+                                <Link className="table-link" href={`/formateur/ateliers/${a.id}`}>
+                                  <span className="sr-only">Atelier · </span>
+                                  {a.titre}
+                                </Link>
+                                <div className="field-hint">
+                                  Atelier · à rendre avant le {dateHeureFr(a.dateLimite)} ·{' '}
+                                  {a.typesLivrables.map((t) => `.${t}`).join(' ')}
+                                </div>
+                              </div>
+                              <PastilleStatut statut={a.statut} libelle={LIBELLES_STATUT_ATELIER[a.statut]} />
+                              <Link className="btn-sm btn-link" href={`/formateur/ateliers/${a.id}`}>
+                                Ouvrir
+                              </Link>
+                            </li>
+                          ))}
+                        </ul>
+                      )}
+                      <RessourcesFormateur
+                        moduleId={m.id}
+                        moduleTitre={m.titre}
+                        modifiable={modifiable}
+                        boutonsAjout={false}
+                        onCompte={(n) => compteRessources(m.id, n)}
+                        demandeAjout={
+                          demande && demande.moduleId === m.id && demande.type !== 'support'
+                            ? { type: demande.type, jeton: demande.jeton }
+                            : null
+                        }
+                      />
+                      <SupportsModule
+                        moduleId={m.id}
+                        moduleTitre={m.titre}
+                        modifiable={modifiable}
+                        boutonsAjout={false}
+                        onCompte={(n) => compteSupports(m.id, n)}
+                        demandeAjout={demande && demande.moduleId === m.id && demande.type === 'support' ? demande.jeton : null}
+                      />
+                    </div>
+                  </li>
+                );
+              })}
             </ol>
           )}
         </>

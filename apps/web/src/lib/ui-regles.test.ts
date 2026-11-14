@@ -4,7 +4,7 @@
  */
 import assert from 'node:assert/strict';
 import { describe, it } from 'node:test';
-import { avancementMoyen, etapeCourante, parFormation, texteCompteur } from './ui-regles.ts';
+import { avancementMoyen, etapeCourante, parFormation, resumeModule, texteCompteur } from './ui-regles.ts';
 
 describe('texteCompteur', () => {
   it('absent → rien', () => {
@@ -65,5 +65,21 @@ describe('avancementMoyen', () => {
   it('aucun apprenant en cours → null', () => {
     assert.equal(avancementMoyen([]), null);
     assert.equal(avancementMoyen([{ statutInscription: 'TERMINEE', avancement: 100 }]), null);
+  });
+});
+
+describe('resumeModule', () => {
+  it('compte les QCM publiés, accorde le pluriel', () => {
+    assert.equal(
+      resumeModule({ qcm: ['PUBLIE', 'BROUILLON', 'NON_PUBLIE'], ateliers: 1, ressources: 2, supports: 1 }),
+      '3 QCM dont 1 publié · 1 atelier · 2 ressources · 1 support IA',
+    );
+    assert.equal(
+      resumeModule({ qcm: ['PUBLIE', 'PUBLIE'], ateliers: 0, ressources: 0, supports: 3 }),
+      '2 QCM dont 2 publiés · 0 atelier · 0 ressource · 3 supports IA',
+    );
+  });
+  it('module vide ; ressources et supports pas encore chargés', () => {
+    assert.equal(resumeModule({ qcm: [], ateliers: 2 }), '0 QCM · 2 ateliers');
   });
 });

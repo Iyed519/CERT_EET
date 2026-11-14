@@ -106,11 +106,15 @@ la charte ESPRIT décrite dans `docs/GUIDE_STYLE.md` (captures dans
    modèle suggère, le formateur décide ». Le premier calcul a lieu une minute
    après le démarrage de l'api, puis une fois par jour.
 3. *Alertes* : traiter l'alerte d'Ahmed (action, commentaire).
-4. *Livrables à corriger* (ou *Mes formations* -> formation) -> atelier « API REST de réservation » ->
+4. *Mes formations* -> formation : onglets **Vue d'ensemble**, **Contenu**
+   (modules repliables, un bouton « Ajouter » par module : QCM, atelier, lien ou
+   vidéo, fichier, support pour l'IA ; « Masquer les brouillons »),
+   **Apprenants** (suivi), **Rapports** (US-UX-04).
+   Puis *Livrables à corriger* (ou l'onglet Contenu) -> atelier « API REST de réservation » ->
    corriger le livrable de Youssef avec la grille, finaliser : le feedback
    devient visible à l'apprenant.
 5. **Importer des questions depuis un fichier** (US-IA-08) : *Mes formations*
-   -> formation -> créer un QCM -> « Importer depuis un fichier » (PDF, PDF
+   -> formation -> « Ajouter » -> « Nouveau QCM » -> « Importer depuis un fichier » (PDF, PDF
    scanné, DOCX, TXT, CSV, XLSX ou image) ; l'IA recopie les questions, le
    formateur relit, corrige et choisit celles à ajouter. L'IA réelle (Claude)
    répond dès que `ANTHROPIC_API_KEY` est dans le `.env` (US-IA-09) ; sans
