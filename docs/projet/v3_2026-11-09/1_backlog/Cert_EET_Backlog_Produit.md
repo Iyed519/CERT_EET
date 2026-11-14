@@ -26,6 +26,7 @@ Table des matières
 | 2.6 | 13 novembre 2026 | Ajout de **US-QCM-15** (E3 · Should · 8 pts) — surveillance webcam par IA (détection d'objets dans le navigateur) avec alerte et photo de l'instant au formateur ; plus de vidéo visible par l'apprenant ; amende la règle « aucune analyse biométrique automatique » d'US-QCM-12 (détection d'objets et de présence, aucune identification) ; demande du propriétaire, accord de l'encadrant à sa charge ; livrée le 13/11/2026 (journal 106). |
 | 2.7 | 14 novembre 2026 | Ajout de **US-QCM-16** (E3 · Must · 3 pts) — photos seulement en cas d'anomalie (photos périodiques désactivées par défaut, réglage de test), détection du téléphone fiabilisée (épisodes tolérants, meilleure image), état de l'analyse visible ; retour du premier essai réel du propriétaire, livrée le 14/11/2026 (journal 107). |
 | 2.8 | 14 novembre 2026 | Ajout de **US-QCM-17** (E3 · Should · 3 pts) — apprenants signalés par l'IA dans les listes du formateur (tentatives d'un QCM, suivi pédagogique, fiche) ; demande du propriétaire, livrée le 14/11/2026 (journal 108). |
+| 2.9 | 14 novembre 2026 | Nouvelle épopée **E11 « Organisation et lisibilité des espaces formateur et administrateur »** (US-UX-01 → US-UX-09, 37 pts) : demande du propriétaire — tout l'espace formateur et tout l'espace administrateur réorganisés et rendus visuels, **sans retirer aucune fonction** (inventaire « avant / après » des actions comme garde-fou). Source : `claude/Cert_EET_Revision_v2.9_E11_Reorganisation.md`. |
 | 2.1 | Novembre 2026 (après le Sprint 6) | Ajout de **US-QCM-13** (E3 · Should · 5 pts) — rapport PDF détaillé du résultat d'une tentative notée, pour l'apprenant (corrigé selon les règles d'US-QCM-09) et le formateur affecté (corrigé toujours inclus) ; livrée le 12/11/2026 (journal 93). Source : `claude/Cert_EET_Revision_v2.1_US-QCM-13.md`. |
 
 ---
@@ -604,6 +605,25 @@ Table des matières
 | US-UI-08 | Recette finale : cohérence, accessibilité, guide de style | Must | 3 | Livrée (journal 102) |
 
 **Total E10 : 8 stories — 34 points.**
+
+## E11 Épopée — Organisation et lisibilité des espaces formateur et administrateur *(révision v2.9)*
+
+- **Objectif :** que le formateur et l'administrateur sachent **instantanément** ce qu'ils font : chaque page a un titre, une phrase, une action principale et un fil d'Ariane ; sections, statuts et compteurs se distinguent au premier coup d'œil (icônes, pastilles, onglets, étapes). **Aucune fonction retirée** : chaque action de l'inventaire « avant » reste accessible, au plus à un clic de plus. Aucune API, règle métier ni permission modifiée (exception : un point d'API en lecture seule pour les compteurs du menu, US-UX-02). Interface apprenant et pages publiques inchangées.
+- **Source :** `claude/Cert_EET_Revision_v2.9_E11_Reorganisation.md` (Gherkin complet).
+
+| ID | User story | MoSCoW | Points | État |
+| --- | --- | --- | --- | --- |
+| US-UX-01 | Inventaire des fonctions et socle visuel (icônes, hiérarchie des actions, onglets, étapes, cartes cliquables) | Must | 5 | Livrée (journal 109) |
+| US-UX-02 | Navigation latérale par rôle, groupée, avec icônes et compteurs | Must | 5 | À faire |
+| US-UX-03 | Tableau de bord formateur réorganisé | Must | 3 | À faire |
+| US-UX-04 | Espace d'une formation (formateur) en onglets, modules lisibles | Must | 5 | À faire |
+| US-UX-05 | Éditeur de QCM et page d'atelier en étapes et onglets | Must | 5 | À faire |
+| US-UX-06 | Tableau de bord administrateur réorganisé | Must | 3 | À faire |
+| US-UX-07 | Listes de l'administrateur : une action principale, les autres dans un menu | Must | 5 | À faire |
+| US-UX-08 | Suivi, alertes, rapports, risque, IA, audit : pages homogènes et lisibles | Should | 3 | À faire |
+| US-UX-09 | Recette finale : inventaire avant / après, audit, guide de style et de démo | Must | 3 | À faire |
+
+**Total E11 : 9 stories — 37 points.**
 
 ## E7 Épopée — Chatbot IA apprenant *(hors périmètre — fonctionnalité pivotée)*
 

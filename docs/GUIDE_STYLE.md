@@ -1,7 +1,9 @@
 # Cert_EET — Guide de style
 
 > Charte d'interface de Cert_EET, établie par l'épopée **E10 « Expérience utilisateur & charte
-> ESPRIT »** (US-UI-01 → US-UI-08, journaux 95 à 102). À lire avant d'ajouter ou de modifier un
+> ESPRIT »** (US-UI-01 → US-UI-08, journaux 95 à 102), complétée par l'épopée **E11 « Organisation
+> et lisibilité des espaces formateur et administrateur »** (US-UX-01 → US-UX-09, journaux 109 et
+> suivants ; briques au § 10). À lire avant d'ajouter ou de modifier un
 > écran. Les valeurs vivent dans `apps/web/src/app/globals.css` (bloc `:root`) : ce guide les
 > explique, il ne les remplace pas.
 
@@ -175,3 +177,68 @@ deux fenêtres sont empilées, Échap ne ferme que la plus haute.
 | Accueil formateur | ![](guide-style/formateur-accueil.png) |
 | Comptes (administrateur) | ![](guide-style/admin-utilisateurs.png) |
 | Certificats (administrateur) | ![](guide-style/admin-certificats.png) |
+
+## 10. Briques de l'épopée E11 (US-UX-01)
+
+![Socle visuel E11](guide-style/socle-e11.png)
+
+### Icônes — `Icone`
+`<Icone nom="qcm" />` : SVG inline écrit pour le projet (aucun paquet), grille 24 px, trait 2 px,
+couleur du texte. Tailles : 16 dans un bouton compact ou un menu, 20 par défaut, 24 dans un titre.
+Décorative par défaut (`aria-hidden`) : le texte voisin porte le sens. Icône seule porteuse de sens :
+`libelle="…"`. Bouton icône seule : `aria-label` sur le bouton. Les noms disponibles sont dans
+`NOMS_ICONES` ; un objet de la plateforme a toujours la même icône (formation, module, qcm, atelier,
+livrable, ressource, fichier, video, ia, apprenant(s), alerte, rapport, risque, certificat, audit…).
+
+### Les quatre niveaux de bouton
+| Niveau | Classe | Règle |
+|---|---|---|
+| Principal | `.btn` ou `.btn-sm.btn-primary-sm` | Rouge plein, **un seul par zone** (en-tête de page, section, fenêtre, ligne) |
+| Secondaire | `.btn-sm` ou `.btn.btn-secondaire` | Contour gris |
+| Discret | `.btn-discret` | Texte rouge foncé, pour « Voir tout », « Afficher plus » |
+| Dangereux | `.btn-sm.btn-danger` | Contour rouge sombre, **toujours suivi d'une confirmation** (`ConfirmationModal`, `Fenetre` + `btn-danger-solid`) |
+
+### Menu « Plus d'actions » — `MenuActions`
+Regroupe les actions secondaires d'une ligne, d'une carte ou d'un en-tête derrière ⋯ (ou derrière un
+libellé : `libelle="Ajouter"`, `principal` pour un bouton plein). Éléments : `{ libelle, icone, href
+| onClick, danger, desactive, separe }` ; les actions dangereuses vont en dernier, séparées. Clavier :
+Entrée, Espace ou ↓ ouvrent ; ↑ ↓ Origine Fin ; Échap ferme et rend le focus ; Tab ferme. La liste est
+en position fixe : jamais coupée par un tableau qui défile, au-dessus du bouton en bas d'écran.
+
+![Menu « Plus d'actions »](guide-style/menu-plus-actions.png)
+
+### Onglets — `Onglets` et `PanneauOnglet`
+Deux usages : **onglets à adresse** (chaque onglet a `href` : barre de liens, `aria-current`, adresse
+partageable et retour arrière) pour les sections d'un objet (une formation, un QCM) ; **onglets dans
+la page** (`onChange` + `PanneauOnglet`, motif ARIA « tabs », flèches gauche / droite) pour basculer
+une vue. Compteur : gris s'il informe (affiché même à 0), rouge s'il faut agir (`compteurAlerte`,
+masqué à 0).
+
+### Étapes — `Etapes`
+Parcours ordonné (rédiger → paramétrer → publier → suivre) : chaque étape a un état écrit en toutes
+lettres (`fait`, `en cours`, `à faire`, `bloquant`) et un détail court ; l'étape courante est la
+première qui n'est pas faite (`aria-current="step"`). `action` = la prochaine action, seul bouton
+plein de la zone. Sous 640 px, les étapes s'empilent et l'action prend toute la largeur.
+
+### Sections — `SectionPage`
+Titre `h2` précédé d'une icône dans une pastille rouge pâle, phrase facultative, actions à droite,
+contenu sur une carte blanche. `ton="accent"` (filet rouge à gauche) pour **la** section qui demande
+une action ; `ton="discret"` sans carte, pour un bloc déjà encadré.
+
+### Indicateurs — `CarteIndicateur` et `GroupeIndicateurs`
+Icône, libellé, chiffre (34 px), et en option une tendance (icône + texte) ou une aide. Avec `href`,
+toute la carte est un lien vers **la liste filtrée** correspondante (flèche en haut à droite). États :
+`alerte` (filet rouge sombre, à traiter), `attention` (ambre), `succes`. Grouper par thème avec un
+titre de groupe en capitales.
+
+### Pastilles de statut — `PastilleStatut`
+`<PastilleStatut statut="PUBLIE" />` : libellé et ton déduits du code de l'API (`lib/libelles.ts`,
+`pastilleDuStatut`) ; `libelle` pour un libellé propre au contexte (« À corriger »). Tons : succès,
+attention, danger, info, neutre, brouillon (contour en tirets : un brouillon se distingue d'un coup
+d'œil d'un élément publié). Toujours couleur + icône + texte.
+
+### Libellés humains — `lib/libelles.ts`
+Jamais de code brut à l'écran : `libelleActionAudit('LOGIN')` → « Connexion »,
+`categorieAudit(code)` → connexions, comptes, formations, évaluations, certificats, IA, sécurité ;
+`libelleActeur(null)` → « Système ». Un code inconnu reçoit un repli lisible (« Nouveau code »).
+Testé par `npm run test:unitaires` (Node 22+), aussi exécuté par la CI.

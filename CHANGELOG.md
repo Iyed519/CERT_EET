@@ -15,6 +15,16 @@
 
 ## [Après le Sprint 6] — Stories hors sprint
 
+#### US-UX-01 — Inventaire des fonctions et socle visuel (épopée E11) — journal `engineering-log/109`
+- **Quoi :** inventaire de toutes les actions des espaces formateur et administrateur
+  (`outils/recette/inventaire-actions.js`, référence `docs/ux/inventaire-avant.json`, 297 actions) et
+  outil de comparaison « avant / après » ; briques visuelles communes : icônes SVG (`Icone`), quatre
+  niveaux de bouton (dont `.btn-discret`), menu « Plus d'actions » accessible au clavier, onglets avec
+  compteur, étapes d'un parcours, sections avec icône, indicateurs cliquables, pastilles de statut ;
+  libellés humains des actions d'audit et des statuts (`lib/libelles.ts`). Tests des règles pures du
+  web ajoutés à la CI. Aucune page ni API modifiée.
+- **Pourquoi :** réorganiser sans rien perdre — l'inventaire est le garde-fou de chaque story E11.
+
 #### US-QCM-17 — Apprenants signalés par l'IA dans les listes du formateur — journal `engineering-log/108`
 - **Quoi :** signal rouge « N alertes IA à examiner » sur la ligne de la tentative (liste des
   tentatives d'un QCM, avec un filtre « Signalées par l'IA ») et sur la ligne de l'apprenant dans le

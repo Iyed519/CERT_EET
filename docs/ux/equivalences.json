@@ -1,0 +1,4 @@
+{
+  "commentaire": "US-UX-01 — Équivalences documentées entre un libellé d'action « avant » et son ou ses libellés « après » (épopée E11). Clé : libellé avant ; valeur : libellé(s) après. Chaque entrée est justifiée dans le journal de la story qui l'ajoute.",
+  "libelles": {}
+}

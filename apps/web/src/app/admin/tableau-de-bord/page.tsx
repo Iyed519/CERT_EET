@@ -5,6 +5,7 @@ import { AFaireMaintenant } from '../../../components/AFaireMaintenant';
 import { aFaireAdministrateur } from '../../../lib/a-faire';
 import { FormEvent, useCallback, useEffect, useState } from 'react';
 import { getTableauDeBordGlobal, TableauDeBordGlobal } from '../../../lib/api';
+import { libelleActionAudit } from '../../../lib/libelles';
 import {
   dateHeureFr,
   jourFr,
@@ -330,7 +331,7 @@ export default function TableauDeBordPage(): JSX.Element {
                 {t.activiteRecente.map((e, i) => (
                   <li key={`${e.horodatage}-${i}`}>
                     <span>
-                      <strong>{e.action}</strong> · {acteurFr(e.acteur)}
+                      <strong>{libelleActionAudit(e.action)}</strong> · {acteurFr(e.acteur)}
                       {e.resultat === 'Échec' && <span className="tdb-echec"> · Échec</span>}
                     </span>
                     <span>{dateHeureFr(e.horodatage)}</span>

@@ -41,3 +41,15 @@ Variables : `BASE` (https://localhost), `CHROME` (exécutable ; sinon le Chrome
 installé), `LARGEURS` (`1280,390`), `ROLES` (`visiteur,apprenant,formateur,administrateur,securite`),
 `MAX_PAGES` (120 par rôle), `RAPPORT` (fichier JSON), `VERBEUX=1` (liste des
 pages parcourues). Code de sortie 0 : aucun problème.
+
+## Inventaire des actions (US-UX-01)
+
+`inventaire-actions.js` relève, pour le formateur et l'administrateur (`ROLES`), chaque action
+visible de chaque page (liens, boutons, onglets, éléments de menu, listes, volets), puis ouvre sans
+rien modifier les onglets, les menus (`aria-haspopup`, `aria-expanded`) et les fenêtres des boutons
+sans effet destructeur, et relève ce qui y apparaît (profondeur 1). Sortie JSON + résumé Markdown
+(`INVENTAIRE`, défaut `docs/ux/inventaire.json`).
+
+`comparer-inventaires.js avant.json apres.json [equivalences.json] [rapport.md]` vérifie la règle
+de l'épopée E11 : aucune action perdue, au plus un clic de plus (voir `docs/ux/README.md`).
+Logique pure dans `inventaire-lib.js`, testée par `npm test` (`node --test`).

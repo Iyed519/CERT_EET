@@ -1881,3 +1881,118 @@ td > .signal-ia, td > a.signal-ia { display: flex; width: fit-content; }
   .surv-fiche { grid-template-columns: 1fr; gap: 2px; }
   .surv-fiche dd { margin-bottom: 8px; }
 }
+
+/* ============================================================
+   US-UX-01 — Socle visuel de l'épopée E11 : icônes, quatre niveaux de
+   bouton, menu « Plus d'actions », onglets, étapes, sections, indicateurs,
+   pastilles de statut. Contrastes calculés (WCAG AA) en commentaire.
+   ============================================================ */
+.icone { flex-shrink: 0; vertical-align: -0.2em; }
+.btn .icone, .btn-sm .icone, .btn-discret .icone { margin-right: 6px; }
+.btn-sm .icone:last-child:not(:first-child) { margin: 0 0 0 6px; }
+
+/* Niveau 3 — action discrète (texte) : rouge foncé 7,26:1 sur blanc. */
+.btn-discret { display: inline-flex; align-items: center; padding: 6px 8px; border: 0; border-radius: 8px; background: none; color: var(--primary-dark); font: inherit; font-size: 0.86rem; font-weight: 600; cursor: pointer; text-decoration: none; }
+.btn-discret:hover:not(:disabled) { background: var(--surface-3); text-decoration: underline; }
+.btn-discret:focus-visible, .menu-actions-element:focus-visible, .onglets-onglet:focus-visible, .etapes-lien:focus-visible, .indicateur-cliquable:focus-visible { outline: none; box-shadow: var(--ring); }
+
+/* Menu « Plus d'actions » (⋯) */
+.menu-actions { position: relative; display: inline-flex; }
+.menu-actions-bouton { display: inline-flex; align-items: center; gap: 0; }
+.menu-actions-bouton[aria-expanded='true'] { background: var(--surface-3); border-color: var(--border-strong); }
+.menu-actions-bouton.btn-primary-sm[aria-expanded='true'] { background: var(--primary-dark); border-color: var(--primary-dark); }
+.menu-actions-icone { padding: 6px 8px; }
+.menu-actions-icone .icone { margin: 0; }
+.menu-actions-liste { position: fixed; z-index: 1000; min-width: 220px; max-width: min(320px, calc(100vw - 16px)); padding: 6px; background: var(--surface); border: 1px solid var(--border-strong); border-radius: var(--radius-sm); box-shadow: var(--shadow); }
+.menu-actions-element { display: flex; align-items: center; gap: 10px; width: 100%; padding: 9px 12px; border: 0; border-radius: 8px; background: none; color: var(--text); font: inherit; font-size: var(--fs-corps); font-weight: 500; text-align: left; text-decoration: none; cursor: pointer; }
+.menu-actions-element:hover, .menu-actions-element:focus-visible { background: var(--surface-3); color: var(--ink); text-decoration: none; }
+.menu-actions-element .icone { color: var(--muted); }
+.menu-actions-danger, .menu-actions-danger:hover, .menu-actions-danger .icone { color: var(--danger); }
+.menu-actions-separe { margin-top: 5px; position: relative; }
+.menu-actions-separe::before { content: ''; position: absolute; left: 8px; right: 8px; top: -3px; border-top: 1px solid var(--border); }
+.menu-actions-element[aria-disabled='true'] { opacity: 0.5; cursor: not-allowed; }
+.menu-actions-sans-icone { display: inline-block; width: 16px; }
+
+/* Onglets (avec compteur) */
+.onglets { position: relative; display: flex; gap: 2px; margin: 0 0 var(--sp-5); border-bottom: 1px solid var(--border-strong); overflow-x: auto; scrollbar-width: thin; }
+.onglets-onglet { display: inline-flex; align-items: center; gap: 8px; margin-bottom: -1px; padding: 11px 14px; border: 0; border-bottom: 3px solid transparent; border-radius: 8px 8px 0 0; background: none; color: var(--muted); font: inherit; font-size: var(--fs-corps); font-weight: 650; white-space: nowrap; text-decoration: none; cursor: pointer; }
+.onglets-onglet:hover { color: var(--ink); background: var(--surface-3); text-decoration: none; }
+.onglets-actif, .onglets-actif:hover { color: var(--ink); border-bottom-color: var(--primary); background: var(--surface); }
+.onglets-actif .icone { color: var(--primary-dark); }
+/* Compteur gris (#475569 sur #eef2f7 : 6,92:1) ; à traiter : blanc sur rouge sombre (8,15:1). */
+.onglets-compteur { display: inline-flex; align-items: center; justify-content: center; min-width: 22px; height: 20px; padding: 0 7px; border-radius: 999px; background: var(--neutre-soft); color: var(--neutre); font-size: var(--fs-etiquette); font-weight: 700; line-height: 1; }
+.onglets-compteur-alerte { background: var(--danger); color: #fff; }
+.onglets-panneau:focus-visible { outline: none; box-shadow: var(--ring); border-radius: var(--radius-sm); }
+
+/* Étapes d'un parcours */
+.etapes { display: flex; align-items: center; gap: var(--sp-4); flex-wrap: wrap; margin: 0 0 var(--sp-5); padding: var(--sp-3) var(--sp-4); background: var(--surface); border: 1px solid var(--border); border-radius: var(--radius); box-shadow: var(--shadow-sm); }
+.etapes-liste { display: flex; flex: 1 1 520px; flex-wrap: wrap; gap: 4px; margin: 0; padding: 0; list-style: none; counter-reset: etape; }
+.etapes-etape { flex: 1 1 140px; min-width: 0; }
+.etapes-lien { display: flex; align-items: center; gap: 10px; width: 100%; padding: 8px 10px; border: 0; border-radius: var(--radius-sm); background: none; color: inherit; font: inherit; text-align: left; text-decoration: none; }
+a.etapes-lien, button.etapes-lien { cursor: pointer; }
+a.etapes-lien:hover, button.etapes-lien:hover { background: var(--surface-3); text-decoration: none; }
+.etapes-marque { display: inline-grid; place-items: center; flex-shrink: 0; width: 32px; height: 32px; border: 2px solid var(--border-strong); border-radius: 50%; background: var(--surface-2); color: var(--text-2); font-weight: 700; font-size: var(--fs-petit); }
+.etapes-marque .icone { margin: 0; }
+.etapes-fait .etapes-marque { border-color: var(--succes); background: var(--succes-doux); color: var(--succes-fonce); }
+.etapes-bloquant .etapes-marque { border-color: var(--accent); background: var(--warning-soft); color: var(--accent-dark); }
+.etapes-etape[aria-current='step']:not(.etapes-bloquant) .etapes-marque { border-color: var(--primary); background: var(--primary); color: #fff; }
+.etapes-etape[aria-current='step'] .etapes-lien { background: var(--surface-2); box-shadow: inset 0 -3px 0 var(--primary); }
+.etapes-texte { display: flex; flex-direction: column; min-width: 0; }
+.etapes-libelle { color: var(--ink); font-weight: 650; line-height: 1.3; }
+.etapes-etat { color: var(--muted); font-size: var(--fs-petit); }
+.etapes-bloquant .etapes-etat { color: var(--accent-dark); font-weight: 600; }
+.etapes-action { display: flex; gap: var(--sp-2); flex-wrap: wrap; }
+
+/* Section d'une page : titre avec icône, détachée du fond */
+.section-page { margin: 0 0 var(--sp-5); padding: var(--sp-5); background: var(--surface); border: 1px solid var(--border); border-radius: var(--radius); box-shadow: var(--shadow-card); }
+.section-page-accent { border-left: 4px solid var(--primary); }
+.section-page-discret { padding: 0; background: transparent; border: 0; box-shadow: none; }
+.section-page-tete { display: flex; align-items: flex-start; justify-content: space-between; gap: var(--sp-3); flex-wrap: wrap; margin-bottom: var(--sp-4); }
+.section-page-titres { min-width: 0; }
+.section-page-titre { display: flex; align-items: center; gap: 10px; margin: 0; color: var(--ink); font-size: var(--fs-h2); font-weight: 700; line-height: 1.3; }
+.section-page-icone { display: inline-grid; place-items: center; flex-shrink: 0; width: 36px; height: 36px; border-radius: var(--radius-sm); background: var(--primary-soft); color: var(--primary-dark); }
+.section-page-phrase { margin: 6px 0 0; color: var(--muted); font-size: var(--fs-petit); max-width: 72ch; }
+.section-page-actions { display: flex; align-items: center; gap: var(--sp-2); flex-wrap: wrap; }
+
+/* Indicateurs clés (cliquables vers la liste filtrée) */
+.groupe-indicateurs { margin: 0 0 var(--sp-4); }
+.groupe-indicateurs-titre { display: flex; align-items: center; gap: 6px; margin: 0 0 var(--sp-2); color: var(--muted); font-size: var(--fs-etiquette); font-weight: 700; letter-spacing: 0.05em; text-transform: uppercase; }
+.groupe-indicateurs-grille { display: grid; grid-template-columns: repeat(auto-fill, minmax(200px, 1fr)); gap: var(--sp-3); }
+.indicateur { position: relative; display: flex; flex-direction: column; gap: 6px; padding: var(--sp-4); background: var(--surface); border: 1px solid var(--border); border-radius: var(--radius); box-shadow: var(--shadow-sm); color: var(--text); font-weight: 400; text-decoration: none; transition: box-shadow 0.15s, border-color 0.15s; }
+a.indicateur:hover { border-color: var(--border-strong); box-shadow: var(--shadow-card-hover); color: var(--text); text-decoration: none; }
+.indicateur-tete { display: flex; align-items: center; gap: 10px; padding-right: 20px; }
+.indicateur-icone { display: inline-grid; place-items: center; flex-shrink: 0; width: 34px; height: 34px; border-radius: var(--radius-sm); background: var(--neutre-soft); color: var(--neutre); }
+.indicateur-libelle { color: var(--text-2); font-size: var(--fs-petit); font-weight: 650; line-height: 1.3; }
+.indicateur-valeur { color: var(--ink); font-size: var(--fs-kpi); font-weight: 750; line-height: 1.1; font-variant-numeric: tabular-nums; }
+.indicateur-pied { display: flex; align-items: center; gap: var(--sp-2); flex-wrap: wrap; color: var(--muted); font-size: var(--fs-petit); }
+.indicateur-tendance { display: inline-flex; align-items: center; gap: 4px; font-weight: 650; }
+.indicateur-tendance-hausse { color: var(--succes-fonce); }
+.indicateur-tendance-baisse { color: var(--danger); }
+.indicateur-fleche { position: absolute; top: var(--sp-4); right: 14px; color: var(--muted); }
+.indicateur-alerte { border-left: 4px solid var(--danger); }
+.indicateur-alerte .indicateur-icone { background: var(--danger-soft); color: var(--danger); }
+.indicateur-attention { border-left: 4px solid var(--accent); }
+.indicateur-attention .indicateur-icone { background: var(--warning-soft); color: var(--accent-dark); }
+.indicateur-succes .indicateur-icone { background: var(--succes-doux); color: var(--succes-fonce); }
+
+/* Pastilles de statut : couleur + icône + texte (contrastes ≥ 5,2:1 sur leur fond) */
+.pastille { display: inline-flex; align-items: center; gap: 5px; padding: 3px 10px 3px 8px; border: 1px solid transparent; border-radius: var(--radius-pill); font-size: 0.76rem; font-weight: 650; line-height: 1.4; white-space: nowrap; vertical-align: middle; }
+.pastille .icone { margin: 0; }
+.pastille-succes { background: var(--succes-doux); color: var(--succes-fonce); }
+.pastille-attention { background: var(--warning-soft); color: var(--accent-dark); }
+.pastille-danger { background: var(--danger-soft); color: var(--danger-dark); }
+.pastille-info { background: var(--info-soft); color: var(--info); }
+.pastille-neutre { background: var(--neutre-soft); color: var(--neutre); }
+.pastille-brouillon { background: var(--surface); border: 1px dashed var(--border-strong); color: var(--text-2); }
+
+@media (max-width: 640px) {
+  .etapes { padding: var(--sp-3); }
+  .etapes-liste { flex-direction: column; flex-basis: 100%; }
+  .etapes-etape { flex-basis: auto; }
+  .etapes-action, .etapes-action > * { width: 100%; }
+  .section-page { padding: var(--sp-4); }
+  .section-page-titre { font-size: 1.15rem; }
+  .groupe-indicateurs-grille { grid-template-columns: repeat(2, minmax(0, 1fr)); gap: var(--sp-2); }
+  .indicateur { padding: var(--sp-3); }
+  .indicateur-valeur { font-size: 1.6rem; }
+}
