@@ -59,3 +59,45 @@ export function resumeModule(m: {
   if (m.supports !== undefined) parties.push(pl(m.supports, 'support IA', 'supports IA'));
   return parties.join(' · ');
 }
+
+/**
+ * US-UX-05 — Étapes d'un QCM : 1 Questions, 2 Paramètres anti-fraude,
+ * 3 Publication, 4 Résultats. `parametresBloquants` : paramètres enregistrés
+ * mais une condition de publication qui en dépend n'est pas remplie (tirage
+ * trop grand, fermeture passée).
+ */
+export function etapesQcm(q: {
+  nbQuestions: number;
+  configure: boolean;
+  parametresBloquants: string | null;
+  publie: boolean;
+  tentatives: boolean;
+}): Array<{ cle: 'questions' | 'parametres' | 'publication' | 'resultats'; libelle: string; etat: 'fait' | 'en-cours' | 'a-faire' | 'bloquant'; detail: string }> {
+  const n = q.nbQuestions;
+  return [
+    {
+      cle: 'questions',
+      libelle: 'Questions',
+      etat: n > 0 ? 'fait' : 'a-faire',
+      detail: `${n} question${n > 1 ? 's' : ''}`,
+    },
+    {
+      cle: 'parametres',
+      libelle: 'Paramètres anti-fraude',
+      etat: q.parametresBloquants ? 'bloquant' : q.configure ? 'fait' : 'a-faire',
+      detail: q.parametresBloquants ?? (q.configure ? 'enregistrés' : 'durée, fenêtre, tentatives'),
+    },
+    {
+      cle: 'publication',
+      libelle: 'Publication',
+      etat: q.publie ? 'fait' : 'a-faire',
+      detail: q.publie ? 'visible des apprenants' : 'après les deux premières étapes',
+    },
+    {
+      cle: 'resultats',
+      libelle: 'Résultats',
+      etat: !q.publie ? 'a-faire' : q.tentatives ? 'en-cours' : 'a-faire',
+      detail: !q.publie ? 'après la publication' : q.tentatives ? 'tentatives à consulter' : 'en attente des tentatives',
+    },
+  ];
+}

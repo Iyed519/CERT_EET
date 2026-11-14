@@ -4,7 +4,7 @@
  */
 import assert from 'node:assert/strict';
 import { describe, it } from 'node:test';
-import { avancementMoyen, etapeCourante, parFormation, resumeModule, texteCompteur } from './ui-regles.ts';
+import { avancementMoyen, etapeCourante, etapesQcm, parFormation, resumeModule, texteCompteur } from './ui-regles.ts';
 
 describe('texteCompteur', () => {
   it('absent → rien', () => {
@@ -81,5 +81,31 @@ describe('resumeModule', () => {
   });
   it('module vide ; ressources et supports pas encore chargés', () => {
     assert.equal(resumeModule({ qcm: [], ateliers: 2 }), '0 QCM · 2 ateliers');
+  });
+});
+
+describe('etapesQcm', () => {
+  const base = { nbQuestions: 0, configure: false, parametresBloquants: null, publie: false, tentatives: false };
+  const etats = (x: Parameters<typeof etapesQcm>[0]): string[] => etapesQcm(x).map((e) => e.etat);
+  it('nouveau QCM : tout à faire, la première étape est courante', () => {
+    assert.deepEqual(etats(base), ['a-faire', 'a-faire', 'a-faire', 'a-faire']);
+    assert.equal(etapeCourante(etapesQcm(base)), 0);
+  });
+  it('questions puis paramètres', () => {
+    assert.deepEqual(etats({ ...base, nbQuestions: 3 }), ['fait', 'a-faire', 'a-faire', 'a-faire']);
+    assert.deepEqual(etats({ ...base, nbQuestions: 3, configure: true }), ['fait', 'fait', 'a-faire', 'a-faire']);
+    assert.equal(etapesQcm({ ...base, nbQuestions: 1 })[0].detail, '1 question');
+  });
+  it('paramètres bloquants : état et détail', () => {
+    const e = etapesQcm({ ...base, nbQuestions: 3, configure: true, parametresBloquants: 'fermeture passée' });
+    assert.equal(e[1].etat, 'bloquant');
+    assert.equal(e[1].detail, 'fermeture passée');
+  });
+  it('publié : résultats en attente puis en cours', () => {
+    const pub = { ...base, nbQuestions: 3, configure: true, publie: true };
+    assert.deepEqual(etats(pub), ['fait', 'fait', 'fait', 'a-faire']);
+    assert.deepEqual(etats({ ...pub, tentatives: true }), ['fait', 'fait', 'fait', 'en-cours']);
+    // Des tentatives sans publication (QCM retiré de la vue) : les résultats restent « à faire ».
+    assert.equal(etats({ ...base, nbQuestions: 3, tentatives: true })[3], 'a-faire');
   });
 });

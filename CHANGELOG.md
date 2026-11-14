@@ -15,6 +15,14 @@
 
 ## [Après le Sprint 6] — Stories hors sprint
 
+#### US-UX-05 — Éditeur de QCM et page d'atelier en étapes et onglets — journal `engineering-log/113`
+- **Quoi :** bandeau d'étapes (QCM : questions, paramètres anti-fraude, publication, résultats ;
+  atelier : énoncé, grille, publication, correction ; correction : ouvrir, noter, envoyer) avec la
+  prochaine action en bouton principal ; onglets « Questions », « Paramètres », « Tentatives et
+  résultats », « Surveillance » ; questions compactes dépliables ; « Ajouter des questions » réunit
+  saisie, banque, import et génération IA ; note collante pendant la correction. Aucune API changée.
+- **Pourquoi :** savoir quoi faire ensuite sur un QCM ou un atelier.
+
 #### US-UX-04 — Espace d'une formation (formateur) en onglets, modules lisibles — journal `engineering-log/112`
 - **Quoi :** onglets à adresse « Vue d'ensemble » (nouvelle : fiche, chiffres clés, programme),
   « Contenu » (adresse de la formation), « Apprenants » (suivi) et « Rapports » sous un en-tête

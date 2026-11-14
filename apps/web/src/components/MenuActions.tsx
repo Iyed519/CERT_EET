@@ -36,6 +36,7 @@ export function MenuActions({
   contexte,
   className,
   principal = false,
+  note,
 }: {
   elements: ElementMenu[];
   libelle?: string;
@@ -44,13 +45,14 @@ export function MenuActions({
   className?: string;
   /** Bouton plein (action principale de la zone, par exemple « Ajouter »). */
   principal?: boolean;
+  /** Phrase en tête du menu (par exemple pourquoi des éléments sont indisponibles). */
+  note?: string;
 }): JSX.Element {
   const [ouvert, setOuvert] = useState(false);
   const [position, setPosition] = useState<{ top: number; left: number } | null>(null);
   const bouton = useRef<HTMLButtonElement>(null);
   const liste = useRef<HTMLDivElement>(null);
   const idMenu = useId();
-  const actifs = elements.filter((e) => !e.desactive);
 
   const fermer = useCallback((rendreFocus: boolean) => {
     setOuvert(false);
@@ -156,7 +158,7 @@ export function MenuActions({
         aria-controls={ouvert ? idMenu : undefined}
         aria-label={nomAccessible}
         title={libelle ? undefined : 'Plus d’actions'}
-        disabled={actifs.length === 0}
+        disabled={elements.length === 0}
         onClick={() => (ouvert ? fermer(false) : setOuvert(true))}
         onKeyDown={surToucheBouton}
       >
@@ -180,6 +182,7 @@ export function MenuActions({
           style={position ? { top: position.top, left: position.left } : { visibility: 'hidden', top: 0, left: 0 }}
           onKeyDown={surToucheListe}
         >
+          {note && <p className="menu-actions-note">{note}</p>}
           {elements.map((e, i) => {
             const classe = `menu-actions-element${e.danger ? ' menu-actions-danger' : ''}${e.separe && i > 0 ? ' menu-actions-separe' : ''}`;
             const contenu = (

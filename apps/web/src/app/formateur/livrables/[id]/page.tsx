@@ -22,6 +22,8 @@ import {
   tailleFr,
 } from '../../../../lib/format';
 import { rafraichirCompteurs } from '../../../../components/NavigationLaterale';
+import { Etapes } from '../../../../components/Etapes';
+import { Icone } from '../../../../components/Icone';
 
 /** Saisie en cours d'un critère (les points restent un texte tant qu'on tape). */
 interface Brouillon {
@@ -275,6 +277,35 @@ export default function CorrectionLivrablePage(): JSX.Element {
             </span>
           </div>
 
+          {/* US-UX-05 : où en est la correction, en trois étapes. */}
+          <Etapes
+            libelle="Parcours de la correction"
+            etapes={[
+              {
+                libelle: 'Ouvrir la correction',
+                etat: livrable.statut === 'SOUMIS' ? 'a-faire' : 'fait',
+                detail: livrable.statut === 'SOUMIS' ? 'l’apprenant ne pourra plus modifier' : 'ouverte',
+              },
+              {
+                libelle: 'Noter chaque critère',
+                etat:
+                  livrable.statut === 'NOTE'
+                    ? 'fait'
+                    : livrable.statut === 'SOUMIS'
+                      ? 'a-faire'
+                      : (avancement?.notes ?? 0) >= total && total > 0
+                        ? 'fait'
+                        : 'en-cours',
+                detail: `${avancement?.notes ?? (livrable.statut === 'NOTE' ? total : 0)} / ${total} critère${total > 1 ? 's' : ''}`,
+              },
+              {
+                libelle: 'Envoyer le feedback',
+                etat: livrable.statut === 'NOTE' ? 'fait' : 'a-faire',
+                detail: livrable.statut === 'NOTE' ? 'envoyé, immuable' : 'commentaire général puis envoi',
+              },
+            ]}
+          />
+
           {livrable.statut === 'SOUMIS' && (
             <div className="alert alert-info correction-ouvrir">
               <span>
@@ -355,7 +386,7 @@ export default function CorrectionLivrablePage(): JSX.Element {
           </section>
 
           {livrable.correction && (
-            <div className="score-correction" aria-live="polite">
+            <div className="score-correction score-correction-collant" aria-live="polite">
               <div className="score-correction-valeur">
                 <span className="score-correction-libelle">Score pondéré</span>
                 <strong>{nombreFr(scoreDirect.score)}</strong>
@@ -380,7 +411,10 @@ export default function CorrectionLivrablePage(): JSX.Element {
             </div>
           )}
 
-          <h2 className="section-title">Grille de notation</h2>
+          <h2 className="section-title titre-avec-icone">
+            <Icone nom="grille" taille={20} />
+            Grille de notation
+          </h2>
           {!modifiable && livrable.correction && (
             <p className="alert alert-info">
               Ce livrable est noté : la correction et le feedback ne se modifient plus.

@@ -151,7 +151,8 @@ deux fenêtres sont empilées, Échap ne ferme que la plus haute.
 - **Apprenant** : l'action suivante est toujours visible (« Continuer », « Déposer »,
   « Retenter », « Voir le corrigé ») ; un QCM réussi ne pousse pas à repasser l'épreuve.
 - **Formateur** : l'éditeur de QCM n'a qu'une action pleine, l'étape suivante (ajouter des
-  questions, configurer, publier) ; l'import depuis un fichier (US-IA-08) passe toujours par
+  questions, configurer, publier), portée par le bandeau `Etapes` au-dessus des onglets
+  (US-UX-05 ; même modèle pour l'atelier et la correction d'un livrable) ; l'import depuis un fichier (US-IA-08) passe toujours par
   une relecture.
 - **Administrateur** : une action irréversible demande une confirmation explicite et le mot de
   passe (révoquer : motif + case « Je comprends » ; anonymiser : mot à recopier) ; le bouton de

@@ -205,6 +205,7 @@ async function inventorierPage(page, chemin) {
   for (const c of candidats) {
     if (essais >= 40) break;
     essais++;
+    if (process.env.VERBEUX) console.log(`    · essai ${essais} : [${c.type}${c.menu ? ' menu' : ''}] ${c.libelle.slice(0, 50)}`);
     let loc = page.locator(`[data-inv="${c.id}"]`);
     if (!(await loc.count())) {
       // La page a été rechargée ou redessinée : on retrouve l'élément par son type et son libellé.
@@ -274,12 +275,45 @@ async function inventorierPage(page, chemin) {
         }
       }
     }
+    // US-UX-05 : un bouton sans effet destructeur apparu dans un onglet (« Modifier les
+    // paramètres »…) : sa fenêtre est relevée à la profondeur 2.
+    if (c.type === 'onglet' && !dialogue) {
+      const boutonsOnglet = nouveaux
+        .filter((e) => e.type === 'bouton' && !e.menu && !e.desactive && !e.dansFormulaireSubmit && !BOUTONS_DANGEREUX.test(e.libelle))
+        .slice(0, 6);
+      for (const bo of boutonsOnglet) {
+        await recharger();
+        try {
+          const ongletFrais = (await relever(page, 'body', exclureCoque)).find(
+            (e) => e.type === 'onglet' && normaliserLibelle(e.libelle) === normaliserLibelle(c.libelle),
+          );
+          if (!ongletFrais) break;
+          await page.locator(`[data-inv="${ongletFrais.id}"]`).first().click({ timeout: 3000 });
+          await page.waitForTimeout(300);
+          const cible = (await relever(page, 'body', exclureCoque)).find(
+            (e) => e.type === 'bouton' && normaliserLibelle(e.libelle) === normaliserLibelle(bo.libelle),
+          );
+          if (!cible) continue;
+          const avantBouton = await etatPage(page);
+          await page.locator(`[data-inv="${cible.id}"]`).first().click({ timeout: 3000 });
+          await page.waitForTimeout(500);
+          const apresBouton = await etatPage(page);
+          if (apresBouton.dialogues > avantBouton.dialogues) {
+            const dansFenetre = await relever(page, SEL_DIALOGUE, exclureCoque);
+            for (const e of dansFenetre) ajouter(e, 2, `fenêtre « ${normaliserLibelle(bo.libelle)} »`);
+          }
+        } catch {
+          /* bouton non cliquable : déjà relevé, sa fenêtre ne l'est pas */
+        }
+      }
+    }
     if (dialogue || c.menu) {
       await page.keyboard.press('Escape').catch(() => {});
       await page.waitForTimeout(200);
       const encore = await etatPage(page);
       if (encore.dialogues > avant.dialogues) await recharger();
-    } else if (c.type !== 'onglet') {
+    } else {
+      // Filtre, onglet ou autre bouton : on revient à l'état d'origine de la page.
       await recharger();
     }
   }

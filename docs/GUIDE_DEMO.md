@@ -114,7 +114,9 @@ la charte ESPRIT décrite dans `docs/GUIDE_STYLE.md` (captures dans
    corriger le livrable de Youssef avec la grille, finaliser : le feedback
    devient visible à l'apprenant.
 5. **Importer des questions depuis un fichier** (US-IA-08) : *Mes formations*
-   -> formation -> « Ajouter » -> « Nouveau QCM » -> « Importer depuis un fichier » (PDF, PDF
+   -> formation -> « Ajouter » -> « Nouveau QCM » ; dans l'éditeur, le bandeau
+   d'étapes (Questions, Paramètres anti-fraude, Publication, Résultats) donne la
+   prochaine action (US-UX-05) ; « Ajouter des questions » -> « Importer depuis un fichier » (PDF, PDF
    scanné, DOCX, TXT, CSV, XLSX ou image) ; l'IA recopie les questions, le
    formateur relit, corrige et choisit celles à ajouter. L'IA réelle (Claude)
    répond dès que `ANTHROPIC_API_KEY` est dans le `.env` (US-IA-09) ; sans

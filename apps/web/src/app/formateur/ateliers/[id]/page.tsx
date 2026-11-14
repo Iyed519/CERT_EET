@@ -6,6 +6,12 @@ import { AtelierModal } from '../../../../components/AtelierModal';
 import { ConfirmationModal } from '../../../../components/ConfirmationModal';
 import { GrilleNotation } from '../../../../components/GrilleNotation';
 import { LivrablesAtelier } from '../../../../components/LivrablesAtelier';
+import { EnTetePage } from '../../../../components/EnTetePage';
+import { Etapes } from '../../../../components/Etapes';
+import { Icone } from '../../../../components/Icone';
+import { MenuActions } from '../../../../components/MenuActions';
+import { Onglets, PanneauOnglet } from '../../../../components/Onglets';
+import { PastilleStatut } from '../../../../components/PastilleStatut';
 import {
   AdminError,
   AtelierDetail,
@@ -15,6 +21,8 @@ import {
   publishAtelier,
 } from '../../../../lib/api';
 import { dateHeureFr, LIBELLES_STATUT_ATELIER } from '../../../../lib/format';
+
+type OngletAtelier = 'enonce' | 'grille' | 'livrables';
 
 /** Ce qui est ouvert par-dessus la page (une modale à la fois). */
 type Fenetre = { type: 'modifier' } | { type: 'supprimer' } | { type: 'publier' } | null;
@@ -34,6 +42,11 @@ type Fenetre = { type: 'modifier' } | { type: 'supprimer' } | { type: 'publier' 
  *
  * US-ATEL-06 — Une fois l'atelier publié, la liste de ses livrables (à
  * corriger, en correction, notés) s'affiche sous l'énoncé.
+ *
+ * US-UX-05 — Même modèle que l'éditeur de QCM : bandeau d'étapes (énoncé,
+ * grille, publication, correction et résultats) avec la prochaine action, et
+ * onglets « Énoncé », « Grille de notation », « Livrables et résultats »
+ * (compteur des livrables à corriger) ; « Modifier » et « Supprimer » dans ⋯.
  */
 export default function AtelierPage(): JSX.Element {
   const params = useParams<{ id: string }>();
@@ -45,6 +58,9 @@ export default function AtelierPage(): JSX.Element {
   const [fenetre, setFenetre] = useState<Fenetre>(null);
   const [grilleValidee, setGrilleValidee] = useState(false);
   const [succes, setSucces] = useState<string | null>(null);
+  // US-UX-05 : onglet affiché (livrables d'abord une fois publié) et livrables à corriger.
+  const [onglet, setOnglet] = useState<OngletAtelier | null>(null);
+  const [aCorriger, setACorriger] = useState(0);
   const suivreGrille = useCallback((g: Grille) => setGrilleValidee(g.validee), []);
 
   const charger = useCallback(async (): Promise<void> => {
@@ -64,6 +80,10 @@ export default function AtelierPage(): JSX.Element {
   }, [charger]);
 
   const brouillon = atelier?.statut === 'BROUILLON';
+  const ongletAffiche: OngletAtelier = onglet ?? (brouillon ? 'grille' : 'livrables');
+  // Un atelier publié a forcément une grille validée (la publication l'exige) ; en
+  // brouillon, l'onglet « Grille » (ouvert d'abord) remonte son état.
+  const grilleOk = grilleValidee || !brouillon;
   const raisonFige = 'Seul un atelier en brouillon se modifie ou se supprime.';
   const raisonPublication = grilleValidee
     ? undefined
@@ -79,48 +99,84 @@ export default function AtelierPage(): JSX.Element {
         <p className="page-subtitle">Chargement…</p>
       ) : atelier === null ? null : (
         <>
-          <div className="page-head">
-            <div>
-              <h1 className="page-title">{atelier.titre}</h1>
-              <p className="page-subtitle">
-                Atelier du module « {atelier.moduleTitre} » : définissez l’énoncé et la grille,
-                publiez, puis corrigez les livrables déposés.
-              </p>
-            </div>
-            <div className="row-actions">
-              <span className={`statut-badge statut-${atelier.statut}`}>
-                {LIBELLES_STATUT_ATELIER[atelier.statut]}
-              </span>
-              <button
-                className="btn-sm"
-                onClick={() => setFenetre({ type: 'modifier' })}
-                disabled={!brouillon}
-                title={brouillon ? undefined : raisonFige}
-              >
-                Modifier
-              </button>
-              <button
-                className="btn-sm btn-danger"
-                onClick={() => setFenetre({ type: 'supprimer' })}
-                disabled={!brouillon}
-                title={brouillon ? undefined : raisonFige}
-              >
-                Supprimer
-              </button>
-              {brouillon && (
-                <button
-                  className="btn-sm btn-primary-sm"
-                  onClick={() => setFenetre({ type: 'publier' })}
-                  disabled={!grilleValidee}
-                  title={raisonPublication}
-                >
-                  Publier l’atelier
-                </button>
-              )}
-            </div>
-          </div>
+          <EnTetePage
+            titre={atelier.titre}
+            phrase={`Atelier du module « ${atelier.moduleTitre} » : définissez l’énoncé et la grille, publiez, puis corrigez les livrables déposés.`}
+            statut={<PastilleStatut statut={atelier.statut} libelle={LIBELLES_STATUT_ATELIER[atelier.statut]} />}
+            actions={
+              <MenuActions
+                contexte={atelier.titre}
+                note={brouillon ? undefined : raisonFige}
+                elements={[
+                  { libelle: 'Modifier', icone: 'modifier', desactive: !brouillon, onClick: () => setFenetre({ type: 'modifier' }) },
+                  {
+                    libelle: 'Supprimer',
+                    icone: 'supprimer',
+                    danger: true,
+                    separe: true,
+                    desactive: !brouillon,
+                    onClick: () => setFenetre({ type: 'supprimer' }),
+                  },
+                ]}
+              />
+            }
+          />
 
           {succes !== null && <p className="alert alert-success atelier-annonce">{succes}</p>}
+
+          <Etapes
+            libelle="Parcours de l’atelier"
+            etapes={[
+              { libelle: 'Énoncé', etat: 'fait', detail: `à rendre avant le ${dateHeureFr(atelier.dateLimite)}`, onClick: ongletAffiche === 'enonce' ? undefined : () => setOnglet('enonce') },
+              {
+                libelle: 'Grille de notation',
+                etat: grilleOk ? 'fait' : 'a-faire',
+                detail: grilleOk ? 'validée (100 %)' : 'à valider (total de 100 %)',
+                onClick: ongletAffiche === 'grille' ? undefined : () => setOnglet('grille'),
+              },
+              {
+                libelle: 'Publication',
+                etat: brouillon ? (grilleValidee ? 'a-faire' : 'bloquant') : 'fait',
+                detail: brouillon ? (grilleValidee ? 'prête' : 'grille à valider d’abord') : 'visible des apprenants',
+              },
+              {
+                libelle: 'Correction et résultats',
+                etat: brouillon ? 'a-faire' : aCorriger > 0 ? 'en-cours' : 'fait',
+                detail: brouillon ? 'après la publication' : aCorriger > 0 ? `${aCorriger} livrable${aCorriger > 1 ? 's' : ''} à corriger` : 'rien à corriger',
+                onClick: brouillon || ongletAffiche === 'livrables' ? undefined : () => setOnglet('livrables'),
+              },
+            ]}
+            action={
+              brouillon ? (
+                grilleValidee ? (
+                  <button className="btn-sm btn-primary-sm" onClick={() => setFenetre({ type: 'publier' })} title={raisonPublication}>
+                    <Icone nom="publier" taille={16} />
+                    Publier l’atelier
+                  </button>
+                ) : (
+                  <button className="btn-sm btn-primary-sm" onClick={() => setOnglet('grille')}>
+                    <Icone nom="grille" taille={16} />
+                    Compléter la grille
+                  </button>
+                )
+              ) : aCorriger > 0 ? (
+                <button
+                  className="btn-sm btn-primary-sm"
+                  onClick={() => {
+                    setOnglet('livrables');
+                    // Le premier livrable à corriger reçoit le focus.
+                    window.setTimeout(() => {
+                      document.querySelector<HTMLElement>('#atelier-panneau-livrables .livrable-ligne button.btn-primary-sm, #atelier-panneau-livrables button.btn-primary-sm')?.focus();
+                    }, 50);
+                  }}
+                >
+                  <Icone nom="correction" taille={16} />
+                  Corriger les livrables
+                </button>
+              ) : null
+            }
+          />
+
           {brouillon && (
             <p className="alert alert-info">
               Brouillon : invisible pour les apprenants.{' '}
@@ -136,49 +192,75 @@ export default function AtelierPage(): JSX.Element {
             </p>
           )}
 
-          <dl className="fiche">
-            <div>
-              <dt>Date limite</dt>
-              <dd>{dateHeureFr(atelier.dateLimite)}</dd>
-            </div>
-            <div>
-              <dt>Tolérance de retard</dt>
-              <dd>
-                {atelier.toleranceRetardHeures === 0
-                  ? 'Aucune'
-                  : `${atelier.toleranceRetardHeures} h`}
-              </dd>
-            </div>
-            <div>
-              <dt>Livrables acceptés</dt>
-              <dd>{atelier.typesLivrables.map((t) => `.${t}`).join(' · ')}</dd>
-            </div>
-            <div>
-              <dt>Par soumission</dt>
-              <dd>
-                {atelier.nbMaxFichiers} fichier{atelier.nbMaxFichiers > 1 ? 's' : ''} max ·{' '}
-                {atelier.tailleMaxMo} Mo par fichier
-              </dd>
-            </div>
-            {atelier.competencesVisees && (
-              <div className="fiche-large">
-                <dt>Compétences visées</dt>
-                <dd>{atelier.competencesVisees}</dd>
-              </div>
-            )}
-          </dl>
-
-          <h2 className="section-title">Énoncé</h2>
-          <div className="enonce-atelier">{atelier.enonce}</div>
-
-          {!brouillon && <LivrablesAtelier atelierId={atelier.id} />}
-
-          <GrilleNotation
-            key={atelier.statut}
-            atelierId={atelier.id}
-            titreAtelier={atelier.titre}
-            onChange={suivreGrille}
+          <Onglets
+            libelle="Sections de l’atelier"
+            idBase="atelier"
+            actif={ongletAffiche}
+            onChange={(o) => setOnglet(o as OngletAtelier)}
+            onglets={[
+              { id: 'enonce', libelle: 'Énoncé', icone: 'fichier' },
+              { id: 'grille', libelle: 'Grille de notation', icone: 'grille' },
+              ...(brouillon
+                ? []
+                : [{ id: 'livrables', libelle: 'Livrables et résultats', icone: 'livrable' as const, compteur: aCorriger, compteurAlerte: true }]),
+            ]}
           />
+
+          {ongletAffiche === 'enonce' && (
+          <PanneauOnglet id="enonce" idBase="atelier">
+            <dl className="fiche">
+              <div>
+                <dt>Date limite</dt>
+                <dd>{dateHeureFr(atelier.dateLimite)}</dd>
+              </div>
+              <div>
+                <dt>Tolérance de retard</dt>
+                <dd>
+                  {atelier.toleranceRetardHeures === 0
+                    ? 'Aucune'
+                    : `${atelier.toleranceRetardHeures} h`}
+                </dd>
+              </div>
+              <div>
+                <dt>Livrables acceptés</dt>
+                <dd>{atelier.typesLivrables.map((t) => `.${t}`).join(' · ')}</dd>
+              </div>
+              <div>
+                <dt>Par soumission</dt>
+                <dd>
+                  {atelier.nbMaxFichiers} fichier{atelier.nbMaxFichiers > 1 ? 's' : ''} max ·{' '}
+                  {atelier.tailleMaxMo} Mo par fichier
+                </dd>
+              </div>
+              {atelier.competencesVisees && (
+                <div className="fiche-large">
+                  <dt>Compétences visées</dt>
+                  <dd>{atelier.competencesVisees}</dd>
+                </div>
+              )}
+            </dl>
+
+            <h2 className="section-title">Énoncé</h2>
+            <div className="enonce-atelier">{atelier.enonce}</div>
+          </PanneauOnglet>
+          )}
+
+          {ongletAffiche === 'grille' && (
+          <PanneauOnglet id="grille" idBase="atelier">
+            <GrilleNotation
+              key={atelier.statut}
+              atelierId={atelier.id}
+              titreAtelier={atelier.titre}
+              onChange={suivreGrille}
+            />
+          </PanneauOnglet>
+          )}
+
+          {!brouillon && ongletAffiche === 'livrables' && (
+            <PanneauOnglet id="livrables" idBase="atelier">
+              <LivrablesAtelier atelierId={atelier.id} onCompte={setACorriger} />
+            </PanneauOnglet>
+          )}
         </>
       )}
 
