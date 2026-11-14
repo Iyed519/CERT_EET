@@ -2,7 +2,7 @@
 # Runs on every push to main and every PR targeting main.
 # Order: install -> generate test keys -> lint -> unit tests + coverage -> integration tests -> upload coverage.
 # Jobs: « API » (lint, unit, e2e, coverage) and, since the Sprint 3 chores,
-# « Web » (TypeScript type check + next lint on apps/web).
+# « Web » (TypeScript type check + next lint on apps/web, puis tests des règles pures).
 name: CI
 on:
   push:
@@ -139,6 +139,14 @@ jobs:
         run: npx tsc --noEmit -p tsconfig.json
       - name: Lint
         run: npm run lint
+      # US-UX-01 — Règles pures du web (libellés, onglets, étapes, surveillance) :
+      # `node --test` sur les fichiers .ts, ce qui demande Node 22 (types retirés).
+      - name: Set up Node.js 22 (tests unitaires du web)
+        uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+      - name: Unit tests (règles pures du web)
+        run: npm run test:unitaires
   # IA — prédiction du risque : tests du service ml (FastAPI + modèle
   # LightGBM), puis construction de son image Docker et contrôle de santé.
   # Indépendant des jobs API et Web. Le test anti-fuite de ml/risque est
