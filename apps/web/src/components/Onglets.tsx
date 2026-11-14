@@ -124,14 +124,24 @@ export function Onglets({
 export function PanneauOnglet({
   id,
   idBase = 'onglet',
+  cache = false,
   children,
 }: {
   id: string;
   idBase?: string;
+  /** Panneau gardé monté mais masqué (son état est conservé d'un onglet à l'autre). */
+  cache?: boolean;
   children: ReactNode;
 }): JSX.Element {
   return (
-    <div role="tabpanel" id={`${idBase}-panneau-${id}`} aria-labelledby={`${idBase}-${id}`} tabIndex={0} className="onglets-panneau">
+    <div
+      role="tabpanel"
+      id={`${idBase}-panneau-${id}`}
+      aria-labelledby={`${idBase}-${id}`}
+      tabIndex={0}
+      className="onglets-panneau"
+      hidden={cache}
+    >
       {children}
     </div>
   );

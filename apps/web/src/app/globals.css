@@ -2156,3 +2156,20 @@ a.indicateur:hover { border-color: var(--border-strong); box-shadow: var(--shado
   .element-module { flex-wrap: wrap; }
 }
 .module-bloc { border-radius: var(--radius); box-shadow: var(--shadow-sm); }
+.menu-actions-note { margin: 4px 8px 6px; color: var(--muted); font-size: var(--fs-petit); max-width: 280px; }
+
+/* ============================================================
+   US-UX-05 — QCM, atelier et correction : questions compactes, note collante.
+   ============================================================ */
+.questions-outils { margin: 0 0 var(--sp-2); display: flex; justify-content: flex-end; }
+.questions-compactes .qcm-question { padding: var(--sp-3) var(--sp-4); }
+.question-bascule { display: flex; flex-direction: column; align-items: flex-start; gap: 4px; flex: 1 1 auto; min-width: 0; padding: 4px 28px 4px 4px; border: 0; border-radius: var(--radius-sm); background: none; color: inherit; font: inherit; text-align: left; cursor: pointer; position: relative; }
+.question-bascule:hover { background: var(--surface-3); }
+.question-bascule:focus-visible { outline: none; box-shadow: var(--ring); }
+.question-bascule > .icone { position: absolute; right: 6px; top: 8px; color: var(--muted); }
+.question-bascule .qcm-enonce { margin: 0; font-weight: 600; color: var(--ink); }
+.question-ouverte { border-color: var(--border-strong); }
+.titre-avec-icone { display: flex; align-items: center; gap: 8px; }
+.titre-avec-icone .icone { color: var(--primary-dark); }
+/* La note reste visible pendant qu'on parcourt la grille. */
+.score-correction-collant { position: sticky; top: calc(var(--topbar-h) + 8px); z-index: 20; box-shadow: var(--shadow-card); }

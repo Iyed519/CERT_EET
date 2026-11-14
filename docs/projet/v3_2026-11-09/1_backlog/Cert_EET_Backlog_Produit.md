@@ -617,7 +617,7 @@ Table des matières
 | US-UX-02 | Navigation latérale par rôle, groupée, avec icônes et compteurs | Must | 5 | Livrée (journal 110) |
 | US-UX-03 | Tableau de bord formateur réorganisé | Must | 3 | Livrée (journal 111) |
 | US-UX-04 | Espace d'une formation (formateur) en onglets, modules lisibles | Must | 5 | Livrée (journal 112) |
-| US-UX-05 | Éditeur de QCM et page d'atelier en étapes et onglets | Must | 5 | À faire |
+| US-UX-05 | Éditeur de QCM et page d'atelier en étapes et onglets | Must | 5 | Livrée (journal 113) |
 | US-UX-06 | Tableau de bord administrateur réorganisé | Must | 3 | À faire |
 | US-UX-07 | Listes de l'administrateur : une action principale, les autres dans un menu | Must | 5 | À faire |
 | US-UX-08 | Suivi, alertes, rapports, risque, IA, audit : pages homogènes et lisibles | Should | 3 | À faire |

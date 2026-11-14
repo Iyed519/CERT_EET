@@ -31,7 +31,14 @@ const FILTRES: Array<{ valeur: StatutLivrable | null; libelle: string }> = [
  * page de correction ; « Reprendre » y retourne pour une correction en cours.
  * US-ATEL-07 — un livrable noté affiche son score figé.
  */
-export function LivrablesAtelier({ atelierId }: { atelierId: string }): JSX.Element {
+export function LivrablesAtelier({
+  atelierId,
+  onCompte,
+}: {
+  atelierId: string;
+  /** US-UX-05 — Nombre de livrables à corriger (SOUMIS), relu avec la liste complète. */
+  onCompte?: (n: number) => void;
+}): JSX.Element {
   const router = useRouter();
   const [filtre, setFiltre] = useState<StatutLivrable | null>(null);
   const [livrables, setLivrables] = useState<LivrableResume[] | null>(null);
@@ -50,6 +57,10 @@ export function LivrablesAtelier({ atelierId }: { atelierId: string }): JSX.Elem
   useEffect(() => {
     void charger();
   }, [charger]);
+
+  useEffect(() => {
+    if (livrables && filtre === null) onCompte?.(livrables.filter((l) => l.statut === 'SOUMIS').length);
+  }, [livrables, filtre, onCompte]);
 
   const corriger = async (livrable: LivrableResume): Promise<void> => {
     setErreur(null);

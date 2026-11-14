@@ -209,8 +209,8 @@ async function essayerBoutons(page, ctx, chemin) {
       type: b.getAttribute('type') || 'submit',
       visible: !!(b.offsetWidth || b.offsetHeight || b.getClientRects().length),
       dansFormulaire: !!b.closest('form'),
-      // Filtre déjà sélectionné : le recliquer ne change rien, c'est normal.
-      enfonce: b.getAttribute('aria-pressed') === 'true',
+      // Filtre déjà sélectionné ou onglet déjà ouvert (US-UX-05) : le recliquer ne change rien, c'est normal.
+      enfonce: b.getAttribute('aria-pressed') === 'true' || b.getAttribute('aria-selected') === 'true',
     })),
   );
   let essais = 0;
