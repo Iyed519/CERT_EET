@@ -4,7 +4,7 @@
  */
 import assert from 'node:assert/strict';
 import { describe, it } from 'node:test';
-import { etapeCourante, parFormation, texteCompteur } from './ui-regles.ts';
+import { avancementMoyen, etapeCourante, parFormation, texteCompteur } from './ui-regles.ts';
 
 describe('texteCompteur', () => {
   it('absent → rien', () => {
@@ -45,5 +45,25 @@ describe('parFormation', () => {
     assert.deepEqual(g[0].lignes.map((l) => l.id), [1, 3]);
     assert.equal(g.reduce((n, x) => n + x.lignes.length, 0), 3);
     assert.deepEqual(parFormation([]), []);
+  });
+});
+
+describe('avancementMoyen', () => {
+  it('moyenne des apprenants en cours, arrondie, bornée à 0–100', () => {
+    assert.equal(
+      avancementMoyen([
+        { statutInscription: 'EN_COURS', avancement: 50 },
+        { statutInscription: 'EN_COURS', avancement: 25 },
+        { statutInscription: 'TERMINEE', avancement: 100 },
+        { statutInscription: 'SUSPENDUE', avancement: 0 },
+      ]),
+      38,
+    );
+    assert.equal(avancementMoyen([{ statutInscription: 'EN_COURS', avancement: 130 }]), 100);
+    assert.equal(avancementMoyen([{ statutInscription: 'EN_COURS', avancement: -5 }]), 0);
+  });
+  it('aucun apprenant en cours → null', () => {
+    assert.equal(avancementMoyen([]), null);
+    assert.equal(avancementMoyen([{ statutInscription: 'TERMINEE', avancement: 100 }]), null);
   });
 });

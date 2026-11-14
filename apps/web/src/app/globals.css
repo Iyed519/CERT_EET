@@ -2085,3 +2085,38 @@ a.indicateur:hover { border-color: var(--border-strong); box-shadow: var(--shado
   .ligne-a-traiter > th:first-child { box-shadow: none; }
 }
 .barre-filtres-resume { margin: 0; color: var(--muted); font-size: var(--fs-petit); }
+
+/* ============================================================
+   US-UX-03 — Tableau de bord du formateur : cartes de formation, jauge,
+   compteurs cliquables, sélecteur de période compact, statistiques.
+   ============================================================ */
+.cartes-formation { list-style: none; margin: 0; padding: 0; display: grid; gap: var(--sp-4); grid-template-columns: repeat(auto-fill, minmax(290px, 1fr)); }
+.carte-formation { display: flex; flex-direction: column; gap: var(--sp-3); padding: var(--sp-4); background: var(--surface-2); border: 1px solid var(--border); border-radius: var(--radius); }
+.carte-formation-tete { display: flex; align-items: flex-start; justify-content: space-between; gap: var(--sp-2); }
+.carte-formation-titre { color: var(--ink); font-size: var(--fs-carte); font-weight: var(--fw-carte); line-height: 1.3; }
+.carte-formation-titre:hover { color: var(--primary-dark); }
+.carte-formation-chiffres { display: grid; grid-template-columns: 1fr 1fr; gap: var(--sp-2); margin: 0; }
+.carte-formation-chiffres dt { color: var(--muted); font-size: var(--fs-petit); }
+.carte-formation-chiffres dd { margin: 0; color: var(--ink); font-size: 1.25rem; font-weight: 750; font-variant-numeric: tabular-nums; }
+.jauge-formation-tete { display: flex; justify-content: space-between; color: var(--text-2); font-size: var(--fs-petit); margin-bottom: 4px; }
+.jauge-formation-tete strong { color: var(--ink); }
+.jauge-formation-barre { height: 8px; border-radius: var(--radius-pill); background: var(--border); overflow: hidden; }
+.jauge-formation-barre span { display: block; height: 100%; border-radius: inherit; background: var(--succes); }
+.carte-formation-compteurs { list-style: none; margin: 0; padding: 0; display: flex; flex-wrap: wrap; gap: 6px; }
+.compteur-lien { display: inline-flex; align-items: center; gap: 4px; padding: 3px 10px; border-radius: var(--radius-pill); font-size: 0.8rem; font-weight: 600; text-decoration: none; }
+.compteur-lien:hover { text-decoration: underline; }
+.compteur-danger { background: var(--danger-soft); color: var(--danger-dark); }
+.compteur-attention { background: var(--warning-soft); color: var(--accent-dark); }
+.carte-formation-actions { display: flex; gap: var(--sp-2); margin-top: auto; }
+.selecteur-periode { display: flex; align-items: center; gap: var(--sp-2); flex-wrap: wrap; position: relative; }
+.periode-perso summary { list-style: none; cursor: pointer; }
+.periode-perso summary::-webkit-details-marker { display: none; }
+.periode-perso[open] summary { background: var(--surface-3); }
+.periode-perso-form { display: flex; align-items: flex-end; gap: var(--sp-2); flex-wrap: wrap; margin-top: var(--sp-2); }
+.periode-perso-form .field { margin: 0; }
+.stats-grille { display: grid; gap: var(--sp-4); grid-template-columns: repeat(auto-fit, minmax(260px, 1fr)); margin-bottom: var(--sp-4); }
+.stats-titre { margin: 0 0 var(--sp-2); color: var(--ink); font-size: var(--fs-corps); font-weight: 700; }
+@media (max-width: 640px) {
+  .cartes-formation { grid-template-columns: 1fr; }
+  .section-page-actions .filtres-pastilles { width: 100%; }
+}

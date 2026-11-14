@@ -15,6 +15,14 @@
 
 ## [Après le Sprint 6] — Stories hors sprint
 
+#### US-UX-03 — Tableau de bord formateur réorganisé — journal `engineering-log/111`
+- **Quoi :** ordre de lecture « À faire maintenant » → 4 indicateurs cliquables → formations en
+  cartes (jauge d'avancement moyen, compteurs cliquables « à corriger », « alertes », « signalés par
+  l'IA » ; vue tableau d'avant conservée) → apprenants à risque → activité et statistiques, avec un
+  sélecteur de période compact dans l'en-tête de la section. Aucune API changée (avancement et
+  signalements lus dans le suivi pédagogique existant).
+- **Pourquoi :** commencer sa journée sans lire toute la page.
+
 #### US-UX-02 — Navigation latérale par rôle, groupée, avec icônes et compteurs — journal `engineering-log/110`
 - **Quoi :** menu latéral pour le formateur (Enseigner, Évaluer, Suivre, Explorer) et
   l'administrateur (Personnes, Formations, Certificats, Pilotage, Sécurité) : icône par entrée,
