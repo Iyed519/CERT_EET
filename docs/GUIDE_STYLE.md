@@ -283,6 +283,15 @@ Groupe de boutons à bascule (`aria-pressed`), chacun avec son compteur ; le fil
 - Compteurs : `compterPar` sur une liste complète, sinon `useCompteurs` (un appel existant par
   statut, total seul). Sous 640 px, `table-compacte liste-admin` : une carte par ligne, actions en pied.
 
+### Pages d'analyse — modèle commun (US-UX-08)
+En-tête (`EnTetePage`) → bande d'indicateurs (`GroupeIndicateurs` ; une carte qui filtre la page
+prend `onClick` et `actif` : bouton à bascule, flèche comme un lien) → `BarreListe` → liste compacte →
+fiche en fenêtre → `EtatVide`. Journal d'audit : catégories en pastilles avec compteurs (paramètre
+d'API `actions`, codes calculés par `actionsDeCategorie`), libellés humains et icônes de catégorie
+(le code n'apparaît qu'en infobulle), « Système » sans compte, `PastilleStatut` du résultat,
+`PaginationListe`. Rapports : une `CarteModeleRapport` par modèle (à quoi il sert, PDF / CSV,
+« Générer ») ; « Mes rapports » en cartes avec pastille et « Télécharger ».
+
 ### Libellés humains — `lib/libelles.ts`
 Jamais de code brut à l'écran : `libelleActionAudit('LOGIN')` → « Connexion »,
 `categorieAudit(code)` → connexions, comptes, formations, évaluations, certificats, IA, sécurité ;

@@ -117,6 +117,18 @@ describe('AuditService', () => {
       expect(res.items).toEqual([VUE]);
     });
 
+    it('US-UX-08 — actions : liste découpée sur les virgules, filtre ANY', async () => {
+      const qb = fauxQb([], 0);
+      mockAuditLogRepository.createQueryBuilder.mockReturnValue(qb);
+
+      await service.list({ actions: 'LOGIN,LOGOUT,SESSION_FERMEE' });
+
+      expect(qb.andWhere).toHaveBeenCalledTimes(1);
+      expect(qb.andWhere).toHaveBeenCalledWith('a.action = ANY(:actions)', {
+        actions: ['LOGIN', 'LOGOUT', 'SESSION_FERMEE'],
+      });
+    });
+
     it('sans filtre : page=1, limit=50, aucun critère where', async () => {
       const qb = fauxQb([], 0);
       mockAuditLogRepository.createQueryBuilder.mockReturnValue(qb);

@@ -182,7 +182,11 @@ la charte ESPRIT décrite dans `docs/GUIDE_STYLE.md` (captures dans
 6. *Certificats* : liste compacte, fiche en fenêtre (clic sur le nom du
    titulaire ou « Fiche » ; croix, Échap ou clic à l'extérieur pour fermer),
    « ⋯ » › Révoquer ; *Journal d'audit* : toutes les actions
-   précédentes, filtrables et exportables.
+   précédentes, en clair (icône, libellé humain, « Système »), filtrables par
+   catégorie (pastilles avec compteurs), acteur, résultat et période, et
+   exportables ; la carte « Échecs » n'affiche que les échecs. *Rapports* :
+   une carte par modèle (format PDF ou CSV, « Générer »), puis « Mes
+   rapports » (« Télécharger » quand c'est prêt).
 
 ### 4.5 Sécurité (2 min)
 1. Connexion de `demo-securite@` : mot de passe puis **code MFA**.
