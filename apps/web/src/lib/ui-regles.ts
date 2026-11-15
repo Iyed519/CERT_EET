@@ -101,3 +101,27 @@ export function etapesQcm(q: {
     },
   ];
 }
+
+/** US-UX-06 — Acteur d'une action d'audit : « Prénom Nom », l'adresse à défaut, « Système » sans compte. */
+export function acteurAudit(a: { email: string; prenom: string | null; nom: string | null } | null): string {
+  if (!a) return 'Système';
+  return [a.prenom, a.nom].filter(Boolean).join(' ') || a.email;
+}
+
+/** US-UX-06 — Répartition « 12 apprenants · 3 formateurs » (valeurs nulles omises). */
+export function repartitionTexte(
+  valeurs: Record<string, number>,
+  libelles: Record<string, string>,
+  nombre: (n: number) => string = String,
+): string {
+  const parties = Object.entries(valeurs)
+    .filter(([, n]) => n > 0)
+    .map(([cle, n]) => `${nombre(n)} ${(libelles[cle] ?? cle).toLowerCase()}`);
+  return parties.length > 0 ? parties.join(' · ') : 'aucun pour l’instant';
+}
+
+/** US-UX-06 — Filtre initial lu dans l'adresse (`?statut=…`), seulement s'il fait partie des valeurs connues. */
+export function statutDepuisAdresse<T extends string>(recherche: string, valeurs: readonly T[]): T | null {
+  const statut = new URLSearchParams(recherche).get('statut');
+  return statut !== null && (valeurs as readonly string[]).includes(statut) ? (statut as T) : null;
+}

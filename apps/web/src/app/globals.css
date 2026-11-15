@@ -2173,3 +2173,24 @@ a.indicateur:hover { border-color: var(--border-strong); box-shadow: var(--shado
 .titre-avec-icone .icone { color: var(--primary-dark); }
 /* La note reste visible pendant qu'on parcourt la grille. */
 .score-correction-collant { position: sticky; top: calc(var(--topbar-h) + 8px); z-index: 20; box-shadow: var(--shadow-card); }
+
+/* US-UX-06 — Tableau de bord administrateur : activité récente lisible. */
+.activite-liste { list-style: none; margin: 0 0 var(--sp-4); padding: 0; display: flex; flex-direction: column; }
+.activite-ligne { display: flex; align-items: center; gap: var(--sp-3); padding: 10px 4px; border-bottom: 1px solid var(--border); }
+.activite-ligne:last-child { border-bottom: 0; }
+.activite-icone { display: inline-grid; place-items: center; flex-shrink: 0; width: 34px; height: 34px; border-radius: var(--radius-sm); background: var(--neutre-soft); color: var(--neutre); }
+.activite-connexions { background: var(--info-soft); color: var(--info); }
+.activite-certificats { background: var(--succes-doux); color: var(--succes-fonce); }
+.activite-securite { background: var(--danger-soft); color: var(--danger); }
+.activite-ia { background: var(--primary-soft); color: var(--primary-dark); }
+.activite-evaluations { background: var(--warning-soft); color: var(--accent-dark); }
+.activite-corps { display: flex; flex-direction: column; flex: 1 1 auto; min-width: 0; }
+.activite-libelle { color: var(--ink); font-weight: 600; overflow-wrap: anywhere; }
+.activite-detail { color: var(--muted); font-size: var(--fs-petit); overflow-wrap: anywhere; }
+.activite-heure { flex-shrink: 0; color: var(--muted); font-size: var(--fs-petit); font-variant-numeric: tabular-nums; }
+.activite-echec .activite-libelle { color: var(--danger-dark); }
+.activite-quotidienne-titre { margin-top: var(--sp-4); }
+@media (max-width: 640px) {
+  .activite-ligne { flex-wrap: wrap; }
+  .activite-heure { width: 100%; padding-left: 46px; }
+}

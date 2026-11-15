@@ -1,6 +1,6 @@
 'use client';
 import Link from 'next/link';
-import { useCallback, useEffect, useState, FormEvent } from 'react';
+import { useCallback, useEffect, useRef, useState, FormEvent } from 'react';
 import { CroixFermeture } from '../../../components/CroixFermeture';
 import {
   getFormations,
@@ -27,6 +27,7 @@ import {
   changerStatutFormation,
   ImpactCycleFormation,
 } from '../../../lib/api';
+import { statutDepuisAdresse } from '../../../lib/ui-regles';
 
 /** Libellés FR des statuts (l'enum backend reste la source de vérité). */
 const STATUTS: Array<[StatutFormation, string]> = [
@@ -35,6 +36,7 @@ const STATUTS: Array<[StatutFormation, string]> = [
   ['FERMEE', 'Fermée'],
   ['ARCHIVEE', 'Archivée'],
 ];
+const STATUTS_FORMATION = STATUTS.map(([v]) => v);
 const libelleStatut = (s: StatutFormation): string =>
   STATUTS.find(([v]) => v === s)?.[1] ?? s;
 
@@ -65,6 +67,11 @@ export default function AdminFormationsPage(): JSX.Element {
   const [total, setTotal] = useState(0);
   const [page, setPage] = useState(1);
   const [filtre, setFiltre] = useState<StatutFormation | ''>('');
+  // US-UX-06 : filtre initial depuis l'adresse (?statut=OUVERTE), lien des indicateurs du tableau de bord.
+  useEffect(() => {
+    const statut = statutDepuisAdresse<StatutFormation>(window.location.search, STATUTS_FORMATION);
+    if (statut) setFiltre(statut);
+  }, []);
   const [chargement, setChargement] = useState(true);
   const [erreur, setErreur] = useState<string | null>(null);
   const [succes, setSucces] = useState<string | null>(null);
@@ -77,7 +84,11 @@ export default function AdminFormationsPage(): JSX.Element {
   // US-FORM-02 — clôturer / archiver / rouvrir.
   const [cibleStatut, setCibleStatut] = useState<FormationVue | null>(null);
 
+  // US-UX-06 : seule la dernière demande de liste est appliquée (une réponse en retard,
+  // par exemple celle du chargement sans filtre, n'écrase pas la liste filtrée).
+  const derniereDemande = useRef(0);
   const charger = useCallback(async (): Promise<void> => {
+    const numero = ++derniereDemande.current;
     setChargement(true);
     setErreur(null);
     try {
@@ -86,12 +97,13 @@ export default function AdminFormationsPage(): JSX.Element {
         page,
         limit: PAR_PAGE,
       });
+      if (numero !== derniereDemande.current) return;
       setFormations(resultat.items);
       setTotal(resultat.total);
     } catch (error) {
-      setErreur(messageDe(error, 'Impossible de charger les formations.'));
+      if (numero === derniereDemande.current) setErreur(messageDe(error, 'Impossible de charger les formations.'));
     } finally {
-      setChargement(false);
+      if (numero === derniereDemande.current) setChargement(false);
     }
   }, [filtre, page]);
 

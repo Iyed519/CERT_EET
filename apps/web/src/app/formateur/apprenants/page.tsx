@@ -9,7 +9,7 @@ import { AdminError, FormationTableauDeBordFormateur, getTableauDeBordFormateur 
 import { LIBELLES_STATUT_FORMATION_UN } from '../../../lib/format';
 
 /**
- * US-UX-02 — « Apprenants » : une carte par formation (inscrits, actifs,
+ * US-UX-02 — « Apprenants » : une carte par formation (inscrits, en cours,
  * alertes de décrochage ouvertes) qui mène au suivi pédagogique de la
  * formation et à ses rapports. Données du tableau de bord du formateur
  * (aucun nouvel appel) ; le suivi lui-même ne change pas.
@@ -36,7 +36,7 @@ export default function ApprenantsPage(): JSX.Element {
     <>
       <EnTetePage
         titre="Apprenants"
-        phrase="Le suivi pédagogique de chaque formation : avancement, notes, inactivité et alertes de vos apprenants."
+        phrase="Le suivi pédagogique de chaque formation : avancement, notes, inactivité et alertes de vos apprenants. « En cours » : inscription ni terminée ni suspendue."
       />
       {erreur !== null && <p className="alert alert-error">{erreur}</p>}
       {formations === null ? (
@@ -68,7 +68,7 @@ export default function ApprenantsPage(): JSX.Element {
                   <dd>{f.inscrits}</dd>
                 </div>
                 <div>
-                  <dt>Actifs</dt>
+                  <dt>En cours</dt>
                   <dd>{f.actifs}</dd>
                 </div>
                 <div>
@@ -76,8 +76,15 @@ export default function ApprenantsPage(): JSX.Element {
                   <dd className={f.alertesOuvertes > 0 ? 'chiffre-alerte' : undefined}>{f.alertesOuvertes}</dd>
                 </div>
               </dl>
+              {/* US-UX-06 (D6) : une formation sans inscrit le dit ; son suivi reste ouvrable, en secondaire. */}
+              {f.inscrits === 0 && (
+                <p className="field-hint">Aucun apprenant inscrit pour l’instant : le suivi se remplira avec les inscriptions.</p>
+              )}
               <div className="carte-suivi-actions">
-                <Link className="btn-sm btn-primary-sm btn-lien" href={`/formateur/formations/${f.id}/suivi`}>
+                <Link
+                  className={`btn-sm${f.inscrits > 0 ? ' btn-primary-sm' : ''} btn-lien`}
+                  href={`/formateur/formations/${f.id}/suivi`}
+                >
                   <Icone nom="apprenants" taille={16} />
                   Suivi pédagogique
                 </Link>

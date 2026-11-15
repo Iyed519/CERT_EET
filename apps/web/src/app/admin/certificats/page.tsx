@@ -1,5 +1,5 @@
 'use client';
-import { FormEvent, useCallback, useEffect, useState } from 'react';
+import { FormEvent, useCallback, useEffect, useRef, useState } from 'react';
 import { EtatVide } from '../../../components/EtatVide';
 import { CroixFermeture } from '../../../components/CroixFermeture';
 import { ConfirmationModal } from '../../../components/ConfirmationModal';
@@ -26,6 +26,9 @@ import {
   nomApprenantFr,
   nombreFr,
 } from '../../../lib/format';
+import { statutDepuisAdresse } from '../../../lib/ui-regles';
+
+const STATUTS_CERTIFICAT: StatutCertificat[] = ['EN_ATTENTE_GENERATION', 'EN_GENERATION', 'ACTIF', 'REVOQUE', 'EXPIRE'];
 
 const FILTRES: Array<{ valeur: StatutCertificat | null; libelle: string }> = [
   { valeur: null, libelle: 'Tous' },
@@ -59,6 +62,9 @@ export default function CertificatsAdminPage(): JSX.Element {
   const [enEchec, setEnEchec] = useState(false);
   useEffect(() => {
     if (new URLSearchParams(window.location.search).get('enEchec') === 'true') setEnEchec(true);
+    // US-UX-06 : filtre initial depuis l'adresse (?statut=REVOQUE), lien des indicateurs du tableau de bord.
+    const statut = statutDepuisAdresse<StatutCertificat>(window.location.search, STATUTS_CERTIFICAT);
+    if (statut) setFiltre(statut);
   }, []);
   const [liste, setListe] = useState<CertificatAdmin[] | null>(null);
   const [erreur, setErreur] = useState<string | null>(null);
@@ -71,11 +77,18 @@ export default function CertificatsAdminPage(): JSX.Element {
   const [recherche, setRecherche] = useState('');
   const [ficheId, setFicheId] = useState<string | null>(null);
 
+  // US-UX-06 : seule la dernière demande de liste est appliquée (une réponse en retard
+  // n'écrase pas la liste filtrée).
+  const derniereDemande = useRef(0);
   const charger = useCallback(async (): Promise<void> => {
+    const numero = ++derniereDemande.current;
     try {
-      setListe(await getCertificatsAdmin(filtre ?? undefined, recherche || undefined, enEchec));
+      const resultat = await getCertificatsAdmin(filtre ?? undefined, recherche || undefined, enEchec);
+      if (numero === derniereDemande.current) setListe(resultat);
     } catch (error) {
-      setErreur(error instanceof AdminError ? error.message : 'Impossible de charger les certificats.');
+      if (numero === derniereDemande.current) {
+        setErreur(error instanceof AdminError ? error.message : 'Impossible de charger les certificats.');
+      }
     }
   }, [filtre, recherche, enEchec]);
 
