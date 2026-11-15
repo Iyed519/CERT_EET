@@ -118,8 +118,9 @@ désactivé.
 champ, jamais la couleur seule.
 
 ### Pastilles
-`.statut-badge statut-<STATUT>` et `.role-badge role-<ROLE>` : texte court, toujours le libellé
-français (« Émis », « En cours », « Formateur »), jamais la valeur brute de l'API.
+Un statut s'affiche avec `PastilleStatut` (couleur + icône + texte, § 10) ; `.role-badge role-<ROLE>`
+pour un rôle. Texte court, toujours le libellé français (« Émis », « En cours », « Formateur »),
+jamais la valeur brute de l'API. Les anciennes `.statut-badge` restent sur les écrans de l'apprenant.
 
 ### Messages
 `.alert-success` (✓), `.alert-info` (ℹ), `.alert-error` (⚠ + filet gauche rouge sombre) : une
@@ -180,6 +181,8 @@ deux fenêtres sont empilées, Échap ne ferme que la plus haute.
 2. Recette de navigation (`outils/recette`, voir son README) : **0 problème**, contrastes
    compris (type `CONTRASTE_INSUFFISANT`, depuis US-UI-08).
 3. `tsc`, `next lint --max-warnings 0`, `next build` ; tests unitaires et e2e de l'API verts.
+4. Formateur et administrateur : inventaire des actions relancé et comparé à `docs/ux/inventaire-avant.json`
+   (`docs/ux/README.md`) : **0 perdue, 0 « plus loin »** ; tout libellé renommé va dans `equivalences.json`.
 
 ## 9. Captures de référence
 
@@ -191,10 +194,18 @@ deux fenêtres sont empilées, Échap ne ferme que la plus haute.
 | Accueil apprenant (mobile) | ![](guide-style/mobile-apprenant-accueil.png) |
 | Mes certificats | ![](guide-style/apprenant-certificats.png) |
 | Accueil formateur | ![](guide-style/formateur-accueil.png) |
-| Comptes (administrateur) | ![](guide-style/admin-utilisateurs.png) |
+| Accueil administrateur (US-UX-06) | ![](guide-style/admin-accueil.png) |
+| Comptes (administrateur, US-UX-07) | ![](guide-style/admin-utilisateurs.png) |
+| Formations (administrateur, « Gérer ») | ![](guide-style/admin-formations.png) |
 | Certificats (administrateur) | ![](guide-style/admin-certificats.png) |
+| Journal d'audit (US-UX-08) | ![](guide-style/admin-audit.png) |
+| Journal d'audit (mobile) | ![](guide-style/mobile-admin-audit.png) |
+| Rapports institutionnels (US-UX-08) | ![](guide-style/admin-rapports.png) |
 
-## 10. Briques de l'épopée E11 (US-UX-01)
+Captures avant / après de l'épopée E11 (pages principales du formateur et de l'administrateur) :
+`docs/ux/captures/`.
+
+## 10. Briques de l'épopée E11 (US-UX-01 → US-UX-08)
 
 ![Socle visuel E11](guide-style/socle-e11.png)
 
@@ -235,7 +246,8 @@ adresse « Vue d'ensemble · Contenu · Apprenants · Rapports » ; l'onglet de 
 l'adresse de la formation.
 
 ### Étapes — `Etapes`
-Parcours ordonné (rédiger → paramétrer → publier → suivre) : chaque étape a un état écrit en toutes
+Parcours ordonné (rédiger → paramétrer → publier → suivre), conteneur `.etapes-bandeau` (la classe
+`.etapes` appartient aux étapes de l'accueil public) : chaque étape a un état écrit en toutes
 lettres (`fait`, `en cours`, `à faire`, `bloquant`) et un détail court ; l'étape courante est la
 première qui n'est pas faite (`aria-current="step"`). `action` = la prochaine action, seul bouton
 plein de la zone. Sous 640 px, les étapes s'empilent et l'action prend toute la largeur.
@@ -267,7 +279,7 @@ d'œil d'un élément publié). Toujours couleur + icône + texte.
 
 ### Filtres en pastilles — `FiltresPastilles` (US-UX-02)
 Groupe de boutons à bascule (`aria-pressed`), chacun avec son compteur ; le filtre actif est
-**noir** (le rouge reste à l'action principale). Dans une `.barre-filtres` au-dessus de la liste.
+**noir** (le rouge reste à l'action principale). Dans une `BarreListe` (US-UX-07) au-dessus de la liste.
 
 ### Listes de l'administrateur — `BarreListe`, `ActionsLigne`, `PaginationListe` (US-UX-07)
 - **`BarreListe`** au-dessus de chaque liste, toujours dans cet ordre : recherche (`type="search"`,

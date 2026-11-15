@@ -1,0 +1,2188 @@
+{
+  "genere": "2026-11-15",
+  "base": "https://localhost",
+  "largeur": 1280,
+  "roles": {
+    "formateur": {
+      "accueil": "/formateur/tableau-de-bord",
+      "pages": {
+        "(coque)": {
+          "titre": "En-tête et menus",
+          "actions": [
+            {
+              "type": "lien",
+              "libelle": "Cert_EET",
+              "href": "/formateur/tableau-de-bord"
+            },
+            {
+              "type": "recherche",
+              "libelle": "Rechercher une formation"
+            },
+            {
+              "type": "bouton",
+              "libelle": "DF Mon compte"
+            },
+            {
+              "type": "lien",
+              "libelle": "Accueil",
+              "href": "/formateur/tableau-de-bord"
+            },
+            {
+              "type": "lien",
+              "libelle": "Mes formations",
+              "href": "/formateur/formations"
+            },
+            {
+              "type": "lien",
+              "libelle": "Demander une formation",
+              "href": "/formateur/demandes"
+            },
+            {
+              "type": "lien",
+              "libelle": "Proposer une formation",
+              "href": "/formateur/propositions"
+            },
+            {
+              "type": "lien",
+              "libelle": "Livrables à corriger # , # en attente",
+              "href": "/formateur/livrables"
+            },
+            {
+              "type": "lien",
+              "libelle": "Tentatives des QCM",
+              "href": "/formateur/qcm"
+            },
+            {
+              "type": "lien",
+              "libelle": "Apprenants",
+              "href": "/formateur/apprenants"
+            },
+            {
+              "type": "lien",
+              "libelle": "Alertes # , # en attente",
+              "href": "/formateur/alertes"
+            },
+            {
+              "type": "lien",
+              "libelle": "Rapports",
+              "href": "/rapports"
+            },
+            {
+              "type": "lien",
+              "libelle": "Catalogue",
+              "href": "/catalogue"
+            },
+            {
+              "type": "bouton",
+              "libelle": "Réduire le menu"
+            },
+            {
+              "type": "menu",
+              "libelle": "Accueil",
+              "href": "/formateur/tableau-de-bord",
+              "profondeur": 1,
+              "contexte": "menu du compte"
+            },
+            {
+              "type": "menu",
+              "libelle": "Changer de rôle",
+              "href": "/mon-role",
+              "profondeur": 1,
+              "contexte": "menu du compte"
+            },
+            {
+              "type": "menu",
+              "libelle": "Sécurité du compte",
+              "href": "/securite",
+              "profondeur": 1,
+              "contexte": "menu du compte"
+            },
+            {
+              "type": "menu",
+              "libelle": "Se déconnecter",
+              "profondeur": 1,
+              "contexte": "menu du compte"
+            }
+          ]
+        },
+        "/formateur/tableau-de-bord": {
+          "exemple": "/formateur/tableau-de-bord",
+          "titre": "Tableau de bord",
+          "actions": [
+            {
+              "type": "lien",
+              "libelle": "Voir les alertes",
+              "href": "/formateur/alertes"
+            },
+            {
+              "type": "lien",
+              "libelle": "Corriger",
+              "href": "/formateur/formations/ae045275-aa06-4ff1-af1c-b75c014c22cf"
+            },
+            {
+              "type": "lien",
+              "libelle": "À corriger # livrables à corriger ou en correction",
+              "href": "/formateur/livrables"
+            },
+            {
+              "type": "lien",
+              "libelle": "Alertes # # décrochage · # surveillance",
+              "href": "/formateur/alertes"
+            },
+            {
+              "type": "lien",
+              "libelle": "Apprenants en cours # sur # inscrits",
+              "href": "/formateur/apprenants"
+            },
+            {
+              "type": "lien",
+              "libelle": "Réussite aux QCM # % # tentatives notées du #/#/# au #/#/# · # jours",
+              "href": "/formateur/qcm"
+            },
+            {
+              "type": "bouton",
+              "libelle": "Vue en cartes"
+            },
+            {
+              "type": "bouton",
+              "libelle": "Vue tableau"
+            },
+            {
+              "type": "lien",
+              "libelle": "Développement web full-stack (NestJS et Next.js)",
+              "href": "/formateur/formations/ae045275-aa06-4ff1-af1c-b75c014c22cf"
+            },
+            {
+              "type": "lien",
+              "libelle": "# à corriger",
+              "href": "/formateur/livrables"
+            },
+            {
+              "type": "lien",
+              "libelle": "# alertes",
+              "href": "/formateur/alertes"
+            },
+            {
+              "type": "lien",
+              "libelle": "Ouvrir",
+              "href": "/formateur/formations/ae045275-aa06-4ff1-af1c-b75c014c22cf"
+            },
+            {
+              "type": "lien",
+              "libelle": "Suivi",
+              "href": "/formateur/formations/ae045275-aa06-4ff1-af1c-b75c014c22cf/suivi"
+            },
+            {
+              "type": "lien",
+              "libelle": "DevOps : Docker, CI/CD et Kubernetes",
+              "href": "/formateur/formations/6b80ff76-3b8a-46b9-9da3-7b7e88bf91d7"
+            },
+            {
+              "type": "lien",
+              "libelle": "Bureautique avancée et Power BI",
+              "href": "/formateur/formations/00eb7a9f-d99b-4eaf-a49b-6c4bf22e9e25"
+            },
+            {
+              "type": "bouton",
+              "libelle": "Affichée"
+            },
+            {
+              "type": "bouton",
+              "libelle": "Voir les apprenants"
+            },
+            {
+              "type": "liste",
+              "libelle": "Formation affichée"
+            },
+            {
+              "type": "lien",
+              "libelle": "Suivi pédagogique",
+              "href": "/formateur/formations/ae045275-aa06-4ff1-af1c-b75c014c22cf/suivi"
+            },
+            {
+              "type": "bouton",
+              "libelle": "Ahmed Mejri"
+            },
+            {
+              "type": "bouton",
+              "libelle": "Mariem Ayari"
+            },
+            {
+              "type": "bouton",
+              "libelle": "Sana Gharbi"
+            },
+            {
+              "type": "bouton",
+              "libelle": "Yassine Mansouri"
+            },
+            {
+              "type": "bouton",
+              "libelle": "Youssef Jlassi"
+            },
+            {
+              "type": "bouton",
+              "libelle": "# j"
+            },
+            {
+              "type": "bouton",
+              "libelle": "# an"
+            },
+            {
+              "type": "volet",
+              "libelle": "Personnaliser"
+            },
+            {
+              "type": "bouton",
+              "libelle": "×",
+              "profondeur": 1,
+              "contexte": "fenêtre « Ahmed Mejri »"
+            },
+            {
+              "type": "bouton",
+              "libelle": "Fermer",
+              "profondeur": 1,
+              "contexte": "fenêtre « Ahmed Mejri »"
+            },
+            {
+              "type": "bouton",
+              "libelle": "Appliquer",
+              "profondeur": 1,
+              "contexte": "menu « Personnaliser »"
+            }
+          ]
+        },
+        "/formateur/formations": {
+          "exemple": "/formateur/formations",
+          "titre": "Mes formations",
+          "actions": [
+            {
+              "type": "lien",
+              "libelle": "Alertes de décrochage #",
+              "href": "/formateur/alertes"
+            },
+            {
+              "type": "bouton",
+              "libelle": "Actualiser"
+            },
+            {
+              "type": "lien",
+              "libelle": "Développement web full-stack (NestJS et Next.js)",
+              "href": "/formateur/formations/ae045275-aa06-4ff1-af1c-b75c014c22cf"
+            },
+            {
+              "type": "lien",
+              "libelle": "Ouvrir",
+              "href": "/formateur/formations/ae045275-aa06-4ff1-af1c-b75c014c22cf"
+            },
+            {
+              "type": "lien",
+              "libelle": "DevOps : Docker, CI/CD et Kubernetes",
+              "href": "/formateur/formations/6b80ff76-3b8a-46b9-9da3-7b7e88bf91d7"
+            },
+            {
+              "type": "lien",
+              "libelle": "Bureautique avancée et Power BI",
+              "href": "/formateur/formations/00eb7a9f-d99b-4eaf-a49b-6c4bf22e9e25"
+            }
+          ]
+        },
+        "/formateur/demandes": {
+          "exemple": "/formateur/demandes",
+          "titre": "Mes demandes",
+          "actions": [
+            {
+              "type": "lien",
+              "libelle": "Mes propositions",
+              "href": "/formateur/propositions"
+            },
+            {
+              "type": "lien",
+              "libelle": "Tableau de bord",
+              "href": "/formateur/tableau-de-bord"
+            },
+            {
+              "type": "liste",
+              "libelle": "Formation"
+            },
+            {
+              "type": "bouton",
+              "libelle": "Envoyer la demande"
+            }
+          ]
+        },
+        "/formateur/propositions": {
+          "exemple": "/formateur/propositions",
+          "titre": "Mes propositions",
+          "actions": [
+            {
+              "type": "lien",
+              "libelle": "Mes demandes",
+              "href": "/formateur/demandes"
+            },
+            {
+              "type": "lien",
+              "libelle": "Tableau de bord",
+              "href": "/formateur/tableau-de-bord"
+            },
+            {
+              "type": "bouton",
+              "libelle": "Envoyer la proposition"
+            }
+          ]
+        },
+        "/formateur/livrables": {
+          "exemple": "/formateur/livrables",
+          "titre": "Livrables à corriger",
+          "actions": [
+            {
+              "type": "bouton",
+              "libelle": "Avec des livrables à corriger #"
+            },
+            {
+              "type": "bouton",
+              "libelle": "Tous les ateliers #"
+            },
+            {
+              "type": "lien",
+              "libelle": "Atelier — API REST de réservation",
+              "href": "/formateur/ateliers/50327b9d-5b91-41d5-9087-425fec3ae920"
+            },
+            {
+              "type": "lien",
+              "libelle": "Ouvrir l’atelier",
+              "href": "/formateur/ateliers/50327b9d-5b91-41d5-9087-425fec3ae920"
+            }
+          ]
+        },
+        "/formateur/qcm": {
+          "exemple": "/formateur/qcm",
+          "titre": "Tentatives des QCM",
+          "actions": [
+            {
+              "type": "bouton",
+              "libelle": "Avec des tentatives #"
+            },
+            {
+              "type": "bouton",
+              "libelle": "Signalés par l’IA #"
+            },
+            {
+              "type": "bouton",
+              "libelle": "Tous les QCM #"
+            },
+            {
+              "type": "lien",
+              "libelle": "QCM — Les bases de NestJS",
+              "href": "/formateur/qcm/253df483-1dd4-4cf9-9eae-eb7e2e2268b9"
+            },
+            {
+              "type": "lien",
+              "libelle": "Voir les tentatives",
+              "href": "/formateur/qcm/253df483-1dd4-4cf9-9eae-eb7e2e2268b9/tentatives"
+            },
+            {
+              "type": "bouton",
+              "libelle": "Voir tous les QCM",
+              "profondeur": 1,
+              "contexte": "après « Signalés par l’IA # »"
+            }
+          ]
+        },
+        "/formateur/apprenants": {
+          "exemple": "/formateur/apprenants",
+          "titre": "Apprenants",
+          "actions": [
+            {
+              "type": "lien",
+              "libelle": "Suivi pédagogique",
+              "href": "/formateur/formations/ae045275-aa06-4ff1-af1c-b75c014c22cf/suivi"
+            },
+            {
+              "type": "lien",
+              "libelle": "Rapports",
+              "href": "/formateur/formations/ae045275-aa06-4ff1-af1c-b75c014c22cf/rapports"
+            }
+          ]
+        },
+        "/formateur/alertes": {
+          "exemple": "/formateur/alertes",
+          "titre": "Alertes de décrochage",
+          "actions": [
+            {
+              "type": "lien",
+              "libelle": "Décrochage",
+              "href": "/formateur/alertes"
+            },
+            {
+              "type": "lien",
+              "libelle": "Surveillance des QCM",
+              "href": "/formateur/alertes/surveillance"
+            },
+            {
+              "type": "bouton",
+              "libelle": "Ouvertes #"
+            },
+            {
+              "type": "bouton",
+              "libelle": "Traitées #"
+            },
+            {
+              "type": "bouton",
+              "libelle": "Toutes #"
+            },
+            {
+              "type": "bouton",
+              "libelle": "Actualiser"
+            },
+            {
+              "type": "lien",
+              "libelle": "Développement web full-stack (NestJS et Next.js)",
+              "href": "/formateur/formations/ae045275-aa06-4ff1-af1c-b75c014c22cf/suivi"
+            },
+            {
+              "type": "bouton",
+              "libelle": "Traiter"
+            },
+            {
+              "type": "bouton",
+              "libelle": "Historique"
+            },
+            {
+              "type": "bouton",
+              "libelle": "Masquer l’historique",
+              "profondeur": 1,
+              "contexte": "après « Historique »"
+            }
+          ]
+        },
+        "/rapports": {
+          "exemple": "/rapports",
+          "titre": "Mes rapports",
+          "actions": []
+        },
+        "/catalogue": {
+          "exemple": "/catalogue",
+          "titre": "Catalogue des formations",
+          "actions": [
+            {
+              "type": "recherche",
+              "libelle": "Rechercher dans le catalogue"
+            },
+            {
+              "type": "bouton",
+              "libelle": "Rechercher"
+            },
+            {
+              "type": "lien",
+              "libelle": "DW",
+              "href": "/catalogue/ae045275-aa06-4ff1-af1c-b75c014c22cf"
+            },
+            {
+              "type": "lien",
+              "libelle": "Développement web full-stack (NestJS et Next.js)",
+              "href": "/catalogue/ae045275-aa06-4ff1-af1c-b75c014c22cf"
+            },
+            {
+              "type": "lien",
+              "libelle": "Détails",
+              "href": "/catalogue/ae045275-aa06-4ff1-af1c-b75c014c22cf"
+            },
+            {
+              "type": "lien",
+              "libelle": "CO",
+              "href": "/catalogue/0b00a3f4-0b3b-4e49-92d5-f0dec8f4a7c2"
+            },
+            {
+              "type": "lien",
+              "libelle": "Cybersécurité opérationnelle (SOC)",
+              "href": "/catalogue/0b00a3f4-0b3b-4e49-92d5-f0dec8f4a7c2"
+            },
+            {
+              "type": "lien",
+              "libelle": "DS",
+              "href": "/catalogue/407f4f72-3027-44c7-a256-31b40d8d9e3d"
+            },
+            {
+              "type": "lien",
+              "libelle": "Data science avec Python",
+              "href": "/catalogue/407f4f72-3027-44c7-a256-31b40d8d9e3d"
+            }
+          ]
+        },
+        "/mon-role": {
+          "exemple": "/mon-role",
+          "titre": "Changer de rôle",
+          "actions": [
+            {
+              "type": "liste",
+              "libelle": "Rôle souhaité"
+            },
+            {
+              "type": "bouton",
+              "libelle": "Soumettre la demande"
+            }
+          ]
+        },
+        "/securite": {
+          "exemple": "/securite",
+          "titre": "Sécurité",
+          "actions": [
+            {
+              "type": "bouton",
+              "libelle": "Changer mon mot de passe"
+            },
+            {
+              "type": "bouton",
+              "libelle": "Activer la double authentification"
+            }
+          ]
+        },
+        "/formateur/formations/:id": {
+          "exemple": "/formateur/formations/ae045275-aa06-4ff1-af1c-b75c014c22cf",
+          "titre": "Développement web full-stack (NestJS et Next.js)",
+          "actions": [
+            {
+              "type": "lien",
+              "libelle": "Vue d’ensemble",
+              "href": "/formateur/formations/ae045275-aa06-4ff1-af1c-b75c014c22cf/vue-d-ensemble"
+            },
+            {
+              "type": "lien",
+              "libelle": "Contenu #",
+              "href": "/formateur/formations/ae045275-aa06-4ff1-af1c-b75c014c22cf"
+            },
+            {
+              "type": "lien",
+              "libelle": "Apprenants",
+              "href": "/formateur/formations/ae045275-aa06-4ff1-af1c-b75c014c22cf/suivi"
+            },
+            {
+              "type": "lien",
+              "libelle": "Rapports",
+              "href": "/formateur/formations/ae045275-aa06-4ff1-af1c-b75c014c22cf/rapports"
+            },
+            {
+              "type": "bouton",
+              "libelle": "Tout replier"
+            },
+            {
+              "type": "bouton",
+              "libelle": "Modifier le contenu"
+            },
+            {
+              "type": "bouton",
+              "libelle": "# Module # — API REST avec NestJS # QCM dont # publié · # atelier · # ressource · # support IA"
+            },
+            {
+              "type": "bouton",
+              "libelle": "Ajouter"
+            },
+            {
+              "type": "lien",
+              "libelle": "QCM · QCM — Les bases de NestJS",
+              "href": "/formateur/qcm/253df483-1dd4-4cf9-9eae-eb7e2e2268b9"
+            },
+            {
+              "type": "lien",
+              "libelle": "Ouvrir",
+              "href": "/formateur/qcm/253df483-1dd4-4cf9-9eae-eb7e2e2268b9"
+            },
+            {
+              "type": "bouton",
+              "libelle": "# Module # — Interfaces avec Next.js # QCM · # atelier · # ressource · # support IA"
+            },
+            {
+              "type": "lien",
+              "libelle": "Atelier · Atelier — API REST de réservation",
+              "href": "/formateur/ateliers/50327b9d-5b91-41d5-9087-425fec3ae920"
+            },
+            {
+              "type": "lien",
+              "libelle": "Ouvrir",
+              "href": "/formateur/ateliers/50327b9d-5b91-41d5-9087-425fec3ae920"
+            },
+            {
+              "type": "bouton",
+              "libelle": "Tout déplier",
+              "profondeur": 1,
+              "contexte": "après « Tout replier »"
+            },
+            {
+              "type": "bouton",
+              "libelle": "×",
+              "profondeur": 1,
+              "contexte": "fenêtre « Modifier le contenu »"
+            },
+            {
+              "type": "bouton",
+              "libelle": "Enregistrer le contenu",
+              "profondeur": 1,
+              "contexte": "fenêtre « Modifier le contenu »"
+            },
+            {
+              "type": "bouton",
+              "libelle": "↑",
+              "profondeur": 1,
+              "contexte": "fenêtre « Modifier le contenu »"
+            },
+            {
+              "type": "bouton",
+              "libelle": "↓",
+              "profondeur": 1,
+              "contexte": "fenêtre « Modifier le contenu »"
+            },
+            {
+              "type": "bouton",
+              "libelle": "Renommer",
+              "profondeur": 1,
+              "contexte": "fenêtre « Modifier le contenu »"
+            },
+            {
+              "type": "bouton",
+              "libelle": "Supprimer",
+              "profondeur": 1,
+              "contexte": "fenêtre « Modifier le contenu »"
+            },
+            {
+              "type": "menu",
+              "libelle": "Nouveau QCM",
+              "profondeur": 1,
+              "contexte": "menu « Ajouter »"
+            },
+            {
+              "type": "menu",
+              "libelle": "Nouvel atelier",
+              "profondeur": 1,
+              "contexte": "menu « Ajouter »"
+            },
+            {
+              "type": "menu",
+              "libelle": "Lien ou vidéo",
+              "profondeur": 1,
+              "contexte": "menu « Ajouter »"
+            },
+            {
+              "type": "menu",
+              "libelle": "Fichier",
+              "profondeur": 1,
+              "contexte": "menu « Ajouter »"
+            },
+            {
+              "type": "menu",
+              "libelle": "Support pour l’IA",
+              "profondeur": 1,
+              "contexte": "menu « Ajouter »"
+            },
+            {
+              "type": "bouton",
+              "libelle": "Annuler",
+              "profondeur": 2,
+              "contexte": "fenêtre « Nouveau QCM »"
+            },
+            {
+              "type": "bouton",
+              "libelle": "Créer",
+              "profondeur": 2,
+              "contexte": "fenêtre « Nouveau QCM »"
+            },
+            {
+              "type": "bouton",
+              "libelle": "Enregistrer",
+              "profondeur": 2,
+              "contexte": "fenêtre « Lien ou vidéo »"
+            },
+            {
+              "type": "bouton",
+              "libelle": "Déposer",
+              "profondeur": 2,
+              "contexte": "fenêtre « Fichier »"
+            }
+          ]
+        },
+        "/formateur/formations/:id/suivi": {
+          "exemple": "/formateur/formations/ae045275-aa06-4ff1-af1c-b75c014c22cf/suivi",
+          "titre": "Développement web full-stack (NestJS et Next.js)",
+          "actions": [
+            {
+              "type": "lien",
+              "libelle": "Vue d’ensemble",
+              "href": "/formateur/formations/ae045275-aa06-4ff1-af1c-b75c014c22cf/vue-d-ensemble"
+            },
+            {
+              "type": "lien",
+              "libelle": "Contenu #",
+              "href": "/formateur/formations/ae045275-aa06-4ff1-af1c-b75c014c22cf"
+            },
+            {
+              "type": "lien",
+              "libelle": "Apprenants",
+              "href": "/formateur/formations/ae045275-aa06-4ff1-af1c-b75c014c22cf/suivi"
+            },
+            {
+              "type": "lien",
+              "libelle": "Rapports",
+              "href": "/formateur/formations/ae045275-aa06-4ff1-af1c-b75c014c22cf/rapports"
+            },
+            {
+              "type": "lien",
+              "libelle": "Exporter un rapport",
+              "href": "/formateur/formations/ae045275-aa06-4ff1-af1c-b75c014c22cf/rapports"
+            },
+            {
+              "type": "lien",
+              "libelle": "#",
+              "href": "/formateur/alertes"
+            },
+            {
+              "type": "lien",
+              "libelle": "#",
+              "href": "/formateur/alertes/surveillance"
+            },
+            {
+              "type": "recherche",
+              "libelle": "Rechercher un apprenant"
+            },
+            {
+              "type": "liste",
+              "libelle": "Afficher"
+            },
+            {
+              "type": "liste",
+              "libelle": "Trier par"
+            },
+            {
+              "type": "bouton",
+              "libelle": "Fiche"
+            },
+            {
+              "type": "bouton",
+              "libelle": "×",
+              "profondeur": 1,
+              "contexte": "fenêtre « Fiche »"
+            },
+            {
+              "type": "bouton",
+              "libelle": "Fermer",
+              "profondeur": 1,
+              "contexte": "fenêtre « Fiche »"
+            }
+          ]
+        },
+        "/formateur/ateliers/:id": {
+          "exemple": "/formateur/ateliers/50327b9d-5b91-41d5-9087-425fec3ae920",
+          "titre": "Atelier — API REST de réservation",
+          "actions": [
+            {
+              "type": "bouton",
+              "libelle": "Plus d’actions — Atelier — API REST de réservation"
+            },
+            {
+              "type": "bouton",
+              "libelle": "Énoncé fait · à rendre avant le #/#/# #:#"
+            },
+            {
+              "type": "bouton",
+              "libelle": "Grille de notation fait · validée (# %)"
+            },
+            {
+              "type": "bouton",
+              "libelle": "Corriger les livrables"
+            },
+            {
+              "type": "onglet",
+              "libelle": "Énoncé"
+            },
+            {
+              "type": "onglet",
+              "libelle": "Grille de notation"
+            },
+            {
+              "type": "onglet",
+              "libelle": "Livrables et résultats # à traiter"
+            },
+            {
+              "type": "bouton",
+              "libelle": "Tous"
+            },
+            {
+              "type": "bouton",
+              "libelle": "À corriger"
+            },
+            {
+              "type": "bouton",
+              "libelle": "En correction"
+            },
+            {
+              "type": "bouton",
+              "libelle": "Notés"
+            },
+            {
+              "type": "lien",
+              "libelle": "Reprendre",
+              "href": "/formateur/livrables/18ab979e-e1a7-43e4-b810-a79e9ce895a3"
+            },
+            {
+              "type": "bouton",
+              "libelle": "Corriger"
+            },
+            {
+              "type": "menu",
+              "libelle": "Modifier",
+              "profondeur": 1,
+              "contexte": "menu « Plus d’actions — Atelier — API REST de réservation »"
+            },
+            {
+              "type": "menu",
+              "libelle": "Supprimer",
+              "profondeur": 1,
+              "contexte": "menu « Plus d’actions — Atelier — API REST de réservation »"
+            },
+            {
+              "type": "bouton",
+              "libelle": "# Correction et résultats en cours · # livrable à corriger",
+              "profondeur": 1,
+              "contexte": "après « Énoncé fait · à rendre avant le #/#/# #:# »"
+            },
+            {
+              "type": "bouton",
+              "libelle": "Enregistrer comme modèle",
+              "profondeur": 1,
+              "contexte": "après « Grille de notation fait · validée (# %) »"
+            }
+          ]
+        },
+        "/formateur/qcm/:id": {
+          "exemple": "/formateur/qcm/253df483-1dd4-4cf9-9eae-eb7e2e2268b9",
+          "titre": "QCM — Les bases de NestJS",
+          "actions": [
+            {
+              "type": "bouton",
+              "libelle": "Plus d’actions — QCM — Les bases de NestJS"
+            },
+            {
+              "type": "bouton",
+              "libelle": "Paramètres anti-fraude fait · enregistrés"
+            },
+            {
+              "type": "bouton",
+              "libelle": "Publication fait · visible des apprenants"
+            },
+            {
+              "type": "bouton",
+              "libelle": "# Résultats en cours · tentatives à consulter"
+            },
+            {
+              "type": "lien",
+              "libelle": "Voir les tentatives",
+              "href": "/formateur/qcm/253df483-1dd4-4cf9-9eae-eb7e2e2268b9/tentatives"
+            },
+            {
+              "type": "onglet",
+              "libelle": "Questions #"
+            },
+            {
+              "type": "onglet",
+              "libelle": "Paramètres"
+            },
+            {
+              "type": "onglet",
+              "libelle": "Tentatives et résultats"
+            },
+            {
+              "type": "bouton",
+              "libelle": "Ajouter des questions"
+            },
+            {
+              "type": "bouton",
+              "libelle": "Tout déplier"
+            },
+            {
+              "type": "bouton",
+              "libelle": "Quel décorateur déclare un contrôleur NestJS ? Choix unique Pondération # · # options"
+            },
+            {
+              "type": "bouton",
+              "libelle": "↑"
+            },
+            {
+              "type": "bouton",
+              "libelle": "↓"
+            },
+            {
+              "type": "bouton",
+              "libelle": "Explication"
+            },
+            {
+              "type": "bouton",
+              "libelle": "Retirer"
+            },
+            {
+              "type": "bouton",
+              "libelle": "Un service NestJS est injecté par le constructeur. Vrai / Faux Pondération # · # options"
+            },
+            {
+              "type": "bouton",
+              "libelle": "Quel élément valide automatiquement le corps d’une requête ? Choix unique Pondération # · # options"
+            },
+            {
+              "type": "bouton",
+              "libelle": "Quel module relie NestJS à une base PostgreSQL dans ce projet ? Choix unique Pondération # · # options"
+            },
+            {
+              "type": "bouton",
+              "libelle": "Un garde (guard) s’exécute après le contrôleur. Vrai / Faux Pondération # · # options"
+            },
+            {
+              "type": "menu",
+              "libelle": "Modifier le titre",
+              "profondeur": 1,
+              "contexte": "menu « Plus d’actions — QCM — Les bases de NestJS »"
+            },
+            {
+              "type": "menu",
+              "libelle": "Supprimer le QCM",
+              "profondeur": 1,
+              "contexte": "menu « Plus d’actions — QCM — Les bases de NestJS »"
+            },
+            {
+              "type": "bouton",
+              "libelle": "×",
+              "profondeur": 2,
+              "contexte": "fenêtre « Modifier le titre »"
+            },
+            {
+              "type": "bouton",
+              "libelle": "Annuler",
+              "profondeur": 2,
+              "contexte": "fenêtre « Modifier le titre »"
+            },
+            {
+              "type": "bouton",
+              "libelle": "Enregistrer",
+              "profondeur": 2,
+              "contexte": "fenêtre « Modifier le titre »"
+            },
+            {
+              "type": "bouton",
+              "libelle": "Questions fait · # questions",
+              "profondeur": 1,
+              "contexte": "après « Paramètres anti-fraude fait · enregistrés »"
+            },
+            {
+              "type": "bouton",
+              "libelle": "Modifier les paramètres",
+              "profondeur": 1,
+              "contexte": "après « Paramètres anti-fraude fait · enregistrés »"
+            },
+            {
+              "type": "lien",
+              "libelle": "Voir l’historique",
+              "href": "/formateur/qcm/253df483-1dd4-4cf9-9eae-eb7e2e2268b9/tentatives",
+              "profondeur": 1,
+              "contexte": "après « # Résultats en cours · tentatives à consulter »"
+            },
+            {
+              "type": "liste",
+              "libelle": "Affichage du résultat",
+              "profondeur": 2,
+              "contexte": "fenêtre « Modifier les paramètres »"
+            },
+            {
+              "type": "menu",
+              "libelle": "Saisir une question",
+              "profondeur": 1,
+              "contexte": "menu « Ajouter des questions »"
+            },
+            {
+              "type": "menu",
+              "libelle": "Importer depuis ma banque",
+              "profondeur": 1,
+              "contexte": "menu « Ajouter des questions »"
+            },
+            {
+              "type": "menu",
+              "libelle": "Importer depuis un fichier",
+              "profondeur": 1,
+              "contexte": "menu « Ajouter des questions »"
+            },
+            {
+              "type": "menu",
+              "libelle": "Générer avec l’IA (supports du module)",
+              "profondeur": 1,
+              "contexte": "menu « Ajouter des questions »"
+            },
+            {
+              "type": "bouton",
+              "libelle": "Tout replier",
+              "profondeur": 1,
+              "contexte": "après « Tout déplier »"
+            },
+            {
+              "type": "liste",
+              "libelle": "Type",
+              "profondeur": 1,
+              "contexte": "fenêtre « Explication »"
+            },
+            {
+              "type": "liste",
+              "libelle": "Difficulté",
+              "profondeur": 1,
+              "contexte": "fenêtre « Explication »"
+            },
+            {
+              "type": "bouton",
+              "libelle": "+ Ajouter une option",
+              "profondeur": 1,
+              "contexte": "fenêtre « Explication »"
+            }
+          ]
+        },
+        "/formateur/qcm/:id/tentatives": {
+          "exemple": "/formateur/qcm/253df483-1dd4-4cf9-9eae-eb7e2e2268b9/tentatives",
+          "titre": "Tentatives — QCM — Les bases de NestJS",
+          "actions": [
+            {
+              "type": "lien",
+              "libelle": "← Retour au QCM",
+              "href": "/formateur/qcm/253df483-1dd4-4cf9-9eae-eb7e2e2268b9"
+            },
+            {
+              "type": "recherche",
+              "libelle": "Filtrer par apprenant"
+            },
+            {
+              "type": "bouton",
+              "libelle": "Toutes (#)"
+            },
+            {
+              "type": "bouton",
+              "libelle": "Signalées par l’IA (#)"
+            },
+            {
+              "type": "bouton",
+              "libelle": "Détail"
+            },
+            {
+              "type": "bouton",
+              "libelle": "Télécharger le rapport (PDF)"
+            },
+            {
+              "type": "bouton",
+              "libelle": "×",
+              "profondeur": 1,
+              "contexte": "fenêtre « Détail »"
+            },
+            {
+              "type": "bouton",
+              "libelle": "Voir les photos de contrôle",
+              "profondeur": 1,
+              "contexte": "fenêtre « Détail »"
+            }
+          ]
+        },
+        "/formateur/formations/:id/rapports": {
+          "exemple": "/formateur/formations/ae045275-aa06-4ff1-af1c-b75c014c22cf/rapports",
+          "titre": "Développement web full-stack (NestJS et Next.js)",
+          "actions": [
+            {
+              "type": "lien",
+              "libelle": "Vue d’ensemble",
+              "href": "/formateur/formations/ae045275-aa06-4ff1-af1c-b75c014c22cf/vue-d-ensemble"
+            },
+            {
+              "type": "lien",
+              "libelle": "Contenu #",
+              "href": "/formateur/formations/ae045275-aa06-4ff1-af1c-b75c014c22cf"
+            },
+            {
+              "type": "lien",
+              "libelle": "Apprenants",
+              "href": "/formateur/formations/ae045275-aa06-4ff1-af1c-b75c014c22cf/suivi"
+            },
+            {
+              "type": "lien",
+              "libelle": "Rapports",
+              "href": "/formateur/formations/ae045275-aa06-4ff1-af1c-b75c014c22cf/rapports"
+            },
+            {
+              "type": "bouton",
+              "libelle": "PDF"
+            },
+            {
+              "type": "bouton",
+              "libelle": "CSV (Excel)"
+            },
+            {
+              "type": "bouton",
+              "libelle": "Générer"
+            },
+            {
+              "type": "liste",
+              "libelle": "Apprenant"
+            },
+            {
+              "type": "liste",
+              "libelle": "Module"
+            }
+          ]
+        },
+        "/formateur/alertes/surveillance": {
+          "exemple": "/formateur/alertes/surveillance",
+          "titre": "Surveillance des QCM",
+          "actions": [
+            {
+              "type": "lien",
+              "libelle": "Décrochage",
+              "href": "/formateur/alertes"
+            },
+            {
+              "type": "lien",
+              "libelle": "Surveillance des QCM",
+              "href": "/formateur/alertes/surveillance"
+            },
+            {
+              "type": "bouton",
+              "libelle": "À examiner #"
+            },
+            {
+              "type": "bouton",
+              "libelle": "Examinées #"
+            },
+            {
+              "type": "bouton",
+              "libelle": "Toutes #"
+            },
+            {
+              "type": "bouton",
+              "libelle": "Actualiser"
+            }
+          ]
+        },
+        "/catalogue/:id": {
+          "exemple": "/catalogue/ae045275-aa06-4ff1-af1c-b75c014c22cf",
+          "titre": "Développement web full-stack (NestJS et Next.js)",
+          "actions": []
+        },
+        "/formateur/formations/:id/vue-d-ensemble": {
+          "exemple": "/formateur/formations/ae045275-aa06-4ff1-af1c-b75c014c22cf/vue-d-ensemble",
+          "titre": "Développement web full-stack (NestJS et Next.js)",
+          "actions": [
+            {
+              "type": "lien",
+              "libelle": "Vue d’ensemble",
+              "href": "/formateur/formations/ae045275-aa06-4ff1-af1c-b75c014c22cf/vue-d-ensemble"
+            },
+            {
+              "type": "lien",
+              "libelle": "Contenu #",
+              "href": "/formateur/formations/ae045275-aa06-4ff1-af1c-b75c014c22cf"
+            },
+            {
+              "type": "lien",
+              "libelle": "Apprenants",
+              "href": "/formateur/formations/ae045275-aa06-4ff1-af1c-b75c014c22cf/suivi"
+            },
+            {
+              "type": "lien",
+              "libelle": "Rapports",
+              "href": "/formateur/formations/ae045275-aa06-4ff1-af1c-b75c014c22cf/rapports"
+            },
+            {
+              "type": "lien",
+              "libelle": "Actifs ces # derniers jours # en cours et connectés depuis moins de # jours · sur # inscrits",
+              "href": "/formateur/formations/ae045275-aa06-4ff1-af1c-b75c014c22cf/suivi"
+            },
+            {
+              "type": "lien",
+              "libelle": "Avancement moyen # % des apprenants en cours",
+              "href": "/formateur/formations/ae045275-aa06-4ff1-af1c-b75c014c22cf/suivi"
+            },
+            {
+              "type": "lien",
+              "libelle": "Alertes ouvertes # # décrochage · # surveillance",
+              "href": "/formateur/alertes"
+            },
+            {
+              "type": "lien",
+              "libelle": "Contenu publié # # QCM · # atelier · # modules",
+              "href": "/formateur/formations/ae045275-aa06-4ff1-af1c-b75c014c22cf"
+            },
+            {
+              "type": "lien",
+              "libelle": "Préparer le contenu",
+              "href": "/formateur/formations/ae045275-aa06-4ff1-af1c-b75c014c22cf"
+            }
+          ]
+        },
+        "/formateur/livrables/:id": {
+          "exemple": "/formateur/livrables/18ab979e-e1a7-43e4-b810-a79e9ce895a3",
+          "titre": "Correction — Sana Gharbi",
+          "actions": [
+            {
+              "type": "bouton",
+              "libelle": "Télécharger"
+            },
+            {
+              "type": "bouton",
+              "libelle": "Insuffisant #–# %"
+            },
+            {
+              "type": "bouton",
+              "libelle": "Acceptable #–# %"
+            },
+            {
+              "type": "bouton",
+              "libelle": "Bon #–# %"
+            },
+            {
+              "type": "bouton",
+              "libelle": "Excellent #–# %"
+            },
+            {
+              "type": "bouton",
+              "libelle": "Enregistrer"
+            },
+            {
+              "type": "bouton",
+              "libelle": "Envoyer le feedback"
+            }
+          ]
+        }
+      }
+    },
+    "administrateur": {
+      "accueil": "/admin/tableau-de-bord",
+      "pages": {
+        "(coque)": {
+          "titre": "En-tête et menus",
+          "actions": [
+            {
+              "type": "lien",
+              "libelle": "Cert_EET",
+              "href": "/admin/tableau-de-bord"
+            },
+            {
+              "type": "recherche",
+              "libelle": "Rechercher une formation"
+            },
+            {
+              "type": "bouton",
+              "libelle": "DA Mon compte"
+            },
+            {
+              "type": "lien",
+              "libelle": "Accueil",
+              "href": "/admin/tableau-de-bord"
+            },
+            {
+              "type": "lien",
+              "libelle": "Comptes",
+              "href": "/admin/utilisateurs"
+            },
+            {
+              "type": "lien",
+              "libelle": "Demandes de rôle # , # en attente",
+              "href": "/admin/role-requests"
+            },
+            {
+              "type": "lien",
+              "libelle": "Formations",
+              "href": "/admin/formations"
+            },
+            {
+              "type": "lien",
+              "libelle": "Demandes d’affectation # , # en attente",
+              "href": "/admin/demandes-affectation"
+            },
+            {
+              "type": "lien",
+              "libelle": "Propositions # , # en attente",
+              "href": "/admin/propositions-formation"
+            },
+            {
+              "type": "lien",
+              "libelle": "Certificats",
+              "href": "/admin/certificats"
+            },
+            {
+              "type": "lien",
+              "libelle": "Rapports",
+              "href": "/admin/rapports"
+            },
+            {
+              "type": "lien",
+              "libelle": "Prédiction du risque",
+              "href": "/admin/risque"
+            },
+            {
+              "type": "lien",
+              "libelle": "Générations IA",
+              "href": "/admin/generations-ia"
+            },
+            {
+              "type": "lien",
+              "libelle": "Journal d’audit",
+              "href": "/admin/audit"
+            },
+            {
+              "type": "bouton",
+              "libelle": "Réduire le menu"
+            },
+            {
+              "type": "menu",
+              "libelle": "Accueil",
+              "href": "/admin/tableau-de-bord",
+              "profondeur": 1,
+              "contexte": "menu du compte"
+            },
+            {
+              "type": "menu",
+              "libelle": "Sécurité du compte",
+              "href": "/securite",
+              "profondeur": 1,
+              "contexte": "menu du compte"
+            },
+            {
+              "type": "menu",
+              "libelle": "Se déconnecter",
+              "profondeur": 1,
+              "contexte": "menu du compte"
+            }
+          ]
+        },
+        "/admin/tableau-de-bord": {
+          "exemple": "/admin/tableau-de-bord",
+          "titre": "Tableau de bord",
+          "actions": [
+            {
+              "type": "lien",
+              "libelle": "Traiter",
+              "href": "/admin/demandes-affectation"
+            },
+            {
+              "type": "lien",
+              "libelle": "Traiter",
+              "href": "/admin/role-requests"
+            },
+            {
+              "type": "lien",
+              "libelle": "Traiter",
+              "href": "/admin/propositions-formation"
+            },
+            {
+              "type": "bouton",
+              "libelle": "# j"
+            },
+            {
+              "type": "bouton",
+              "libelle": "# an"
+            },
+            {
+              "type": "volet",
+              "libelle": "Personnaliser"
+            },
+            {
+              "type": "lien",
+              "libelle": "Comptes # # apprenants · # formateurs · # administrateurs",
+              "href": "/admin/utilisateurs"
+            },
+            {
+              "type": "lien",
+              "libelle": "Connectés sur la période # # nouveaux comptes sur la période",
+              "href": "/admin/audit"
+            },
+            {
+              "type": "lien",
+              "libelle": "Formations ouvertes # # au total : # ouvertes · # fermées · # archivées · # créées sur la période",
+              "href": "/admin/formations?statut=OUVERTE"
+            },
+            {
+              "type": "lien",
+              "libelle": "Formations en brouillon # à préparer puis publier",
+              "href": "/admin/formations?statut=BROUILLON"
+            },
+            {
+              "type": "lien",
+              "libelle": "Inscriptions # # en cours · # terminées · # suspendues · # sur la période",
+              "href": "/admin/formations"
+            },
+            {
+              "type": "lien",
+              "libelle": "Certificats émis # # émis",
+              "href": "/admin/certificats?statut=ACTIF"
+            },
+            {
+              "type": "lien",
+              "libelle": "Certificats révoqués # consulter les motifs de révocation",
+              "href": "/admin/certificats?statut=REVOQUE"
+            },
+            {
+              "type": "lien",
+              "libelle": "Vérifications publiques # consultations de la page de vérification sur la période",
+              "href": "/admin/certificats"
+            },
+            {
+              "type": "lien",
+              "libelle": "Ouvrir le journal d’audit",
+              "href": "/admin/audit"
+            },
+            {
+              "type": "bouton",
+              "libelle": "Appliquer",
+              "profondeur": 1,
+              "contexte": "menu « Personnaliser »"
+            }
+          ]
+        },
+        "/admin/utilisateurs": {
+          "exemple": "/admin/utilisateurs",
+          "titre": "Comptes",
+          "actions": [
+            {
+              "type": "bouton",
+              "libelle": "Importer des comptes"
+            },
+            {
+              "type": "recherche",
+              "libelle": "Rechercher un compte"
+            },
+            {
+              "type": "bouton",
+              "libelle": "Tous les rôles #"
+            },
+            {
+              "type": "bouton",
+              "libelle": "Apprenants #"
+            },
+            {
+              "type": "bouton",
+              "libelle": "Formateurs #"
+            },
+            {
+              "type": "bouton",
+              "libelle": "Administrateurs #"
+            },
+            {
+              "type": "bouton",
+              "libelle": "Tous les statuts #"
+            },
+            {
+              "type": "bouton",
+              "libelle": "Actif #"
+            },
+            {
+              "type": "bouton",
+              "libelle": "Désactivé #"
+            },
+            {
+              "type": "bouton",
+              "libelle": "En attente #"
+            },
+            {
+              "type": "bouton",
+              "libelle": "Anonymisé #"
+            },
+            {
+              "type": "bouton",
+              "libelle": "Actualiser"
+            },
+            {
+              "type": "bouton",
+              "libelle": "Changer le rôle"
+            },
+            {
+              "type": "bouton",
+              "libelle": "Plus d’actions — Amira Ben Salah"
+            },
+            {
+              "type": "bouton",
+              "libelle": "Plus d’actions — Youssef Jlassi"
+            },
+            {
+              "type": "bouton",
+              "libelle": "Plus d’actions — Mariem Ayari"
+            },
+            {
+              "type": "bouton",
+              "libelle": "Plus d’actions — Ahmed Mejri"
+            },
+            {
+              "type": "bouton",
+              "libelle": "Plus d’actions — Sana Gharbi"
+            },
+            {
+              "type": "bouton",
+              "libelle": "Plus d’actions — Nour Chebbi"
+            },
+            {
+              "type": "bouton",
+              "libelle": "Plus d’actions — Leïla Haddad"
+            },
+            {
+              "type": "bouton",
+              "libelle": "Plus d’actions — Karim Trabelsi"
+            },
+            {
+              "type": "bouton",
+              "libelle": "Plus d’actions — Yassine Mansouri"
+            },
+            {
+              "type": "bouton",
+              "libelle": "Précédent"
+            },
+            {
+              "type": "bouton",
+              "libelle": "Suivant"
+            },
+            {
+              "type": "menu",
+              "libelle": "Désactiver",
+              "profondeur": 1,
+              "contexte": "menu « Plus d’actions — Amira Ben Salah »"
+            },
+            {
+              "type": "menu",
+              "libelle": "Anonymiser",
+              "profondeur": 1,
+              "contexte": "menu « Plus d’actions — Youssef Jlassi »"
+            }
+          ]
+        },
+        "/admin/role-requests": {
+          "exemple": "/admin/role-requests",
+          "titre": "Demandes de rôle",
+          "actions": [
+            {
+              "type": "bouton",
+              "libelle": "En attente #"
+            },
+            {
+              "type": "bouton",
+              "libelle": "Approuvée #"
+            },
+            {
+              "type": "bouton",
+              "libelle": "Rejetée #"
+            },
+            {
+              "type": "bouton",
+              "libelle": "Actualiser"
+            },
+            {
+              "type": "bouton",
+              "libelle": "Approuver"
+            },
+            {
+              "type": "bouton",
+              "libelle": "Plus d’actions — Nour Chebbi"
+            },
+            {
+              "type": "menu",
+              "libelle": "Rejeter",
+              "profondeur": 1,
+              "contexte": "menu « Plus d’actions — Nour Chebbi »"
+            }
+          ]
+        },
+        "/admin/formations": {
+          "exemple": "/admin/formations",
+          "titre": "Formations",
+          "actions": [
+            {
+              "type": "bouton",
+              "libelle": "Nouvelle formation"
+            },
+            {
+              "type": "bouton",
+              "libelle": "Tous les statuts #"
+            },
+            {
+              "type": "bouton",
+              "libelle": "Brouillon #"
+            },
+            {
+              "type": "bouton",
+              "libelle": "Ouverte #"
+            },
+            {
+              "type": "bouton",
+              "libelle": "Fermée #"
+            },
+            {
+              "type": "bouton",
+              "libelle": "Archivée #"
+            },
+            {
+              "type": "bouton",
+              "libelle": "Actualiser"
+            },
+            {
+              "type": "bouton",
+              "libelle": "Gérer"
+            },
+            {
+              "type": "bouton",
+              "libelle": "Précédent"
+            },
+            {
+              "type": "bouton",
+              "libelle": "Suivant"
+            },
+            {
+              "type": "bouton",
+              "libelle": "×",
+              "profondeur": 1,
+              "contexte": "fenêtre « Nouvelle formation »"
+            },
+            {
+              "type": "bouton",
+              "libelle": "Annuler",
+              "profondeur": 1,
+              "contexte": "fenêtre « Nouvelle formation »"
+            },
+            {
+              "type": "bouton",
+              "libelle": "Créer la formation",
+              "profondeur": 1,
+              "contexte": "fenêtre « Nouvelle formation »"
+            },
+            {
+              "type": "menu",
+              "libelle": "Modifier",
+              "profondeur": 1,
+              "contexte": "menu « Gérer »"
+            },
+            {
+              "type": "menu",
+              "libelle": "Modules",
+              "profondeur": 1,
+              "contexte": "menu « Gérer »"
+            },
+            {
+              "type": "menu",
+              "libelle": "Formateurs",
+              "profondeur": 1,
+              "contexte": "menu « Gérer »"
+            },
+            {
+              "type": "menu",
+              "libelle": "Inscriptions",
+              "href": "/admin/formations/ae045275-aa06-4ff1-af1c-b75c014c22cf/inscriptions",
+              "profondeur": 1,
+              "contexte": "menu « Gérer »"
+            },
+            {
+              "type": "menu",
+              "libelle": "Statut",
+              "profondeur": 1,
+              "contexte": "menu « Gérer »"
+            },
+            {
+              "type": "bouton",
+              "libelle": "Enregistrer",
+              "profondeur": 2,
+              "contexte": "fenêtre « Modifier »"
+            },
+            {
+              "type": "bouton",
+              "libelle": "↑",
+              "profondeur": 2,
+              "contexte": "fenêtre « Modules »"
+            },
+            {
+              "type": "bouton",
+              "libelle": "↓",
+              "profondeur": 2,
+              "contexte": "fenêtre « Modules »"
+            },
+            {
+              "type": "bouton",
+              "libelle": "Renommer",
+              "profondeur": 2,
+              "contexte": "fenêtre « Modules »"
+            },
+            {
+              "type": "bouton",
+              "libelle": "Supprimer",
+              "profondeur": 2,
+              "contexte": "fenêtre « Modules »"
+            },
+            {
+              "type": "bouton",
+              "libelle": "Fermer",
+              "profondeur": 2,
+              "contexte": "fenêtre « Modules »"
+            },
+            {
+              "type": "bouton",
+              "libelle": "Ajouter le module",
+              "profondeur": 2,
+              "contexte": "fenêtre « Modules »"
+            },
+            {
+              "type": "bouton",
+              "libelle": "Retirer",
+              "profondeur": 2,
+              "contexte": "fenêtre « Formateurs »"
+            },
+            {
+              "type": "liste",
+              "libelle": "Affecter un formateur",
+              "profondeur": 2,
+              "contexte": "fenêtre « Formateurs »"
+            },
+            {
+              "type": "bouton",
+              "libelle": "Affecter",
+              "profondeur": 2,
+              "contexte": "fenêtre « Formateurs »"
+            },
+            {
+              "type": "bouton",
+              "libelle": "Clôturer",
+              "profondeur": 2,
+              "contexte": "fenêtre « Statut »"
+            }
+          ]
+        },
+        "/admin/demandes-affectation": {
+          "exemple": "/admin/demandes-affectation",
+          "titre": "Demandes d’affectation",
+          "actions": [
+            {
+              "type": "bouton",
+              "libelle": "En attente #"
+            },
+            {
+              "type": "bouton",
+              "libelle": "Acceptée #"
+            },
+            {
+              "type": "bouton",
+              "libelle": "Refusée #"
+            },
+            {
+              "type": "bouton",
+              "libelle": "Annulée #"
+            },
+            {
+              "type": "bouton",
+              "libelle": "Actualiser"
+            },
+            {
+              "type": "lien",
+              "libelle": "DevOps : Docker, CI/CD et Kubernetes",
+              "href": "/admin/formations/6b80ff76-3b8a-46b9-9da3-7b7e88bf91d7/inscriptions"
+            },
+            {
+              "type": "bouton",
+              "libelle": "Accepter"
+            },
+            {
+              "type": "bouton",
+              "libelle": "Plus d’actions — Leïla Haddad"
+            },
+            {
+              "type": "menu",
+              "libelle": "Refuser",
+              "profondeur": 1,
+              "contexte": "menu « Plus d’actions — Leïla Haddad »"
+            }
+          ]
+        },
+        "/admin/propositions-formation": {
+          "exemple": "/admin/propositions-formation",
+          "titre": "Propositions de formation",
+          "actions": [
+            {
+              "type": "bouton",
+              "libelle": "En attente #"
+            },
+            {
+              "type": "bouton",
+              "libelle": "À modifier #"
+            },
+            {
+              "type": "bouton",
+              "libelle": "Acceptée #"
+            },
+            {
+              "type": "bouton",
+              "libelle": "Refusée #"
+            },
+            {
+              "type": "bouton",
+              "libelle": "Actualiser"
+            },
+            {
+              "type": "bouton",
+              "libelle": "Accepter"
+            },
+            {
+              "type": "bouton",
+              "libelle": "Plus d’actions — Kubernetes en production"
+            },
+            {
+              "type": "menu",
+              "libelle": "Demander des modifications",
+              "profondeur": 1,
+              "contexte": "menu « Plus d’actions — Kubernetes en production »"
+            },
+            {
+              "type": "menu",
+              "libelle": "Refuser",
+              "profondeur": 1,
+              "contexte": "menu « Plus d’actions — Kubernetes en production »"
+            }
+          ]
+        },
+        "/admin/certificats": {
+          "exemple": "/admin/certificats",
+          "titre": "Certificats",
+          "actions": [
+            {
+              "type": "recherche",
+              "libelle": "Rechercher un certificat"
+            },
+            {
+              "type": "bouton",
+              "libelle": "Rechercher"
+            },
+            {
+              "type": "bouton",
+              "libelle": "Tous #"
+            },
+            {
+              "type": "bouton",
+              "libelle": "En attente #"
+            },
+            {
+              "type": "bouton",
+              "libelle": "En génération #"
+            },
+            {
+              "type": "bouton",
+              "libelle": "Émis #"
+            },
+            {
+              "type": "bouton",
+              "libelle": "Révoqués #"
+            },
+            {
+              "type": "bouton",
+              "libelle": "Échecs définitifs"
+            },
+            {
+              "type": "bouton",
+              "libelle": "Actualiser"
+            },
+            {
+              "type": "bouton",
+              "libelle": "Mariem Ayari"
+            },
+            {
+              "type": "bouton",
+              "libelle": "Fiche"
+            },
+            {
+              "type": "bouton",
+              "libelle": "Plus d’actions — Mariem Ayari"
+            },
+            {
+              "type": "bouton",
+              "libelle": "Youssef Jlassi"
+            },
+            {
+              "type": "bouton",
+              "libelle": "Plus d’actions — Youssef Jlassi"
+            },
+            {
+              "type": "bouton",
+              "libelle": "Sana Gharbi"
+            },
+            {
+              "type": "bouton",
+              "libelle": "Plus d’actions — Sana Gharbi"
+            },
+            {
+              "type": "bouton",
+              "libelle": "Précédent"
+            },
+            {
+              "type": "bouton",
+              "libelle": "Suivant"
+            },
+            {
+              "type": "bouton",
+              "libelle": "×",
+              "profondeur": 1,
+              "contexte": "fenêtre « Mariem Ayari »"
+            },
+            {
+              "type": "bouton",
+              "libelle": "Voir le PDF",
+              "profondeur": 1,
+              "contexte": "fenêtre « Mariem Ayari »"
+            },
+            {
+              "type": "lien",
+              "libelle": "Page de vérification publique ↗",
+              "href": "/verifier/bba63843-f094-4dce-aff7-e2528cecfde8",
+              "profondeur": 1,
+              "contexte": "fenêtre « Mariem Ayari »"
+            },
+            {
+              "type": "bouton",
+              "libelle": "Fermer",
+              "profondeur": 1,
+              "contexte": "fenêtre « Mariem Ayari »"
+            },
+            {
+              "type": "menu",
+              "libelle": "Révoquer",
+              "profondeur": 1,
+              "contexte": "menu « Plus d’actions — Mariem Ayari »"
+            }
+          ]
+        },
+        "/admin/rapports": {
+          "exemple": "/admin/rapports",
+          "titre": "Rapports institutionnels",
+          "actions": [
+            {
+              "type": "bouton",
+              "libelle": "PDF"
+            },
+            {
+              "type": "bouton",
+              "libelle": "CSV (Excel)"
+            },
+            {
+              "type": "bouton",
+              "libelle": "Générer"
+            }
+          ]
+        },
+        "/admin/risque": {
+          "exemple": "/admin/risque",
+          "titre": "Prédiction du risque",
+          "actions": [
+            {
+              "type": "bouton",
+              "libelle": "Affichée"
+            },
+            {
+              "type": "bouton",
+              "libelle": "Voir les apprenants"
+            },
+            {
+              "type": "liste",
+              "libelle": "Formation affichée"
+            },
+            {
+              "type": "bouton",
+              "libelle": "Ahmed Mejri"
+            },
+            {
+              "type": "bouton",
+              "libelle": "Mariem Ayari"
+            },
+            {
+              "type": "bouton",
+              "libelle": "Sana Gharbi"
+            },
+            {
+              "type": "bouton",
+              "libelle": "Yassine Mansouri"
+            },
+            {
+              "type": "bouton",
+              "libelle": "Youssef Jlassi"
+            },
+            {
+              "type": "bouton",
+              "libelle": "×",
+              "profondeur": 1,
+              "contexte": "fenêtre « Ahmed Mejri »"
+            },
+            {
+              "type": "bouton",
+              "libelle": "Fermer",
+              "profondeur": 1,
+              "contexte": "fenêtre « Ahmed Mejri »"
+            }
+          ]
+        },
+        "/admin/generations-ia": {
+          "exemple": "/admin/generations-ia",
+          "titre": "Générations IA",
+          "actions": [
+            {
+              "type": "bouton",
+              "libelle": "Tous #"
+            },
+            {
+              "type": "bouton",
+              "libelle": "En cours #"
+            },
+            {
+              "type": "bouton",
+              "libelle": "Terminée #"
+            },
+            {
+              "type": "bouton",
+              "libelle": "Échec #"
+            },
+            {
+              "type": "bouton",
+              "libelle": "Actualiser"
+            }
+          ]
+        },
+        "/admin/audit": {
+          "exemple": "/admin/audit",
+          "titre": "Journal d’audit",
+          "actions": [
+            {
+              "type": "bouton",
+              "libelle": "Télécharger (CSV)"
+            },
+            {
+              "type": "bouton",
+              "libelle": "Échecs # cliquer pour n’afficher que les échecs"
+            },
+            {
+              "type": "bouton",
+              "libelle": "Toutes #"
+            },
+            {
+              "type": "bouton",
+              "libelle": "Connexions #"
+            },
+            {
+              "type": "bouton",
+              "libelle": "Comptes #"
+            },
+            {
+              "type": "bouton",
+              "libelle": "Formations #"
+            },
+            {
+              "type": "bouton",
+              "libelle": "Évaluations #"
+            },
+            {
+              "type": "bouton",
+              "libelle": "Certificats #"
+            },
+            {
+              "type": "bouton",
+              "libelle": "IA #"
+            },
+            {
+              "type": "bouton",
+              "libelle": "Sécurité #"
+            },
+            {
+              "type": "bouton",
+              "libelle": "Actualiser"
+            },
+            {
+              "type": "liste",
+              "libelle": "Action"
+            },
+            {
+              "type": "liste",
+              "libelle": "Résultat"
+            },
+            {
+              "type": "bouton",
+              "libelle": "Filtrer"
+            },
+            {
+              "type": "bouton",
+              "libelle": "Réinitialiser"
+            },
+            {
+              "type": "volet",
+              "libelle": "Voir"
+            },
+            {
+              "type": "bouton",
+              "libelle": "Précédent"
+            },
+            {
+              "type": "bouton",
+              "libelle": "Suivant"
+            },
+            {
+              "type": "bouton",
+              "libelle": "Échecs # affichés seuls : cliquer pour tout revoir",
+              "profondeur": 1,
+              "contexte": "après « Échecs # cliquer pour n’afficher que les échecs »"
+            }
+          ]
+        },
+        "/securite": {
+          "exemple": "/securite",
+          "titre": "Sécurité",
+          "actions": [
+            {
+              "type": "bouton",
+              "libelle": "Changer mon mot de passe"
+            },
+            {
+              "type": "bouton",
+              "libelle": "Activer la double authentification"
+            }
+          ]
+        },
+        "/admin/formations/:id/inscriptions": {
+          "exemple": "/admin/formations/ae045275-aa06-4ff1-af1c-b75c014c22cf/inscriptions",
+          "titre": "Inscriptions",
+          "actions": [
+            {
+              "type": "bouton",
+              "libelle": "Inscrire"
+            },
+            {
+              "type": "bouton",
+              "libelle": "Importer"
+            },
+            {
+              "type": "liste",
+              "libelle": "Filtrer par statut"
+            },
+            {
+              "type": "bouton",
+              "libelle": "Suspendre"
+            },
+            {
+              "type": "bouton",
+              "libelle": "×",
+              "profondeur": 1,
+              "contexte": "fenêtre « Suspendre »"
+            },
+            {
+              "type": "bouton",
+              "libelle": "Annuler",
+              "profondeur": 1,
+              "contexte": "fenêtre « Suspendre »"
+            }
+          ]
+        },
+        "/verifier/:id": {
+          "exemple": "/verifier/bba63843-f094-4dce-aff7-e2528cecfde8",
+          "titre": "Certificat valide et authentique",
+          "actions": [
+            {
+              "type": "lien",
+              "libelle": "Télécharger le PDF certifié",
+              "href": "/api/verification/bba63843-f094-4dce-aff7-e2528cecfde8/pdf"
+            }
+          ]
+        }
+      }
+    }
+  }
+}

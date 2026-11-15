@@ -15,6 +15,14 @@
 
 ## [Après le Sprint 6] — Stories hors sprint
 
+#### US-UX-09 — Recette finale de l'épopée E11 — journal `engineering-log/117`
+- **Quoi :** inventaire « après » versionné et comparé (295 actions conservées, 0 perdue, 0 plus
+  loin), audit de navigation des cinq rôles à 1280 et 390 px (0 problème), non-régression de
+  l'interface apprenant et des pages publiques au pixel près, captures avant / après
+  (`docs/ux/captures`) et de référence (`docs/guide-style`) à jour, guides relus. Correction : le
+  bandeau d'étapes (US-UX-01) reprenait la classe des étapes de l'accueil public.
+- **Pourquoi :** prouver que la réorganisation n'a retiré aucune fonction.
+
 #### US-UX-08 — Suivi, alertes, rapports, risque, IA, audit : pages homogènes — journal `engineering-log/116`
 - **Quoi :** même modèle pour les pages d'analyse (en-tête, indicateurs, barre commune, liste
   compacte, état vide) ; journal d'audit en clair (icônes et libellés humains, « Système »,

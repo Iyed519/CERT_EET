@@ -40,7 +40,7 @@ export function Etapes({
 }): JSX.Element {
   const courante = etapeCourante(etapes);
   return (
-    <div className="etapes">
+    <div className="etapes-bandeau">
       <ol className="etapes-liste" aria-label={libelle}>
         {etapes.map((e, i) => {
           const corps = (
