@@ -217,6 +217,20 @@ export function categorieAudit(code: string | null | undefined): CategorieAudit 
   return 'securite';
 }
 
+/** US-UX-08 — Catégories du journal, dans l'ordre d'affichage des filtres. */
+export const CATEGORIES_AUDIT = Object.keys(LIBELLES_CATEGORIE_AUDIT) as CategorieAudit[];
+
+/**
+ * US-UX-08 — Codes d'action d'une catégorie (filtre `actions` du journal), triés ;
+ * au plus 100 (limite de l'API), une catégorie sans action présente donne une liste vide.
+ */
+export function actionsDeCategorie(codes: string[], categorie: CategorieAudit): string[] {
+  return codes
+    .filter((c) => categorieAudit(c) === categorie)
+    .sort()
+    .slice(0, 100);
+}
+
 export type TonStatut = 'succes' | 'attention' | 'danger' | 'info' | 'neutre' | 'brouillon';
 
 /**

@@ -49,6 +49,24 @@
     ],
     "Suivante →": [
       "Suivant"
+    ],
+    "Demander le rapport": [
+      "Générer"
+    ],
+    "Ouvertes": [
+      "Ouvertes #"
+    ],
+    "Traitées": [
+      "Traitées #"
+    ],
+    "Toutes": [
+      "Toutes #"
+    ],
+    "À examiner": [
+      "À examiner #"
+    ],
+    "Examinées": [
+      "Examinées #"
     ]
   }
 }

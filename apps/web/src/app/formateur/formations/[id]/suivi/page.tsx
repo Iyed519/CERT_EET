@@ -4,6 +4,7 @@ import { SignalIA } from '../../../../../components/AlertesSurveillance';
 import { Fenetre } from '../../../../../components/Fenetre';
 import { useMiettes } from '../../../../../components/TitrePage';
 import { EnTeteFormation } from '../../../../../components/EnTeteFormation';
+import { BarreListe } from '../../../../../components/BarreListe';
 import { useParams } from 'next/navigation';
 import { useEffect, useMemo, useState } from 'react';
 import {
@@ -210,37 +211,34 @@ export default function SuiviFormationPage(): JSX.Element {
           </section>
 
           <section className="tdb-bloc" aria-label="Apprenants">
-            <div className="filters suivi-filtres">
-              <label className="field">
-                <span className="field-label">Rechercher</span>
-                <input
-                  className="input"
-                  value={recherche}
-                  onChange={(e) => setRecherche(e.target.value)}
-                  placeholder="Nom ou email"
-                />
-              </label>
-              <label className="field">
-                <span className="field-label">Afficher</span>
-                <select className="input" value={filtre} onChange={(e) => setFiltre(e.target.value as Filtre)}>
-                  {FILTRES.map(([v, l]) => (
-                    <option key={v} value={v}>
-                      {l}
-                    </option>
-                  ))}
-                </select>
-              </label>
-              <label className="field">
-                <span className="field-label">Trier par</span>
-                <select className="input" value={tri} onChange={(e) => setTri(e.target.value as Tri)}>
-                  {TRIS.map(([v, l]) => (
-                    <option key={v} value={v}>
-                      {l}
-                    </option>
-                  ))}
-                </select>
-              </label>
-            </div>
+            {/* US-UX-08 : barre commune (recherche, puis les listes « Afficher » et « Trier par »). */}
+            <BarreListe
+              recherche={{ valeur: recherche, onChange: setRecherche, libelle: 'Rechercher un apprenant', placeholder: 'Nom ou email' }}
+              filtres={
+                <div className="barre-liste-periode">
+                  <label className="field-label">
+                    Afficher
+                    <select className="input" value={filtre} onChange={(e) => setFiltre(e.target.value as Filtre)}>
+                      {FILTRES.map(([v, l]) => (
+                        <option key={v} value={v}>
+                          {l}
+                        </option>
+                      ))}
+                    </select>
+                  </label>
+                  <label className="field-label">
+                    Trier par
+                    <select className="input" value={tri} onChange={(e) => setTri(e.target.value as Tri)}>
+                      {TRIS.map(([v, l]) => (
+                        <option key={v} value={v}>
+                          {l}
+                        </option>
+                      ))}
+                    </select>
+                  </label>
+                </div>
+              }
+            />
 
             {lignes.length === 0 ? (
               <p className="kpi-sous">Aucun apprenant ne correspond.</p>

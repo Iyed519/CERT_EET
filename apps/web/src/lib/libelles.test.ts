@@ -7,6 +7,8 @@ import { describe, it } from 'node:test';
 import {
   LIBELLES_ACTION_AUDIT,
   LIBELLES_CATEGORIE_AUDIT,
+  CATEGORIES_AUDIT,
+  actionsDeCategorie,
   categorieAudit,
   libelleActeur,
   libelleActionAudit,
@@ -95,5 +97,24 @@ describe('libelleActeur', () => {
     assert.equal(libelleActeur('a@b.tn'), 'a@b.tn');
     assert.equal(libelleActeur(null), 'Système');
     assert.equal(libelleActeur('  '), 'Système');
+  });
+});
+
+describe('actionsDeCategorie (US-UX-08)', () => {
+  const codes = ['LOGOUT', 'CERTIFICAT_EMIS', 'LOGIN', 'MFA_ACTIVE', 'CERTIFICAT_REVOQUE'];
+  it('garde les codes de la catégorie, triés', () => {
+    assert.deepEqual(actionsDeCategorie(codes, 'connexions'), ['LOGIN', 'LOGOUT']);
+    assert.deepEqual(actionsDeCategorie(codes, 'certificats'), ['CERTIFICAT_EMIS', 'CERTIFICAT_REVOQUE']);
+  });
+  it('catégorie sans action présente → liste vide ; 100 codes au plus', () => {
+    assert.deepEqual(actionsDeCategorie(codes, 'ia'), []);
+    const beaucoup = Array.from({ length: 150 }, (_, i) => `CERTIFICAT_${String(i).padStart(3, '0')}`);
+    const r = actionsDeCategorie(beaucoup, 'certificats');
+    assert.equal(r.length, 100);
+    assert.equal(r[0], 'CERTIFICAT_000');
+  });
+  it('les sept catégories, dans l’ordre des libellés', () => {
+    assert.deepEqual(CATEGORIES_AUDIT, Object.keys(LIBELLES_CATEGORIE_AUDIT));
+    assert.equal(CATEGORIES_AUDIT.length, 7);
   });
 });

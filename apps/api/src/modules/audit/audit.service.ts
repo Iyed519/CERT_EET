@@ -28,6 +28,8 @@ export interface AuditRecordInput {
  */
 export interface AuditQueryInput {
   action?: string;
+  /** US-UX-08 : plusieurs actions, séparées par des virgules (catégorie du journal). */
+  actions?: string;
   userId?: string;
   /** US-AUDIT-01 : recherche de l'acteur par email (contient, sans casse). */
   acteur?: string;
@@ -199,6 +201,7 @@ export class AuditService {
         'u.role AS acteur_role',
       ]);
     if (query.action) qb.andWhere('a.action = :action', { action: query.action });
+    if (query.actions) qb.andWhere('a.action = ANY(:actions)', { actions: query.actions.split(',') });
     if (query.userId) qb.andWhere('a.user_id = :userId', { userId: query.userId });
     if (query.acteur) {
       qb.andWhere("u.email ILIKE :acteur ESCAPE '\\'", {

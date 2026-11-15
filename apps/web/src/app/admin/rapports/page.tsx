@@ -1,5 +1,9 @@
 'use client';
-import { FormEvent, useState } from 'react';
+import { useState } from 'react';
+import { CarteModeleRapport } from '../../../components/CarteModeleRapport';
+import { EnTetePage } from '../../../components/EnTetePage';
+import { NomIcone } from '../../../components/Icone';
+import { SectionPage } from '../../../components/SectionPage';
 import { ListeRapports } from '../../../components/ListeRapports';
 import {
   AdminError,
@@ -8,10 +12,10 @@ import {
   ModeleInstitutionnel,
 } from '../../../lib/api';
 
-const MODELES: Array<[ModeleInstitutionnel, string, string]> = [
-  ['SYNTHESE', 'Synthèse de la plateforme', 'Utilisateurs, formations, évaluations, certificats.'],
-  ['FORMATIONS', 'Bilan par formation', 'Inscriptions, réussite aux QCM, ateliers, certificats.'],
-  ['CERTIFICATS', 'Registre des certificats', 'Certificats émis et consultations publiques.'],
+const MODELES: Array<[ModeleInstitutionnel, string, string, NomIcone]> = [
+  ['SYNTHESE', 'Synthèse de la plateforme', 'Utilisateurs, formations, évaluations, certificats.', 'pilotage'],
+  ['FORMATIONS', 'Bilan par formation', 'Inscriptions, réussite aux QCM, ateliers, certificats.', 'formation'],
+  ['CERTIFICATS', 'Registre des certificats', 'Certificats émis et consultations publiques.', 'certificat'],
 ];
 
 /** Date du jour de Tunis, décalée de `jours` (AAAA-MM-JJ). */
@@ -29,20 +33,18 @@ function jour(jours = 0): string {
  * l'API avec un message clair, affiché ici.
  */
 export default function RapportsInstitutionnelsPage(): JSX.Element {
-  const [modele, setModele] = useState<ModeleInstitutionnel>('SYNTHESE');
-  const [format, setFormat] = useState<FormatRapport>('PDF');
   const [du, setDu] = useState(jour(-29));
   const [au, setAu] = useState(jour());
   const [erreur, setErreur] = useState<string | null>(null);
   const [info, setInfo] = useState<string | null>(null);
-  const [envoi, setEnvoi] = useState(false);
+  const [envoi, setEnvoi] = useState<ModeleInstitutionnel | null>(null);
   const [version, setVersion] = useState(0);
 
-  const demander = async (e: FormEvent): Promise<void> => {
-    e.preventDefault();
+  // US-UX-08 : une carte par modèle ; même demande qu'avant (modèle, format, période).
+  const demander = async (modele: ModeleInstitutionnel, format: FormatRapport): Promise<void> => {
     setErreur(null);
     setInfo(null);
-    setEnvoi(true);
+    setEnvoi(modele);
     try {
       await demanderRapportInstitutionnel({ modele, format, du, au });
       setInfo('Rapport demandé : il sera prêt dans quelques instants (un email vous préviendra).');
@@ -50,45 +52,20 @@ export default function RapportsInstitutionnelsPage(): JSX.Element {
     } catch (err: unknown) {
       setErreur(err instanceof AdminError ? err.message : 'Impossible de demander le rapport.');
     } finally {
-      setEnvoi(false);
+      setEnvoi(null);
     }
   };
 
   return (
     <>
-      <div className="page-head">
-        <div>
-          <h1 className="page-title">Rapports institutionnels</h1>
-          <p className="page-subtitle">
-            Indicateurs agrégés sur une période, au format PDF ou CSV (Excel).
-          </p>
-        </div>
-      </div>
+      <EnTetePage titre="Rapports institutionnels" phrase="Indicateurs agrégés sur une période, au format PDF ou CSV (Excel)." />
 
-      <form className="tdb-bloc rapport-form" onSubmit={(e) => void demander(e)}>
-        <h2>Nouveau rapport</h2>
-        <fieldset className="rapport-choix">
-          <legend className="field-label">Type de rapport</legend>
-          {MODELES.map(([m, libelle, aide]) => (
-            <label key={m} className="rapport-option">
-              <input type="radio" name="modele" checked={modele === m} onChange={() => setModele(m)} />
-              <span>
-                {libelle}
-                <span className="field-hint"> — {aide}</span>
-              </span>
-            </label>
-          ))}
-        </fieldset>
-        <fieldset className="rapport-choix">
-          <legend className="field-label">Format</legend>
-          {(['PDF', 'CSV'] as FormatRapport[]).map((f) => (
-            <label key={f} className="rapport-option">
-              <input type="radio" name="format" checked={format === f} onChange={() => setFormat(f)} />
-              {f === 'PDF' ? 'PDF (à imprimer)' : 'CSV (Excel)'}
-            </label>
-          ))}
-        </fieldset>
-        <div className="rapport-periode">
+      <SectionPage
+        titre="Nouveau rapport"
+        icone="rapport"
+        phrase="Choisissez la période, puis le modèle et son format : le rapport est préparé en arrière-plan (un email vous prévient)."
+      >
+        <div className="rapport-periode-commune">
           <label className="field">
             <span className="field-label">Du</span>
             <input className="input" type="date" value={du} onChange={(e) => setDu(e.target.value)} required />
@@ -97,19 +74,28 @@ export default function RapportsInstitutionnelsPage(): JSX.Element {
             <span className="field-label">Au</span>
             <input className="input" type="date" value={au} onChange={(e) => setAu(e.target.value)} required />
           </label>
+          <p className="field-hint">Jours inclus, heure de Tunis ; 366 jours au plus.</p>
         </div>
-        <p className="field-hint">Jours inclus, heure de Tunis ; 366 jours au plus.</p>
         {erreur !== null && <p className="alert alert-error">{erreur}</p>}
         {info !== null && <p className="alert alert-info">{info}</p>}
-        <button type="submit" className="btn" disabled={envoi || !du || !au}>
-          {envoi ? 'Demande…' : 'Demander le rapport'}
-        </button>
-      </form>
+        <div className="cartes-rapports">
+          {MODELES.map(([m, libelle, aide, icone]) => (
+            <CarteModeleRapport
+              key={m}
+              titre={libelle}
+              description={aide}
+              icone={icone}
+              pret={Boolean(du && au)}
+              envoi={envoi === m}
+              onGenerer={(format) => void demander(m, format)}
+            />
+          ))}
+        </div>
+      </SectionPage>
 
-      <section className="tdb-bloc" aria-label="Mes rapports">
-        <h2>Mes rapports</h2>
+      <SectionPage titre="Mes rapports" icone="telecharger" phrase="Les rapports que vous avez demandés, du plus récent au plus ancien.">
         <ListeRapports version={version} />
-      </section>
+      </SectionPage>
     </>
   );
 }

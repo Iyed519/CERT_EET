@@ -18,12 +18,23 @@ import {
   nomApprenantFr,
 } from '../../../lib/format';
 import { rafraichirCompteurs } from '../../../components/NavigationLaterale';
+import { BarreListe } from '../../../components/BarreListe';
+import { EnTetePage } from '../../../components/EnTetePage';
+import { EtatVide } from '../../../components/EtatVide';
+import { FiltresPastilles } from '../../../components/FiltresPastilles';
+import { PastilleStatut } from '../../../components/PastilleStatut';
+import { useCompteurs } from '../../../lib/useCompteurs';
 
 const STATUTS: Array<[StatutAlerte | '', string]> = [
   ['OUVERTE', 'Ouvertes'],
   ['TRAITEE', 'Traitées'],
   ['', 'Toutes'],
 ];
+
+/** US-UX-08 — nombre d'alertes d'un statut (appel existant). */
+const STATUTS_COMPTES: Array<StatutAlerte | 'TOUTES'> = ['OUVERTE', 'TRAITEE', 'TOUTES'];
+const nombreAlertes = async (s: StatutAlerte | 'TOUTES'): Promise<number> =>
+  (await getAlertes(s === 'TOUTES' ? {} : { statut: s })).length;
 
 const messageDe = (e: unknown, defaut: string): string =>
   e instanceof AdminError ? e.message : defaut;
@@ -40,12 +51,18 @@ export default function AlertesPage(): JSX.Element {
   const [statut, setStatut] = useState<StatutAlerte | ''>('OUVERTE');
   const [alertes, setAlertes] = useState<AlerteDecrochage[] | null>(null);
   const [erreur, setErreur] = useState<string | null>(null);
+  // US-UX-08 : compteurs des pastilles, relus après chaque chargement.
+  const [version, setVersion] = useState(0);
+  const compteurs = useCompteurs(STATUTS_COMPTES, nombreAlertes, version);
 
   const charger = useCallback(() => {
     setAlertes(null);
     setErreur(null);
     getAlertes(statut ? { statut } : {})
-      .then(setAlertes)
+      .then((a) => {
+        setAlertes(a);
+        setVersion((v) => v + 1);
+      })
       .catch((e: unknown) => setErreur(messageDe(e, 'Impossible de charger les alertes.')));
   }, [statut]);
 
@@ -55,36 +72,29 @@ export default function AlertesPage(): JSX.Element {
 
   return (
     <>
-      <div className="page-head">
-        <div>
-          <h1 className="page-title">Alertes de décrochage</h1>
-          <p className="page-subtitle">
-            Créées automatiquement sur des faits : inactivité de plus de 7 jours, deux échecs de QCM
-            consécutifs, livrable non rendu 48 h après la date limite, note en forte baisse.
-          </p>
-        </div>
-      </div>
-
-      <div className="filtres-livrables" role="group" aria-label="Statut">
-        {STATUTS.map(([v, l]) => (
-          <button
-            key={l}
-            type="button"
-            className={`filtre-livrable${statut === v ? ' filtre-livrable-actif' : ''}`}
-            aria-pressed={statut === v}
-            onClick={() => setStatut(v)}
-          >
-            {l}
-          </button>
-        ))}
-      </div>
-
+      <EnTetePage
+        titre="Alertes de décrochage"
+        phrase="Créées automatiquement sur des faits : inactivité de plus de 7 jours, deux échecs de QCM consécutifs, livrable non rendu 48 h après la date limite, note en forte baisse."
+      />
+      <BarreListe
+        filtres={
+          <FiltresPastilles<StatutAlerte | ''>
+            libelle="Statut"
+            valeur={statut}
+            onChange={setStatut}
+            options={STATUTS.map(([v, l]) => ({ valeur: v, libelle: l, compteur: compteurs[v || 'TOUTES'] }))}
+          />
+        }
+        onActualiser={charger}
+      />
       {erreur !== null && <p className="alert alert-error">{erreur}</p>}
       {alertes === null && erreur === null && <p className="page-subtitle">Chargement…</p>}
       {alertes !== null && alertes.length === 0 && (
-        <p className="alert alert-success">Aucune alerte {statut === 'OUVERTE' ? 'ouverte' : ''}.</p>
+        <EtatVide
+          titre={`Aucune alerte${statut === 'OUVERTE' ? ' ouverte' : statut === 'TRAITEE' ? ' traitée' : ''}`}
+          texte="Les alertes apparaissent ici dès qu’un apprenant remplit l’un des critères ; rien à faire pour l’instant."
+        />
       )}
-
       <ul className="alertes-liste">
         {(alertes ?? []).map((a) => (
           <CarteAlerte key={a.id} alerte={a} onChange={charger} />
@@ -140,7 +150,13 @@ function CarteAlerte({
   return (
     <li className={`alerte-carte alerte-${alerte.statut}`}>
       <div className="alerte-tete">
-        <span className="badge-risque">{LIBELLES_CRITERE_ALERTE[alerte.critere] ?? alerte.critere}</span>
+        <span className="alerte-pastilles">
+          <PastilleStatut ton={alerte.statut === 'OUVERTE' ? 'danger' : 'neutre'} icone="alerte" libelle={LIBELLES_CRITERE_ALERTE[alerte.critere] ?? alerte.critere} />
+          <PastilleStatut
+            ton={alerte.statut === 'OUVERTE' ? 'attention' : 'succes'}
+            libelle={alerte.statut === 'OUVERTE' ? 'Ouverte' : 'Traitée'}
+          />
+        </span>
         <span className="alerte-date">{dateHeureFr(alerte.dateCreation)}</span>
       </div>
       <p className="alerte-qui">

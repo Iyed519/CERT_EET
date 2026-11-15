@@ -15,6 +15,16 @@
 
 ## [Après le Sprint 6] — Stories hors sprint
 
+#### US-UX-08 — Suivi, alertes, rapports, risque, IA, audit : pages homogènes — journal `engineering-log/116`
+- **Quoi :** même modèle pour les pages d'analyse (en-tête, indicateurs, barre commune, liste
+  compacte, état vide) ; journal d'audit en clair (icônes et libellés humains, « Système »,
+  catégories en pastilles avec compteurs, carte « Échecs » qui filtre, pagination lisible, plus aucun
+  code brut à l'écran) ; rapports en cartes (à quoi sert chaque modèle, PDF / CSV, « Générer ») et
+  « Mes rapports » en cartes ; alertes de décrochage et de surveillance avec pastilles à compteurs ;
+  suivi pédagogique avec la barre commune. API : `GET /api/admin/audit-logs` (et l'export) accepte
+  un filtre `actions` en lecture seule (testé en e2e).
+- **Pourquoi :** lire chaque page d'analyse sans réapprendre l'écran.
+
 #### US-UX-07 — Listes de l'administrateur : une action principale, les autres dans un menu — journal `engineering-log/115`
 - **Quoi :** Comptes, Demandes de rôle, Formations, Demandes d'affectation, Propositions, Certificats
   et Générations IA : en-tête commun, barre commune (`BarreListe` : recherche, filtres en pastilles

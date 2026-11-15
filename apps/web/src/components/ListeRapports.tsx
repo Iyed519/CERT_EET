@@ -2,6 +2,9 @@
 import { useCallback, useEffect, useState } from 'react';
 import { AdminError, getMesRapports, Rapport, telechargerRapport } from '../lib/api';
 import { dateHeureFr } from '../lib/format';
+import { EtatVide } from './EtatVide';
+import { Icone } from './Icone';
+import { PastilleStatut } from './PastilleStatut';
 
 const STATUTS: Record<Rapport['statut'], string> = {
   EN_ATTENTE: 'En attente',
@@ -80,20 +83,26 @@ export function ListeRapports(props: { formationId?: string; version?: number })
 
   if (erreur !== null) return <p className="alert alert-error">{erreur}</p>;
   if (rapports === null) return <p className="page-subtitle">Chargement…</p>;
-  if (rapports.length === 0) return <p className="page-subtitle">Aucun rapport demandé.</p>;
+  if (rapports.length === 0) {
+    return <EtatVide titre="Aucun rapport demandé" texte="Choisissez un modèle ci-dessus et « Générer » : le rapport apparaîtra ici dès qu’il sera prêt." />;
+  }
 
+  // US-UX-08 : une carte par rapport, statut en pastille, une action (« Télécharger » quand il est prêt).
   return (
     <>
       {message !== null && <p className="alert alert-error">{message}</p>}
-      <ul className="rapports-liste">
+      <ul className="mes-rapports">
         {rapports.map((r) => (
-          <li key={r.id} className="rapport-ligne">
-            <div className="rapport-infos">
-              <strong>
+          <li key={r.id} className="mon-rapport">
+            <span className="section-page-icone" aria-hidden="true">
+              <Icone nom={r.format === 'PDF' ? 'fichier' : 'grille'} taille={20} />
+            </span>
+            <div className="mon-rapport-corps">
+              <span className="mon-rapport-titre">
                 {r.format} · {libelle(r)}
-              </strong>
-              {!formationId && r.formation && <span>{r.formation.titre}</span>}
-              <span className="rapport-date">
+              </span>
+              {!formationId && r.formation && <span className="mon-rapport-detail">{r.formation.titre}</span>}
+              <span className="mon-rapport-detail">
                 Demandé le {dateHeureFr(r.dateDemande)}
                 {r.statut === 'PRET' && r.tailleOctets !== null ? ` · ${taille(r.tailleOctets)}` : ''}
               </span>
@@ -101,9 +110,10 @@ export function ListeRapports(props: { formationId?: string; version?: number })
                 <span className="rapport-erreur">Génération impossible : redemandez le rapport.</span>
               )}
             </div>
-            <span className={`rapport-statut rapport-${r.statut}`}>{STATUTS[r.statut]}</span>
+            <PastilleStatut statut={r.statut === 'PRET' ? 'SUCCES' : r.statut} libelle={STATUTS[r.statut]} />
             {r.statut === 'PRET' && (
-              <button type="button" className="btn-sm btn-primary-sm" onClick={() => void telecharger(r)}>
+              <button type="button" className="btn-sm" onClick={() => void telecharger(r)}>
+                <Icone nom="telecharger" taille={16} />
                 Télécharger
               </button>
             )}
