@@ -28,6 +28,15 @@ import {
   ImpactCycleFormation,
 } from '../../../lib/api';
 import { statutDepuisAdresse } from '../../../lib/ui-regles';
+import { useCompteurs } from '../../../lib/useCompteurs';
+import { ActionsLigne } from '../../../components/ActionsLigne';
+import { BarreListe } from '../../../components/BarreListe';
+import { EnTetePage } from '../../../components/EnTetePage';
+import { FiltresPastilles } from '../../../components/FiltresPastilles';
+import { Icone } from '../../../components/Icone';
+import type { ElementMenu } from '../../../components/MenuActions';
+import { PaginationListe } from '../../../components/PaginationListe';
+import { PastilleStatut } from '../../../components/PastilleStatut';
 
 /** Libellés FR des statuts (l'enum backend reste la source de vérité). */
 const STATUTS: Array<[StatutFormation, string]> = [
@@ -37,6 +46,10 @@ const STATUTS: Array<[StatutFormation, string]> = [
   ['ARCHIVEE', 'Archivée'],
 ];
 const STATUTS_FORMATION = STATUTS.map(([v]) => v);
+/** US-UX-07 — compteurs : « TOUS » puis chaque statut (appel existant, total seul). */
+const STATUTS_COMPTES: Array<StatutFormation | 'TOUS'> = ['TOUS', ...STATUTS_FORMATION];
+const totalFormations = async (statut: StatutFormation | 'TOUS'): Promise<number> =>
+  (await getFormations({ statut: statut === 'TOUS' ? undefined : statut, limit: 1 })).total;
 const libelleStatut = (s: StatutFormation): string =>
   STATUTS.find(([v]) => v === s)?.[1] ?? s;
 
@@ -83,6 +96,9 @@ export default function AdminFormationsPage(): JSX.Element {
   const [cibleFormateurs, setCibleFormateurs] = useState<FormationVue | null>(null);
   // US-FORM-02 — clôturer / archiver / rouvrir.
   const [cibleStatut, setCibleStatut] = useState<FormationVue | null>(null);
+  // US-UX-07 : compteurs des pastilles (un appel existant par statut), relus après chaque chargement.
+  const [version, setVersion] = useState(0);
+  const compteurs = useCompteurs(STATUTS_COMPTES, totalFormations, version);
 
   // US-UX-06 : seule la dernière demande de liste est appliquée (une réponse en retard,
   // par exemple celle du chargement sans filtre, n'écrase pas la liste filtrée).
@@ -100,6 +116,7 @@ export default function AdminFormationsPage(): JSX.Element {
       if (numero !== derniereDemande.current) return;
       setFormations(resultat.items);
       setTotal(resultat.total);
+      setVersion((v) => v + 1);
     } catch (error) {
       if (numero === derniereDemande.current) setErreur(messageDe(error, 'Impossible de charger les formations.'));
     } finally {
@@ -113,36 +130,28 @@ export default function AdminFormationsPage(): JSX.Element {
 
   const dernierePage = Math.max(1, Math.ceil(total / PAR_PAGE));
 
+  /** US-UX-07 — « Gérer » : toutes les actions d'une formation, le changement de statut en dernier. */
+  function actionsDe(f: FormationVue): ElementMenu[] {
+    const ouvrir = (action: () => void) => () => {
+      setSucces(null);
+      setErreur(null);
+      action();
+    };
+    return [
+      { libelle: 'Modifier', icone: 'modifier', onClick: ouvrir(() => setEdition(f)) },
+      { libelle: 'Modules', icone: 'module', onClick: ouvrir(() => setCibleModules(f)) },
+      { libelle: 'Formateurs', icone: 'utilisateurs', onClick: ouvrir(() => setCibleFormateurs(f)) },
+      { libelle: 'Inscriptions', icone: 'apprenants', href: `/admin/formations/${f.id}/inscriptions` },
+      { libelle: 'Statut', icone: 'parametres', separe: true, onClick: ouvrir(() => setCibleStatut(f)) },
+    ];
+  }
+
   return (
     <>
-      <div className="page-head">
-        <div>
-          <h1 className="page-title">Formations</h1>
-          <p className="page-subtitle">
-            Créez les formations, leurs modules et leurs formateurs ; ouvrez-les aux inscriptions quand elles sont prêtes.
-          </p>
-        </div>
-        <div className="row-actions">
-          <select
-            className="input input-auto"
-            aria-label="Filtrer par statut"
-            value={filtre}
-            onChange={(e) => {
-              setPage(1);
-              setFiltre(e.target.value as StatutFormation | '');
-            }}
-            disabled={chargement}
-          >
-            <option value="">Tous les statuts</option>
-            {STATUTS.map(([v, l]) => (
-              <option key={v} value={v}>
-                {l}
-              </option>
-            ))}
-          </select>
-          <button className="btn-sm" onClick={() => void charger()} disabled={chargement}>
-            Actualiser
-          </button>
+      <EnTetePage
+        titre="Formations"
+        phrase="Créez les formations, leurs modules et leurs formateurs ; ouvrez-les aux inscriptions quand elles sont prêtes."
+        actions={
           <button
             className="btn-sm btn-primary-sm"
             onClick={() => {
@@ -151,10 +160,30 @@ export default function AdminFormationsPage(): JSX.Element {
               setEdition('nouvelle');
             }}
           >
+            <Icone nom="ajouter" taille={16} />
             Nouvelle formation
           </button>
-        </div>
-      </div>
+        }
+      />
+
+      <BarreListe
+        filtres={
+          <FiltresPastilles<StatutFormation | ''>
+            libelle="Filtrer par statut"
+            valeur={filtre}
+            onChange={(v) => {
+              setPage(1);
+              setFiltre(v);
+            }}
+            options={[
+              { valeur: '', libelle: 'Tous les statuts', compteur: compteurs.TOUS },
+              ...STATUTS.map(([v, l]) => ({ valeur: v, libelle: l, compteur: compteurs[v] })),
+            ]}
+          />
+        }
+        onActualiser={() => void charger()}
+        actualisation={chargement}
+      />
 
       {succes !== null && <p className="alert alert-success">{succes}</p>}
       {erreur !== null && <p className="alert alert-error">{erreur}</p>}
@@ -163,8 +192,8 @@ export default function AdminFormationsPage(): JSX.Element {
         <p className="page-subtitle">Chargement…</p>
       ) : (
         <>
-          <div className="table-wrap">
-            <table className="data-table">
+          <div className="table-wrap table-wrap-compacte">
+            <table className="data-table table-compacte liste-admin">
               <thead>
                 <tr>
                   <th>Formation</th>
@@ -178,75 +207,27 @@ export default function AdminFormationsPage(): JSX.Element {
               <tbody>
                 {formations.map((f) => (
                   <tr key={f.id}>
-                    <td>
+                    <th scope="row">
                       <div>{f.titre}</div>
-                      {f.dureeHeures !== null && (
-                        <div className="muted-cell">{f.dureeHeures} h</div>
-                      )}
-                    </td>
-                    <td>
+                      {f.dureeHeures !== null && <div className="muted-cell">{f.dureeHeures} h</div>}
+                    </th>
+                    <td data-libelle="Période">
                       {f.dateDebut || f.dateFin ? (
                         `${dateFr(f.dateDebut)} → ${dateFr(f.dateFin)}`
                       ) : (
                         <span className="muted-cell">—</span>
                       )}
                     </td>
-                    <td>{f.capaciteMax}</td>
-                    <td>{f.noteMinCertification} %</td>
-                    <td>
-                      <span className={`statut-badge statut-${f.statut}`}>
-                        {libelleStatut(f.statut)}
-                      </span>
+                    <td data-libelle="Capacité">{f.capaciteMax}</td>
+                    <td data-libelle="Seuil">{f.noteMinCertification} %</td>
+                    <td data-libelle="Statut">
+                      <PastilleStatut statut={f.statut} libelle={libelleStatut(f.statut)} />
                     </td>
-                    <td>
+                    <td className="liste-admin-actions">
                       {f.statut === 'ARCHIVEE' ? (
                         <span className="muted-cell">Figée (archivée)</span>
                       ) : (
-                        <div className="row-actions">
-                          <button
-                            className="btn-sm"
-                            onClick={() => {
-                              setSucces(null);
-                              setErreur(null);
-                              setEdition(f);
-                            }}
-                          >
-                            Modifier
-                          </button>
-                          <button
-                            className="btn-sm"
-                            onClick={() => {
-                              setSucces(null);
-                              setErreur(null);
-                              setCibleModules(f);
-                            }}
-                          >
-                            Modules
-                          </button>
-                          <button
-                            className="btn-sm"
-                            onClick={() => {
-                              setSucces(null);
-                              setErreur(null);
-                              setCibleFormateurs(f);
-                            }}
-                          >
-                            Formateurs
-                          </button>
-                          <button
-                            className="btn-sm"
-                            onClick={() => {
-                              setSucces(null);
-                              setErreur(null);
-                              setCibleStatut(f);
-                            }}
-                          >
-                            Statut
-                          </button>
-                          <Link className="btn-sm" href={`/admin/formations/${f.id}/inscriptions`}>
-                            Inscriptions
-                          </Link>
-                        </div>
+                        <ActionsLigne principale={null} autres={actionsDe(f)} contexte={f.titre} libelleMenu="Gérer" />
                       )}
                     </td>
                   </tr>
@@ -261,27 +242,13 @@ export default function AdminFormationsPage(): JSX.Element {
               </tbody>
             </table>
           </div>
-          <div className="pagination">
-            <span className="muted-cell">
-              {total} formation{total > 1 ? 's' : ''} — page {page} / {dernierePage}
-            </span>
-            <div className="row-actions">
-              <button
-                className="btn-sm"
-                disabled={page <= 1}
-                onClick={() => setPage((p) => p - 1)}
-              >
-                Précédent
-              </button>
-              <button
-                className="btn-sm"
-                disabled={page >= dernierePage}
-                onClick={() => setPage((p) => p + 1)}
-              >
-                Suivant
-              </button>
-            </div>
-          </div>
+          <PaginationListe
+            page={page}
+            pages={dernierePage}
+            total={total}
+            unite={['formation', 'formations']}
+            onPage={setPage}
+          />
         </>
       )}
 

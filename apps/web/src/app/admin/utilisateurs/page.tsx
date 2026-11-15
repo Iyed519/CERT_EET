@@ -13,6 +13,18 @@ import {
 import ImportComptesModal from '../../../components/ImportComptesModal';
 import AnonymiserModal from '../../../components/AnonymiserModal';
 import { useAuth } from '../../../contexts/AuthContext';
+import { ActionsLigne } from '../../../components/ActionsLigne';
+import { BarreListe } from '../../../components/BarreListe';
+import { EnTetePage } from '../../../components/EnTetePage';
+import { FiltresPastilles } from '../../../components/FiltresPastilles';
+import { Icone } from '../../../components/Icone';
+import type { ElementMenu } from '../../../components/MenuActions';
+import { PaginationListe } from '../../../components/PaginationListe';
+import { PastilleStatut } from '../../../components/PastilleStatut';
+import { compterPar, correspondRecherche, paginer } from '../../../lib/ui-regles';
+
+/** US-UX-07 — lignes par page (pagination locale). */
+const PAR_PAGE = 20;
 
 /** Libellés FR des rôles (l'enum backend reste la source de vérité). */
 const ROLES: Array<[RoleUtilisateur, string]> = [
@@ -58,6 +70,10 @@ export default function AdminUsersPage(): JSX.Element {
   // US-CPT-04 : compte à anonymiser (null = modale fermée).
   const [cibleAnonymisation, setCibleAnonymisation] = useState<AdminUser | null>(null);
   const { user: moi } = useAuth();
+  const [recherche, setRecherche] = useState('');
+  const [filtreRole, setFiltreRole] = useState<RoleUtilisateur | ''>('');
+  const [filtreStatut, setFiltreStatut] = useState('');
+  const [page, setPage] = useState(1);
 
   async function renvoyer(utilisateur: AdminUser): Promise<void> {
     setSucces(null);
@@ -119,35 +135,115 @@ export default function AdminUsersPage(): JSX.Element {
     [chargerUsers],
   );
 
+  // US-UX-07 : recherche locale, filtres par rôle et par statut (avec compteurs), pagination.
+  const comptesRole = compterPar(users, (u) => u.role);
+  const comptesStatut = compterPar(users, (u) => u.statut);
+  const filtres = users.filter(
+    (u) =>
+      (filtreRole === '' || u.role === filtreRole) &&
+      (filtreStatut === '' || u.statut === filtreStatut) &&
+      correspondRecherche(recherche, u.prenom, u.nom, u.email),
+  );
+  const vue = paginer(filtres, page, PAR_PAGE);
+
+  /** Action visible d'une ligne (selon le statut) et autres actions, dangereuses en dernier. */
+  function actionsDe(utilisateur: AdminUser): { principale: ElementMenu | null; autres: ElementMenu[] } {
+    const enCours = busyId === utilisateur.id;
+    const changerRole: ElementMenu | null =
+      utilisateur.statut !== 'ANONYMISE'
+        ? { libelle: 'Changer le rôle', icone: 'role', desactive: enCours, onClick: () => { setSucces(null); setCibleRole(utilisateur); } }
+        : null;
+    let principale: ElementMenu | null = changerRole;
+    if (utilisateur.statut === 'EN_ATTENTE_ACTIVATION') {
+      principale = { libelle: 'Renvoyer l’activation', icone: 'envoyer', desactive: enCours, onClick: () => void renvoyer(utilisateur) };
+    } else if (utilisateur.statut === 'DESACTIVE') {
+      principale = { libelle: enCours ? 'Réactivation…' : 'Réactiver', icone: 'actualiser', desactive: enCours, onClick: () => void reactiver(utilisateur) };
+    }
+    const autres: ElementMenu[] = [];
+    if (changerRole && principale !== changerRole) autres.push(changerRole);
+    const dangereuses: ElementMenu[] = [];
+    if (utilisateur.statut === 'ACTIF') {
+      dangereuses.push({
+        libelle: 'Désactiver',
+        icone: 'erreur',
+        danger: true,
+        desactive: enCours,
+        onClick: () => { setSucces(null); setErreur(null); setCibleDesactivation(utilisateur); },
+      });
+    }
+    if (utilisateur.statut !== 'ANONYMISE' && utilisateur.id !== moi?.id) {
+      dangereuses.push({
+        libelle: 'Anonymiser',
+        icone: 'supprimer',
+        danger: true,
+        desactive: enCours,
+        onClick: () => { setSucces(null); setErreur(null); setCibleAnonymisation(utilisateur); },
+      });
+    }
+    if (dangereuses.length > 0) dangereuses[0] = { ...dangereuses[0], separe: autres.length > 0 };
+    return { principale, autres: [...autres, ...dangereuses] };
+  }
+
   return (
     <>
-      <div className="page-head">
-        <div>
-          <h1 className="page-title">Gestion des utilisateurs</h1>
-          <p className="page-subtitle">
-            Consultez les comptes, importez-en depuis un fichier CSV, modifiez
-            leur rôle et gérez leur statut.
-          </p>
-        </div>
-        <div className="page-head-actions">
+      <EnTetePage
+        titre="Comptes"
+        phrase="Consultez les comptes, importez-en depuis un fichier CSV, modifiez leur rôle et gérez leur statut."
+        actions={
           <button
-            className="btn-sm"
+            className="btn-sm btn-primary-sm"
             onClick={() => {
               setSucces(null);
               setImportOuvert(true);
             }}
           >
-            Importer un CSV
+            <Icone nom="importer" taille={16} />
+            Importer des comptes
           </button>
-          <button
-            className="btn-sm"
-            onClick={() => void chargerUsers()}
-            disabled={chargement}
-          >
-            Actualiser
-          </button>
-        </div>
-      </div>
+        }
+      />
+
+      <BarreListe
+        recherche={{
+          valeur: recherche,
+          onChange: (v) => {
+            setRecherche(v);
+            setPage(1);
+          },
+          libelle: 'Rechercher un compte',
+          placeholder: 'Nom ou adresse e-mail',
+        }}
+        filtres={
+          <>
+            <FiltresPastilles<RoleUtilisateur | ''>
+              libelle="Filtrer par rôle"
+              valeur={filtreRole}
+              onChange={(v) => {
+                setFiltreRole(v);
+                setPage(1);
+              }}
+              options={[
+                { valeur: '', libelle: 'Tous les rôles', compteur: users.length },
+                ...ROLES.map(([v, l]) => ({ valeur: v, libelle: `${l}s`, compteur: comptesRole[v] ?? 0 })),
+              ]}
+            />
+            <FiltresPastilles<string>
+              libelle="Filtrer par statut"
+              valeur={filtreStatut}
+              onChange={(v) => {
+                setFiltreStatut(v);
+                setPage(1);
+              }}
+              options={[
+                { valeur: '', libelle: 'Tous les statuts', compteur: users.length },
+                ...Object.keys(STATUTS_LIBELLE).map((v) => ({ valeur: v, libelle: libelleStatut(v), compteur: comptesStatut[v] ?? 0 })),
+              ]}
+            />
+          </>
+        }
+        onActualiser={() => void chargerUsers()}
+        actualisation={chargement}
+      />
 
       {succes !== null && <p className="alert alert-success">{succes}</p>}
       {erreur !== null && <p className="alert alert-error">{erreur}</p>}
@@ -155,114 +251,50 @@ export default function AdminUsersPage(): JSX.Element {
       {chargement ? (
         <p className="page-subtitle">Chargement…</p>
       ) : (
-        <div className="table-wrap table-wrap-compacte">
-          <table className="data-table table-compacte">
-            <thead>
-              <tr>
-                <th>Utilisateur</th>
-                <th>E-mail</th>
-                <th>Rôle</th>
-                <th>Statut</th>
-                <th aria-label="Actions" />
-              </tr>
-            </thead>
-            <tbody>
-              {users.map((utilisateur) => {
-                const nomComplet = [utilisateur.prenom, utilisateur.nom]
-                  .filter(Boolean)
-                  .join(' ');
-                const enCours = busyId === utilisateur.id;
-                return (
-                  <tr key={utilisateur.id}>
-                    <th scope="row">
-                      {nomComplet || <span className="muted-cell">—</span>}
-                    </th>
-                    <td data-libelle="E-mail">{utilisateur.email}</td>
-                    <td data-libelle="Rôle">
-                      <span className={`role-badge role-${utilisateur.role}`}>
-                        {libelleRole(utilisateur.role)}
-                      </span>
-                    </td>
-                    <td data-libelle="Statut">
-                      <span
-                        className={`statut-badge statut-${utilisateur.statut}`}
-                      >
-                        {libelleStatut(utilisateur.statut)}
-                      </span>
-                    </td>
-                    <td>
-                      <div className="row-actions">
-                        {utilisateur.statut !== 'ANONYMISE' && (
-                          <button
-                            className="btn-sm"
-                            disabled={enCours}
-                            onClick={() => {
-                              setSucces(null);
-                              setCibleRole(utilisateur);
-                            }}
-                          >
-                            Changer le rôle
-                          </button>
-                        )}
-                        {utilisateur.statut === 'ACTIF' && (
-                          <button
-                            className="btn-sm btn-danger"
-                            disabled={enCours}
-                            onClick={() => {
-                              setSucces(null);
-                              setErreur(null);
-                              setCibleDesactivation(utilisateur);
-                            }}
-                          >
-                            Désactiver
-                          </button>
-                        )}
-                        {utilisateur.statut === 'EN_ATTENTE_ACTIVATION' && (
-                          <button
-                            className="btn-sm"
-                            disabled={enCours}
-                            onClick={() => void renvoyer(utilisateur)}
-                          >
-                            Renvoyer l’activation
-                          </button>
-                        )}
-                        {utilisateur.statut === 'DESACTIVE' && (
-                          <button
-                            className="btn-sm"
-                            disabled={enCours}
-                            onClick={() => void reactiver(utilisateur)}
-                          >
-                            {enCours ? 'Réactivation…' : 'Réactiver'}
-                          </button>
-                        )}
-                        {utilisateur.statut !== 'ANONYMISE' && utilisateur.id !== moi?.id && (
-                          <button
-                            className="btn-sm btn-danger"
-                            disabled={enCours}
-                            onClick={() => {
-                              setSucces(null);
-                              setErreur(null);
-                              setCibleAnonymisation(utilisateur);
-                            }}
-                          >
-                            Anonymiser
-                          </button>
-                        )}
-                      </div>
+        <>
+          <div className="table-wrap table-wrap-compacte">
+            <table className="data-table table-compacte liste-admin">
+              <thead>
+                <tr>
+                  <th>Utilisateur</th>
+                  <th>E-mail</th>
+                  <th>Rôle</th>
+                  <th>Statut</th>
+                  <th aria-label="Actions" />
+                </tr>
+              </thead>
+              <tbody>
+                {vue.elements.map((utilisateur) => {
+                  const nomComplet = [utilisateur.prenom, utilisateur.nom].filter(Boolean).join(' ');
+                  const { principale, autres } = actionsDe(utilisateur);
+                  return (
+                    <tr key={utilisateur.id}>
+                      <th scope="row">{nomComplet || <span className="muted-cell">—</span>}</th>
+                      <td data-libelle="E-mail">{utilisateur.email}</td>
+                      <td data-libelle="Rôle">
+                        <span className={`role-badge role-${utilisateur.role}`}>{libelleRole(utilisateur.role)}</span>
+                      </td>
+                      <td data-libelle="Statut">
+                        <PastilleStatut statut={utilisateur.statut} libelle={libelleStatut(utilisateur.statut)} />
+                      </td>
+                      <td className="liste-admin-actions">
+                        <ActionsLigne principale={principale} autres={autres} contexte={nomComplet || utilisateur.email} />
+                      </td>
+                    </tr>
+                  );
+                })}
+                {vue.elements.length === 0 && (
+                  <tr>
+                    <td colSpan={5} className="muted-cell">
+                      {users.length === 0 ? 'Aucun utilisateur.' : 'Aucun compte ne correspond à ces filtres.'}
                     </td>
                   </tr>
-                );
-              })}
-              {users.length === 0 && (
-                <tr>
-                  <td colSpan={5} className="muted-cell">
-                    Aucun utilisateur.
-                  </td>
-                </tr>
-              )}
-            </tbody>
-          </table>
-        </div>
+                )}
+              </tbody>
+            </table>
+          </div>
+          <PaginationListe page={vue.page} pages={vue.pages} total={filtres.length} unite={['compte', 'comptes']} onPage={setPage} />
+        </>
       )}
 
       {cibleAnonymisation !== null && (

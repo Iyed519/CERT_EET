@@ -2194,3 +2194,27 @@ a.indicateur:hover { border-color: var(--border-strong); box-shadow: var(--shado
   .activite-ligne { flex-wrap: wrap; }
   .activite-heure { width: 100%; padding-left: 46px; }
 }
+
+/* US-UX-07 — Listes de l'administrateur : barre commune, une action visible + ⋯, cartes sous 640 px. */
+.barre-liste { display: flex; flex-wrap: wrap; align-items: center; gap: var(--sp-2) var(--sp-3); margin: 0 0 var(--sp-4); padding: var(--sp-3); background: var(--surface); border: 1px solid var(--border); border-radius: var(--radius-sm); }
+.barre-liste-recherche { position: relative; display: flex; align-items: center; gap: var(--sp-2); flex: 1 1 260px; min-width: 0; margin: 0; }
+.barre-liste-recherche .input { flex: 1 1 auto; min-width: 0; padding-left: 34px; }
+.barre-liste-loupe { position: absolute; left: 11px; top: 50%; transform: translateY(-50%); display: inline-flex; color: var(--muted); pointer-events: none; }
+.barre-liste-filtres { display: flex; flex-wrap: wrap; align-items: center; gap: var(--sp-2); flex: 1 1 auto; min-width: 0; }
+.barre-liste-filtres .filtres-pastilles { margin: 0; }
+.barre-liste-filtres > .filtre-pastille .icone { margin-right: 4px; }
+.barre-liste-periode { display: flex; flex-wrap: wrap; align-items: flex-end; gap: var(--sp-2); }
+.barre-liste-periode .field-label { display: flex; flex-direction: column; gap: 2px; margin: 0; }
+.barre-liste-actions { display: flex; align-items: center; gap: var(--sp-2); margin-left: auto; }
+.actions-ligne { display: flex; align-items: center; justify-content: flex-end; gap: var(--sp-2); flex-wrap: nowrap; }
+.liste-admin td.liste-admin-actions { width: 1%; white-space: nowrap; }
+.liste-admin th[scope='row'] .muted-cell, .liste-admin th[scope='row'] .field-hint { font-weight: 400; }
+.liste-admin th[scope='row'] .field-hint { display: block; }
+.certificat-ligne .livrable-ligne-actions { align-items: center; }
+@media (max-width: 640px) {
+  .barre-liste { padding: var(--sp-2); }
+  .barre-liste-actions { margin-left: 0; }
+  .liste-admin td.liste-admin-actions { width: 100%; white-space: normal; padding-top: var(--sp-2); }
+  .liste-admin .actions-ligne { justify-content: flex-start; flex-wrap: wrap; }
+  .liste-admin td.demande-motif, .liste-admin td.proposition-details { max-width: none; }
+}

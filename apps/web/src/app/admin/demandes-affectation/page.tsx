@@ -11,8 +11,17 @@ import {
   StatutDemandeAffectation,
 } from '../../../lib/api';
 import { dateHeureFr, LIBELLES_STATUT_DEMANDE_FORMATEUR } from '../../../lib/format';
+import { ActionsLigne } from '../../../components/ActionsLigne';
+import { BarreListe } from '../../../components/BarreListe';
+import { EnTetePage } from '../../../components/EnTetePage';
+import { FiltresPastilles } from '../../../components/FiltresPastilles';
+import { PastilleStatut } from '../../../components/PastilleStatut';
+import { useCompteurs } from '../../../lib/useCompteurs';
 
 const FILTRES: StatutDemandeAffectation[] = ['EN_ATTENTE', 'ACCEPTEE', 'REFUSEE', 'ANNULEE'];
+/** US-UX-07 — nombre de demandes d'un statut (appel existant, total seul). */
+const totalDemandes = async (statut: StatutDemandeAffectation): Promise<number> =>
+  (await getAdminDemandesAffectation({ statut, limit: 1 })).total;
 const MOTIF_MIN = 10;
 const MOTIF_MAX = 1000;
 
@@ -32,12 +41,16 @@ export default function AdminDemandesAffectationPage(): JSX.Element {
   const [succes, setSucces] = useState<string | null>(null);
   const [enCours, setEnCours] = useState<string | null>(null);
   const [aRefuser, setARefuser] = useState<DemandeAffectationAdmin | null>(null);
+  // US-UX-07 : compteurs des pastilles, relus après chaque chargement.
+  const [version, setVersion] = useState(0);
+  const compteurs = useCompteurs(FILTRES, totalDemandes, version);
 
   const charger = useCallback(async (): Promise<void> => {
     setChargement(true);
     setErreur(null);
     try {
       setDemandes((await getAdminDemandesAffectation({ statut: filtre, limit: 100 })).items);
+      setVersion((v) => v + 1);
     } catch (e) {
       setErreur(e instanceof AdminError ? e.message : 'Impossible de charger les demandes.');
     } finally {
@@ -66,33 +79,23 @@ export default function AdminDemandesAffectationPage(): JSX.Element {
 
   return (
     <>
-      <div className="page-head">
-        <div>
-          <h1 className="page-title">Demandes d’affectation</h1>
-          <p className="page-subtitle">
-            Des formateurs demandent à enseigner une formation existante. Accepter les affecte
-            immédiatement ; un refus exige un motif, envoyé au formateur.
-          </p>
-        </div>
-        <div className="row-actions">
-          <select
-            className="input"
-            aria-label="Filtrer par statut"
-            value={filtre}
-            onChange={(e) => setFiltre(e.target.value as StatutDemandeAffectation)}
-            disabled={chargement}
-          >
-            {FILTRES.map((s) => (
-              <option key={s} value={s}>
-                {LIBELLES_STATUT_DEMANDE_FORMATEUR[s]}
-              </option>
-            ))}
-          </select>
-          <button className="btn-sm" onClick={() => void charger()} disabled={chargement}>
-            Actualiser
-          </button>
-        </div>
-      </div>
+      <EnTetePage
+        titre="Demandes d’affectation"
+        phrase="Des formateurs demandent à enseigner une formation existante. Accepter les affecte immédiatement ; un refus exige un motif, envoyé au formateur."
+      />
+
+      <BarreListe
+        filtres={
+          <FiltresPastilles<StatutDemandeAffectation>
+            libelle="Filtrer par statut"
+            valeur={filtre}
+            onChange={setFiltre}
+            options={FILTRES.map((s) => ({ valeur: s, libelle: LIBELLES_STATUT_DEMANDE_FORMATEUR[s], compteur: compteurs[s] }))}
+          />
+        }
+        onActualiser={() => void charger()}
+        actualisation={chargement}
+      />
 
       {succes && <p className="alert alert-success">{succes}</p>}
       {erreur && (
@@ -100,12 +103,11 @@ export default function AdminDemandesAffectationPage(): JSX.Element {
           {erreur}
         </p>
       )}
-
       {chargement ? (
         <p className="page-subtitle">Chargement…</p>
       ) : (
-        <div className="table-wrap">
-          <table className="data-table">
+        <div className="table-wrap table-wrap-compacte">
+          <table className="data-table table-compacte liste-admin">
             <thead>
               <tr>
                 <th>Formateur</th>
@@ -119,43 +121,49 @@ export default function AdminDemandesAffectationPage(): JSX.Element {
             <tbody>
               {demandes.map((d) => (
                 <tr key={d.id}>
-                  <td>
+                  <th scope="row">
                     <div>{nomDe(d.formateur)}</div>
                     <div className="muted-cell">{d.formateur.email}</div>
-                  </td>
-                  <td>
+                  </th>
+                  <td data-libelle="Formation">
                     <Link className="table-link" href={`/admin/formations/${d.formation.id}/inscriptions`}>
                       {d.formation.titre}
                     </Link>
                   </td>
-                  <td className="demande-motif">{d.motif}</td>
-                  <td>{dateHeureFr(d.creeLe)}</td>
-                  <td>
-                    <span className={`statut-badge statut-${d.statut}`}>
-                      {LIBELLES_STATUT_DEMANDE_FORMATEUR[d.statut]}
-                    </span>
+                  <td data-libelle="Motif" className="demande-motif">
+                    {d.motif}
+                  </td>
+                  <td data-libelle="Envoyée le">{dateHeureFr(d.creeLe)}</td>
+                  <td data-libelle="Statut">
+                    <PastilleStatut statut={d.statut} libelle={LIBELLES_STATUT_DEMANDE_FORMATEUR[d.statut]} />
                     {d.statut === 'REFUSEE' && d.motifRefus && (
                       <div className="field-hint demande-motif">Motif : {d.motifRefus}</div>
                     )}
                   </td>
-                  <td>
+                  <td className="liste-admin-actions">
                     {d.statut === 'EN_ATTENTE' ? (
-                      <div className="row-actions">
-                        <button className="btn-sm" disabled={enCours === d.id} onClick={() => void accepter(d)}>
-                          {enCours === d.id ? 'Affectation…' : 'Accepter'}
-                        </button>
-                        <button
-                          className="btn-sm btn-danger"
-                          disabled={enCours === d.id}
-                          onClick={() => {
-                            setErreur(null);
-                            setSucces(null);
-                            setARefuser(d);
-                          }}
-                        >
-                          Refuser
-                        </button>
-                      </div>
+                      <ActionsLigne
+                        contexte={nomDe(d.formateur)}
+                        principale={{
+                          libelle: enCours === d.id ? 'Affectation…' : 'Accepter',
+                          icone: 'succes',
+                          desactive: enCours === d.id,
+                          onClick: () => void accepter(d),
+                        }}
+                        autres={[
+                          {
+                            libelle: 'Refuser',
+                            icone: 'erreur',
+                            danger: true,
+                            desactive: enCours === d.id,
+                            onClick: () => {
+                              setErreur(null);
+                              setSucces(null);
+                              setARefuser(d);
+                            },
+                          },
+                        ]}
+                      />
                     ) : (
                       <span className="muted-cell">{d.traiteLe ? dateHeureFr(d.traiteLe) : 'Traitée'}</span>
                     )}
@@ -173,7 +181,6 @@ export default function AdminDemandesAffectationPage(): JSX.Element {
           </table>
         </div>
       )}
-
       {aRefuser && (
         <RefusModal
           demande={aRefuser}

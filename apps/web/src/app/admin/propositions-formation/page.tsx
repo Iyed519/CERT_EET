@@ -10,8 +10,18 @@ import {
   StatutProposition,
 } from '../../../lib/api';
 import { dateHeureFr, LIBELLES_STATUT_DEMANDE_FORMATEUR } from '../../../lib/format';
+import { ActionsLigne } from '../../../components/ActionsLigne';
+import { BarreListe } from '../../../components/BarreListe';
+import { EnTetePage } from '../../../components/EnTetePage';
+import { FiltresPastilles } from '../../../components/FiltresPastilles';
+import { Icone } from '../../../components/Icone';
+import { PastilleStatut } from '../../../components/PastilleStatut';
+import { useCompteurs } from '../../../lib/useCompteurs';
 
 const FILTRES: StatutProposition[] = ['EN_ATTENTE', 'A_MODIFIER', 'ACCEPTEE', 'REFUSEE'];
+/** US-UX-07 — nombre de propositions d'un statut (appel existant, total seul). */
+const totalPropositions = async (statut: StatutProposition): Promise<number> =>
+  (await getAdminPropositions({ statut, limit: 1 })).total;
 const TEXTE_MIN = 10;
 const TEXTE_MAX = 1000;
 
@@ -33,12 +43,16 @@ export default function AdminPropositionsPage(): JSX.Element {
   const [succes, setSucces] = useState<string | null>(null);
   const [enCours, setEnCours] = useState<string | null>(null);
   const [dialogue, setDialogue] = useState<{ p: PropositionFormationAdmin; action: Action } | null>(null);
+  // US-UX-07 : compteurs des pastilles, relus après chaque chargement.
+  const [version, setVersion] = useState(0);
+  const compteurs = useCompteurs(FILTRES, totalPropositions, version);
 
   const charger = useCallback(async (): Promise<void> => {
     setChargement(true);
     setErreur(null);
     try {
       setPropositions((await getAdminPropositions({ statut: filtre, limit: 100 })).items);
+      setVersion((v) => v + 1);
     } catch (e) {
       setErreur(e instanceof AdminError ? e.message : 'Impossible de charger les propositions.');
     } finally {
@@ -69,33 +83,23 @@ export default function AdminPropositionsPage(): JSX.Element {
 
   return (
     <>
-      <div className="page-head">
-        <div>
-          <h1 className="page-title">Propositions de formation</h1>
-          <p className="page-subtitle">
-            Des formateurs proposent de nouvelles formations. Accepter crée la formation en
-            brouillon avec le proposant affecté.
-          </p>
-        </div>
-        <div className="row-actions">
-          <select
-            className="input"
-            aria-label="Filtrer par statut"
-            value={filtre}
-            onChange={(e) => setFiltre(e.target.value as StatutProposition)}
-            disabled={chargement}
-          >
-            {FILTRES.map((s) => (
-              <option key={s} value={s}>
-                {LIBELLES_STATUT_DEMANDE_FORMATEUR[s]}
-              </option>
-            ))}
-          </select>
-          <button className="btn-sm" onClick={() => void charger()} disabled={chargement}>
-            Actualiser
-          </button>
-        </div>
-      </div>
+      <EnTetePage
+        titre="Propositions de formation"
+        phrase="Des formateurs proposent de nouvelles formations. Accepter crée la formation en brouillon avec le proposant affecté."
+      />
+
+      <BarreListe
+        filtres={
+          <FiltresPastilles<StatutProposition>
+            libelle="Filtrer par statut"
+            valeur={filtre}
+            onChange={setFiltre}
+            options={FILTRES.map((s) => ({ valeur: s, libelle: LIBELLES_STATUT_DEMANDE_FORMATEUR[s], compteur: compteurs[s] }))}
+          />
+        }
+        onActualiser={() => void charger()}
+        actualisation={chargement}
+      />
 
       {succes && <p className="alert alert-success">{succes}</p>}
       {erreur && (
@@ -107,8 +111,8 @@ export default function AdminPropositionsPage(): JSX.Element {
       {chargement ? (
         <p className="page-subtitle">Chargement…</p>
       ) : (
-        <div className="table-wrap">
-          <table className="data-table">
+        <div className="table-wrap table-wrap-compacte">
+          <table className="data-table table-compacte liste-admin">
             <thead>
               <tr>
                 <th>Proposition</th>
@@ -121,26 +125,24 @@ export default function AdminPropositionsPage(): JSX.Element {
             <tbody>
               {propositions.map((p) => (
                 <tr key={p.id}>
-                  <td>
+                  <th scope="row">
                     <strong>{p.titre}</strong>
                     <div className="muted-cell">
                       {dateHeureFr(p.modifieLe)}
                       {p.version > 1 ? ` · version ${p.version}` : ''}
                     </div>
-                  </td>
-                  <td>
-                    <span className={`statut-badge statut-${p.statut}`}>
-                      {LIBELLES_STATUT_DEMANDE_FORMATEUR[p.statut]}
-                    </span>
+                  </th>
+                  <td data-libelle="Statut">
+                    <PastilleStatut statut={p.statut} libelle={LIBELLES_STATUT_DEMANDE_FORMATEUR[p.statut]} />
                     {p.commentaireAdmin && p.statut !== 'ACCEPTEE' && (
                       <div className="field-hint proposition-details">{p.commentaireAdmin}</div>
                     )}
                   </td>
-                  <td>
+                  <td data-libelle="Formateur">
                     <div>{nomDe(p.formateur)}</div>
                     <div className="muted-cell">{p.formateur.email}</div>
                   </td>
-                  <td className="proposition-details">
+                  <td data-libelle="Détails" className="proposition-details">
                     {[
                       p.dureeHeures ? `${p.dureeHeures} h` : null,
                       `${p.capaciteMax} places`,
@@ -152,29 +154,36 @@ export default function AdminPropositionsPage(): JSX.Element {
                     {p.objectifs && <div>Objectifs : {p.objectifs}</div>}
                     <div>Motif : {p.motif}</div>
                   </td>
-                  <td>
+                  <td className="liste-admin-actions">
                     {p.statut === 'EN_ATTENTE' ? (
-                      <div className="row-actions">
-                        <button className="btn-sm" disabled={enCours === p.id} onClick={() => void accepter(p)}>
-                          {enCours === p.id ? 'Création…' : 'Accepter'}
-                        </button>
-                        <button
-                          className="btn-sm"
-                          disabled={enCours === p.id}
-                          onClick={() => setDialogue({ p, action: 'demander-modifications' })}
-                        >
-                          Demander des modifications
-                        </button>
-                        <button
-                          className="btn-sm btn-danger"
-                          disabled={enCours === p.id}
-                          onClick={() => setDialogue({ p, action: 'refuser' })}
-                        >
-                          Refuser
-                        </button>
-                      </div>
+                      <ActionsLigne
+                        contexte={p.titre}
+                        principale={{
+                          libelle: enCours === p.id ? 'Création…' : 'Accepter',
+                          icone: 'succes',
+                          desactive: enCours === p.id,
+                          onClick: () => void accepter(p),
+                        }}
+                        autres={[
+                          {
+                            libelle: 'Demander des modifications',
+                            icone: 'modifier',
+                            desactive: enCours === p.id,
+                            onClick: () => setDialogue({ p, action: 'demander-modifications' }),
+                          },
+                          {
+                            libelle: 'Refuser',
+                            icone: 'erreur',
+                            danger: true,
+                            separe: true,
+                            desactive: enCours === p.id,
+                            onClick: () => setDialogue({ p, action: 'refuser' }),
+                          },
+                        ]}
+                      />
                     ) : p.statut === 'ACCEPTEE' && p.formationId ? (
-                      <Link className="btn-sm btn-link" href="/admin/formations">
+                      <Link className="btn-sm btn-lien" href="/admin/formations">
+                        <Icone nom="formation" taille={16} />
                         Voir les formations
                       </Link>
                     ) : (

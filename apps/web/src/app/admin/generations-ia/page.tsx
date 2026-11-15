@@ -10,12 +10,21 @@ import {
   PersonneTracee,
 } from '../../../lib/api';
 import { dateHeureFr } from '../../../lib/format';
+import { useCompteurs } from '../../../lib/useCompteurs';
+import { ActionsLigne } from '../../../components/ActionsLigne';
+import { BarreListe } from '../../../components/BarreListe';
+import { EnTetePage } from '../../../components/EnTetePage';
+import { FiltresPastilles } from '../../../components/FiltresPastilles';
+import { PaginationListe } from '../../../components/PaginationListe';
+import { PastilleStatut } from '../../../components/PastilleStatut';
 
 const STATUTS_GENERATION: Record<GenerationTracee['statut'], string> = {
   EN_COURS: 'En cours',
   TERMINEE: 'Terminée',
   ECHEC: 'Échec',
 };
+const STATUTS_FILTRE = Object.keys(STATUTS_GENERATION) as Array<GenerationTracee['statut']>;
+const STATUTS_COMPTES: Array<GenerationTracee['statut'] | 'TOUS'> = ['TOUS', ...STATUTS_FILTRE];
 const STATUTS_SUGGESTION: Record<string, string> = {
   PROPOSEE: 'En attente',
   ACCEPTEE: 'Acceptée',
@@ -49,6 +58,14 @@ export default function GenerationsIaPage(): JSX.Element {
   const [donnees, setDonnees] = useState<{ total: number; limite: number; generations: GenerationTracee[] } | null>(null);
   const [detail, setDetail] = useState<DetailGenerationTracee | null>(null);
   const [erreur, setErreur] = useState<string | null>(null);
+  // US-UX-07 : compteurs des pastilles (même période), relus après chaque chargement.
+  const [version, setVersion] = useState(0);
+  const compteurs = useCompteurs(
+    STATUTS_COMPTES,
+    async (s) =>
+      (await getGenerationsIa({ statut: s === 'TOUS' ? undefined : s, du: borne(du, false), au: borne(au, true) })).total,
+    version,
+  );
 
   const charger = useCallback(async (): Promise<void> => {
     setErreur(null);
@@ -61,6 +78,7 @@ export default function GenerationsIaPage(): JSX.Element {
           page,
         }),
       );
+      setVersion((v) => v + 1);
     } catch (e) {
       setErreur(e instanceof AdminError ? e.message : 'Impossible de charger les générations IA.');
     }
@@ -83,42 +101,40 @@ export default function GenerationsIaPage(): JSX.Element {
 
   return (
     <>
-      <div className="page-head">
-        <div>
-          <h1 className="page-title">Générations IA</h1>
-          <p className="page-subtitle">
-            Registre complet des générations de questions par IA et des décisions des formateurs.
-          </p>
-        </div>
-      </div>
+      <EnTetePage
+        titre="Générations IA"
+        phrase="Registre complet des générations de questions par IA et des décisions des formateurs."
+      />
 
-      <div className="filtres-ligne">
-        <label className="field-label" htmlFor="gen-statut">
-          Statut
-          <select
-            id="gen-statut"
-            className="input"
-            value={statut}
-            onChange={(e) => {
-              setPage(1);
-              setStatut(e.target.value);
-            }}
-          >
-            <option value="">Tous</option>
-            <option value="EN_COURS">En cours</option>
-            <option value="TERMINEE">Terminée</option>
-            <option value="ECHEC">Échec</option>
-          </select>
-        </label>
-        <label className="field-label" htmlFor="gen-du">
-          Du
-          <input id="gen-du" className="input" type="date" value={du} onChange={(e) => { setPage(1); setDu(e.target.value); }} />
-        </label>
-        <label className="field-label" htmlFor="gen-au">
-          Au
-          <input id="gen-au" className="input" type="date" value={au} onChange={(e) => { setPage(1); setAu(e.target.value); }} />
-        </label>
-      </div>
+      <BarreListe
+        filtres={
+          <>
+            <FiltresPastilles<string>
+              libelle="Filtrer par statut"
+              valeur={statut}
+              onChange={(v) => {
+                setPage(1);
+                setStatut(v);
+              }}
+              options={[
+                { valeur: '', libelle: 'Tous', compteur: compteurs.TOUS },
+                ...STATUTS_FILTRE.map((v) => ({ valeur: v, libelle: STATUTS_GENERATION[v], compteur: compteurs[v] })),
+              ]}
+            />
+            <div className="barre-liste-periode">
+              <label className="field-label" htmlFor="gen-du">
+                Du
+                <input id="gen-du" className="input" type="date" value={du} onChange={(e) => { setPage(1); setDu(e.target.value); }} />
+              </label>
+              <label className="field-label" htmlFor="gen-au">
+                Au
+                <input id="gen-au" className="input" type="date" value={au} onChange={(e) => { setPage(1); setAu(e.target.value); }} />
+              </label>
+            </div>
+          </>
+        }
+        onActualiser={() => void charger()}
+      />
 
       {erreur !== null && <p className="alert alert-error">{erreur}</p>}
 
@@ -131,57 +147,53 @@ export default function GenerationsIaPage(): JSX.Element {
         />
       ) : (
         <>
-          <div className="table-wrap">
-            <table className="data-table">
+          <div className="table-wrap table-wrap-compacte">
+            <table className="data-table table-compacte liste-admin">
               <thead>
                 <tr>
+                  <th>Formation · module</th>
                   <th>Lancée le</th>
                   <th>Formateur</th>
-                  <th>Formation · module</th>
                   <th>Modèle</th>
                   <th>Statut</th>
                   <th>Décisions</th>
-                  <th />
+                  <th aria-label="Actions" />
                 </tr>
               </thead>
               <tbody>
                 {donnees.generations.map((g) => (
                   <tr key={g.id}>
-                    <td>{dateHeureFr(g.dateLancement)}</td>
-                    <td>{nom(g.formateur)}</td>
-                    <td>
-                      <span className="cellule-titre">{g.formation.titre}</span>
+                    <th scope="row">
+                      <button type="button" className="ligne-ouvrir lien-bouton" onClick={() => void ouvrir(g.id)}>
+                        {g.formation.titre}
+                      </button>
                       <span className="field-hint">
                         {g.module.titre} · {g.support.titre}
                       </span>
+                    </th>
+                    <td data-libelle="Lancée le">{dateHeureFr(g.dateLancement)}</td>
+                    <td data-libelle="Formateur">{nom(g.formateur)}</td>
+                    <td data-libelle="Modèle">{g.modeleLlm ?? '—'}</td>
+                    <td data-libelle="Statut">
+                      <PastilleStatut statut={g.statut} libelle={STATUTS_GENERATION[g.statut]} />
                     </td>
-                    <td>{g.modeleLlm ?? '—'}</td>
-                    <td>{STATUTS_GENERATION[g.statut]}</td>
-                    <td>
-                      {g.decisions.acceptees + g.decisions.modifiees} acceptée(s) ·{' '}
-                      {g.decisions.rejetees} rejetée(s) · {g.decisions.proposees} en attente
+                    <td data-libelle="Décisions">
+                      {g.decisions.acceptees + g.decisions.modifiees} acceptée(s) · {g.decisions.rejetees} rejetée(s) ·{' '}
+                      {g.decisions.proposees} en attente
                     </td>
-                    <td>
-                      <button type="button" className="btn-sm" onClick={() => void ouvrir(g.id)}>
-                        Détail
-                      </button>
+                    <td className="liste-admin-actions">
+                      <ActionsLigne
+                        contexte={g.formation.titre}
+                        principale={{ libelle: 'Détail', icone: 'ouvrir', onClick: () => void ouvrir(g.id) }}
+                        autres={[]}
+                      />
                     </td>
                   </tr>
                 ))}
               </tbody>
             </table>
           </div>
-          <div className="pagination">
-            <button type="button" className="btn-sm" disabled={page <= 1} onClick={() => setPage(page - 1)}>
-              ← Précédente
-            </button>
-            <span className="field-hint">
-              Page {page} / {pages} · {donnees.total} génération(s)
-            </span>
-            <button type="button" className="btn-sm" disabled={page >= pages} onClick={() => setPage(page + 1)}>
-              Suivante →
-            </button>
-          </div>
+          <PaginationListe page={page} pages={pages} total={donnees.total} unite={['génération', 'générations']} onPage={setPage} />
         </>
       )}
 
