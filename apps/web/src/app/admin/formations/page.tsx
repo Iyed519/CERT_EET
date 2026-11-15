@@ -219,7 +219,7 @@ export default function AdminFormationsPage(): JSX.Element {
                       )}
                     </td>
                     <td data-libelle="Capacité">{f.capaciteMax}</td>
-                    <td data-libelle="Seuil">{f.noteMinCertification} %</td>
+                    <td data-libelle="Seuil">{`${f.noteMinCertification}\u00a0%`}</td>
                     <td data-libelle="Statut">
                       <PastilleStatut statut={f.statut} libelle={libelleStatut(f.statut)} />
                     </td>
