@@ -3,6 +3,9 @@ import { useCallback, useEffect, useState } from 'react';
 import { CarteAlerteSurveillance } from '../../../../components/AlertesSurveillance';
 import { EnTetePage } from '../../../../components/EnTetePage';
 import { EtatVide } from '../../../../components/EtatVide';
+import { BarreListe } from '../../../../components/BarreListe';
+import { FiltresPastilles } from '../../../../components/FiltresPastilles';
+import { useCompteurs } from '../../../../lib/useCompteurs';
 import {
   AdminError,
   AlerteSurveillance,
@@ -15,6 +18,11 @@ const FILTRES: Array<[StatutAlerteSurveillance | null, string]> = [
   ['EXAMINE', 'Examinées'],
   [null, 'Toutes'],
 ];
+
+/** US-UX-08 — nombre d'alertes d'un statut (appel existant). */
+const STATUTS_COMPTES: Array<StatutAlerteSurveillance | 'TOUTES'> = ['NOUVEAU', 'EXAMINE', 'TOUTES'];
+const nombreAlertes = async (s: StatutAlerteSurveillance | 'TOUTES'): Promise<number> =>
+  (await getAlertesSurveillance(s === 'TOUTES' ? null : s)).length;
 
 /** Actualisation automatique tant que la page est visible. */
 const ACTUALISATION_MS = 20_000;
@@ -29,6 +37,9 @@ export default function SurveillancePage(): JSX.Element {
   const [alertes, setAlertes] = useState<AlerteSurveillance[] | null>(null);
   const [erreur, setErreur] = useState<string | null>(null);
   const [actualiseeA, setActualiseeA] = useState<Date | null>(null);
+  // US-UX-08 : compteurs des pastilles, relus à chaque chargement (actualisation comprise).
+  const [version, setVersion] = useState(0);
+  const compteurs = useCompteurs(STATUTS_COMPTES, nombreAlertes, version);
 
   const charger = useCallback(
     (silencieux = false) => {
@@ -38,6 +49,7 @@ export default function SurveillancePage(): JSX.Element {
           setAlertes(a);
           setErreur(null);
           setActualiseeA(new Date());
+          setVersion((v) => v + 1);
         })
         .catch((e: unknown) =>
           setErreur(e instanceof AdminError ? e.message : 'Impossible de charger les alertes.'),
@@ -75,19 +87,17 @@ export default function SurveillancePage(): JSX.Element {
         }
       />
 
-      <div className="filtres-livrables" role="group" aria-label="Statut des alertes">
-        {FILTRES.map(([v, l]) => (
-          <button
-            key={l}
-            type="button"
-            className={`filtre-livrable${statut === v ? ' filtre-livrable-actif' : ''}`}
-            aria-pressed={statut === v}
-            onClick={() => setStatut(v)}
-          >
-            {l}
-          </button>
-        ))}
-      </div>
+      <BarreListe
+        filtres={
+          <FiltresPastilles<string>
+            libelle="Statut des alertes"
+            valeur={statut ?? ''}
+            onChange={(v) => setStatut(v === '' ? null : (v as StatutAlerteSurveillance))}
+            options={FILTRES.map(([v, l]) => ({ valeur: v ?? '', libelle: l, compteur: compteurs[v ?? 'TOUTES'] }))}
+          />
+        }
+        onActualiser={() => charger()}
+      />
 
       {erreur !== null && <p className="alert alert-error">{erreur}</p>}
       {alertes === null && erreur === null && <p className="page-subtitle">Chargement…</p>}
