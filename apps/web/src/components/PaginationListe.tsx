@@ -12,6 +12,7 @@ export function PaginationListe({
   unite,
   onPage,
   desactive = false,
+  filtre,
 }: {
   page: number;
   pages: number;
@@ -20,12 +21,15 @@ export function PaginationListe({
   unite: [string, string];
   onPage: (p: number) => void;
   desactive?: boolean;
+  /** Filtres appliqués, rappelés après le nombre (« · filtre : Actif, Formateurs »). */
+  filtre?: string | null;
 }): JSX.Element | null {
   if (total === 0) return null;
   return (
     <nav className="pagination" aria-label="Pagination">
       <span className="muted-cell">
         {total} {total > 1 ? unite[1] : unite[0]}
+        {filtre ? ` · filtre : ${filtre}` : ''}
         {pages > 1 ? ` · page ${page} / ${pages}` : ''}
       </span>
       {total > 0 && (

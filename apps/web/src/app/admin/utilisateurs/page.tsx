@@ -293,7 +293,16 @@ export default function AdminUsersPage(): JSX.Element {
               </tbody>
             </table>
           </div>
-          <PaginationListe page={vue.page} pages={vue.pages} total={filtres.length} unite={['compte', 'comptes']} onPage={setPage} />
+          <PaginationListe
+            page={vue.page}
+            pages={vue.pages}
+            total={filtres.length}
+            unite={['compte', 'comptes']}
+            onPage={setPage}
+            filtre={[filtreRole ? `${libelleRole(filtreRole)}s` : '', filtreStatut ? libelleStatut(filtreStatut) : '', recherche.trim() ? `« ${recherche.trim()} »` : '']
+              .filter(Boolean)
+              .join(', ')}
+          />
         </>
       )}
 
