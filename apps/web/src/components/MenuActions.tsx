@@ -92,8 +92,15 @@ export function MenuActions({
       const cible = e.target as Node;
       if (!liste.current?.contains(cible) && !bouton.current?.contains(cible)) fermer(false);
     };
+    // US-UX-07 : un défilement déclenché par l'ouverture elle-même (bouton amené à l'écran
+    // juste avant le clic, sur mobile) ne referme pas le menu ; il est seulement replacé.
+    const ouvertLe = performance.now();
     const surDefilement = (e: Event): void => {
       if (liste.current && e.target instanceof Node && liste.current.contains(e.target)) return;
+      if (performance.now() - ouvertLe < 400) {
+        placer();
+        return;
+      }
       fermer(false);
     };
     const surTaille = (): void => fermer(false);
@@ -105,7 +112,7 @@ export function MenuActions({
       window.removeEventListener('scroll', surDefilement, true);
       window.removeEventListener('resize', surTaille);
     };
-  }, [ouvert, fermer]);
+  }, [ouvert, fermer, placer]);
 
   const items = (): HTMLElement[] =>
     Array.from(liste.current?.querySelectorAll<HTMLElement>('[role="menuitem"]:not([aria-disabled="true"])') ?? []);
