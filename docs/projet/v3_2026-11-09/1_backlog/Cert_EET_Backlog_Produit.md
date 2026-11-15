@@ -621,7 +621,7 @@ Table des matières
 | US-UX-06 | Tableau de bord administrateur réorganisé | Must | 3 | Livrée (journal 114) |
 | US-UX-07 | Listes de l'administrateur : une action principale, les autres dans un menu | Must | 5 | Livrée (journal 115) |
 | US-UX-08 | Suivi, alertes, rapports, risque, IA, audit : pages homogènes et lisibles | Should | 3 | Livrée (journal 116) |
-| US-UX-09 | Recette finale : inventaire avant / après, audit, guide de style et de démo | Must | 3 | À faire |
+| US-UX-09 | Recette finale : inventaire avant / après, audit, guide de style et de démo | Must | 3 | Livrée (journal 117) |
 
 **Total E11 : 9 stories — 37 points.**
 

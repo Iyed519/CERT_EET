@@ -7,7 +7,8 @@ Ce dossier contient la preuve :
 |---|---|
 | `inventaire-avant.json` / `.md` | Relevé de **toutes** les actions (liens, boutons, onglets, menus, listes, volets, et ce qu'ouvrent les onglets, menus et fenêtres sans effet destructeur) de chaque page, pour le formateur et l'administrateur, **avant** E11 (14/11/2026, `main` = `82bdf1c`, jeu de démonstration). |
 | `equivalences.json` | Libellés renommés : libellé avant → libellé(s) après, chacun justifié dans le journal de sa story. |
-| `inventaire-apres.json` / `.md`, `comparaison.md` | Relevé final et comparaison (US-UX-09). |
+| `inventaire-apres.json` / `.md`, `comparaison.md` | Relevé final (15/11/2026, fin d'E11) et comparaison : **295 conservées, 0 plus loin, 0 perdue** (US-UX-09). |
+| `captures/` | Pages principales du formateur et de l'administrateur à 1280 px, `-avant` (`82bdf1c`) et `-apres` (fin d'E11), jeu de démonstration. |
 
 ## Relancer
 

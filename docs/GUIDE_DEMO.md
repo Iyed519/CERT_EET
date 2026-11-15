@@ -105,7 +105,10 @@ la charte ESPRIT décrite dans `docs/GUIDE_STYLE.md` (captures dans
    raisons en français et, à côté, les alertes des règles. Rappeler : « le
    modèle suggère, le formateur décide ». Le premier calcul a lieu une minute
    après le démarrage de l'api, puis une fois par jour.
-3. *Alertes* : traiter l'alerte d'Ahmed (action, commentaire).
+3. *Alertes* : pastilles « Ouvertes · Traitées · Toutes » avec leur nombre ;
+   traiter l'alerte d'Ahmed (action, commentaire). *Rapports* d'une
+   formation : une carte par portée (vue globale, un apprenant, un module),
+   format PDF ou CSV, « Générer ».
 4. *Mes formations* -> formation : onglets **Vue d'ensemble**, **Contenu**
    (modules repliables, un bouton « Ajouter » par module : QCM, atelier, lien ou
    vidéo, fichier, support pour l'IA ; « Masquer les brouillons »),
