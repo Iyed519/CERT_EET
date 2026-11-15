@@ -4,7 +4,17 @@
  */
 import assert from 'node:assert/strict';
 import { describe, it } from 'node:test';
-import { avancementMoyen, etapeCourante, etapesQcm, parFormation, resumeModule, texteCompteur } from './ui-regles.ts';
+import {
+  acteurAudit,
+  avancementMoyen,
+  etapeCourante,
+  etapesQcm,
+  parFormation,
+  repartitionTexte,
+  resumeModule,
+  statutDepuisAdresse,
+  texteCompteur,
+} from './ui-regles.ts';
 
 describe('texteCompteur', () => {
   it('absent → rien', () => {
@@ -107,5 +117,44 @@ describe('etapesQcm', () => {
     assert.deepEqual(etats({ ...pub, tentatives: true }), ['fait', 'fait', 'fait', 'en-cours']);
     // Des tentatives sans publication (QCM retiré de la vue) : les résultats restent « à faire ».
     assert.equal(etats({ ...base, nbQuestions: 3, tentatives: true })[3], 'a-faire');
+  });
+});
+
+describe('acteurAudit (US-UX-06)', () => {
+  it('sans compte → « Système », jamais « visiteur »', () => {
+    assert.equal(acteurAudit(null), 'Système');
+  });
+  it('prénom et nom, ou un seul, ou l’adresse à défaut', () => {
+    assert.equal(acteurAudit({ email: 'a@x.tn', prenom: 'Sami', nom: 'Ben Ali' }), 'Sami Ben Ali');
+    assert.equal(acteurAudit({ email: 'a@x.tn', prenom: null, nom: 'Ben Ali' }), 'Ben Ali');
+    assert.equal(acteurAudit({ email: 'a@x.tn', prenom: '', nom: null }), 'a@x.tn');
+  });
+});
+
+describe('repartitionTexte (US-UX-06)', () => {
+  const libelles = { APPRENANT: 'Apprenants', FORMATEUR: 'Formateurs' };
+  it('valeurs non nulles, libellé en minuscules, séparées par « · »', () => {
+    assert.equal(repartitionTexte({ APPRENANT: 12, FORMATEUR: 3, ADMINISTRATEUR: 0 }, libelles), '12 apprenants · 3 formateurs');
+  });
+  it('code inconnu gardé, formateur de nombre appliqué', () => {
+    assert.equal(repartitionTexte({ AUTRE: 1500 }, libelles, (n) => `[${n}]`), '[1500] autre');
+  });
+  it('tout à zéro ou vide → « aucun pour l’instant »', () => {
+    assert.equal(repartitionTexte({ APPRENANT: 0 }, libelles), 'aucun pour l’instant');
+    assert.equal(repartitionTexte({}, libelles), 'aucun pour l’instant');
+  });
+});
+
+describe('statutDepuisAdresse (US-UX-06)', () => {
+  const statuts = ['BROUILLON', 'OUVERTE'] as const;
+  it('valeur connue → retenue', () => {
+    assert.equal(statutDepuisAdresse('?statut=OUVERTE', statuts), 'OUVERTE');
+    assert.equal(statutDepuisAdresse('?enEchec=true&statut=BROUILLON', statuts), 'BROUILLON');
+  });
+  it('absente, vide ou inconnue → null', () => {
+    assert.equal(statutDepuisAdresse('', statuts), null);
+    assert.equal(statutDepuisAdresse('?statut=', statuts), null);
+    assert.equal(statutDepuisAdresse('?statut=ouverte', statuts), null);
+    assert.equal(statutDepuisAdresse('?statut=SUPPRIMEE', statuts), null);
   });
 });

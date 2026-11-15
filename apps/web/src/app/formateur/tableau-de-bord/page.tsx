@@ -196,7 +196,7 @@ export default function TableauDeBordFormateurPage(): JSX.Element {
                 aide={`${nombreFr(t.alertesOuvertes)} décrochage · ${nombreFr(alertesSurveillance)} surveillance`}
               />
               <CarteIndicateur
-                libelle="Apprenants actifs"
+                libelle="Apprenants en cours"
                 valeur={nombreFr(t.apprenants.actifs)}
                 icone="apprenants"
                 href="/formateur/apprenants"
@@ -387,7 +387,7 @@ function CarteFormation({
       </div>
       <dl className="carte-formation-chiffres">
         <div>
-          <dt>Inscrits / actifs</dt>
+          <dt>Inscrits / en cours</dt>
           <dd>
             {nombreFr(f.inscrits)} / {nombreFr(f.actifs)}
           </dd>
@@ -445,7 +445,7 @@ function VueTableau({ formations }: { formations: FormationTableauDeBordFormateu
           <tr>
             <th>Formation</th>
             <th>Statut</th>
-            <th>Inscrits / actifs</th>
+            <th>Inscrits / en cours</th>
             <th>Réussite QCM</th>
             <th>Score moyen</th>
             <th>À évaluer</th>

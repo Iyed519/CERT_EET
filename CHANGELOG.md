@@ -15,6 +15,18 @@
 
 ## [Après le Sprint 6] — Stories hors sprint
 
+#### US-UX-06 — Tableau de bord administrateur réorganisé — journal `engineering-log/114`
+- **Quoi :** « À faire maintenant » (demandes et alertes système, une seule fois : bandeau d'alertes
+  et carte « Demandes en attente » retirés, leurs chiffres et liens y sont déjà), puis indicateurs
+  groupés Personnes / Formations / Évaluations / Certificats avec le sélecteur de période compact,
+  chacun cliquable vers sa liste filtrée (`/admin/formations?statut=OUVERTE`,
+  `/admin/certificats?statut=REVOQUE`…), puis l'activité : icône de catégorie, libellé humain,
+  acteur ou « Système », pastille « Échec ». Les pages Formations et Certificats lisent `?statut=` et
+  n'appliquent que la dernière réponse de liste. Libellé « actifs » précisé : « En cours »
+  (inscription en cours) ou « Actifs ces 7 derniers jours » (vue d'ensemble d'une formation).
+  Aucune API changée.
+- **Pourquoi :** séparer ce qui attend une décision de l'état de la plateforme, sans répétition.
+
 #### US-UX-05 — Éditeur de QCM et page d'atelier en étapes et onglets — journal `engineering-log/113`
 - **Quoi :** bandeau d'étapes (QCM : questions, paramètres anti-fraude, publication, résultats ;
   atelier : énoncé, grille, publication, correction ; correction : ouvrir, noter, envoyer) avec la

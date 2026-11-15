@@ -49,11 +49,11 @@ export default function VueEnsembleFormationPage(): JSX.Element {
             <section aria-label="Chiffres clés de la formation">
               <GroupeIndicateurs>
                 <CarteIndicateur
-                  libelle="Apprenants actifs"
+                  libelle="Actifs ces 7 derniers jours"
                   valeur={k.actifs}
                   icone="apprenants"
                   href={adresses.apprenants}
-                  aide={`sur ${k.inscrits} inscrits (suivi pédagogique)`}
+                  aide={`en cours et connectés depuis moins de 7 jours · sur ${k.inscrits} inscrits`}
                 />
                 <CarteIndicateur
                   libelle="Avancement moyen"

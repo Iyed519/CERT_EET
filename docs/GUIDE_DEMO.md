@@ -88,7 +88,7 @@ la charte ESPRIT décrite dans `docs/GUIDE_STYLE.md` (captures dans
 ### 4.3 Formateur — Karim (6 min)
 1. Connexion -> **Accueil** (tableau de bord formateur, US-DASH-03, réorganisé
    par US-UX-03) : « À faire maintenant », puis 4 indicateurs cliquables (À
-   corriger, Alertes, Apprenants actifs, Réussite aux QCM), *Mes formations* en
+   corriger, Alertes, Apprenants en cours, Réussite aux QCM), *Mes formations* en
    cartes (jauge d'avancement, compteurs « à corriger », « alertes », « signalés
    par l'IA » ; « Vue tableau » pour toutes les colonnes), les apprenants à
    risque, puis *Activité et statistiques* avec la période (7 j, 30 j, 90 j,
@@ -146,8 +146,14 @@ la charte ESPRIT décrite dans `docs/GUIDE_STYLE.md` (captures dans
 
 ### 4.4 Administrateur (6 min)
 1. Connexion -> **Accueil** (tableau de bord global) : « À faire maintenant »
-   (demandes à décider), utilisateurs par rôle, formations par statut,
-   inscriptions, réussite, certificats.
+   (demandes à décider et alertes système, une seule fois), puis
+   **Indicateurs** groupés *Personnes*, *Formations*, *Évaluations*,
+   *Certificats* (période en pastilles 7 j / 30 j / 90 j / 1 an ou
+   « Personnaliser ») : chaque carte mène à sa liste filtrée — cliquer
+   « Formations ouvertes » ouvre *Formations* filtrée sur « Ouverte »,
+   « Certificats révoqués » ouvre *Certificats* sur « Révoqués ». Puis
+   **Activité** : dernières actions en clair (icône, libellé, acteur ou
+   « Système », pastille « Échec ») et graphique quotidien.
    Menu latéral : Accueil · **Personnes** (Comptes, Demandes de rôle) ·
    **Formations** (Formations, Demandes d'affectation, Propositions) ·
    **Certificats** · **Pilotage** (Rapports, Prédiction du risque, Générations
