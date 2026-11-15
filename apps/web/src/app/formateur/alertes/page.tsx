@@ -150,11 +150,13 @@ function CarteAlerte({
   return (
     <li className={`alerte-carte alerte-${alerte.statut}`}>
       <div className="alerte-tete">
-        <PastilleStatut ton={alerte.statut === 'OUVERTE' ? 'danger' : 'neutre'} icone="alerte" libelle={LIBELLES_CRITERE_ALERTE[alerte.critere] ?? alerte.critere} />
-        <PastilleStatut
-          ton={alerte.statut === 'OUVERTE' ? 'attention' : 'succes'}
-          libelle={alerte.statut === 'OUVERTE' ? 'Ouverte' : 'Traitée'}
-        />
+        <span className="alerte-pastilles">
+          <PastilleStatut ton={alerte.statut === 'OUVERTE' ? 'danger' : 'neutre'} icone="alerte" libelle={LIBELLES_CRITERE_ALERTE[alerte.critere] ?? alerte.critere} />
+          <PastilleStatut
+            ton={alerte.statut === 'OUVERTE' ? 'attention' : 'succes'}
+            libelle={alerte.statut === 'OUVERTE' ? 'Ouverte' : 'Traitée'}
+          />
+        </span>
         <span className="alerte-date">{dateHeureFr(alerte.dateCreation)}</span>
       </div>
       <p className="alerte-qui">

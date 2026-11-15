@@ -2242,3 +2242,5 @@ a.indicateur:hover { border-color: var(--border-strong); box-shadow: var(--shado
 .mon-rapport-corps { display: flex; flex-direction: column; flex: 1 1 220px; min-width: 0; }
 .mon-rapport-titre { color: var(--ink); font-weight: 650; overflow-wrap: anywhere; }
 .mon-rapport-detail { color: var(--muted); font-size: var(--fs-petit); }
+.alerte-pastilles { display: inline-flex; align-items: center; gap: var(--sp-2); flex-wrap: wrap; }
+.rapport-periode-commune { margin-bottom: var(--sp-4); }
