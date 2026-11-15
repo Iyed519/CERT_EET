@@ -125,3 +125,34 @@ export function statutDepuisAdresse<T extends string>(recherche: string, valeurs
   const statut = new URLSearchParams(recherche).get('statut');
   return statut !== null && (valeurs as readonly string[]).includes(statut) ? (statut as T) : null;
 }
+
+/** US-UX-07 — Nombre d'éléments par valeur d'une clé (compteurs des filtres en pastilles). */
+export function compterPar<T>(elements: T[], cle: (e: T) => string): Record<string, number> {
+  const comptes: Record<string, number> = {};
+  for (const e of elements) {
+    const k = cle(e);
+    comptes[k] = (comptes[k] ?? 0) + 1;
+  }
+  return comptes;
+}
+
+/** Texte comparable : minuscules, sans accents, espaces réduits. */
+function normaliser(texte: string): string {
+  return texte.normalize('NFD').replace(/[̀-ͯ]/g, '').toLowerCase().replace(/\s+/g, ' ').trim();
+}
+
+/** US-UX-07 — Recherche locale : chaque mot cherché figure dans l'un des champs (casse et accents ignorés). */
+export function correspondRecherche(recherche: string, ...champs: Array<string | null | undefined>): boolean {
+  const mots = normaliser(recherche).split(' ').filter(Boolean);
+  if (mots.length === 0) return true;
+  // `join` rend null et undefined en chaîne vide ; les espaces en trop sont réduits.
+  const texte = normaliser(champs.join(' '));
+  return mots.every((m) => texte.includes(m));
+}
+
+/** US-UX-07 — Pagination locale : page ramenée dans [1, pages], au moins une page. */
+export function paginer<T>(elements: T[], page: number, parPage: number): { elements: T[]; page: number; pages: number } {
+  const pages = Math.max(1, Math.ceil(elements.length / parPage));
+  const p = Math.min(Math.max(1, Math.floor(page)), pages);
+  return { elements: elements.slice((p - 1) * parPage, p * parPage), page: p, pages };
+}

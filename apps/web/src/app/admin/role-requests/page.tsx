@@ -10,6 +10,12 @@ import {
   RoleDemande,
   AdminError,
 } from '../../../lib/api';
+import { ActionsLigne } from '../../../components/ActionsLigne';
+import { BarreListe } from '../../../components/BarreListe';
+import { EnTetePage } from '../../../components/EnTetePage';
+import { FiltresPastilles } from '../../../components/FiltresPastilles';
+import { PastilleStatut } from '../../../components/PastilleStatut';
+import { useCompteurs } from '../../../lib/useCompteurs';
 
 /** Libellés FR des rôles demandés. */
 const libelleRole = (r: RoleDemande): string =>
@@ -21,6 +27,10 @@ const STATUTS: Array<[StatutDemande, string]> = [
   ['APPROUVEE', 'Approuvée'],
   ['REJETEE', 'Rejetée'],
 ];
+const STATUTS_FILTRE = STATUTS.map(([v]) => v);
+/** US-UX-07 — nombre de demandes d'un statut (appel existant, total seul). */
+const totalDemandesRole = async (statut: StatutDemande): Promise<number> =>
+  (await getAdminRoleRequests({ statut, limit: 1 })).total;
 const libelleStatut = (s: StatutDemande): string =>
   STATUTS.find(([v]) => v === s)?.[1] ?? s;
 
@@ -40,6 +50,9 @@ export default function AdminRoleRequestsPage(): JSX.Element {
   const [succes, setSucces] = useState<string | null>(null);
   const [busyId, setBusyId] = useState<string | null>(null);
   const [cibleRejet, setCibleRejet] = useState<DemandeRoleAdminVue | null>(null);
+  // US-UX-07 : compteurs des pastilles, relus après chaque chargement.
+  const [version, setVersion] = useState(0);
+  const compteurs = useCompteurs(STATUTS_FILTRE, totalDemandesRole, version);
 
   const charger = useCallback(async (): Promise<void> => {
     setChargement(true);
@@ -47,6 +60,7 @@ export default function AdminRoleRequestsPage(): JSX.Element {
     try {
       const page = await getAdminRoleRequests({ statut: filtre });
       setDemandes(page.items);
+      setVersion((v) => v + 1);
     } catch (error) {
       setErreur(
         error instanceof AdminError
@@ -90,36 +104,23 @@ export default function AdminRoleRequestsPage(): JSX.Element {
 
   return (
     <>
-      <div className="page-head">
-        <div>
-          <h1 className="page-title">Demandes de changement de rôle</h1>
-          <p className="page-subtitle">
-            Approuvez ou rejetez les demandes de changement de rôle : le demandeur est prévenu par email.
-          </p>
-        </div>
-        <div className="row-actions">
-          <select
-            className="input"
-            aria-label="Filtrer par statut"
-            value={filtre}
-            onChange={(e) => setFiltre(e.target.value as StatutDemande)}
-            disabled={chargement}
-          >
-            {STATUTS.map(([v, l]) => (
-              <option key={v} value={v}>
-                {l}
-              </option>
-            ))}
-          </select>
-          <button
-            className="btn-sm"
-            onClick={() => void charger()}
-            disabled={chargement}
-          >
-            Actualiser
-          </button>
-        </div>
-      </div>
+      <EnTetePage
+        titre="Demandes de rôle"
+        phrase="Approuvez ou rejetez les demandes de changement de rôle : le demandeur est prévenu par email."
+      />
+
+      <BarreListe
+        filtres={
+          <FiltresPastilles<StatutDemande>
+            libelle="Filtrer par statut"
+            valeur={filtre}
+            onChange={setFiltre}
+            options={STATUTS.map(([v, l]) => ({ valeur: v, libelle: l, compteur: compteurs[v] }))}
+          />
+        }
+        onActualiser={() => void charger()}
+        actualisation={chargement}
+      />
 
       {succes !== null && <p className="alert alert-success">{succes}</p>}
       {erreur !== null && <p className="alert alert-error">{erreur}</p>}
@@ -127,8 +128,8 @@ export default function AdminRoleRequestsPage(): JSX.Element {
       {chargement ? (
         <p className="page-subtitle">Chargement…</p>
       ) : (
-        <div className="table-wrap">
-          <table className="data-table">
+        <div className="table-wrap table-wrap-compacte">
+          <table className="data-table table-compacte liste-admin">
             <thead>
               <tr>
                 <th>Demandeur</th>
@@ -141,53 +142,47 @@ export default function AdminRoleRequestsPage(): JSX.Element {
             </thead>
             <tbody>
               {demandes.map((d) => {
-                const nomComplet = [d.demandeur.prenom, d.demandeur.nom]
-                  .filter(Boolean)
-                  .join(' ');
+                const nomComplet = [d.demandeur.prenom, d.demandeur.nom].filter(Boolean).join(' ');
                 const enCours = busyId === d.id;
                 return (
                   <tr key={d.id}>
-                    <td>
+                    <th scope="row">
                       <div>{nomComplet || <span className="muted-cell">—</span>}</div>
                       <div className="muted-cell">{d.demandeur.email}</div>
+                    </th>
+                    <td data-libelle="Rôle demandé">
+                      <span className="role-badge role-FORMATEUR">{libelleRole(d.roleDemande)}</span>
                     </td>
-                    <td>
-                      <span className="role-badge role-FORMATEUR">
-                        {libelleRole(d.roleDemande)}
-                      </span>
+                    <td data-libelle="Justification">{d.justification}</td>
+                    <td data-libelle="Date">{dateFr(d.createdAt)}</td>
+                    <td data-libelle="Statut">
+                      <PastilleStatut statut={d.statut} libelle={libelleStatut(d.statut)} />
+                      {d.statut === 'REJETEE' && d.motif && <div className="field-hint">Motif : {d.motif}</div>}
                     </td>
-                    <td>{d.justification}</td>
-                    <td>{dateFr(d.createdAt)}</td>
-                    <td>
-                      <span className={`statut-badge statut-${d.statut}`}>
-                        {libelleStatut(d.statut)}
-                      </span>
-                      {d.statut === 'REJETEE' && d.motif && (
-                        <div className="field-hint">Motif : {d.motif}</div>
-                      )}
-                    </td>
-                    <td>
+                    <td className="liste-admin-actions">
                       {d.statut === 'EN_ATTENTE' ? (
-                        <div className="row-actions">
-                          <button
-                            className="btn-sm"
-                            disabled={enCours}
-                            onClick={() => void approuver(d)}
-                          >
-                            {enCours ? 'Application…' : 'Approuver'}
-                          </button>
-                          <button
-                            className="btn-sm btn-danger"
-                            disabled={enCours}
-                            onClick={() => {
-                              setSucces(null);
-                              setErreur(null);
-                              setCibleRejet(d);
-                            }}
-                          >
-                            Rejeter
-                          </button>
-                        </div>
+                        <ActionsLigne
+                          contexte={nomComplet || d.demandeur.email}
+                          principale={{
+                            libelle: enCours ? 'Application…' : 'Approuver',
+                            icone: 'succes',
+                            desactive: enCours,
+                            onClick: () => void approuver(d),
+                          }}
+                          autres={[
+                            {
+                              libelle: 'Rejeter',
+                              icone: 'erreur',
+                              danger: true,
+                              desactive: enCours,
+                              onClick: () => {
+                                setSucces(null);
+                                setErreur(null);
+                                setCibleRejet(d);
+                              },
+                            },
+                          ]}
+                        />
                       ) : (
                         <span className="muted-cell">Traitée</span>
                       )}

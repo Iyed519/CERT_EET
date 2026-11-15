@@ -15,6 +15,16 @@
 
 ## [Après le Sprint 6] — Stories hors sprint
 
+#### US-UX-07 — Listes de l'administrateur : une action principale, les autres dans un menu — journal `engineering-log/115`
+- **Quoi :** Comptes, Demandes de rôle, Formations, Demandes d'affectation, Propositions, Certificats
+  et Générations IA : en-tête commun, barre commune (`BarreListe` : recherche, filtres en pastilles
+  avec compteurs, actualiser), une action visible par ligne et les autres dans « ⋯ » (`ActionsLigne` ;
+  Formations : « Gérer » réunit Modifier, Modules, Formateurs, Inscriptions et Statut), pastilles de
+  statut, pagination homogène (`PaginationListe`), cartes lisibles sous 640 px ; clic sur le nom d'un
+  certificat ou le titre d'une génération IA pour sa fiche. Aucune API changée (compteurs lus par
+  les appels existants).
+- **Pourquoi :** ne plus hésiter entre cinq boutons identiques sur chaque ligne.
+
 #### US-UX-06 — Tableau de bord administrateur réorganisé — journal `engineering-log/114`
 - **Quoi :** « À faire maintenant » (demandes et alertes système, une seule fois : bandeau d'alertes
   et carte « Demandes en attente » retirés, leurs chiffres et liens y sont déjà), puis indicateurs

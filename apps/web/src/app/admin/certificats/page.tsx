@@ -26,9 +26,23 @@ import {
   nomApprenantFr,
   nombreFr,
 } from '../../../lib/format';
-import { statutDepuisAdresse } from '../../../lib/ui-regles';
+import { paginer, statutDepuisAdresse } from '../../../lib/ui-regles';
+import { useCompteurs } from '../../../lib/useCompteurs';
+import { ActionsLigne } from '../../../components/ActionsLigne';
+import { BarreListe } from '../../../components/BarreListe';
+import { EnTetePage } from '../../../components/EnTetePage';
+import { FiltresPastilles } from '../../../components/FiltresPastilles';
+import { Icone } from '../../../components/Icone';
+import type { ElementMenu } from '../../../components/MenuActions';
+import { PaginationListe } from '../../../components/PaginationListe';
+import { PastilleStatut } from '../../../components/PastilleStatut';
 
 const STATUTS_CERTIFICAT: StatutCertificat[] = ['EN_ATTENTE_GENERATION', 'EN_GENERATION', 'ACTIF', 'REVOQUE', 'EXPIRE'];
+
+/** US-UX-07 — compteurs : « TOUS » puis chaque filtre (appel existant ; l'API en rend 200 au plus). */
+const STATUTS_COMPTES: Array<StatutCertificat | 'TOUS'> = ['TOUS', 'EN_ATTENTE_GENERATION', 'EN_GENERATION', 'ACTIF', 'REVOQUE'];
+/** US-UX-07 — lignes par page (pagination locale). */
+const PAR_PAGE = 20;
 
 const FILTRES: Array<{ valeur: StatutCertificat | null; libelle: string }> = [
   { valeur: null, libelle: 'Tous' },
@@ -76,6 +90,14 @@ export default function CertificatsAdminPage(): JSX.Element {
   const [saisie, setSaisie] = useState('');
   const [recherche, setRecherche] = useState('');
   const [ficheId, setFicheId] = useState<string | null>(null);
+  // US-UX-07 : pagination locale et compteurs des pastilles (même recherche, mêmes échecs).
+  const [page, setPage] = useState(1);
+  const [version, setVersion] = useState(0);
+  const compteurs = useCompteurs(
+    STATUTS_COMPTES,
+    async (s) => (await getCertificatsAdmin(s === 'TOUS' ? undefined : s, recherche || undefined, enEchec)).length,
+    version,
+  );
 
   // US-UX-06 : seule la dernière demande de liste est appliquée (une réponse en retard
   // n'écrase pas la liste filtrée).
@@ -92,14 +114,9 @@ export default function CertificatsAdminPage(): JSX.Element {
     }
   }, [filtre, recherche, enEchec]);
 
-  const rechercher = (e: FormEvent<HTMLFormElement>): void => {
-    e.preventDefault();
-    setErreur(null);
-    setRecherche(saisie.trim());
-  };
-
   useEffect(() => {
     void charger();
+    setVersion((v) => v + 1);
   }, [charger]);
 
   // Rafraîchissement tant qu'un certificat est en file ou en génération.
@@ -127,80 +144,114 @@ export default function CertificatsAdminPage(): JSX.Element {
     } finally {
       setRelance(null);
       await charger();
+    setVersion((v) => v + 1);
     }
   };
 
+  const vue = paginer(liste ?? [], page, PAR_PAGE);
+
+  /** US-UX-07 — action visible selon l'état, les autres dans ⋯ (Révoquer en dernier, séparé). */
+  function actionsDe(c: CertificatAdmin): { principale: ElementMenu; autres: ElementMenu[] } {
+    const fiche: ElementMenu = { libelle: 'Fiche', icone: 'ouvrir', onClick: () => setFicheId(c.id) };
+    const relancable = c.statut === 'EN_ATTENTE_GENERATION' || c.statut === 'EN_GENERATION';
+    const reemettable = c.statut === 'REVOQUE' && c.revocation?.motif === 'ERREUR_ADMIN' && c.remplacePar === null;
+    let principale = fiche;
+    if (relancable) {
+      principale = {
+        libelle: relance === c.id ? 'Relance…' : 'Relancer',
+        icone: 'actualiser',
+        desactive: relance !== null,
+        onClick: () => void relancer(c),
+      };
+    } else if (reemettable) {
+      principale = {
+        libelle: 'Réémettre',
+        icone: 'certificat',
+        onClick: () => {
+          setErreur(null);
+          setSucces(null);
+          setAReemettre(c);
+        },
+      };
+    }
+    const autres: ElementMenu[] = principale === fiche ? [] : [fiche];
+    if (c.statut === 'ACTIF') {
+      autres.push({
+        libelle: 'Révoquer',
+        icone: 'erreur',
+        danger: true,
+        separe: autres.length > 0,
+        onClick: () => {
+          setErreur(null);
+          setSucces(null);
+          setARevoquer(c);
+        },
+      });
+    }
+    return { principale, autres };
+  }
+
   return (
     <>
-      <div className="page-head">
-        <div>
-          <h1 className="page-title">Certificats</h1>
-          <p className="page-subtitle">
-            Émission en arrière-plan : PDF, empreinte SHA-256 et QR code de vérification.
-          </p>
-        </div>
-      </div>
+      <EnTetePage
+        titre="Certificats"
+        phrase="Émission en arrière-plan : PDF, empreinte SHA-256 et QR code de vérification."
+      />
 
-      <div className="filtres-livrables certificats-filtres" role="group" aria-label="Filtrer les certificats">
-        {FILTRES.map((f) => (
-          <button
-            key={f.libelle}
-            type="button"
-            className={`filtre-livrable${filtre === f.valeur ? ' filtre-livrable-actif' : ''}`}
-            aria-pressed={filtre === f.valeur}
-            onClick={() => {
-              setErreur(null);
-              setFiltre(f.valeur);
-            }}
-          >
-            {f.libelle}
-          </button>
-        ))}
-        <button
-          type="button"
-          className={`filtre-livrable${enEchec ? ' filtre-livrable-actif' : ''}`}
-          aria-pressed={enEchec}
-          onClick={() => {
+      <BarreListe
+        recherche={{
+          valeur: saisie,
+          onChange: setSaisie,
+          libelle: 'Rechercher un certificat',
+          placeholder: 'Titulaire, email, formation ou identifiant',
+          onSoumettre: () => {
             setErreur(null);
-            setEnEchec(!enEchec);
-          }}
-        >
-          Échecs définitifs
-        </button>
-      </div>
-
-      <form className="filters certificats-recherche" onSubmit={rechercher} role="search">
-        <div className="field">
-          <label className="field-label" htmlFor="recherche-certificat">
-            Rechercher
-          </label>
-          <input
-            id="recherche-certificat"
-            className="input"
-            value={saisie}
-            maxLength={255}
-            onChange={(e) => setSaisie(e.target.value)}
-            placeholder="Titulaire, email, formation ou identifiant"
-          />
-        </div>
-        <div className="filters-actions">
-          <button type="submit" className="btn-sm">
-            Rechercher
-          </button>
-          {recherche !== '' && (
+            setPage(1);
+            setRecherche(saisie.trim());
+          },
+          appliquee: recherche !== '',
+          onEffacer: () => {
+            setSaisie('');
+            setRecherche('');
+            setPage(1);
+          },
+        }}
+        filtres={
+          <>
+            <FiltresPastilles<string>
+              libelle="Filtrer les certificats"
+              valeur={filtre ?? ''}
+              onChange={(v) => {
+                setErreur(null);
+                setPage(1);
+                setFiltre(v === '' ? null : (v as StatutCertificat));
+              }}
+              options={FILTRES.map((f) => ({
+                valeur: f.valeur ?? '',
+                libelle: f.libelle,
+                compteur: compteurs[f.valeur ?? 'TOUS'],
+              }))}
+            />
             <button
               type="button"
-              className="btn-sm btn-ghost"
+              className={`filtre-pastille${enEchec ? ' filtre-pastille-actif' : ''}`}
+              aria-pressed={enEchec}
               onClick={() => {
-                setSaisie('');
-                setRecherche('');
+                setErreur(null);
+                setPage(1);
+                setEnEchec(!enEchec);
               }}
             >
-              Effacer
+              <Icone nom="alerte" taille={14} />
+              Échecs définitifs
             </button>
-          )}
-        </div>
-      </form>
+          </>
+        }
+        onActualiser={() => {
+          void charger();
+          setVersion((v) => v + 1);
+        }}
+      />
 
       {erreur !== null && <p className="alert alert-error">{erreur}</p>}
       {succes !== null && <p className="alert alert-success">{succes}</p>}
@@ -213,103 +264,64 @@ export default function CertificatsAdminPage(): JSX.Element {
           texte="Aucun certificat dans cette catégorie ou pour cette recherche. Choisissez « Tous » ou modifiez la recherche."
         />
       ) : (
-        <ul className="livrables-liste">
-          {liste.map((c) => {
-            const relancable = c.statut === 'EN_ATTENTE_GENERATION' || c.statut === 'EN_GENERATION';
-            return (
-              <li key={c.id} className="livrable-ligne certificat-ligne">
-                <div className="livrable-ligne-corps">
-                  <p className="livrable-ligne-nom">{nomApprenantFr(c.apprenant)}</p>
-                  <p className="field-hint">
-                    {c.formation.titre} · {nombreFr(c.scoreFinal)} / 100 · {c.mention} · demandé le{' '}
-                    {dateHeureFr(c.dateEmission)}
-                    {c.dateGeneration ? ` · émis le ${dateHeureFr(c.dateGeneration)}` : ''}
-                  </p>
-                  {c.empreinteSha256 && (
-                    <code className="empreinte" title="SHA-256 du PDF">
-                      {c.empreinteSha256}
-                    </code>
-                  )}
-                  {(c.statut === 'ACTIF' || c.statut === 'REVOQUE') && (
-                    <p className="field-hint consultations-ligne">
-                      {consultationsFr(c.consultations.total)}
-                      {c.consultations.derniere ? ` · dernière le ${dateHeureFr(c.consultations.derniere)}` : ''}
-                    </p>
-                  )}
-                  {c.remplaceCertificatId && (
-                    <p className="field-hint">Réémission d’un certificat révoqué pour erreur.</p>
-                  )}
-                  {c.remplacePar && (
-                    <p className="field-hint">Réémis : un nouveau certificat le remplace.</p>
-                  )}
-                  {c.revocation && (
-                    <p className="field-hint texte-erreur">
-                      Révoqué le {dateHeureFr(c.revocation.date)} ·{' '}
-                      {LIBELLES_MOTIF_REVOCATION[c.revocation.motif]} — {c.revocation.description}
-                    </p>
-                  )}
-                  {c.derniereErreur && c.statut !== 'ACTIF' && c.statut !== 'REVOQUE' && (
-                    <p className="field-hint texte-erreur">
-                      {c.nbTentatives} tentative{c.nbTentatives > 1 ? 's' : ''} · {c.derniereErreur}
-                    </p>
-                  )}
-                  {c.echecDefinitifLe && (
-                    <p className="field-hint texte-erreur">
-                      Échec définitif le {dateHeureFr(c.echecDefinitifLe)} : les administrateurs ont
-                      été alertés. Relancez une fois la cause corrigée.
-                    </p>
-                  )}
-                </div>
-                <div className="livrable-ligne-actions">
-                  <span className={`statut-badge certificat-${c.statut}`}>
-                    {LIBELLES_STATUT_CERTIFICAT[c.statut]}
-                  </span>
-                  <button type="button" className="btn-sm" onClick={() => setFicheId(c.id)}>
-                    Fiche
-                  </button>
-                  {relancable && (
-                    <button
-                      type="button"
-                      className="btn-sm btn-primary-sm"
-                      onClick={() => void relancer(c)}
-                      disabled={relance !== null}
-                    >
-                      {relance === c.id ? 'Relance…' : 'Relancer'}
-                    </button>
-                  )}
-                  {c.statut === 'REVOQUE' &&
-                    c.revocation?.motif === 'ERREUR_ADMIN' &&
-                    c.remplacePar === null && (
-                      <button
-                        type="button"
-                        className="btn-sm btn-primary-sm"
-                        onClick={() => {
-                          setErreur(null);
-                          setSucces(null);
-                          setAReemettre(c);
-                        }}
-                      >
-                        Réémettre
+        <>
+          <ul className="livrables-liste">
+            {vue.elements.map((c) => {
+              const { principale, autres } = actionsDe(c);
+              return (
+                <li key={c.id} className="livrable-ligne certificat-ligne">
+                  <div className="livrable-ligne-corps">
+                    <p className="livrable-ligne-nom">
+                      <button type="button" className="ligne-ouvrir lien-bouton" onClick={() => setFicheId(c.id)}>
+                        {nomApprenantFr(c.apprenant)}
                       </button>
+                    </p>
+                    <p className="field-hint">
+                      {c.formation.titre} · {nombreFr(c.scoreFinal)} / 100 · {c.mention} · demandé le{' '}
+                      {dateHeureFr(c.dateEmission)}
+                      {c.dateGeneration ? ` · émis le ${dateHeureFr(c.dateGeneration)}` : ''}
+                    </p>
+                    {c.empreinteSha256 && (
+                      <code className="empreinte" title="SHA-256 du PDF">
+                        {c.empreinteSha256}
+                      </code>
                     )}
-                  {c.statut === 'ACTIF' && (
-                    <button
-                      type="button"
-                      className="btn-sm btn-danger"
-                      onClick={() => {
-                        setErreur(null);
-                        setSucces(null);
-                        setARevoquer(c);
-                      }}
-                    >
-                      Révoquer
-                    </button>
-                  )}
-                </div>
-              </li>
-            );
-          })}
-        </ul>
+                    {(c.statut === 'ACTIF' || c.statut === 'REVOQUE') && (
+                      <p className="field-hint consultations-ligne">
+                        {consultationsFr(c.consultations.total)}
+                        {c.consultations.derniere ? ` · dernière le ${dateHeureFr(c.consultations.derniere)}` : ''}
+                      </p>
+                    )}
+                    {c.remplaceCertificatId && <p className="field-hint">Réémission d’un certificat révoqué pour erreur.</p>}
+                    {c.remplacePar && <p className="field-hint">Réémis : un nouveau certificat le remplace.</p>}
+                    {c.revocation && (
+                      <p className="field-hint texte-erreur">
+                        Révoqué le {dateHeureFr(c.revocation.date)} ·{' '}
+                        {LIBELLES_MOTIF_REVOCATION[c.revocation.motif]} — {c.revocation.description}
+                      </p>
+                    )}
+                    {c.derniereErreur && c.statut !== 'ACTIF' && c.statut !== 'REVOQUE' && (
+                      <p className="field-hint texte-erreur">
+                        {c.nbTentatives} tentative{c.nbTentatives > 1 ? 's' : ''} · {c.derniereErreur}
+                      </p>
+                    )}
+                    {c.echecDefinitifLe && (
+                      <p className="field-hint texte-erreur">
+                        Échec définitif le {dateHeureFr(c.echecDefinitifLe)} : les administrateurs ont été alertés.
+                        Relancez une fois la cause corrigée.
+                      </p>
+                    )}
+                  </div>
+                  <div className="livrable-ligne-actions">
+                    <PastilleStatut statut={c.statut} libelle={LIBELLES_STATUT_CERTIFICAT[c.statut]} />
+                    <ActionsLigne principale={principale} autres={autres} contexte={nomApprenantFr(c.apprenant)} />
+                  </div>
+                </li>
+              );
+            })}
+          </ul>
+          <PaginationListe page={vue.page} pages={vue.pages} total={liste.length} unite={['certificat', 'certificats']} onPage={setPage} />
+        </>
       )}
 
       {ficheId && <FicheModal certificatId={ficheId} onClose={() => setFicheId(null)} />}
@@ -325,6 +337,7 @@ export default function CertificatsAdminPage(): JSX.Element {
             setAReemettre(null);
             setSucces('Nouveau certificat en cours d’émission ✅');
             await charger();
+    setVersion((v) => v + 1);
           }}
         />
       )}
@@ -337,6 +350,7 @@ export default function CertificatsAdminPage(): JSX.Element {
             setARevoquer(null);
             setSucces(`Certificat révoqué (${nomApprenantFr(c.apprenant)}) : le titulaire est prévenu par email.`);
             await charger();
+    setVersion((v) => v + 1);
           }}
         />
       )}

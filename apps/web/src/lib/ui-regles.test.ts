@@ -7,8 +7,11 @@ import { describe, it } from 'node:test';
 import {
   acteurAudit,
   avancementMoyen,
+  compterPar,
+  correspondRecherche,
   etapeCourante,
   etapesQcm,
+  paginer,
   parFormation,
   repartitionTexte,
   resumeModule,
@@ -156,5 +159,39 @@ describe('statutDepuisAdresse (US-UX-06)', () => {
     assert.equal(statutDepuisAdresse('?statut=', statuts), null);
     assert.equal(statutDepuisAdresse('?statut=ouverte', statuts), null);
     assert.equal(statutDepuisAdresse('?statut=SUPPRIMEE', statuts), null);
+  });
+});
+
+describe('compterPar (US-UX-07)', () => {
+  it('compte chaque valeur, rien pour une liste vide', () => {
+    const l = [{ r: 'A' }, { r: 'B' }, { r: 'A' }];
+    assert.deepEqual(compterPar(l, (e) => e.r), { A: 2, B: 1 });
+    assert.deepEqual(compterPar([], (e: { r: string }) => e.r), {});
+  });
+});
+
+describe('correspondRecherche (US-UX-07)', () => {
+  it('vide → tout correspond', () => {
+    assert.equal(correspondRecherche('  ', 'x'), true);
+  });
+  it('casse, accents et espaces ignorés ; chaque mot dans l’un des champs', () => {
+    assert.equal(correspondRecherche('ÉLODIE  ben', 'elodie', 'Ben Salah'), true);
+    assert.equal(correspondRecherche('sana tn', 'Sana', null, 'sana@esprit.tn'), true);
+    assert.equal(correspondRecherche('sana karim', 'Sana', 'sana@esprit.tn'), false);
+    assert.equal(correspondRecherche('zzz', undefined), false);
+  });
+});
+
+describe('paginer (US-UX-07)', () => {
+  const l = Array.from({ length: 45 }, (_, i) => i);
+  it('découpe par pages', () => {
+    assert.deepEqual(paginer(l, 1, 20), { elements: l.slice(0, 20), page: 1, pages: 3 });
+    assert.deepEqual(paginer(l, 3, 20).elements, [40, 41, 42, 43, 44]);
+  });
+  it('page ramenée dans les bornes, une page minimum', () => {
+    assert.equal(paginer(l, 9, 20).page, 3);
+    assert.equal(paginer(l, 0, 20).page, 1);
+    assert.deepEqual(paginer([], 2, 20), { elements: [], page: 1, pages: 1 });
+    assert.equal(paginer(l.slice(0, 40), 2, 20).pages, 2);
   });
 });

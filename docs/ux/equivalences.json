@@ -18,6 +18,37 @@
     ],
     "+ Ajouter une question": [
       "Saisir une question"
+    ],
+    "Importer un CSV": [
+      "Importer des comptes"
+    ],
+    "Filtrer par statut": [
+      "Tous les statuts #",
+      "En attente #"
+    ],
+    "Statut": [
+      "Tous #"
+    ],
+    "Tous": [
+      "Tous #"
+    ],
+    "En attente": [
+      "En attente #"
+    ],
+    "En génération": [
+      "En génération #"
+    ],
+    "Émis": [
+      "Émis #"
+    ],
+    "Révoqués": [
+      "Révoqués #"
+    ],
+    "← Précédente": [
+      "Précédent"
+    ],
+    "Suivante →": [
+      "Suivant"
     ]
   }
 }
