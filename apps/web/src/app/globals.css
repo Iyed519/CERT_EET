@@ -2244,3 +2244,4 @@ a.indicateur:hover { border-color: var(--border-strong); box-shadow: var(--shado
 .mon-rapport-detail { color: var(--muted); font-size: var(--fs-petit); }
 .alerte-pastilles { display: inline-flex; align-items: center; gap: var(--sp-2); flex-wrap: wrap; }
 .rapport-periode-commune { margin-bottom: var(--sp-4); }
+.carte-rapport-format { flex: 1 1 100%; margin: 0; }

@@ -48,6 +48,9 @@ export function CarteModeleRapport({
             { valeur: 'CSV', libelle: 'CSV (Excel)' },
           ]}
         />
+        <span className="field-hint carte-rapport-format">
+          {format === 'PDF' ? 'PDF : à imprimer ou à archiver.' : 'CSV : à ouvrir dans Excel ou un tableur.'}
+        </span>
         <button type="button" className="btn-sm btn-primary-sm" disabled={!pret || envoi} onClick={() => onGenerer(format)}>
           <Icone nom="rapport" taille={16} />
           {envoi ? 'Demande…' : 'Générer'}
