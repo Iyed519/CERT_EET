@@ -249,7 +249,15 @@ une action ; `ton="discret"` sans carte, pour un bloc déjà encadré.
 Icône, libellé, chiffre (34 px), et en option une tendance (icône + texte) ou une aide. Avec `href`,
 toute la carte est un lien vers **la liste filtrée** correspondante (flèche en haut à droite). États :
 `alerte` (filet rouge sombre, à traiter), `attention` (ambre), `succes`. Grouper par thème avec un
-titre de groupe en capitales.
+titre de groupe en capitales. Le lien d'une carte peut porter le filtre dans l'adresse
+(`/admin/formations?statut=OUVERTE`, `/admin/certificats?statut=REVOQUE`) : la liste le lit au
+chargement (`statutDepuisAdresse`, valeurs connues seulement) — US-UX-06.
+
+### Activité récente — `.activite-liste` (US-UX-06)
+Une ligne par action : icône de la catégorie d'audit dans une pastille colorée (`activite-<catégorie>`),
+libellé humain en gras, « acteur · catégorie » en petit (`acteurAudit` : nom, adresse à défaut,
+« Système » sans compte), heure à droite (sous le texte à 390 px), `PastilleStatut ton="danger"`
+« Échec » pour un échec. Jamais de code brut ni de « visiteur ».
 
 ### Pastilles de statut — `PastilleStatut`
 `<PastilleStatut statut="PUBLIE" />` : libellé et ton déduits du code de l'API (`lib/libelles.ts`,

@@ -35,7 +35,13 @@ Tableau de bord (titre, phrase)
 ```
 
 ## Fichiers
-_(complété en fin de story)_
+- **Web** : `app/admin/tableau-de-bord/page.tsx` (réécrite : `AFaireMaintenant` dans `#alertes`, `SectionPage` « Indicateurs » avec `GroupeIndicateurs` et sélecteur de période, `SectionPage` « Activité »), `app/admin/formations/page.tsx` et `app/admin/certificats/page.tsx` (`?statut=`, garde `derniereDemande`), `app/formateur/apprenants/page.tsx`, `app/formateur/tableau-de-bord/page.tsx`, `app/formateur/formations/[id]/vue-d-ensemble/page.tsx` (D6), `lib/ui-regles.ts` (`acteurAudit`, `repartitionTexte`, `statutDepuisAdresse`, + tests), `app/globals.css` (bloc US-UX-06).
+- **Docs** : `docs/GUIDE_DEMO.md` (§ 4.3 « Apprenants en cours », § 4.4), `docs/GUIDE_STYLE.md` (§ 10 : filtre dans l'adresse, activité récente), backlog, `CHANGELOG.md`. Le guide de style n'avait pas de capture du tableau de bord administrateur : la capture de référence est ajoutée avec US-UX-09.
 
 ## Vérification
-_(complété en fin de story)_
+- Web : tests unitaires **111 / 111** (`acteurAudit` : « Système », nom, nom seul, adresse ; `repartitionTexte` : zéros omis, minuscules, code inconnu, formateur de nombre, « aucun pour l'instant » ; `statutDepuisAdresse` : valeur connue, absente, vide, casse, inconnue) ; `tsc`, `next lint --max-warnings 0`, `next build`.
+- Mutation à la main : **7 / 7 tués** (« Système / visiteur », adresse à défaut retirée, zéros gardés, minuscules retirées, repli vide, liste blanche retirée, formateur de nombre ignoré). La garde `derniereDemande` (composant) est vérifiée en recette : `?statut=OUVERTE` affiche bien 3 formations malgré le premier chargement sans filtre.
+- Recette Playwright (build de production, 1280 / 390 px, captures relues) : ordre À faire maintenant (3 demandes) → Indicateurs (4 groupes, période 30 j, « Personnaliser ») → Activité ; « Formations ouvertes » mène à `/admin/formations?statut=OUVERTE` (filtre « Ouverte », 3 lignes) ; `/admin/certificats?statut=REVOQUE` active « Révoqués » ; activité : « Connexion — Amira Ben Salah · Connexions », « Certificat émis — Système · Certificats », pastille « Échec » sur une ligne d'échec (entrée d'audit d'essai insérée dans la base locale) ; aucun « Système / visiteur » ni code en capitales dans `main.site-main` ; aucun défilement horizontal ; aucune erreur console.
+- API inchangée : ESLint `--max-warnings 0`, `tsc`, unitaires **130 suites / 1 671 tests**, e2e **81 suites / 940 tests** (+ 1 ignoré).
+- Audit de navigation formateur + administrateur (1280 et 390 px) : **68 pages, 0 problème**.
+- Inventaire comparé à « avant » : **295 conservées, 0 perdue, 0 plus loin** (le bandeau d'alertes et la carte « Demandes en attente » n'avaient pas d'action propre hors des liens repris par « À faire maintenant » et le menu ; « Prédiction du risque (IA) » est dans le menu latéral). Aucune équivalence ajoutée.
