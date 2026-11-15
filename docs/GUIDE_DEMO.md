@@ -159,20 +159,29 @@ la charte ESPRIT décrite dans `docs/GUIDE_STYLE.md` (captures dans
    **Certificats** · **Pilotage** (Rapports, Prédiction du risque, Générations
    IA) · **Sécurité** (Journal d'audit) ; les demandes en attente ont leur
    compteur.
-2. *Demandes d'affectation* : accepter la demande de Karim -> il enseigne désormais
-   « Cybersécurité » (email envoyé, visible dans Mailhog
-   http://localhost:8025).
-3. *Propositions* : sur la proposition de Karim, **demander des
+   Toutes les listes (US-UX-07) ont la même barre : recherche, filtres en
+   pastilles avec compteurs, « Actualiser » ; chaque ligne montre **une**
+   action et range les autres dans « ⋯ » (les dangereuses en dernier, en
+   rouge, toujours confirmées). Sous 640 px, chaque ligne devient une carte.
+2. *Demandes d'affectation* : **Accepter** la demande de Karim (« ⋯ » ›
+   Refuser pour l'autre choix) -> il enseigne désormais « Cybersécurité »
+   (email envoyé, visible dans Mailhog http://localhost:8025).
+3. *Propositions* : sur la proposition de Karim, « ⋯ » › **Demander des
    modifications** (commentaire) ; en fenêtre privée, Karim corrige et
-   renvoie ; puis **accepter** -> formation créée **en brouillon** ; dans
-   *Formations*, la **publier** (elle entre au catalogue).
-4. *Demandes de rôle* : approuver Nour comme formatrice.
+   renvoie ; puis **Accepter** -> formation créée **en brouillon** ; dans
+   *Formations* (pastille « Brouillon »), « **Gérer** » › Statut pour la
+   **publier** (elle entre au catalogue). « Gérer » réunit aussi Modifier,
+   Modules, Formateurs et Inscriptions.
+4. *Demandes de rôle* : **Approuver** Nour comme formatrice. *Comptes* :
+   recherche par nom ou adresse, pastilles par rôle et par statut,
+   « Importer des comptes » en haut à droite.
 5. *Prédiction du risque* : même présentation, pour toutes les formations.
    Pour montrer le repli silencieux : `docker compose … stop ml` ; l'application
    continue normalement (les règles s'appliquent) et, sans score récent,
    l'écran affiche « Prédiction indisponible ».
-6. *Certificats* : liste compacte, fiche en fenêtre (croix, Échap ou clic à
-   l'extérieur pour fermer) ; *Journal d'audit* : toutes les actions
+6. *Certificats* : liste compacte, fiche en fenêtre (clic sur le nom du
+   titulaire ou « Fiche » ; croix, Échap ou clic à l'extérieur pour fermer),
+   « ⋯ » › Révoquer ; *Journal d'audit* : toutes les actions
    précédentes, filtrables et exportables.
 
 ### 4.5 Sécurité (2 min)

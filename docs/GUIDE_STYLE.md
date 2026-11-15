@@ -269,6 +269,20 @@ d'œil d'un élément publié). Toujours couleur + icône + texte.
 Groupe de boutons à bascule (`aria-pressed`), chacun avec son compteur ; le filtre actif est
 **noir** (le rouge reste à l'action principale). Dans une `.barre-filtres` au-dessus de la liste.
 
+### Listes de l'administrateur — `BarreListe`, `ActionsLigne`, `PaginationListe` (US-UX-07)
+- **`BarreListe`** au-dessus de chaque liste, toujours dans cet ordre : recherche (`type="search"`,
+  à la frappe si la liste est chargée en entier, sinon « Rechercher » envoyé au serveur), filtres en
+  pastilles avec compteurs, « Actualiser » en bouton discret. L'action principale de la page
+  (« Importer des comptes », « Nouvelle formation ») est dans l'en-tête (`EnTetePage`).
+- **`ActionsLigne`** : **une** action visible (bouton secondaire — le rouge plein reste à l'action
+  de la page) et `MenuActions` « ⋯ » pour toutes les autres, dangereuses en dernier après un
+  séparateur ; leurs confirmations ne changent pas. Sans action évidente, un bouton-menu nommé
+  (`libelleMenu="Gérer"`) porte tout. Pas de « ⋯ » quand il n'y a rien d'autre.
+- **`PaginationListe`** : « 12 comptes · page 1 / 2 », Précédent / Suivant ; pagination locale de
+  20 lignes par `paginer` quand l'API rend toute la liste.
+- Compteurs : `compterPar` sur une liste complète, sinon `useCompteurs` (un appel existant par
+  statut, total seul). Sous 640 px, `table-compacte liste-admin` : une carte par ligne, actions en pied.
+
 ### Libellés humains — `lib/libelles.ts`
 Jamais de code brut à l'écran : `libelleActionAudit('LOGIN')` → « Connexion »,
 `categorieAudit(code)` → connexions, comptes, formations, évaluations, certificats, IA, sécurité ;

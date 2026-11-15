@@ -145,7 +145,8 @@ function normaliser(texte: string): string {
 export function correspondRecherche(recherche: string, ...champs: Array<string | null | undefined>): boolean {
   const mots = normaliser(recherche).split(' ').filter(Boolean);
   if (mots.length === 0) return true;
-  const texte = normaliser(champs.filter(Boolean).join(' '));
+  // `join` rend null et undefined en chaîne vide ; les espaces en trop sont réduits.
+  const texte = normaliser(champs.join(' '));
   return mots.every((m) => texte.includes(m));
 }
 
