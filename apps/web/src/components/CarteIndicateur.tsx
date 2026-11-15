@@ -24,6 +24,8 @@ export function CarteIndicateur({
   etat = 'normal',
   tendance,
   aide,
+  onClick,
+  actif = false,
 }: {
   libelle: string;
   valeur: ReactNode;
@@ -33,6 +35,9 @@ export function CarteIndicateur({
   tendance?: { sens: SensTendance; texte: string };
   /** Une ligne de contexte sous le libellé (« dont 2 à corriger »). */
   aide?: ReactNode;
+  /** US-UX-08 — Carte qui filtre la liste de la page (bouton à bascule) au lieu de mener ailleurs. */
+  onClick?: () => void;
+  actif?: boolean;
 }): JSX.Element {
   const corps = (
     <>
@@ -56,14 +61,21 @@ export function CarteIndicateur({
           {aide && <span className="indicateur-aide">{aide}</span>}
         </span>
       )}
-      {href && (
+      {(href || onClick) && (
         <span className="indicateur-fleche" aria-hidden="true">
           <Icone nom="fleche-droite" taille={16} />
         </span>
       )}
     </>
   );
-  const classe = `indicateur indicateur-${etat}${href ? ' indicateur-cliquable' : ''}`;
+  const classe = `indicateur indicateur-${etat}${href || onClick ? ' indicateur-cliquable' : ''}${actif ? ' indicateur-actif' : ''}`;
+  if (onClick && !href) {
+    return (
+      <button type="button" className={classe} onClick={onClick} aria-pressed={actif}>
+        {corps}
+      </button>
+    );
+  }
   return href ? (
     <Link href={href} className={classe}>
       {corps}

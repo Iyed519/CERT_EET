@@ -1,5 +1,7 @@
 'use client';
+import { EnTetePage } from '../../components/EnTetePage';
 import { ListeRapports } from '../../components/ListeRapports';
+import { SectionPage } from '../../components/SectionPage';
 
 /**
  * US-RPT-01 — « Mes rapports » : tous les rapports que j'ai demandés (lien
@@ -9,17 +11,10 @@ import { ListeRapports } from '../../components/ListeRapports';
 export default function MesRapportsPage(): JSX.Element {
   return (
     <>
-      <div className="page-head">
-        <div>
-          <h1 className="page-title">Mes rapports</h1>
-          <p className="page-subtitle">
-            Rapports exportés, générés en arrière-plan. Ils ne sont visibles que par vous.
-          </p>
-        </div>
-      </div>
-      <section className="tdb-bloc" aria-label="Mes rapports">
+      <EnTetePage titre="Mes rapports" phrase="Rapports exportés, générés en arrière-plan. Ils ne sont visibles que par vous." />
+      <SectionPage titre="Rapports demandés" icone="telecharger">
         <ListeRapports />
-      </section>
+      </SectionPage>
     </>
   );
 }

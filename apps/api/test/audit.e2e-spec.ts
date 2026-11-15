@@ -214,6 +214,47 @@ describe('Audit (e2e) — US-AUTH-12', () => {
     expect(times).toEqual(sorted);
   });
 
+  // ---- US-UX-08 : filtre par plusieurs actions (catégorie du journal) ----
+  it('GET /api/admin/audit-logs?actions=… -> seules les actions listées, combinable avec action', async () => {
+    const marqueur = `e2e-ux08-${Date.now()}`;
+    await auditLogRepository.save([
+      auditLogRepository.create({ userId: adminId, action: 'UX08_ESSAI_A', cible: marqueur, resultat: 'Succès' }),
+      auditLogRepository.create({ userId: adminId, action: 'UX08_ESSAI_B', cible: marqueur, resultat: 'Échec' }),
+      auditLogRepository.create({ userId: adminId, action: 'UX08_ESSAI_C', cible: marqueur, resultat: 'Succès' }),
+    ]);
+    const token = await login(EMAIL_ADMIN);
+    const res = await request(app.getHttpServer())
+      .get(`/api/admin/audit-logs?actions=UX08_ESSAI_A,UX08_ESSAI_B&cible=${marqueur}`)
+      .set('Authorization', `Bearer ${token}`)
+      .expect(200);
+    expect(res.body.total).toBe(2);
+    expect(res.body.items.map((i: { action: string }) => i.action).sort()).toEqual(['UX08_ESSAI_A', 'UX08_ESSAI_B']);
+
+    const combine = await request(app.getHttpServer())
+      .get(`/api/admin/audit-logs?actions=UX08_ESSAI_A,UX08_ESSAI_B&action=UX08_ESSAI_B&resultat=%C3%89chec&cible=${marqueur}`)
+      .set('Authorization', `Bearer ${token}`)
+      .expect(200);
+    expect(combine.body.total).toBe(1);
+    expect(combine.body.items[0].action).toBe('UX08_ESSAI_B');
+
+    const csv = await request(app.getHttpServer())
+      .get(`/api/admin/audit-logs/export?actions=UX08_ESSAI_C&cible=${marqueur}`)
+      .set('Authorization', `Bearer ${token}`)
+      .expect(200);
+    expect(csv.text).toContain('UX08_ESSAI_C');
+    expect(csv.text).not.toContain('UX08_ESSAI_A');
+  });
+
+  it('GET /api/admin/audit-logs?actions=… -> 400 pour une liste invalide', async () => {
+    const token = await login(EMAIL_ADMIN);
+    for (const invalide of ['login', 'LOGIN,,LOGOUT', "LOGIN'--", ',LOGIN', Array(101).fill('A').join(',')]) {
+      await request(app.getHttpServer())
+        .get(`/api/admin/audit-logs?actions=${encodeURIComponent(invalide)}`)
+        .set('Authorization', `Bearer ${token}`)
+        .expect(400);
+    }
+  });
+
   it('GET /api/admin/audit-logs -> 400 si userId n est pas un UUID', async () => {
     const token = await login(EMAIL_ADMIN);
     await request(app.getHttpServer())

@@ -2218,3 +2218,27 @@ a.indicateur:hover { border-color: var(--border-strong); box-shadow: var(--shado
   .liste-admin .actions-ligne { justify-content: flex-start; flex-wrap: wrap; }
   .liste-admin td.demande-motif, .liste-admin td.proposition-details { max-width: none; }
 }
+
+/* US-UX-08 — Pages d'analyse homogènes : journal d'audit lisible, rapports en cartes. */
+.indicateur-cliquable:is(button) { width: 100%; text-align: left; font: inherit; cursor: pointer; }
+.indicateur-actif { border-color: var(--ink); box-shadow: inset 0 0 0 1px var(--ink); }
+.audit-filtres { margin-top: 0; }
+.audit-action { display: flex; align-items: center; gap: var(--sp-3); min-width: 0; }
+.audit-table th[scope='row'] { min-width: 220px; }
+@media (max-width: 640px) {
+  .audit-table th[scope='row'] { min-width: 0; }
+}
+.cartes-rapports { display: grid; grid-template-columns: repeat(auto-fill, minmax(260px, 1fr)); gap: var(--sp-3); margin: 0 0 var(--sp-3); }
+.carte-rapport { display: flex; flex-direction: column; gap: var(--sp-2); padding: var(--sp-4); background: var(--surface); border: 1px solid var(--border); border-radius: var(--radius); box-shadow: var(--shadow-sm); }
+.carte-rapport-tete { display: flex; align-items: center; gap: var(--sp-2); }
+.carte-rapport-titre { margin: 0; color: var(--ink); font-size: var(--fs-corps); font-weight: 700; }
+.carte-rapport-texte { margin: 0; color: var(--text-2); font-size: var(--fs-petit); flex: 1 1 auto; }
+.carte-rapport .field { margin: 0; }
+.carte-rapport-pied { display: flex; align-items: center; justify-content: space-between; gap: var(--sp-2); flex-wrap: wrap; margin-top: var(--sp-2); }
+.rapport-periode-commune { display: flex; align-items: flex-end; gap: var(--sp-3); flex-wrap: wrap; }
+.rapport-periode-commune .field { margin: 0; }
+.mes-rapports { list-style: none; margin: 0; padding: 0; display: grid; gap: var(--sp-2); }
+.mon-rapport { display: flex; align-items: center; gap: var(--sp-3); padding: var(--sp-3); background: var(--surface); border: 1px solid var(--border); border-radius: var(--radius-sm); flex-wrap: wrap; }
+.mon-rapport-corps { display: flex; flex-direction: column; flex: 1 1 220px; min-width: 0; }
+.mon-rapport-titre { color: var(--ink); font-weight: 650; overflow-wrap: anywhere; }
+.mon-rapport-detail { color: var(--muted); font-size: var(--fs-petit); }

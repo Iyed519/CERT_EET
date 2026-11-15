@@ -9,6 +9,24 @@ import {
   AuditQuery,
   AdminError,
 } from '../../../lib/api';
+import { BarreListe } from '../../../components/BarreListe';
+import { CarteIndicateur, GroupeIndicateurs } from '../../../components/CarteIndicateur';
+import { EnTetePage } from '../../../components/EnTetePage';
+import { EtatVide } from '../../../components/EtatVide';
+import { FiltresPastilles } from '../../../components/FiltresPastilles';
+import { Icone, NomIcone } from '../../../components/Icone';
+import { PaginationListe } from '../../../components/PaginationListe';
+import { PastilleStatut } from '../../../components/PastilleStatut';
+import {
+  actionsDeCategorie,
+  CATEGORIES_AUDIT,
+  CategorieAudit,
+  categorieAudit,
+  ICONE_CATEGORIE_AUDIT,
+  LIBELLES_CATEGORIE_AUDIT,
+  libelleActionAudit,
+} from '../../../lib/libelles';
+import { useCompteurs } from '../../../lib/useCompteurs';
 
 /** Nombre d'entrées par page (aligné sur le défaut du backend, DS-16). */
 const LIMIT = 50;
@@ -54,12 +72,18 @@ export default function AdminAuditPage(): JSX.Element {
   const [chargement, setChargement] = useState(true);
   const [erreur, setErreur] = useState<string | null>(null);
   const [exportEnCours, setExportEnCours] = useState(false);
+  // US-UX-08 : catégorie choisie (filtre `actions`), compteurs par catégorie et des échecs.
+  const [categorie, setCategorie] = useState<CategorieAudit | ''>('');
+  const [version, setVersion] = useState(0);
   // US-AUDIT-01 : actions présentes dans le journal (liste déroulante).
   const [actions, setActions] = useState<string[]>([]);
 
   useEffect(() => {
     getAuditActions()
-      .then(setActions)
+      .then((a) => {
+        setActions(a);
+        setVersion((v) => v + 1);
+      })
       .catch(() => setActions([]));
   }, []);
 
@@ -70,6 +94,7 @@ export default function AdminAuditPage(): JSX.Element {
       const resultat = await getAuditLogs(filtres);
       setItems(resultat.items);
       setTotal(resultat.total);
+      setVersion((v) => v + 1);
     } catch (error) {
       setErreur(
         error instanceof AdminError
@@ -96,6 +121,7 @@ export default function AdminAuditPage(): JSX.Element {
     }
     setFiltres({
       action: action || undefined,
+      actions: filtres.actions,
       acteur: acteur.trim() || undefined,
       cible: cible.trim() || undefined,
       resultat: resultatFiltre || undefined,
@@ -107,6 +133,7 @@ export default function AdminAuditPage(): JSX.Element {
   };
 
   const reinitialiser = (): void => {
+    setCategorie('');
     setAction('');
     setActeur('');
     setCible('');
@@ -130,6 +157,7 @@ export default function AdminAuditPage(): JSX.Element {
       // Export = MÊMES filtres que l'affichage, sans pagination (tout le résultat).
       await downloadAuditLogsCsv({
         action: filtres.action,
+        actions: filtres.actions,
         acteur: filtres.acteur,
         cible: filtres.cible,
         resultat: filtres.resultat,
@@ -150,42 +178,107 @@ export default function AdminAuditPage(): JSX.Element {
   const page = filtres.page ?? 1;
   const totalPages = Math.max(1, Math.ceil(total / LIMIT));
 
+  /** US-UX-08 — Choisir une catégorie : filtre `actions` (codes présents de la catégorie), action remise à « Toutes ». */
+  const choisirCategorie = (c: CategorieAudit | ''): void => {
+    setCategorie(c);
+    setAction('');
+    setFiltres((precedent) => ({
+      ...precedent,
+      action: undefined,
+      // Une catégorie sans action présente : un code impossible, pour une liste vide (et non tout le journal).
+      actions: c ? actionsDeCategorie(actions, c).join(',') || 'AUCUNE_ACTION' : undefined,
+      page: 1,
+    }));
+  };
+
+  /** Filtres appliqués, hors catégorie et action : base des compteurs. */
+  const base: AuditQuery = { ...filtres, action: undefined, actions: undefined, page: 1, limit: 1 };
+  const compteurs = useCompteurs<CategorieAudit | 'TOUTES' | 'ECHECS'>(
+    ['TOUTES', ...CATEGORIES_AUDIT, 'ECHECS'],
+    async (c) => {
+      if (c === 'ECHECS') return (await getAuditLogs({ ...filtres, resultat: 'Échec', page: 1, limit: 1 })).total;
+      if (c === 'TOUTES') return (await getAuditLogs(base)).total;
+      const codes = actionsDeCategorie(actions, c);
+      return codes.length === 0 ? 0 : (await getAuditLogs({ ...base, actions: codes.join(',') })).total;
+    },
+    version,
+  );
+
+  const actionsProposees = categorie ? actionsDeCategorie(actions, categorie) : actions;
+
   return (
     <>
-      <div className="page-head">
-        <div>
-          <h1 className="page-title">Journal d&apos;audit</h1>
-          <p className="page-subtitle">
-            Trace inviolable des actions sensibles : qui a fait quoi, quand, avec quel résultat.
-            Lecture seule : aucune entrée ne peut être modifiée ni supprimée.
-          </p>
-        </div>
-        <button
-          className="btn-sm"
-          onClick={() => void telecharger()}
-          disabled={exportEnCours || chargement}
-        >
-          {exportEnCours ? 'Préparation…' : 'Télécharger (CSV)'}
-        </button>
-      </div>
+      <EnTetePage
+        titre="Journal d’audit"
+        phrase="Trace inviolable des actions sensibles : qui a fait quoi, quand, avec quel résultat. Lecture seule : aucune entrée ne peut être modifiée ni supprimée."
+        actions={
+          <button className="btn-sm" onClick={() => void telecharger()} disabled={exportEnCours || chargement}>
+            <Icone nom="telecharger" taille={16} />
+            {exportEnCours ? 'Préparation…' : 'Télécharger (CSV)'}
+          </button>
+        }
+      />
 
-      <form className="filters" onSubmit={appliquerFiltres}>
+      <GroupeIndicateurs>
+        <CarteIndicateur
+          libelle="Entrées"
+          valeur={total.toLocaleString('fr-FR')}
+          icone="audit"
+          aide={categorie ? `catégorie « ${LIBELLES_CATEGORIE_AUDIT[categorie]} » et filtres appliqués` : 'avec les filtres appliqués'}
+        />
+        <CarteIndicateur
+          libelle="Échecs"
+          valeur={compteurs.ECHECS === undefined ? '—' : compteurs.ECHECS.toLocaleString('fr-FR')}
+          icone="erreur"
+          etat={(compteurs.ECHECS ?? 0) > 0 ? 'attention' : 'normal'}
+          actif={filtres.resultat === 'Échec'}
+          aide={filtres.resultat === 'Échec' ? 'affichés seuls : cliquer pour tout revoir' : 'cliquer pour n’afficher que les échecs'}
+          onClick={() => {
+            const echecs = filtres.resultat !== 'Échec';
+            setResultatFiltre(echecs ? 'Échec' : '');
+            setFiltres((precedent) => ({ ...precedent, resultat: echecs ? 'Échec' : undefined, page: 1 }));
+          }}
+        />
+      </GroupeIndicateurs>
+
+      <BarreListe
+        filtres={
+          <FiltresPastilles<CategorieAudit | ''>
+            libelle="Filtrer par catégorie"
+            valeur={categorie}
+            onChange={choisirCategorie}
+            options={[
+              { valeur: '', libelle: 'Toutes', compteur: compteurs.TOUTES },
+              ...CATEGORIES_AUDIT.map((c) => ({ valeur: c, libelle: LIBELLES_CATEGORIE_AUDIT[c], compteur: compteurs[c] })),
+            ]}
+          />
+        }
+        onActualiser={() => void charger()}
+        actualisation={chargement}
+      />
+
+      <form className="filters audit-filtres" onSubmit={appliquerFiltres}>
         <div className="field">
           <label className="field-label" htmlFor="f-action">
             Action
           </label>
-          <select
-            id="f-action"
-            className="input"
-            value={action}
-            onChange={(e) => setAction(e.target.value)}
-          >
-            <option value="">Toutes</option>
-            {actions.map((a) => (
-              <option key={a} value={a}>
-                {a}
-              </option>
-            ))}
+          <select id="f-action" className="input" value={action} onChange={(e) => setAction(e.target.value)}>
+            <option value="">{categorie ? `Toutes (${LIBELLES_CATEGORIE_AUDIT[categorie].toLowerCase()})` : 'Toutes'}</option>
+            {(categorie ? [categorie] : CATEGORIES_AUDIT).map((c) => {
+              const codes = actionsProposees.filter((a) => categorieAudit(a) === c);
+              return codes.length === 0 ? null : (
+                <optgroup key={c} label={LIBELLES_CATEGORIE_AUDIT[c]}>
+                  {codes
+                    .map((a) => [a, libelleActionAudit(a)] as const)
+                    .sort((x, y) => x[1].localeCompare(y[1], 'fr'))
+                    .map(([a, l]) => (
+                      <option key={a} value={a}>
+                        {l}
+                      </option>
+                    ))}
+                </optgroup>
+              );
+            })}
           </select>
         </div>
         <div className="field">
@@ -218,12 +311,7 @@ export default function AdminAuditPage(): JSX.Element {
           <label className="field-label" htmlFor="f-resultat">
             Résultat
           </label>
-          <select
-            id="f-resultat"
-            className="input"
-            value={resultatFiltre}
-            onChange={(e) => setResultatFiltre(e.target.value)}
-          >
+          <select id="f-resultat" className="input" value={resultatFiltre} onChange={(e) => setResultatFiltre(e.target.value)}>
             <option value="">Tous</option>
             <option value="Succès">Succès</option>
             <option value="Échec">Échec</option>
@@ -233,36 +321,19 @@ export default function AdminAuditPage(): JSX.Element {
           <label className="field-label" htmlFor="f-from">
             Du
           </label>
-          <input
-            id="f-from"
-            className="input"
-            type="date"
-            value={from}
-            onChange={(e) => setFrom(e.target.value)}
-          />
+          <input id="f-from" className="input" type="date" value={from} onChange={(e) => setFrom(e.target.value)} />
         </div>
         <div className="field">
           <label className="field-label" htmlFor="f-to">
             Au
           </label>
-          <input
-            id="f-to"
-            className="input"
-            type="date"
-            value={to}
-            onChange={(e) => setTo(e.target.value)}
-          />
+          <input id="f-to" className="input" type="date" value={to} onChange={(e) => setTo(e.target.value)} />
         </div>
         <div className="filters-actions">
           <button type="submit" className="btn-sm" disabled={chargement}>
             Filtrer
           </button>
-          <button
-            type="button"
-            className="btn-sm btn-ghost"
-            onClick={reinitialiser}
-            disabled={chargement}
-          >
+          <button type="button" className="btn-discret" onClick={reinitialiser} disabled={chargement}>
             Réinitialiser
           </button>
         </div>
@@ -272,14 +343,19 @@ export default function AdminAuditPage(): JSX.Element {
 
       {chargement ? (
         <p className="page-subtitle">Chargement…</p>
+      ) : items.length === 0 ? (
+        <EtatVide
+          titre="Aucune entrée"
+          texte="Aucune entrée du journal ne correspond à ces filtres. Choisissez « Toutes » ou réinitialisez les filtres."
+        />
       ) : (
         <>
-          <div className="table-wrap">
-            <table className="data-table">
+          <div className="table-wrap table-wrap-compacte">
+            <table className="data-table table-compacte liste-admin audit-table">
               <thead>
                 <tr>
-                  <th>Horodatage</th>
                   <th>Action</th>
+                  <th>Horodatage</th>
                   <th>Acteur</th>
                   <th>Cible</th>
                   <th>IP</th>
@@ -288,94 +364,76 @@ export default function AdminAuditPage(): JSX.Element {
                 </tr>
               </thead>
               <tbody>
-                {items.map((entree) => (
-                  <tr key={entree.id}>
-                    <td>{formatHorodatage(entree.horodatage)}</td>
-                    <td>{entree.action}</td>
-                    <td>
-                      {entree.acteur ? (
-                        <>
-                          {nomActeur(entree.acteur)}
-                          <br />
-                          <span className="muted-cell">
-                            {entree.acteur.email}
+                {items.map((entree) => {
+                  const cat = categorieAudit(entree.action);
+                  return (
+                    <tr key={entree.id}>
+                      <th scope="row">
+                        <span className="audit-action">
+                          <span className={`activite-icone activite-${cat}`}>
+                            <Icone nom={ICONE_CATEGORIE_AUDIT[cat] as NomIcone} taille={18} />
                           </span>
-                        </>
-                      ) : entree.userId ? (
-                        <span className="mono" title="Compte introuvable">
-                          {entree.userId}
+                          <span className="activite-corps">
+                            <span className="activite-libelle" title={entree.action}>
+                              {libelleActionAudit(entree.action)}
+                            </span>
+                            <span className="activite-detail">{LIBELLES_CATEGORIE_AUDIT[cat]}</span>
+                          </span>
                         </span>
-                      ) : (
-                        <span className="muted-cell">Anonyme</span>
-                      )}
-                    </td>
-                    <td className="mono">
-                      {entree.cible ?? <span className="muted-cell">—</span>}
-                    </td>
-                    <td className="mono audit-ip">
-                      {entree.adresseIp ?? (
-                        <span className="muted-cell">—</span>
-                      )}
-                    </td>
-                    <td>
-                      {entree.resultat ? (
-                        <span
-                          className={`res-badge ${
-                            entree.resultat === 'Échec' ? 'res-ko' : 'res-ok'
-                          }`}
-                        >
-                          {entree.resultat}
-                        </span>
-                      ) : (
-                        <span className="muted-cell">—</span>
-                      )}
-                    </td>
-                    <td className="mono">
-                      {entree.detailsAvantApres ? (
-                        <details>
-                          <summary>Voir</summary>
-                          <pre className="audit-details">
-                            {JSON.stringify(entree.detailsAvantApres, null, 2)}
-                          </pre>
-                        </details>
-                      ) : (
-                        <span className="muted-cell">—</span>
-                      )}
-                    </td>
-                  </tr>
-                ))}
-                {items.length === 0 && (
-                  <tr>
-                    <td colSpan={7} className="muted-cell">
-                      Aucune entrée pour ces critères.
-                    </td>
-                  </tr>
-                )}
+                      </th>
+                      <td data-libelle="Horodatage">{formatHorodatage(entree.horodatage)}</td>
+                      <td data-libelle="Acteur">
+                        {entree.acteur ? (
+                          <>
+                            {nomActeur(entree.acteur)}
+                            <br />
+                            <span className="muted-cell">{entree.acteur.email}</span>
+                          </>
+                        ) : entree.userId ? (
+                          <span className="muted-cell" title={entree.userId}>
+                            Compte supprimé
+                          </span>
+                        ) : (
+                          <span className="muted-cell">Système</span>
+                        )}
+                      </td>
+                      <td data-libelle="Cible" className="mono">
+                        {entree.cible ?? <span className="muted-cell">—</span>}
+                      </td>
+                      <td data-libelle="IP" className="mono audit-ip">
+                        {entree.adresseIp ?? <span className="muted-cell">—</span>}
+                      </td>
+                      <td data-libelle="Résultat">
+                        {entree.resultat ? (
+                          <PastilleStatut ton={entree.resultat === 'Échec' ? 'danger' : 'succes'} libelle={entree.resultat} />
+                        ) : (
+                          <span className="muted-cell">—</span>
+                        )}
+                      </td>
+                      <td data-libelle="Détails" className="mono">
+                        {entree.detailsAvantApres ? (
+                          <details>
+                            <summary>Voir</summary>
+                            <pre className="audit-details">{JSON.stringify(entree.detailsAvantApres, null, 2)}</pre>
+                          </details>
+                        ) : (
+                          <span className="muted-cell">—</span>
+                        )}
+                      </td>
+                    </tr>
+                  );
+                })}
               </tbody>
             </table>
           </div>
-
-          <div className="pagination">
-            <span className="page-subtitle">
-              {total} entrée(s) — page {page} / {totalPages}
-            </span>
-            <div className="row-actions">
-              <button
-                className="btn-sm"
-                onClick={() => changerPage(-1)}
-                disabled={page <= 1}
-              >
-                Précédent
-              </button>
-              <button
-                className="btn-sm"
-                onClick={() => changerPage(1)}
-                disabled={page >= totalPages}
-              >
-                Suivant
-              </button>
-            </div>
-          </div>
+          <PaginationListe
+            page={page}
+            pages={totalPages}
+            total={total}
+            unite={['entrée', 'entrées']}
+            onPage={(p) => changerPage(p - page)}
+            desactive={chargement}
+          />
         </>
       )}
     </>

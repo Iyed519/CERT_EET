@@ -580,6 +580,8 @@ export interface AuditPage {
 /** Filtres de consultation / export (from & to en date AAAA-MM-JJ). */
 export interface AuditQuery {
   action?: string;
+  /** US-UX-08 : plusieurs actions séparées par des virgules (une catégorie du journal). */
+  actions?: string;
   userId?: string;
   /** US-AUDIT-01 : email de l'acteur (contient, sans casse). */
   acteur?: string;
@@ -601,6 +603,7 @@ export interface AuditQuery {
 function buildAuditParams(query: AuditQuery): string {
   const params = new URLSearchParams();
   if (query.action) params.set('action', query.action);
+  if (query.actions) params.set('actions', query.actions);
   if (query.userId) params.set('userId', query.userId);
   if (query.acteur) params.set('acteur', query.acteur);
   if (query.cible) params.set('cible', query.cible);

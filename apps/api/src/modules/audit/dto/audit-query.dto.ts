@@ -7,6 +7,7 @@ import {
   IsOptional,
   IsString,
   IsUUID,
+  Matches,
   Max,
   MaxLength,
   Min,
@@ -29,6 +30,17 @@ export class AuditQueryDto {
   @IsOptional()
   @IsString()
   action?: string;
+
+  @ApiPropertyOptional({
+    description:
+      "US-UX-08 — Plusieurs types d'action, séparés par des virgules (une catégorie du journal), 100 au plus.",
+    example: 'LOGIN,LOGOUT',
+  })
+  @IsOptional()
+  @Matches(/^[A-Z0-9_]{1,100}(,[A-Z0-9_]{1,100}){0,99}$/, {
+    message: 'actions doit être une liste de codes d’action (capitales, chiffres, _) séparés par des virgules, 100 au plus.',
+  })
+  actions?: string;
 
   @ApiPropertyOptional({
     description: "Filtre sur l'acteur (userId de l'auteur de l'action).",

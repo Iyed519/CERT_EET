@@ -2,7 +2,10 @@
 import { useMiettes } from '../../../../../components/TitrePage';
 import { EnTeteFormation } from '../../../../../components/EnTeteFormation';
 import { useParams } from 'next/navigation';
-import { FormEvent, useEffect, useState } from 'react';
+import { useEffect, useState } from 'react';
+import { CarteModeleRapport } from '../../../../../components/CarteModeleRapport';
+import { NomIcone } from '../../../../../components/Icone';
+import { SectionPage } from '../../../../../components/SectionPage';
 import { ListeRapports } from '../../../../../components/ListeRapports';
 import {
   AdminError,
@@ -14,10 +17,10 @@ import {
 } from '../../../../../lib/api';
 import { nomApprenantFr } from '../../../../../lib/format';
 
-const PORTEES: Array<[PorteeRapport, string, string]> = [
-  ['GLOBAL', 'Vue globale', 'Indicateurs et une ligne par apprenant.'],
-  ['INDIVIDUEL', 'Un apprenant', 'Tentatives, livrables, alertes d’un apprenant.'],
-  ['MODULE', 'Par module', 'Meilleure note par évaluation publiée du module.'],
+const PORTEES: Array<[PorteeRapport, string, string, NomIcone]> = [
+  ['GLOBAL', 'Vue globale', 'Indicateurs et une ligne par apprenant.', 'apprenants'],
+  ['INDIVIDUEL', 'Un apprenant', 'Tentatives, livrables, alertes d’un apprenant.', 'apprenant'],
+  ['MODULE', 'Par module', 'Meilleure note par évaluation publiée du module.', 'module'],
 ];
 
 /**
@@ -32,13 +35,11 @@ export default function RapportsFormationPage(): JSX.Element {
   const [titre, setTitre] = useState<string | null>(null);
   const [modules, setModules] = useState<Array<{ id: string; titre: string; ordre: number }>>([]);
   const [apprenants, setApprenants] = useState<Array<{ id: string; libelle: string }>>([]);
-  const [format, setFormat] = useState<FormatRapport>('PDF');
-  const [portee, setPortee] = useState<PorteeRapport>('GLOBAL');
   const [apprenantId, setApprenantId] = useState('');
   const [moduleId, setModuleId] = useState('');
   const [erreur, setErreur] = useState<string | null>(null);
   const [info, setInfo] = useState<string | null>(null);
-  const [envoi, setEnvoi] = useState(false);
+  const [envoi, setEnvoi] = useState<PorteeRapport | null>(null);
   const [version, setVersion] = useState(0);
 
   useEffect(() => {
@@ -53,14 +54,14 @@ export default function RapportsFormationPage(): JSX.Element {
       );
   }, [id]);
 
-  const pret =
-    portee === 'GLOBAL' || (portee === 'INDIVIDUEL' && apprenantId) || (portee === 'MODULE' && moduleId);
+  // US-UX-08 : une carte par portée ; même demande qu'avant (format, portée, apprenant ou module).
+  const pret = (portee: PorteeRapport): boolean =>
+    portee === 'GLOBAL' || (portee === 'INDIVIDUEL' && apprenantId !== '') || (portee === 'MODULE' && moduleId !== '');
 
-  const demander = async (e: FormEvent): Promise<void> => {
-    e.preventDefault();
+  const demander = async (portee: PorteeRapport, format: FormatRapport): Promise<void> => {
     setErreur(null);
     setInfo(null);
-    setEnvoi(true);
+    setEnvoi(portee);
     try {
       await demanderRapportSession(id, {
         format,
@@ -73,7 +74,7 @@ export default function RapportsFormationPage(): JSX.Element {
     } catch (err: unknown) {
       setErreur(err instanceof AdminError ? err.message : 'Impossible de demander le rapport.');
     } finally {
-      setEnvoi(false);
+      setEnvoi(null);
     }
   };
 
@@ -91,66 +92,54 @@ export default function RapportsFormationPage(): JSX.Element {
         </div>
       </div>
 
-      <form className="tdb-bloc rapport-form" onSubmit={(e) => void demander(e)}>
-        <h2>Nouveau rapport</h2>
-        <fieldset className="rapport-choix">
-          <legend className="field-label">Format</legend>
-          {(['PDF', 'CSV'] as FormatRapport[]).map((f) => (
-            <label key={f} className="rapport-option">
-              <input type="radio" name="format" checked={format === f} onChange={() => setFormat(f)} />
-              {f === 'PDF' ? 'PDF (à imprimer)' : 'CSV (Excel)'}
-            </label>
-          ))}
-        </fieldset>
-        <fieldset className="rapport-choix">
-          <legend className="field-label">Portée</legend>
-          {PORTEES.map(([p, libelle, aide]) => (
-            <label key={p} className="rapport-option">
-              <input type="radio" name="portee" checked={portee === p} onChange={() => setPortee(p)} />
-              <span>
-                {libelle}
-                <span className="field-hint"> — {aide}</span>
-              </span>
-            </label>
-          ))}
-        </fieldset>
-        {portee === 'INDIVIDUEL' && (
-          <label className="field">
-            <span className="field-label">Apprenant</span>
-            <select className="input" value={apprenantId} onChange={(e) => setApprenantId(e.target.value)}>
-              <option value="">Choisir un apprenant…</option>
-              {apprenants.map((a) => (
-                <option key={a.id} value={a.id}>
-                  {a.libelle}
-                </option>
-              ))}
-            </select>
-          </label>
-        )}
-        {portee === 'MODULE' && (
-          <label className="field">
-            <span className="field-label">Module</span>
-            <select className="input" value={moduleId} onChange={(e) => setModuleId(e.target.value)}>
-              <option value="">Choisir un module…</option>
-              {modules.map((m) => (
-                <option key={m.id} value={m.id}>
-                  {m.ordre}. {m.titre}
-                </option>
-              ))}
-            </select>
-          </label>
-        )}
+      <SectionPage titre="Nouveau rapport" icone="rapport" phrase="Choisissez la portée et le format : le rapport est préparé en arrière-plan puis listé ci-dessous.">
         {erreur !== null && <p className="alert alert-error">{erreur}</p>}
         {info !== null && <p className="alert alert-info">{info}</p>}
-        <button type="submit" className="btn" disabled={envoi || !pret}>
-          {envoi ? 'Demande…' : 'Demander le rapport'}
-        </button>
-      </form>
+        <div className="cartes-rapports">
+          {PORTEES.map(([p, libelle, aide, icone]) => (
+            <CarteModeleRapport
+              key={p}
+              titre={libelle}
+              description={aide}
+              icone={icone}
+              pret={pret(p)}
+              envoi={envoi === p}
+              onGenerer={(format) => void demander(p, format)}
+            >
+              {p === 'INDIVIDUEL' && (
+                <label className="field">
+                  <span className="field-label">Apprenant</span>
+                  <select className="input" value={apprenantId} onChange={(e) => setApprenantId(e.target.value)}>
+                    <option value="">Choisir un apprenant…</option>
+                    {apprenants.map((a) => (
+                      <option key={a.id} value={a.id}>
+                        {a.libelle}
+                      </option>
+                    ))}
+                  </select>
+                </label>
+              )}
+              {p === 'MODULE' && (
+                <label className="field">
+                  <span className="field-label">Module</span>
+                  <select className="input" value={moduleId} onChange={(e) => setModuleId(e.target.value)}>
+                    <option value="">Choisir un module…</option>
+                    {modules.map((m) => (
+                      <option key={m.id} value={m.id}>
+                        {m.ordre}. {m.titre}
+                      </option>
+                    ))}
+                  </select>
+                </label>
+              )}
+            </CarteModeleRapport>
+          ))}
+        </div>
+      </SectionPage>
 
-      <section className="tdb-bloc" aria-label="Mes rapports de cette formation">
-        <h2>Mes rapports de cette formation</h2>
+      <SectionPage titre="Mes rapports de cette formation" icone="telecharger">
         <ListeRapports formationId={id} version={version} />
-      </section>
+      </SectionPage>
     </>
   );
 }
