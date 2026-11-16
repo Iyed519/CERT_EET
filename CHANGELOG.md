@@ -15,6 +15,14 @@
 
 ## [Après le Sprint 6] — Stories hors sprint
 
+#### DEPLOY-smtp-auth — Authentification SMTP facultative — journal `engineering-log/118`
+- **Quoi :** variables facultatives `SMTP_USER`, `SMTP_PASSWORD` et `SMTP_SECURE` ; authentification
+  envoyée seulement si l'identifiant et le mot de passe sont fournis, avec STARTTLS exigé sur le port
+  587 (TLS implicite sur 465) ; identifiant sans mot de passe refusé au démarrage ; Mailhog inchangé
+  en dev et en CI.
+- **Pourquoi :** envoyer de vrais e-mails (activation, mot de passe oublié) depuis l'environnement de
+  démonstration en ligne, par Gmail et un mot de passe d'application.
+
 #### US-UX-09 — Recette finale de l'épopée E11 — journal `engineering-log/117`
 - **Quoi :** inventaire « après » versionné et comparé (295 actions conservées, 0 perdue, 0 plus
   loin), audit de navigation des cinq rôles à 1280 et 390 px (0 problème), non-régression de

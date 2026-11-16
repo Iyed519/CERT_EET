@@ -40,6 +40,22 @@ export const envValidationSchema = Joi.object({
   // laisser une inscription se casser silencieusement à l'envoi.
   SMTP_HOST: Joi.string().required(),
   SMTP_PORT: Joi.number().port().default(1025),
+  // Déploiement (DEPLOY-smtp-auth) : authentification facultative auprès d'un
+  // vrai relais (Gmail : smtp.gmail.com, 587, mot de passe d'application).
+  // Les deux vont ensemble : un identifiant sans mot de passe (ou l'inverse)
+  // refuse le démarrage. Valeurs dans le .env de l'hôte seulement.
+  SMTP_USER: Joi.string().allow('').optional(),
+  SMTP_PASSWORD: Joi.when('SMTP_USER', {
+    is: Joi.string().min(1).required(),
+    then: Joi.string().min(1).required().messages({
+      'any.required': 'SMTP_PASSWORD est obligatoire quand SMTP_USER est fourni.',
+      'string.empty': 'SMTP_PASSWORD est obligatoire quand SMTP_USER est fourni.',
+    }),
+    otherwise: Joi.string().allow('').optional(),
+  }),
+  // true = TLS implicite (port 465) ; false (défaut) = STARTTLS exigé si
+  // authentification (587), connexion simple sinon (Mailhog).
+  SMTP_SECURE: Joi.boolean().default(false),
   MAIL_FROM: Joi.string().default('Cert_EET <no-reply@cert-eet.local>'),
   // Base du frontend : sert à construire le lien de vérification (page Next.js).
   APP_BASE_URL: Joi.string().uri().default('http://localhost:3001'),
