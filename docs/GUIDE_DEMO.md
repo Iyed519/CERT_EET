@@ -217,7 +217,8 @@ Recette automatique de toute la navigation (avant la démo) :
 Adresse : **https://cert-eet.duckdns.org** — mêmes comptes (section 2), mêmes données (section 3), même
 scénario (section 4). Serveur Hetzner Cloud à Helsinki : à présenter comme **environnement de
 démonstration hébergé en Europe** (la cible de production reste un hébergement en Tunisie, ADR-07).
-Détails et décisions : `engineering-log/120-DEPLOY-mise-en-ligne.md`.
+Détails et décisions : `engineering-log/120-DEPLOY-mise-en-ligne.md`. Réinstaller le serveur
+depuis zéro : `deploy/hetzner/README.md` (contrôle complet : `deploy/hetzner/scripts/verifier.sh`).
 
 En plus de la version locale :
 - **Connexion avec GitHub ou Google** fonctionnelle (applications OAuth dédiées au domaine).

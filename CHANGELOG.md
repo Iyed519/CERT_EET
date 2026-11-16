@@ -15,6 +15,14 @@
 
 ## [Après le Sprint 6] — Stories hors sprint
 
+#### DEPLOY-fichiers-hetzner — Fichiers de déploiement versionnés — journal `engineering-log/121`
+- **Quoi :** dossier `deploy/hetzner/` : initialisation du serveur (`cloud-config.yaml`), surcharge Compose
+  paramétrée par `DOMAINE`, modèle du `.env`, scripts de préparation, de saisie des secrets sans affichage,
+  de certificat Let's Encrypt, de mise à jour, de vérification, de sauvegarde et de mise à jour DuckDNS ;
+  procédure complète dans `deploy/hetzner/README.md`. Aucun secret dans le dépôt.
+- **Pourquoi :** pouvoir recréer la démonstration en ligne depuis zéro ou depuis un instantané, sans
+  dépendre de fichiers présents seulement sur le serveur.
+
 #### DEPLOY-mise-en-ligne — Démonstration en ligne — journal `engineering-log/120`
 - **Quoi :** Cert_EET accessible sur **https://cert-eet.duckdns.org** (serveur Hetzner Cloud, Let's Encrypt,
   DuckDNS), jeu de démonstration chargé, connexions GitHub et Google, vrais e-mails par Gmail, assistant IA

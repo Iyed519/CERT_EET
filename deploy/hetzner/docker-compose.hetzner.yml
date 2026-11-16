@@ -1,0 +1,53 @@
+# Cert_EET — Surcharge de l'hôte de démonstration en ligne (DEPLOY-mise-en-ligne, journal 120)
+#
+# S'ajoute à docker-compose.yml + docker-compose.dev.yml. Rien de secret ici :
+# toutes les valeurs viennent du .env de l'hôte (modèle : deploy/hetzner/env.hetzner.example).
+# Activée par la ligne du .env :
+#   COMPOSE_FILE=docker-compose.yml:docker-compose.dev.yml:deploy/hetzner/docker-compose.hetzner.yml
+# (chemins relatifs au dossier du dépôt ; les commandes « docker compose … » n'ont plus besoin de -f).
+#
+# `!override` remplace la liste de ports de docker-compose.dev.yml au lieu de s'y ajouter
+# (Compose ≥ 2.24) : api, web et Mailhog ne sont joignables que depuis l'hôte, tout le
+# trafic public passe par nginx (80/443).
+
+services:
+  api:
+    environment:
+      # Adresse publique : liens des e-mails, CORS, retours OAuth.
+      APP_BASE_URL: "https://${DOMAINE:?DOMAINE manquant dans .env}"
+      CORS_ORIGIN: "https://${DOMAINE}"
+      GOOGLE_CALLBACK_URL: "https://${DOMAINE}/api/auth/oauth/google/callback"
+      GITHUB_CALLBACK_URL: "https://${DOMAINE}/api/auth/oauth/github/callback"
+      # Vrais e-mails (DEPLOY-smtp-auth) ; Gmail : smtp.gmail.com, 587, mot de passe d'application.
+      SMTP_HOST: ${SMTP_HOST:?SMTP_HOST manquant dans .env}
+      SMTP_PORT: ${SMTP_PORT:-587}
+      SMTP_USER: ${SMTP_USER:-}
+      SMTP_PASSWORD: ${SMTP_PASSWORD:-}
+      SMTP_SECURE: ${SMTP_SECURE:-false}
+      MAIL_FROM: ${MAIL_FROM:?MAIL_FROM manquant dans .env}
+      # Pas de photo de contrôle périodique sur la démonstration (dev : 60 s).
+      SURVEILLANCE_INTERVALLE_SECONDES: "0"
+    ports: !override
+      - "127.0.0.1:3000:3000"
+    restart: unless-stopped
+
+  web:
+    ports: !override
+      - "127.0.0.1:3001:3001"
+    restart: unless-stopped
+
+  mailhog:
+    ports: !override
+      - "127.0.0.1:8025:8025"
+    restart: unless-stopped
+
+  postgres:
+    restart: unless-stopped
+  redis:
+    restart: unless-stopped
+  minio:
+    restart: unless-stopped
+  ml:
+    restart: unless-stopped
+  nginx:
+    restart: unless-stopped

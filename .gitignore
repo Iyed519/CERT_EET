@@ -35,3 +35,6 @@ __pycache__/
 
 # US-QCM-15 : moteur WebAssembly de MediaPipe, copié depuis node_modules avant dev / build
 apps/web/public/mediapipe/wasm/
+
+# DEPLOY-fichiers-hetzner : sauvegardes de la base sur l'hôte de démonstration
+sauvegardes/
