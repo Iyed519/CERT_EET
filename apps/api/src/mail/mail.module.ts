@@ -5,14 +5,15 @@ import type { Transporter } from 'nodemailer';
 import { MailConfig } from '../config/configuration';
 import { MAIL_TRANSPORTER } from './mail.constants';
 import { MailService } from './mail.service';
+import { construireOptionsSmtp } from './options-smtp';
 
 /**
  * Module d'envoi d'emails (US-CPT-05).
  *
  * Construit UN transporteur SMTP partagé au démarrage, à partir de la config
  * validée (SMTP_HOST / SMTP_PORT). En dev/CI il pointe sur Mailhog (aucune
- * authentification, port 1025) ; en prod on branchera un vrai relais SMTP via
- * les mêmes variables d'environnement.
+ * authentification, port 1025) ; en déploiement, un vrai relais SMTP (Gmail…)
+ * avec SMTP_USER / SMTP_PASSWORD (et SMTP_SECURE pour le port 465).
  *
  * @Global : comme RedisModule, c'est un singleton d'infrastructure utile dans
  * plusieurs modules métier (inscription maintenant, activation et reset plus
@@ -28,26 +29,23 @@ import { MailService } from './mail.service';
       provide: MAIL_TRANSPORTER,
       inject: [ConfigService],
       useFactory: (configService: ConfigService): Transporter => {
-        const { host, port } = configService.getOrThrow<MailConfig>('mail');
+        const config = configService.getOrThrow<MailConfig>('mail');
         const logger = new Logger('MailTransporter');
 
-        // secure: false + pas d'auth : Mailhog écoute en SMTP simple sur 1025.
-        // Un vrai relais prod ajouterait auth + TLS via de nouvelles variables.
-        // Délais bornés (US-FORM-03) : par défaut nodemailer attend jusqu'à
-        // 2 minutes un serveur injoignable, et l'envoi se fait pendant la
-        // requête HTTP. 5 s pour se connecter et recevoir l'accueil SMTP,
-        // 10 s d'inactivité au plus ensuite : au-delà, l'envoi échoue vite et
-        // l'appelant décide (bloquant à l'inscription, au mieux à l'affectation).
-        const transporter = nodemailer.createTransport({
-          host,
-          port,
-          secure: false,
-          connectionTimeout: 5_000,
-          greetingTimeout: 5_000,
-          socketTimeout: 10_000,
-        });
+        // Options construites par une fonction pure (DEPLOY-smtp-auth) :
+        // Mailhog sans authentification en dev/CI ; vrai relais (Gmail…)
+        // avec authentification et TLS quand SMTP_USER / SMTP_PASSWORD sont
+        // fournis. Délais bornés (US-FORM-03), voir construireOptionsSmtp.
+        const options = construireOptionsSmtp(config);
+        const transporter = nodemailer.createTransport(options);
 
-        logger.log(`Transporteur SMTP configuré (${host}:${port})`);
+        // Jamais le mot de passe dans les journaux : seulement le mode.
+        const mode = options.auth
+          ? options.secure
+            ? 'authentifié, TLS'
+            : 'authentifié, STARTTLS exigé'
+          : 'sans authentification';
+        logger.log(`Transporteur SMTP configuré (${config.host}:${config.port}, ${mode})`);
         return transporter;
       },
     },

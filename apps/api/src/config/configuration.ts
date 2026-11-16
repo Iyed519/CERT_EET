@@ -48,6 +48,15 @@ export interface MailConfig {
   port: number;
   from: string;
   appBaseUrl: string;
+  /**
+   * Déploiement (DEPLOY-smtp-auth) : identifiants d'un vrai relais SMTP (ex.
+   * Gmail avec un mot de passe d'application). Facultatifs : absents en dev
+   * (Mailhog) et en CI, l'authentification n'est alors pas envoyée.
+   */
+  user?: string;
+  password?: string;
+  /** TLS implicite dès la connexion (port 465). Sinon STARTTLS (587) ou clair (Mailhog). */
+  secure: boolean;
 }
 /**
  * Configuration OAuth Google (US-AUTH-14).
@@ -308,6 +317,9 @@ export default (): {
     port: parseInt(process.env.SMTP_PORT ?? '1025', 10),
     from: process.env.MAIL_FROM ?? 'Cert_EET <no-reply@cert-eet.local>',
     appBaseUrl: process.env.APP_BASE_URL ?? 'http://localhost:3001',
+    user: process.env.SMTP_USER || undefined,
+    password: process.env.SMTP_PASSWORD || undefined,
+    secure: (process.env.SMTP_SECURE ?? '').toLowerCase() === 'true',
   },
   oauthGoogle: {
     clientId: process.env.GOOGLE_CLIENT_ID as string,
