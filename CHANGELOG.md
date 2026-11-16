@@ -15,6 +15,14 @@
 
 ## [Après le Sprint 6] — Stories hors sprint
 
+#### DEPLOY-mise-en-ligne — Démonstration en ligne — journal `engineering-log/120`
+- **Quoi :** Cert_EET accessible sur **https://cert-eet.duckdns.org** (serveur Hetzner Cloud, Let's Encrypt,
+  DuckDNS), jeu de démonstration chargé, connexions GitHub et Google, vrais e-mails par Gmail, assistant IA
+  actif ; recette de navigation en ligne : 114 pages, 0 problème. Section « Démonstration en ligne » dans
+  `docs/GUIDE_DEMO.md`.
+- **Pourquoi :** présenter la plateforme en conditions réelles lors de la soutenance, depuis n'importe quel
+  poste.
+
 #### DEPLOY-lien-jeton — Lien reçu par e-mail affiché comme « incomplet » — journal `engineering-log/119`
 - **Quoi :** les pages « Nouveau mot de passe » et « Activer mon compte » lisent le jeton du lien une seule
   fois (référence React) avant de le retirer de la barre d'adresse ; en mode développement, le double

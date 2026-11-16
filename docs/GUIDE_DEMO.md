@@ -5,6 +5,9 @@
 
 ## 1. Préparer (une fois, 5 minutes avant)
 
+> Démonstration **en ligne** (https://cert-eet.duckdns.org) : voir la section 6 ; les comptes et le
+> scénario ci-dessous sont les mêmes.
+
 Sous Git Bash, à la racine du dépôt, la pile de développement lancée
 (`docker-compose.yml` + `docker-compose.dev.yml`) :
 
@@ -208,3 +211,57 @@ la charte ESPRIT décrite dans `docs/GUIDE_STYLE.md` (captures dans
 
 Recette automatique de toute la navigation (avant la démo) :
 `outils/recette/README.md`.
+
+## 6. Démonstration en ligne
+
+Adresse : **https://cert-eet.duckdns.org** — mêmes comptes (section 2), mêmes données (section 3), même
+scénario (section 4). Serveur Hetzner Cloud à Helsinki : à présenter comme **environnement de
+démonstration hébergé en Europe** (la cible de production reste un hébergement en Tunisie, ADR-07).
+Détails et décisions : `engineering-log/120-DEPLOY-mise-en-ligne.md`.
+
+En plus de la version locale :
+- **Connexion avec GitHub ou Google** fonctionnelle (applications OAuth dédiées au domaine).
+- **Vrais e-mails** (Gmail) : inscription, activation, « mot de passe oublié » — avec une vraie adresse.
+- **Assistant IA** actif : déposer un support de cours dans un module puis générer des questions.
+
+### La veille de la soutenance
+Sur le serveur (`ssh -i ~/.ssh/cert_eet_hetzner root@<IP>`), dans `/root/CERT_EET` :
+
+```bash
+docker compose ps                          # 8 services, tous healthy (Mailhog : Up)
+docker compose exec api npm run demo:charger   # remet les données et les mots de passe
+```
+
+Puis, depuis un poste, la recette automatique (`outils/recette`, Git Bash) :
+
+```bash
+BASE=https://cert-eet.duckdns.org CHROME="C:/Program Files (x86)/Microsoft/Edge/Application/msedge.exe" node audit-navigation.js
+```
+
+Résultat attendu : « 0 problème(s) ».
+
+### Exploitation
+| Besoin | Commande (sur le serveur, dans `/root/CERT_EET`) |
+|---|---|
+| État | `docker compose ps` |
+| Relancer | `docker compose up -d --wait` |
+| Arrêter | `docker compose down` (**jamais `-v`** : effacerait les données) |
+| Mettre à jour | `git pull` (le web se recharge seul ; `docker compose up -d --wait api` si l'api change de dépendances) |
+| Journaux | `docker compose logs -f api` |
+
+Le fichier `docker-compose.hetzner.yml` et le `.env` du serveur ne sont pas versionnés ; `COMPOSE_FILE`
+dans le `.env` évite les `-f`.
+
+### Entre deux démonstrations
+Un serveur Hetzner éteint reste facturé. Pour faire une pause : instantané (snapshot) du serveur, puis
+suppression. Avant la démonstration : recréer le serveur depuis l'instantané, mettre la nouvelle IP dans
+DuckDNS, attendre que le nom pointe dessus, puis `docker compose ps`.
+
+### Si quelque chose coince (en ligne)
+| Symptôme | Remède |
+|---|---|
+| Le site ne répond pas | `docker compose ps` ; si un service manque : `docker compose up -d --wait`. Serveur recréé : vérifier l'IP dans DuckDNS. |
+| Avertissement de certificat | Certificat expiré (90 jours) : le renouveler (journal 120, « Limites »). |
+| Aucun e-mail reçu | Regarder les indésirables ; journaux de l’api (`docker compose logs api`, chercher « SMTP »). |
+| Connexion GitHub / Google refusée | L'adresse de rappel de l'application OAuth doit être exactement celle du domaine. |
+
