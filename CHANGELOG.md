@@ -15,6 +15,13 @@
 
 ## [Après le Sprint 6] — Stories hors sprint
 
+#### DEPLOY-lien-jeton — Lien reçu par e-mail affiché comme « incomplet » — journal `engineering-log/119`
+- **Quoi :** les pages « Nouveau mot de passe » et « Activer mon compte » lisent le jeton du lien une seule
+  fois (référence React) avant de le retirer de la barre d'adresse ; en mode développement, le double
+  passage du mode strict ne l'efface plus.
+- **Pourquoi :** sur la démonstration en ligne, le lien « mot de passe oublié » reçu par Gmail ouvrait
+  la page avec le message « Ce lien est incomplet ».
+
 #### DEPLOY-smtp-auth — Authentification SMTP facultative — journal `engineering-log/118`
 - **Quoi :** variables facultatives `SMTP_USER`, `SMTP_PASSWORD` et `SMTP_SECURE` ; authentification
   envoyée seulement si l'identifiant et le mot de passe sont fournis, avec STARTTLS exigé sur le port
