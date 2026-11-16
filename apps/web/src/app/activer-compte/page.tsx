@@ -1,5 +1,5 @@
 'use client';
-import { FormEvent, useEffect, useState } from 'react';
+import { FormEvent, useEffect, useRef, useState } from 'react';
 import { MotDePasseOublieError, activerCompte } from '../../lib/api';
 
 /** Même politique que l'API (US-CPT-02, US-AUTH-06 / 08), vérifiée ici pour guider la saisie. */
@@ -16,6 +16,7 @@ function problemePolitique(motDePasse: string): string | null {
  * US-CPT-02 — Activation d'un compte créé par un administrateur : choix du mot de passe depuis le lien reçu par email.
  * Le jeton est lu dans l'URL au montage puis retiré de la barre d'adresse
  * (historique), sans useSearchParams (qui imposerait une frontière Suspense).
+ * Lecture unique (ref) : robuste au double effet du mode strict de React.
  */
 export default function ActiverComptePage(): JSX.Element {
   const [token, setToken] = useState<string | null | undefined>(undefined);
@@ -25,12 +26,20 @@ export default function ActiverComptePage(): JSX.Element {
   const [succes, setSucces] = useState<string | null>(null);
   const [enCours, setEnCours] = useState(false);
 
+  // Lu UNE fois, gardé dans une ref : en développement, React (mode strict)
+  // rejoue l'effet ; le second passage voyait l'adresse déjà nettoyée et
+  // affichait « lien incomplet » (DEPLOY-lien-jeton). La ref survit au rejeu.
+  const jetonLu = useRef<string | null | undefined>(undefined);
+
   useEffect(() => {
-    const valeur = new URLSearchParams(window.location.search).get('token');
-    setToken(valeur && valeur.length > 0 ? valeur : null);
-    if (valeur) {
-      window.history.replaceState(null, '', window.location.pathname);
+    if (jetonLu.current === undefined) {
+      const valeur = new URLSearchParams(window.location.search).get('token');
+      jetonLu.current = valeur && valeur.length > 0 ? valeur : null;
+      if (valeur) {
+        window.history.replaceState(null, '', window.location.pathname);
+      }
     }
+    setToken(jetonLu.current);
   }, []);
 
   const probleme = nouveau.length > 0 ? problemePolitique(nouveau) : null;
