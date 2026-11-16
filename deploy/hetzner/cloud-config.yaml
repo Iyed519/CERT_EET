@@ -1,0 +1,25 @@
+#cloud-config
+# Cert_EET — initialisation du serveur Hetzner Cloud (champ « Cloud config » à la création).
+# Ubuntu 24.04 : Docker + Compose (dépôt officiel), git, swap de 4 Go, mises à jour de
+# sécurité automatiques. Le pare-feu se règle dans la console Hetzner (voir README).
+
+package_update: true
+package_upgrade: true
+packages:
+  - git
+  - curl
+  - ca-certificates
+  - unattended-upgrades
+
+swap:
+  filename: /swapfile
+  size: 4G
+
+runcmd:
+  - curl -fsSL https://get.docker.com | sh
+  - systemctl enable --now docker
+  - docker --version && docker compose version
+  # Pas de redémarrage automatique : il se fait à la main, loin d'une démonstration.
+  - sed -i 's|^//\?\s*Unattended-Upgrade::Automatic-Reboot .*|Unattended-Upgrade::Automatic-Reboot "false";|' /etc/apt/apt.conf.d/50unattended-upgrades
+
+final_message: "Cert_EET : serveur prêt après $UPTIME s (docker compose version pour vérifier)."
