@@ -1,0 +1,118 @@
+@startuml Cert_EET_DS16_Formations_Pilotage_Audit
+' =====================================================================
+'  Projet    : Cert_EET
+'  Diagramme : DS-16 — Formations, pilotage et audit (administrateur)
+'  Acteur(s) : Administrateur
+'  Réf.      : F5 · F6 · NF3 · US-FORM-01/02/03 · US-DASH-01/02 · US-RPT-02 · US-AUDIT-01 · US-AUTH-12
+'  Auteur    : Iyed Omri — PFE ESPRIT 2026
+'  Version   : 2.0 — 18/11/2026 : réécrit d'après le code (journaux 22, 23, 55–57, 62, 63, 114–116).
+'  Source    : code de `main` = e7216f2 (PR #141) et engineering-log/
+' =====================================================================
+!pragma teoz true
+skinparam backgroundColor #FFFFFF
+skinparam shadowing false
+skinparam DefaultFontName "Segoe UI"
+skinparam DefaultFontSize 10
+skinparam dpi 120
+skinparam sequenceMessageAlign center
+skinparam responseMessageBelowArrow true
+skinparam ParticipantPadding 18
+skinparam ArrowThickness 1.2
+skinparam LifeLineBorderThickness 1.0
+skinparam participant {
+  BackgroundColor #FFFFFF
+  BorderColor #5D6D7E
+}
+skinparam actor {
+  BackgroundColor #ECF0F1
+  BorderColor #1B4F72
+  FontStyle bold
+}
+skinparam database {
+  BackgroundColor #EBF5FB
+  BorderColor #1B4F72
+}
+skinparam collections {
+  BackgroundColor #E8F8F5
+  BorderColor #1E8449
+}
+skinparam control {
+  BackgroundColor #FAE5D3
+  BorderColor #BA4A00
+}
+skinparam entity {
+  BackgroundColor #E8DAEF
+  BorderColor #7D3C98
+}
+skinparam boundary {
+  BackgroundColor #FDEDEC
+  BorderColor #943126
+}
+skinparam note {
+  BackgroundColor #FEF9E7
+  BorderColor #B7950B
+  FontSize 9
+}
+skinparam sequence {
+  ArrowColor #34495E
+  LifeLineBorderColor #7F8C8D
+  LifeLineBackgroundColor #FDFEFE
+  GroupBorderColor #1B4F72
+  GroupHeaderFontColor #1B4F72
+  GroupHeaderFontStyle bold
+  DividerBorderColor #1B4F72
+  DividerBackgroundColor #D6EAF8
+  DividerFontColor #1B4F72
+  DividerFontStyle bold
+}
+
+title <size:14><b>Cert_EET — DS-16 : Formations, pilotage et audit (administrateur)</b></size>\n<size:10>Cycle de vie d'une formation · tableau de bord · supervision des certificats · rapports institutionnels · journal d'audit · v2.0</size>
+
+actor    "Administrateur" as A
+boundary "Web" as W
+control  "AdminFormations /\nTableauDeBord / Audit / Rapports" as C
+database "PostgreSQL" as DB
+collections "File BullMQ\nrapports" as Q
+control  "MailService" as M
+
+== 1 — Créer et piloter une formation (US-FORM-01/02/03) ==
+A -> C : POST /api/admin/formations (BROUILLON)
+A -> C : POST /api/admin/formations/:id/modules · PUT …/modules/ordre
+A -> C : POST /api/admin/formations/:id/formateurs (affectation)
+A -> C : GET /api/admin/formations/:id/cycle (évaluations en cours ?)
+A -> C : POST /api/admin/formations/:id/statut
+note right of C
+  BROUILLON → OUVERTE → FERMEE ⇄ OUVERTE ;
+  FERMEE → ARCHIVEE (définitif). Évaluations en
+  cours : confirmation explicite exigée (409 sinon).
+end note
+C -> DB : statut ; audit FORMATION_*
+
+== 2 — Tableau de bord et supervision (US-DASH-01/02, US-UX-06) ==
+A -> C : GET /api/admin/tableau-de-bord?periode=
+C -> DB : agrégats : comptes, formations, inscriptions,\névaluations, certificats, consultations publiques,\nactivité, demandes et alertes système
+A -> C : GET /api/admin/certificats?statut=&enEchec=
+A -> C : GET /api/admin/certificats/:id (historique d'audit)\nGET /api/admin/certificats/:id/pdf
+
+== 3 — Rapports institutionnels (US-RPT-02) ==
+A -> C : POST /api/admin/rapports (synthèse | bilan formation |\nregistre des certificats ; période ; CSV | PDF)
+C -> DB : rapports EN_ATTENTE
+C ->> Q : travail ; 202
+Q -> DB : PRET + fichier dans MinIO
+Q ->> M : email au demandeur
+
+== 4 — Journal d'audit (US-AUDIT-01, US-AUTH-12) ==
+A -> C : GET /api/admin/audit-logs?action=&actions=&acteur=&cible=&resultat=&du=&au=
+C -> DB : lecture seule, paginée (index dédiés)
+A -> C : GET /api/admin/audit-logs/export (CSV, mêmes filtres)
+note over DB
+  audit_logs : INSERT seulement — un déclencheur
+  refuse tout UPDATE et tout DELETE.
+end note
+
+legend bottom
+  | <back:#E8F8F5> vert  </back> | Chemin nominal |
+  | <back:#FFE8E8> rouge </back> | Refus / échec / reprise |
+  | <back:#FEF9E7> jaune </back> | Sans effet (idempotence, cas neutre) |
+endlegend
+@enduml

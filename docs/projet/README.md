@@ -6,14 +6,15 @@ versions remplacées sont conservées dans un dossier `…_old_…`.
 
 | Dossier | Contenu | Date |
 |---|---|---|
-| `v3_2026-11-09/` | **Version courante** : jeu complet, à jour de la clôture du Sprint 3 | 09/11/2026 |
+| `v4_2026-11-18/` | **Version courante** : état final du projet déployé (backlog v3.0, Sprints 4–6, bilan après les sprints, conception mise à jour, 50 diagrammes) — voir son `README.md` | 18/11/2026 |
+| `v3_2026-11-09/` | Jeu complet à la clôture du Sprint 3 (conservé tel quel) | 09/11/2026 |
 | `v2_old_2026-11-09/` | Versions **remplacées** le 09/11/2026 (conservées telles quelles) | 09/11/2026 |
 | `v2_2026-11-07/` | Jeu complet à la clôture du Sprint 2 (conservé tel quel) | 07/11/2026 |
 | `v1_old_2026-11-07/` | Versions **remplacées** le 07/11/2026 (conservées telles quelles) | 07/11/2026 |
 
 ---
 
-## `v3_2026-11-09/` — version courante (clôture du Sprint 3)
+## `v3_2026-11-09/` — clôture du Sprint 3 (conservée)
 
 | Fichier | Version | Statut au 09/11/2026 |
 |---|---|---|

@@ -1,0 +1,62 @@
+@startuml Cert_EET_CLS-02_Referentiel_des_etablissements
+' CLS-02 — Référentiel des établissements · généré depuis le schéma réel (43 migrations, PR #141)
+skinparam backgroundColor #FFFFFF
+skinparam shadowing false
+skinparam DefaultFontName "Segoe UI"
+skinparam DefaultFontSize 10
+skinparam classAttributeIconSize 0
+skinparam dpi 130
+skinparam nodesep 45
+skinparam ranksep 60
+skinparam class {
+  BackgroundColor #FFFFFF
+  BorderColor #34495E
+  HeaderBackgroundColor #EAECEE
+}
+skinparam package {
+  BorderColor #7F8C8D
+  FontStyle bold
+}
+skinparam note {
+  BackgroundColor #FEF9E7
+  BorderColor #B7950B
+  FontSize 9
+}
+hide empty methods
+title <size:14><b>Cert_EET — CLS-02 : Référentiel des établissements</b></size>\n<size:10>Classes = tables PostgreSQL réelles · attributs = colonnes (clés étrangères en associations) · v3.0 — 18/11/2026</size>
+package "Référentiel des établissements" #F4F6F7 {
+class Universite {
+  - nom : String
+  - type : String
+  - gouvernorat : String [0..1]
+  - createdAt : DateTime
+}
+class Etablissement {
+  - nom : String
+  - type : String
+  - gouvernorat : String [0..1]
+  - createdAt : DateTime
+}
+class DomaineEtudes {
+  - code : String
+  - libelle : String
+  - createdAt : DateTime
+}
+class EtablissementDomaine {
+
+}
+}
+class User #F8F9F9 {
+}
+User "0..*" -[#2471A3]-> "0..1" Etablissement
+User "0..*" -[#2471A3]-> "0..1" DomaineEtudes
+Universite "1" *-[#C0392B]- "0..*" Etablissement
+Etablissement "1" *-[#C0392B]- "0..*" EtablissementDomaine
+DomaineEtudes "1" *-[#C0392B]- "0..*" EtablissementDomaine
+legend bottom right
+  | <color:#C0392B><b>◆──</b></color> | composition (suppression en cascade) |
+  | <color:#2471A3><b>──></b></color> | association (clé étrangère) |
+  | <<SQL direct>> | table sans entité TypeORM (requêtes SQL) |
+  | gris | classe d'un autre package |
+endlegend
+@enduml

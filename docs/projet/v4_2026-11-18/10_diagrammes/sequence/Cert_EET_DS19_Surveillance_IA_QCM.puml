@@ -1,0 +1,128 @@
+@startuml Cert_EET_DS19_Surveillance_IA_QCM
+' =====================================================================
+'  Projet    : Cert_EET
+'  Diagramme : DS-19 — Surveillance webcam par IA pendant un QCM
+'  Acteur(s) : Apprenant, Formateur affecté
+'  Réf.      : F1 · US-QCM-12 (PR #95) · US-QCM-15/16/17 (PR #126 → #128) · journaux 82, 106–108
+'  Auteur    : Iyed Omri — PFE ESPRIT 2026
+'  Version   : 1.0 — 18/11/2026 : nouveau.
+'  Source    : code de `main` = e7216f2 (PR #141) et engineering-log/
+' =====================================================================
+!pragma teoz true
+skinparam backgroundColor #FFFFFF
+skinparam shadowing false
+skinparam DefaultFontName "Segoe UI"
+skinparam DefaultFontSize 10
+skinparam dpi 120
+skinparam sequenceMessageAlign center
+skinparam responseMessageBelowArrow true
+skinparam ParticipantPadding 18
+skinparam ArrowThickness 1.2
+skinparam LifeLineBorderThickness 1.0
+skinparam participant {
+  BackgroundColor #FFFFFF
+  BorderColor #5D6D7E
+}
+skinparam actor {
+  BackgroundColor #ECF0F1
+  BorderColor #1B4F72
+  FontStyle bold
+}
+skinparam database {
+  BackgroundColor #EBF5FB
+  BorderColor #1B4F72
+}
+skinparam collections {
+  BackgroundColor #E8F8F5
+  BorderColor #1E8449
+}
+skinparam control {
+  BackgroundColor #FAE5D3
+  BorderColor #BA4A00
+}
+skinparam entity {
+  BackgroundColor #E8DAEF
+  BorderColor #7D3C98
+}
+skinparam boundary {
+  BackgroundColor #FDEDEC
+  BorderColor #943126
+}
+skinparam note {
+  BackgroundColor #FEF9E7
+  BorderColor #B7950B
+  FontSize 9
+}
+skinparam sequence {
+  ArrowColor #34495E
+  LifeLineBorderColor #7F8C8D
+  LifeLineBackgroundColor #FDFEFE
+  GroupBorderColor #1B4F72
+  GroupHeaderFontColor #1B4F72
+  GroupHeaderFontStyle bold
+  DividerBorderColor #1B4F72
+  DividerBackgroundColor #D6EAF8
+  DividerFontColor #1B4F72
+  DividerFontStyle bold
+}
+
+title <size:14><b>Cert_EET — DS-19 : Surveillance webcam par IA pendant un QCM</b></size>\n<size:10>Analyse dans le navigateur (MediaPipe EfficientDet-Lite0) · alerte avec photo · le formateur décide · v1.0</size>
+
+actor       "Apprenant" as APP
+participant "Navigateur de l'apprenant\nMediaPipe EfficientDet-Lite0\n(modèle et WASM servis par la plateforme)" as NAV
+control     "TentativesController" as TC
+control     "SurveillanceAlertesController" as SC
+control     "StockageService (MinIO)" as ST
+database    "PostgreSQL\ntentatives_qcm\nevenements_surveillance" as DB
+control     "MailService" as M
+actor       "Formateur affecté" as F
+
+== 1 — Consentement et démarrage ==
+APP -> NAV : QCM surveillé : lit le consentement\n(détection d'objets et de présence, photo en cas\nd'anomalie, aucune reconnaissance faciale, 30 jours)
+alt #FFE8E8 Refus
+  NAV -> TC : POST /api/qcm/:qcmId/surveillance/refus → pas de tentative
+else #E8F8F5 Accord
+  NAV -> TC : POST /api/qcm/:qcmId/tentatives (consentement)
+  TC -> DB : tentative EN_COURS, consentement_surveillance_le
+end
+NAV -> NAV : bandeau « Surveillance par caméra active » ;\naucune vidéo affichée ni envoyée
+
+== 2 — Analyse en direct, 2 images par seconde ==
+loop pendant la tentative
+  NAV -> NAV : détection : personne, téléphone (score ≥ 0,30, 2 images),\nlivre / document (≥ 0,40, 3 images), plusieurs personnes\n(3 images), aucune personne 5 min, image noire 10 s,\npage cachée > 5 s ; épisodes tolérant les ratés
+end
+opt Anomalie confirmée
+  NAV -> SC : POST /api/tentatives/:id/alertes-surveillance\n(type, confiance, MEILLEURE image de l'épisode, JPEG ≤ 200 Ko)
+  SC -> SC : apprenant de la tentative, EN_COURS, QCM surveillé,\nconsentement ; type d'image lu à la signature
+  alt #FEF9E7 Même anomalie il y a moins de 30 s
+    SC --> NAV : 429 (une alerte au plus par minute côté navigateur)
+  else #FFE8E8 60 alertes déjà
+    SC --> NAV : 409
+  else #E8F8F5
+    SC -> ST : surveillance/<tentative>/evenements/<id>.jpg (privé)
+    SC -> DB : evenements_surveillance (NOUVEAU) ; audit SURVEILLANCE_ALERTE
+    opt Première alerte de la tentative
+      SC ->> M : email au formateur affecté (sans la photo)
+    end
+  end
+end
+
+== 3 — Le formateur examine et décide ==
+F -> SC : GET /api/surveillance/alertes · /alertes/a-examiner
+F -> SC : POST /api/surveillance/alertes/:id/lien → lien signé 2 min
+F -> SC : GET /api/surveillance/alertes/photo/:jeton
+F -> SC : PATCH /api/surveillance/alertes/:id (EXAMINE | NOUVEAU)
+note over F, DB
+  L'IA signale, le formateur décide : aucune note
+  modifiée, aucune tentative arrêtée. Signal
+  « N alertes IA à examiner » dans les tentatives
+  et le suivi (US-QCM-17). Photos purgées à 30 jours
+  et à l'anonymisation.
+end note
+
+legend bottom
+  | <back:#E8F8F5> vert  </back> | Chemin nominal |
+  | <back:#FFE8E8> rouge </back> | Refus / échec / reprise |
+  | <back:#FEF9E7> jaune </back> | Sans effet (idempotence, cas neutre) |
+endlegend
+@enduml

@@ -1,0 +1,111 @@
+@startuml Cert_EET_DS21_Demandes_Affectation_Propositions
+' =====================================================================
+'  Projet    : Cert_EET
+'  Diagramme : DS-21 — Demander une formation, proposer une formation
+'  Acteur(s) : Formateur, Administrateur
+'  Réf.      : F5 · US-FORM-07 (PR #100) · US-FORM-08 (PR #101) · journaux 86, 87 · ADR-11
+'  Auteur    : Iyed Omri — PFE ESPRIT 2026
+'  Version   : 1.0 — 18/11/2026 : nouveau.
+'  Source    : code de `main` = e7216f2 (PR #141) et engineering-log/
+' =====================================================================
+!pragma teoz true
+skinparam backgroundColor #FFFFFF
+skinparam shadowing false
+skinparam DefaultFontName "Segoe UI"
+skinparam DefaultFontSize 10
+skinparam dpi 120
+skinparam sequenceMessageAlign center
+skinparam responseMessageBelowArrow true
+skinparam ParticipantPadding 18
+skinparam ArrowThickness 1.2
+skinparam LifeLineBorderThickness 1.0
+skinparam participant {
+  BackgroundColor #FFFFFF
+  BorderColor #5D6D7E
+}
+skinparam actor {
+  BackgroundColor #ECF0F1
+  BorderColor #1B4F72
+  FontStyle bold
+}
+skinparam database {
+  BackgroundColor #EBF5FB
+  BorderColor #1B4F72
+}
+skinparam collections {
+  BackgroundColor #E8F8F5
+  BorderColor #1E8449
+}
+skinparam control {
+  BackgroundColor #FAE5D3
+  BorderColor #BA4A00
+}
+skinparam entity {
+  BackgroundColor #E8DAEF
+  BorderColor #7D3C98
+}
+skinparam boundary {
+  BackgroundColor #FDEDEC
+  BorderColor #943126
+}
+skinparam note {
+  BackgroundColor #FEF9E7
+  BorderColor #B7950B
+  FontSize 9
+}
+skinparam sequence {
+  ArrowColor #34495E
+  LifeLineBorderColor #7F8C8D
+  LifeLineBackgroundColor #FDFEFE
+  GroupBorderColor #1B4F72
+  GroupHeaderFontColor #1B4F72
+  GroupHeaderFontStyle bold
+  DividerBorderColor #1B4F72
+  DividerBackgroundColor #D6EAF8
+  DividerFontColor #1B4F72
+  DividerFontStyle bold
+}
+
+title <size:14><b>Cert_EET — DS-21 : Demander une formation, proposer une formation</b></size>\n<size:10>Demande d'affectation (formateur → admin) · proposition de formation avec révisions · v1.0</size>
+
+actor    "Formateur" as F
+actor    "Administrateur" as A
+control  "DemandesAffectation /\nPropositionsFormation controllers" as C
+database "PostgreSQL\ndemandes_affectation\npropositions_formation" as DB
+control  "MailService" as M
+
+== 1 — Demande d'affectation (US-FORM-07) ==
+F -> C : GET /api/formateur/demandes-affectation/formations-disponibles
+F -> C : POST /api/formateur/demandes-affectation (formation, motif)
+C -> DB : formation non archivée, pas déjà affecté ;\nune demande EN_ATTENTE au plus (index unique partiel)
+F -> C : PATCH …/:id/annuler (tant qu'EN_ATTENTE)
+A -> C : liste des demandes ; accepter | refuser (motif)
+alt #E8F8F5 Accepter
+  C -> DB : ACCEPTEE + formation_formateurs dans LA MÊME transaction
+else #FFE8E8 Refuser
+  C -> DB : REFUSEE + motif
+end
+C ->> M : email au formateur ; audit
+
+== 2 — Proposition de formation (US-FORM-08) ==
+F -> C : POST /api/formateur/propositions-formation\n(titre, description, objectifs, durée, capacité, public, motif)
+C -> DB : 5 propositions en cours au plus ; EN_ATTENTE
+alt Demander des modifications
+  A -> C : PATCH …/:id/demander-modifications (commentaire)
+  C -> DB : A_MODIFIER
+  F -> C : PUT …/:id (version + 1) → EN_ATTENTE
+else #E8F8F5 Accepter
+  A -> C : PATCH …/:id/accepter
+  C -> DB : formation BROUILLON créée + proposant affecté\n(une transaction) ; ACCEPTEE
+  note right of DB : publication ensuite depuis\nFormations (DS-16)
+else #FFE8E8 Refuser
+  A -> C : PATCH …/:id/refuser (motif)
+end
+C ->> M : email au formateur ; audit
+
+legend bottom
+  | <back:#E8F8F5> vert  </back> | Chemin nominal |
+  | <back:#FFE8E8> rouge </back> | Refus / échec / reprise |
+  | <back:#FEF9E7> jaune </back> | Sans effet (idempotence, cas neutre) |
+endlegend
+@enduml

@@ -1,0 +1,60 @@
+@startuml Cert_EET_UC-03_UC_Formateur
+skinparam backgroundColor #FFFFFF
+skinparam shadowing false
+skinparam DefaultFontName "Segoe UI"
+skinparam DefaultFontSize 11
+skinparam dpi 130
+skinparam ArrowColor #34495E
+skinparam note {
+  BackgroundColor #FEF9E7
+  BorderColor #B7950B
+  FontSize 10
+}
+left to right direction
+skinparam usecase {
+  BackgroundColor #FFFFFF
+  BorderColor #1B4F72
+}
+skinparam actorStyle awesome
+title <size:15><b>Cert_EET — UC-03 : cas d'utilisation — Formateur</b></size>\n<size:11>État réalisé (PR #141) · gris pointillé = non réalisé · orange = réalisé avec écart · v3.0</size>
+actor "Formateur" as A
+rectangle "Cert_EET" {
+  usecase "Créer un QCM et ses paramètres anti-fraude" as U0
+  usecase "Ajouter des questions (saisie, banque)" as U1
+  usecase "Générer des questions par IA (RAG)" as U2
+  usecase "Importer des questions depuis un fichier (IA)" as U3
+  usecase "Gérer les supports pour l'IA" as U4
+  usecase "Gérer le contenu de ses formations" as U5
+  usecase "Créer un atelier et sa grille" as U6
+  usecase "Corriger un livrable, envoyer le feedback" as U7
+  usecase "Suivre ses apprenants" as U8
+  usecase "Traiter les alertes de décrochage" as U9
+  usecase "Examiner les alertes de surveillance (photo)" as U10
+  usecase "Consulter la prédiction du risque" as U11
+  usecase "Exporter un rapport de session" as U12
+  usecase "Demander à enseigner une formation" as U13
+  usecase "Proposer une formation" as U14
+}
+A --> U0
+A --> U1
+A --> U2
+note right of U2 : US-IA-01 → 04
+A --> U3
+note right of U3 : US-IA-08
+A --> U4
+A --> U5
+note right of U5 : US-FORM-04
+A --> U6
+A --> U7
+A --> U8
+A --> U9
+A --> U10
+note right of U10 : US-QCM-15/16/17
+A --> U11
+note right of U11 : LightGBM risque_v1
+A --> U12
+A --> U13
+note right of U13 : US-FORM-07
+A --> U14
+note right of U14 : US-FORM-08
+@enduml

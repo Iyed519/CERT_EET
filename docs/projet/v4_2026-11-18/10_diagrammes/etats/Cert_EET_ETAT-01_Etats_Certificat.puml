@@ -1,0 +1,30 @@
+@startuml Cert_EET_ETAT-01_Etats_Certificat
+skinparam backgroundColor #FFFFFF
+skinparam shadowing false
+skinparam DefaultFontName "Segoe UI"
+skinparam DefaultFontSize 11
+skinparam dpi 130
+skinparam ArrowColor #34495E
+skinparam note {
+  BackgroundColor #FEF9E7
+  BorderColor #B7950B
+  FontSize 10
+}
+skinparam state {
+  BackgroundColor #FFFFFF
+  BorderColor #1B4F72
+}
+title <size:14><b>Cert_EET — ETAT-01 : cycle de vie — Certificat</b></size>\n<size:10>États = valeurs réelles en base · transitions vérifiées dans le code et les déclencheurs · v2.0</size>
+
+[*] --> EN_ATTENTE_GENERATION : éligibilité atteinte\n(INSERT … ON CONFLICT DO NOTHING)
+EN_ATTENTE_GENERATION --> EN_GENERATION : worker
+EN_GENERATION --> ACTIF : PDF + SHA-256 + QR stockés
+EN_GENERATION --> EN_ATTENTE_GENERATION : erreur (3 tentatives) /\nreprise auto après 15 min
+EN_ATTENTE_GENERATION --> EN_ATTENTE_GENERATION : échec définitif daté,\nalerte admin, relance manuelle
+ACTIF --> REVOQUE : administrateur, motif,\ndouble confirmation
+ACTIF --> EXPIRE : balayage horaire\n(date_expiration ≤ now)
+REVOQUE --> [*]
+EXPIRE --> [*]
+note right of REVOQUE : définitif (déclencheur) ;\nmotif ERREUR_ADMIN →\nnouveau certificat réémis\n(remplace_certificat_id)
+note right of ACTIF : immuable sauf → REVOQUE / EXPIRE
+@enduml

@@ -1,0 +1,131 @@
+@startuml Cert_EET_CLS-01_Utilisateurs_securite
+' CLS-01 — Utilisateurs & sécurité · généré depuis le schéma réel (43 migrations, PR #141)
+skinparam backgroundColor #FFFFFF
+skinparam shadowing false
+skinparam DefaultFontName "Segoe UI"
+skinparam DefaultFontSize 10
+skinparam classAttributeIconSize 0
+skinparam dpi 130
+skinparam nodesep 45
+skinparam ranksep 60
+skinparam class {
+  BackgroundColor #FFFFFF
+  BorderColor #34495E
+  HeaderBackgroundColor #EAECEE
+}
+skinparam package {
+  BorderColor #7F8C8D
+  FontStyle bold
+}
+skinparam note {
+  BackgroundColor #FEF9E7
+  BorderColor #B7950B
+  FontSize 9
+}
+hide empty methods
+title <size:14><b>Cert_EET — CLS-01 : Utilisateurs & sécurité</b></size>\n<size:10>Classes = tables PostgreSQL réelles · attributs = colonnes (clés étrangères en associations) · v3.0 — 18/11/2026</size>
+package "Utilisateurs & sécurité" #FDEDEC {
+class User {
+  - email : String
+  - motDePasseHash : String [0..1]
+  - role : Role
+  - statut : StatutCompte
+  - mfaActive : boolean
+  - mfaSecret : String [0..1]
+  - derniereConnexion : DateTime [0..1]
+  - createdAt : DateTime
+  - updatedAt : DateTime
+  - nom : String [0..1]
+  - prenom : String [0..1]
+  - dateNaissance : Date [0..1]
+  - niveauEtudes : NiveauEtudes [0..1]
+  - etablissementAutre : String [0..1]
+  - profilComplet : boolean
+}
+class RefreshToken {
+  - tokenHash : String
+  - adresseIp : String [0..1]
+  - userAgent : String [0..1]
+  - active : boolean
+  - dateExpiration : DateTime
+  - createdAt : DateTime
+  - familleId : UUID
+}
+class CompteOauth {
+  - provider : String
+  - providerId : String
+  - email : String [0..1]
+  - createdAt : DateTime
+}
+class JetonLienEmail <<SQL direct>> {
+  - objet : String {REINITIALISATION_MDP|ACTIVATION_COMPTE}
+  - empreinte : String
+  - expireLe : DateTime
+  - utiliseLe : DateTime [0..1]
+  - creeLe : DateTime
+}
+class DemandeRole {
+  - roleDemande : RoleDemande
+  - justification : String
+  - statut : StatutDemande
+  - motif : String [0..1]
+  - createdAt : DateTime
+  - traiteAt : DateTime [0..1]
+}
+}
+note bottom of User
+  Table unique pour les trois rôles
+  (colonne <b>role</b>). Référencée par
+  <b>27</b> autres clés étrangères
+  (apprenant, formateur, correcteur…).
+end note
+class DomaineEtudes #F8F9F9 {
+}
+class Etablissement #F8F9F9 {
+}
+User "0..*" -[#2471A3]-> "0..1" Etablissement
+User "0..*" -[#2471A3]-> "0..1" DomaineEtudes
+RefreshToken "0..*" -[#2471A3]-> "1" User
+CompteOauth "0..*" -[#2471A3]-> "1" User
+DemandeRole "0..*" -[#2471A3]-> "0..1" User : traité par
+DemandeRole "0..*" -[#2471A3]-> "1" User
+JetonLienEmail "0..*" -[#2471A3]-> "1" User
+enum NiveauEtudes {
+  SANS_BAC
+  BAC
+  PREPA
+  BTS
+  LICENCE
+  MAITRISE
+  MASTERE
+  INGENIEUR
+  DOCTORAT
+  AUTRE
+}
+enum Role {
+  APPRENANT
+  FORMATEUR
+  ADMINISTRATEUR
+}
+enum RoleDemande {
+  FORMATEUR
+  ADMINISTRATEUR
+}
+enum StatutCompte {
+  EN_ATTENTE_ACTIVATION
+  ACTIF
+  DESACTIVE
+  ANONYMISE
+}
+enum StatutDemande {
+  EN_ATTENTE
+  APPROUVEE
+  REJETEE
+}
+legend bottom right
+  | <color:#C0392B><b>◆──</b></color> | composition (suppression en cascade) |
+  | <color:#2471A3><b>──></b></color> | association (clé étrangère) |
+  | <<SQL direct>> | table sans entité TypeORM (requêtes SQL) |
+  | gris | classe d'un autre package |
+endlegend
+@enduml

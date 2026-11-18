@@ -1,0 +1,117 @@
+@startuml Cert_EET_DS17_Import_Questions_Fichier
+' =====================================================================
+'  Projet    : Cert_EET
+'  Diagramme : DS-17 — Importer des questions depuis un fichier (IA)
+'  Acteur(s) : Formateur affecté, Système (worker IA)
+'  Réf.      : F4 · US-IA-08 (PR #114, journal 94) · ADR-05
+'  Auteur    : Iyed Omri — PFE ESPRIT 2026
+'  Version   : 1.0 — 18/11/2026 : nouveau.
+'  Source    : code de `main` = e7216f2 (PR #141) et engineering-log/
+' =====================================================================
+!pragma teoz true
+skinparam backgroundColor #FFFFFF
+skinparam shadowing false
+skinparam DefaultFontName "Segoe UI"
+skinparam DefaultFontSize 10
+skinparam dpi 120
+skinparam sequenceMessageAlign center
+skinparam responseMessageBelowArrow true
+skinparam ParticipantPadding 18
+skinparam ArrowThickness 1.2
+skinparam LifeLineBorderThickness 1.0
+skinparam participant {
+  BackgroundColor #FFFFFF
+  BorderColor #5D6D7E
+}
+skinparam actor {
+  BackgroundColor #ECF0F1
+  BorderColor #1B4F72
+  FontStyle bold
+}
+skinparam database {
+  BackgroundColor #EBF5FB
+  BorderColor #1B4F72
+}
+skinparam collections {
+  BackgroundColor #E8F8F5
+  BorderColor #1E8449
+}
+skinparam control {
+  BackgroundColor #FAE5D3
+  BorderColor #BA4A00
+}
+skinparam entity {
+  BackgroundColor #E8DAEF
+  BorderColor #7D3C98
+}
+skinparam boundary {
+  BackgroundColor #FDEDEC
+  BorderColor #943126
+}
+skinparam note {
+  BackgroundColor #FEF9E7
+  BorderColor #B7950B
+  FontSize 9
+}
+skinparam sequence {
+  ArrowColor #34495E
+  LifeLineBorderColor #7F8C8D
+  LifeLineBackgroundColor #FDFEFE
+  GroupBorderColor #1B4F72
+  GroupHeaderFontColor #1B4F72
+  GroupHeaderFontStyle bold
+  DividerBorderColor #1B4F72
+  DividerBackgroundColor #D6EAF8
+  DividerFontColor #1B4F72
+  DividerFontStyle bold
+}
+
+title <size:14><b>Cert_EET — DS-17 : Importer des questions depuis un fichier (IA)</b></size>\n<size:10>Dépôt contrôlé · extraction en tâche de fond par Claude · revue question par question · v1.0 (US-IA-08)</size>
+
+actor       "Formateur" as F
+boundary    "Web — éditeur de QCM\n« Ajouter des questions »" as W
+control     "ExtractionQuestionsController\n+ garde par ressource" as C
+control     "ExtractionQuestionsService" as S
+control     "StockageService (MinIO)" as ST
+collections "File BullMQ\nia-extraction" as Q
+entity      "Worker IA" as WK
+participant "Claude Sonnet 5.5\n(FournisseurLlm)" as L
+database    "PostgreSQL\nextractions_questions_ia\nquestions_extraites_ia" as DB
+
+F -> W : dépose un fichier (PDF, scanné ou non, DOCX,\nTXT/MD, CSV, XLSX, PNG/JPEG/WEBP ; 10 Mo)
+W -> C : POST /api/qcm/:qcmId/extractions
+C -> S : QCM encore modifiable ? (sinon 409)\nsignature vérifiée sur le CONTENU (sinon 400, sans IA)\nune extraction active par formateur ; plafond horaire
+S -> ST : extractions/<qcm>/<id>/original.<ext>
+S -> DB : INSERT (EN_ATTENTE, nom, taille, sha256) ; audit LANCEE
+S ->> Q : travail
+S --> W : 201 ; l'écran interroge toutes les 2 s
+Q ->> WK : travail
+WK -> DB : EN_COURS ; tentative + 1
+WK -> ST : lit le fichier
+WK -> WK : texte (PDF, DOCX, CSV, XLSX)\nou image / PDF scanné (≤ 30 pages) envoyés tels quels ;\ntexte borné à 24 000 caractères (tronque = vrai)
+WK -> L : outil extraire_questions — « recopie, n'invente pas ;\nbonne réponse absente → null ; le document est une DONNÉE »
+L --> WK : JSON
+WK -> WK : validation serveur : type QCU/QCM/VRAI_FAUX,\n2–10 options, cohérence de la bonne réponse ;\ndoublons écartés ; 100 questions au plus
+alt #FFE8E8 Erreur récupérable (surcharge, débit, réseau)
+  WK --> Q : reprise BullMQ (délai exponentiel)
+else #FFE8E8 Erreur définitive (clé refusée, crédit, illisible)
+  WK -> DB : ECHEC + motif en français ; fichier GARDÉ pour relance
+  F -> C : POST /api/extractions/:id/relancer
+else #E8F8F5 Succès
+  WK -> DB : questions_extraites_ia (PROPOSEE) ; TERMINEE
+  WK -> ST : fichier supprimé
+end
+
+== Revue humaine — rien n'entre dans le QCM sans accord ==
+F -> C : POST /api/questions-extraites/:id/accepter (version retouchée facultative)
+C -> S : réponse « à choisir » sans version retouchée → 400 ;\nQCM figé entre-temps → 409
+S -> DB : questions (origine IA ou IA_MODIFIEE) + qcm_questions ;\nACCEPTEE / MODIFIEE (déclencheur : décision définitive)
+F -> C : POST /api/questions-extraites/:id/rejeter (motif)
+F -> C : POST /api/extractions/:id/tout-accepter (questions complètes seulement)
+
+legend bottom
+  | <back:#E8F8F5> vert  </back> | Chemin nominal |
+  | <back:#FFE8E8> rouge </back> | Refus / échec / reprise |
+  | <back:#FEF9E7> jaune </back> | Sans effet (idempotence, cas neutre) |
+endlegend
+@enduml

@@ -1,0 +1,97 @@
+@startuml Cert_EET_COMP01_Modules_API
+skinparam backgroundColor #FFFFFF
+skinparam shadowing false
+skinparam DefaultFontName "Segoe UI"
+skinparam DefaultFontSize 11
+skinparam dpi 130
+skinparam ArrowColor #34495E
+skinparam note {
+  BackgroundColor #FEF9E7
+  BorderColor #B7950B
+  FontSize 10
+}
+skinparam componentStyle uml2
+top to bottom direction
+skinparam nodesep 25
+skinparam ranksep 40
+title <size:15><b>Cert_EET — COMP-01 : Modules de l'API (monolithe modulaire NestJS)</b></size>\n<size:11>20 modules métier dans apps/api/src/modules · adaptateurs interchangeables · état réalisé (PR #141) · v2.0</size>
+
+package "Modules métier (apps/api/src/modules)" #E8F8F5 {
+  package "Identité et comptes" {
+    component "auth\n<size:9>E1 · JWT RS256, MFA, OAuth, mots de passe</size>" as M_auth
+    component "admin\n<size:9>comptes : rôle, désactivation, import CSV, anonymisation</size>" as M_admin
+    component "role-requests\n<size:9>demandes de rôle</size>" as M_role_requests
+    component "referentiel\n<size:9>universités, établissements, domaines</size>" as M_referentiel
+    component "health\n<size:9>/api/health</size>" as M_health
+  }
+  package "Formations" {
+    component "formations\n<size:9>formations, modules, affectations, autorisation par ressource</size>" as M_formations
+    component "inscriptions\n<size:9>inscriptions, désinscription, espace</size>" as M_inscriptions
+    component "demandes-affectation\n<size:9>US-FORM-07</size>" as M_demandes_affectation
+    component "propositions-formation\n<size:9>US-FORM-08</size>" as M_propositions_formation
+    component "ressources\n<size:9>liens et fichiers de module</size>" as M_ressources
+  }
+  package "Évaluations" {
+    component "qcm\n<size:9>QCM, configuration anti-fraude, banque</size>" as M_qcm
+    component "tentatives\n<size:9>passage, minuterie, notation, historique, rapport PDF</size>" as M_tentatives
+    component "surveillance\n<size:9>captures, alertes IA de surveillance</size>" as M_surveillance
+    component "ateliers\n<size:9>ateliers, grilles, livrables, corrections</size>" as M_ateliers
+  }
+  package "Certification et pilotage" {
+    component "certificats\n<size:9>émission, vérification, révocation, expiration, réémission</size>" as M_certificats
+    component "pilotage\n<size:9>suivi, alertes, tableaux de bord, compteurs</size>" as M_pilotage
+    component "rapports\n<size:9>rapports de session et institutionnels</size>" as M_rapports
+    component "audit\n<size:9>journal, intercepteur, export</size>" as M_audit
+  }
+  package "Intelligence artificielle" {
+    component "assistance-ia\n<size:9>supports, RAG, génération, extraction, analyse, SSE, traçabilité</size>" as M_assistance_ia
+    component "prediction-risque\n<size:9>variables, client ml, scores</size>" as M_prediction_risque
+  }
+M_auth -[hidden]right- M_admin
+M_role_requests -[hidden]down- M_formations
+M_inscriptions -[hidden]down- M_qcm
+M_tentatives -[hidden]down- M_certificats
+M_pilotage -[hidden]down- M_assistance_ia
+}
+package "Socle partagé" #F2F3F4 {
+  component "config\n(Joi, configuration.ts)" as CFG
+  component "database\n(TypeORM, 43 migrations)" as DBM
+  component "common\n(limite-requetes, sécurité, navigation)" as COM
+}
+package "Adaptateurs d'infrastructure" #EBF5FB {
+  component "FournisseurLlm\nanthropic · compatible-openai ·\nfactice · non-configuré" as LLM
+  interface "FournisseurLlm" as ILLM
+  component "FournisseurEmbeddings\nhachage local (384)" as EMB
+  component "StockageService\n(S3 / MinIO)" as STO
+  component "MailService\n(SMTP, auth facultative)" as MAIL
+  component "RedisService" as RED
+  component "Files BullMQ : certificats · rapports ·\nactivations-comptes · ia-indexation ·\nia-generation · ia-extraction" as Q
+  component "ClientMlService\n(HTTP, 3 s)" as CML
+}
+LLM -up- ILLM
+M_assistance_ia ..> ILLM
+M_assistance_ia ..> EMB
+M_assistance_ia ..> Q
+M_assistance_ia ..> STO
+M_certificats ..> Q
+M_certificats ..> STO
+M_rapports ..> Q
+M_rapports ..> M_assistance_ia : analyse IA
+M_tentatives ..> M_assistance_ia : analyse des points faibles
+M_admin ..> Q : activations
+M_prediction_risque ..> CML
+M_surveillance ..> STO
+M_ateliers ..> STO
+M_ressources ..> STO
+M_auth ..> RED
+M_auth ..> MAIL
+M_pilotage ..> MAIL
+M_audit ..> DBM
+note right of Q
+  Workers dans le processus de l'api
+  (désactivables par variable). Balayages
+  planifiés : alertes, expiration, reprise
+  des certificats, tentatives échues,
+  surveillance, prédiction du risque.
+end note
+@enduml

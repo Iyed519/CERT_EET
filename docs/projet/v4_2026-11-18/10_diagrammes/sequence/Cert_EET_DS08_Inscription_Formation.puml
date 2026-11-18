@@ -1,0 +1,126 @@
+@startuml Cert_EET_DS08_Inscription_Formation
+' =====================================================================
+'  Projet    : Cert_EET
+'  Diagramme : DS-08 — Inscription à une formation
+'  Acteur(s) : Apprenant, Administrateur
+'  Réf.      : F5 · US-INSC-01 · US-INSC-02 · ADR-11
+'  Auteur    : Iyed Omri — PFE ESPRIT 2026
+'  Version   : 2.0 — 18/11/2026 : réécrit d'après le code (US-INSC-01 PR #29, US-INSC-02 PR #77 ; journaux 25, 64).
+'  Source    : code de `main` = e7216f2 (PR #141) et engineering-log/
+' =====================================================================
+!pragma teoz true
+skinparam backgroundColor #FFFFFF
+skinparam shadowing false
+skinparam DefaultFontName "Segoe UI"
+skinparam DefaultFontSize 10
+skinparam dpi 120
+skinparam sequenceMessageAlign center
+skinparam responseMessageBelowArrow true
+skinparam ParticipantPadding 18
+skinparam ArrowThickness 1.2
+skinparam LifeLineBorderThickness 1.0
+skinparam participant {
+  BackgroundColor #FFFFFF
+  BorderColor #5D6D7E
+}
+skinparam actor {
+  BackgroundColor #ECF0F1
+  BorderColor #1B4F72
+  FontStyle bold
+}
+skinparam database {
+  BackgroundColor #EBF5FB
+  BorderColor #1B4F72
+}
+skinparam collections {
+  BackgroundColor #E8F8F5
+  BorderColor #1E8449
+}
+skinparam control {
+  BackgroundColor #FAE5D3
+  BorderColor #BA4A00
+}
+skinparam entity {
+  BackgroundColor #E8DAEF
+  BorderColor #7D3C98
+}
+skinparam boundary {
+  BackgroundColor #FDEDEC
+  BorderColor #943126
+}
+skinparam note {
+  BackgroundColor #FEF9E7
+  BorderColor #B7950B
+  FontSize 9
+}
+skinparam sequence {
+  ArrowColor #34495E
+  LifeLineBorderColor #7F8C8D
+  LifeLineBackgroundColor #FDFEFE
+  GroupBorderColor #1B4F72
+  GroupHeaderFontColor #1B4F72
+  GroupHeaderFontStyle bold
+  DividerBorderColor #1B4F72
+  DividerBackgroundColor #D6EAF8
+  DividerFontColor #1B4F72
+  DividerFontStyle bold
+}
+
+title <size:14><b>Cert_EET — DS-08 : Inscription à une formation</b></size>\n<size:10>Auto-inscription de l'apprenant · gestion par l'administrateur (ajout, import CSV, suspension, réactivation) · v2.0</size>
+
+actor    "Apprenant" as APP
+actor    "Administrateur" as ADM
+boundary "Web" as W
+control  "InscriptionsController\n/ AdminInscriptionsController" as IC
+control  "InscriptionsService" as IS
+database "PostgreSQL\nformations · inscriptions" as DB
+control  "MailService" as M
+
+== 1 — L'apprenant s'inscrit (US-INSC-01) ==
+APP -> W : Catalogue › fiche › « S'inscrire »
+W -> IC : POST /api/formations/:formationId/inscriptions
+IC -> IS : inscrire(apprenant, formation)
+IS -> DB : BEGIN ; SELECT formation FOR UPDATE
+alt #FFE8E8 Formation non OUVERTE
+  IS --> W : 409
+else #FFE8E8 Inscription existante
+  IS --> W : 409 (SUSPENDUE : seul l'administrateur réactive)
+else #FFE8E8 Capacité atteinte (inscriptions non suspendues)
+  IS --> W : 409 « complet »
+else #E8F8F5 Place disponible
+  IS -> DB : INSERT inscriptions (EN_COURS,\ndate_echeance = date de fin de la formation)
+  IS -> DB : audit INSCRIPTION_CREEE ; COMMIT
+  IS ->> M : email de bienvenue (au mieux)
+  IS --> W : 201 → « Mes inscriptions »
+end
+
+== 2 — L'administrateur gère les inscriptions (US-INSC-02) ==
+ADM -> W : Formations › Gérer › Inscriptions
+W -> IC : GET /api/admin/formations/:id/inscriptions
+ADM -> W : inscrire par email
+W -> IC : POST /api/admin/formations/:id/inscriptions
+IC -> IS : mêmes règles (capacité, statut) ; compte APPRENANT ACTIF exigé
+ADM -> W : importer un CSV d'adresses
+W -> IC : POST /api/admin/formations/:id/inscriptions/import
+IC -> IS : fichier borné ; rapport ligne par ligne\n(inscrit, déjà inscrit, inconnu, complet…)
+ADM -> W : suspendre (motif obligatoire)
+W -> IC : POST /api/admin/inscriptions/:id/suspendre
+IC -> DB : SUSPENDUE, motif, date, suspendue_par\n(jamais de suppression) ; audit
+IC ->> M : email à l'apprenant
+ADM -> W : réactiver
+W -> IC : POST /api/admin/inscriptions/:id/reactiver
+IC -> DB : EN_COURS (capacité revérifiée) ; audit ; email
+
+note over DB
+  Statut TERMINEE : prévu par l'énumération et lu
+  (accès en lecture seule, plus de dépôt) mais
+  aucun flux de l'application ne l'écrit ; il n'est
+  posé que par le jeu de démonstration.
+end note
+
+legend bottom
+  | <back:#E8F8F5> vert  </back> | Chemin nominal |
+  | <back:#FFE8E8> rouge </back> | Refus / échec / reprise |
+  | <back:#FEF9E7> jaune </back> | Sans effet (idempotence, cas neutre) |
+endlegend
+@enduml

@@ -1,0 +1,167 @@
+@startuml Cert_EET_CLS-03_Formations_pedagogie
+' CLS-03 — Formations & pédagogie · généré depuis le schéma réel (43 migrations, PR #141)
+skinparam backgroundColor #FFFFFF
+skinparam shadowing false
+skinparam DefaultFontName "Segoe UI"
+skinparam DefaultFontSize 10
+skinparam classAttributeIconSize 0
+skinparam dpi 130
+skinparam nodesep 45
+skinparam ranksep 60
+skinparam class {
+  BackgroundColor #FFFFFF
+  BorderColor #34495E
+  HeaderBackgroundColor #EAECEE
+}
+skinparam package {
+  BorderColor #7F8C8D
+  FontStyle bold
+}
+skinparam note {
+  BackgroundColor #FEF9E7
+  BorderColor #B7950B
+  FontSize 9
+}
+hide empty methods
+title <size:14><b>Cert_EET — CLS-03 : Formations & pédagogie</b></size>\n<size:10>Classes = tables PostgreSQL réelles · attributs = colonnes (clés étrangères en associations) · v3.0 — 18/11/2026</size>
+package "Formations & pédagogie" #EAF2F8 {
+class Formation {
+  - titre : String
+  - description : String [0..1]
+  - createdAt : DateTime
+  - updatedAt : DateTime
+  - objectifs : String [0..1]
+  - prerequis : String [0..1]
+  - dateDebut : Date [0..1]
+  - dateFin : Date [0..1]
+  - dureeHeures : int [0..1]
+  - modeleCertificat : String [0..1]
+  - statut : StatutFormation
+  - capaciteMax : int
+  - noteMinCertification : decimal
+  - dureeValiditeMois : int [0..1]
+}
+class ModuleFormation {
+  - titre : String
+  - ordre : int
+  - description : String [0..1]
+  - createdAt : DateTime
+  - updatedAt : DateTime
+}
+class AffectationFormateur {
+  - createdAt : DateTime
+}
+class Inscription {
+  - dateInscription : DateTime
+  - dateEcheance : Date [0..1]
+  - statut : StatutInscription
+  - tauxAvancement : decimal
+  - updatedAt : DateTime
+  - motifSuspension : String [0..1]
+  - dateSuspension : DateTime [0..1]
+}
+class RessourceModule {
+  - ordre : int
+  - nature : NatureRessource
+  - titre : String
+  - description : String [0..1]
+  - url : String [0..1]
+  - plateforme : String [0..1]
+  - videoId : String [0..1]
+  - debutSecondes : int [0..1]
+  - createdAt : DateTime
+  - updatedAt : DateTime
+  - nomOriginal : String [0..1]
+  - extension : String [0..1]
+  - typeMime : String [0..1]
+  - tailleOctets : long [0..1]
+  - sha256 : String [0..1]
+  - cleStockage : String [0..1]
+  - lecture : String [0..1]
+}
+class DemandeAffectation <<SQL direct>> {
+  - motif : String
+  - statut : String {EN_ATTENTE|ACCEPTEE|REFUSEE|ANNULEE}
+  - motifRefus : String [0..1]
+  - traiteLe : DateTime [0..1]
+  - creeLe : DateTime
+}
+class PropositionFormation <<SQL direct>> {
+  - titre : String
+  - description : String [0..1]
+  - objectifs : String [0..1]
+  - dureeHeures : int [0..1]
+  - capaciteMax : int
+  - publicVise : String [0..1]
+  - motif : String
+  - statut : String {EN_ATTENTE|A_MODIFIER|ACCEPTEE|REFUSEE}
+  - commentaireAdmin : String [0..1]
+  - version : int
+  - traiteLe : DateTime [0..1]
+  - creeLe : DateTime
+  - modifieLe : DateTime
+}
+}
+class AlerteDecrochage #F8F9F9 {
+}
+class Atelier #F8F9F9 {
+}
+class Certificat #F8F9F9 {
+}
+class GenerationIa #F8F9F9 {
+}
+class Qcm #F8F9F9 {
+}
+class Rapport #F8F9F9 {
+}
+class ScoreRisque #F8F9F9 {
+}
+class SupportPedagogique #F8F9F9 {
+}
+class User #F8F9F9 {
+}
+Formation "1" *-[#C0392B]- "0..*" ModuleFormation
+Inscription "0..*" -[#2471A3]-> "0..1" User : suspendue par
+Inscription "0..*" -[#2471A3]-> "1" User : apprenant
+Inscription "0..*" -[#2471A3]-> "1" Formation
+AffectationFormateur "0..*" -[#2471A3]-> "1" User : formateur
+AffectationFormateur "0..*" -[#2471A3]-> "0..1" User : affecté par
+Formation "1" *-[#C0392B]- "0..*" AffectationFormateur
+Qcm "0..*" -[#2471A3]-> "1" ModuleFormation
+Atelier "0..*" -[#2471A3]-> "1" ModuleFormation
+Certificat "0..*" -[#2471A3]-> "1" Formation
+SupportPedagogique "0..*" -[#2471A3]-> "1" ModuleFormation
+GenerationIa "0..*" -[#2471A3]-> "1" ModuleFormation
+RessourceModule "0..*" -[#2471A3]-> "1" User : ajouté par
+ModuleFormation "1" *-[#C0392B]- "0..*" RessourceModule
+Formation "1" *-[#C0392B]- "0..*" AlerteDecrochage
+Rapport "0..*" -[#2471A3]-> "0..1" Formation
+DemandeAffectation "0..*" -[#2471A3]-> "1" User : formateur
+DemandeAffectation "0..*" -[#2471A3]-> "0..1" User : traité par
+Formation "1" *-[#C0392B]- "0..*" DemandeAffectation
+PropositionFormation "0..*" -[#2471A3]-> "0..1" Formation
+PropositionFormation "0..*" -[#2471A3]-> "0..1" User : traité par
+PropositionFormation "0..*" -[#2471A3]-> "1" User : formateur
+Inscription "1" *-[#C0392B]- "0..*" ScoreRisque
+enum NatureRessource {
+  LIEN
+  FICHIER
+}
+enum StatutFormation {
+  BROUILLON
+  OUVERTE
+  FERMEE
+  ARCHIVEE
+}
+enum StatutInscription {
+  EN_COURS
+  TERMINEE
+  SUSPENDUE
+}
+legend bottom right
+  | <color:#C0392B><b>◆──</b></color> | composition (suppression en cascade) |
+  | <color:#2471A3><b>──></b></color> | association (clé étrangère) |
+  | <<SQL direct>> | table sans entité TypeORM (requêtes SQL) |
+  | gris | classe d'un autre package |
+endlegend
+@enduml
