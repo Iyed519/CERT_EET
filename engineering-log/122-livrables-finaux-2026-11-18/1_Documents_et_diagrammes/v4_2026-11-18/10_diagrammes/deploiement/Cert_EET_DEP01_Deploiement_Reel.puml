@@ -1,0 +1,70 @@
+@startuml Cert_EET_DEP01_Deploiement_Reel
+' DEP-01 v2.0 — déploiement réellement en service (journal 120, deploy/hetzner) — 18/11/2026
+skinparam backgroundColor #FFFFFF
+skinparam shadowing false
+skinparam DefaultFontName "Segoe UI"
+skinparam DefaultFontSize 11
+skinparam dpi 130
+skinparam ArrowColor #34495E
+skinparam note {
+  BackgroundColor #FEF9E7
+  BorderColor #B7950B
+  FontSize 10
+}
+skinparam linetype ortho
+skinparam nodesep 30
+skinparam ranksep 45
+title <size:15><b>Cert_EET — DEP-01 : Déploiement réel (démonstration en ligne)</b></size>\n<size:11>Style client–serveur, déploiement conteneurisé · https://cert-eet.duckdns.org · en service depuis le 16/11/2026 · v2.0</size>
+
+node "Poste client" <<device>> as CL {
+  artifact "Navigateur\n(ordinateur, mobile)" as NAV
+  artifact "MediaPipe EfficientDet-Lite0\n+ WASM (surveillance QCM)" as MP
+}
+
+cloud "Pare-feu Hetzner « cert-eet-web »\nentrant : TCP 22 · 80 · 443 · ICMP" as FW
+
+node "Hetzner Cloud CPX32 · Helsinki\n4 vCPU · 8 Go · 160 Go · Ubuntu 24.04" <<device>> as SRV {
+  node "Docker Engine + Compose\n(docker-compose.yml + dev.yml + hetzner.yml)" <<execution environment>> as DC {
+    node "nginx:1.27-alpine\n:80 → 301 HTTPS · :443 TLS 1.2/1.3\nHSTS · CSP · limites de débit" <<container>> as NG #FDEDEC
+    node "web — Next.js 14\n127.0.0.1:3001" <<container>> as WEB
+    node "api — NestJS 10\n127.0.0.1:3000\nREST + SSE · 20 modules\nworkers BullMQ (6 files)\nbalayages planifiés" <<container>> as API #EBF5FB
+    node "ml — FastAPI\nLightGBM risque_v1\nréseau interne" <<container>> as ML #EBF5FB
+    database "postgres —\npgvector/pgvector:pg16\n48 tables · 43 migrations" <<container>> as PG #E8F8F5
+    database "redis:7-alpine\nfiles · denylists · limites" <<container>> as RD #E8F8F5
+    database "minio (S3)\ncertificats · livrables ·\nsupports · photos · rapports" <<container>> as MN #E8F8F5
+    node "mailhog\n127.0.0.1:8025 (test)" <<container>> as MH #F2F3F4
+  }
+  folder "volumes : pgdata · redisdata · miniodata\n.env (600) · secrets/ (clés JWT RS256)\ndocker/nginx/certs (Let's Encrypt)" as VOL
+}
+
+cloud "Services externes (HTTPS)" as EXT {
+  node "API Anthropic\nClaude Sonnet 5.5" <<external>> as LLM #FEF5E7
+  node "Gmail SMTP\n587 STARTTLS" <<external>> as SMTP #FEF5E7
+  node "OAuth Google · GitHub\n(applications dédiées)" <<external>> as OA #FEF5E7
+  node "Let's Encrypt (certbot)\nDuckDNS (nom)" <<external>> as LE #FEF5E7
+  node "GitHub Iyed519/CERT_EET\n(git pull · CI)" <<external>> as GH #FEF5E7
+}
+
+NAV --> FW : HTTPS 443
+FW --> NG : 80 / 443
+NG --> WEB : HTTP /
+NG --> API : HTTP /api/
+API --> PG : SQL 5432
+API --> RD : 6379
+API --> MN : S3 9000
+API --> ML : HTTP POST /predire (3 s)
+API --> MH : 1025
+API ..> LLM
+API ..> SMTP
+API ..> OA
+NG ..> LE : certificat (90 j)
+SRV ..> GH : git pull
+MP ..> NAV : analyse locale ; seules\nles alertes + photo partent
+
+note bottom of SRV
+  Services liés à 127.0.0.1 : tout le trafic public passe par nginx.
+  SSH par clé seulement. Pile en mode dev (rechargement à chaud) :
+  suffisant pour une démonstration, pas une production.
+  Hébergé en Europe ; cible de production : Tunisie (ADR-07).
+end note
+@enduml

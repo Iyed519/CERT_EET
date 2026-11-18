@@ -1,0 +1,26 @@
+@startuml Cert_EET_ETAT-02_Etats_Tentative_QCM
+skinparam backgroundColor #FFFFFF
+skinparam shadowing false
+skinparam DefaultFontName "Segoe UI"
+skinparam DefaultFontSize 11
+skinparam dpi 130
+skinparam ArrowColor #34495E
+skinparam note {
+  BackgroundColor #FEF9E7
+  BorderColor #B7950B
+  FontSize 10
+}
+skinparam state {
+  BackgroundColor #FFFFFF
+  BorderColor #1B4F72
+}
+title <size:14><b>Cert_EET — ETAT-02 : cycle de vie — Tentative QCM</b></size>\n<size:10>États = valeurs réelles en base · transitions vérifiées dans le code et les déclencheurs · v2.0</size>
+
+[*] --> EN_COURS : démarrage (contrôles serveur,\nconsentement si surveillé)
+EN_COURS --> SOUMISE : soumission
+EN_COURS --> ABANDONNEE_TIMER : échéance serveur\n(lecture ou balayage)
+SOUMISE --> NOTEE : notation pondérée
+ABANDONNEE_TIMER --> NOTEE : notation des réponses enregistrées
+NOTEE --> [*]
+note right of NOTEE : immuable (déclencheur)
+@enduml

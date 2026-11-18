@@ -1,0 +1,175 @@
+@startuml Cert_EET_DS01_Authentification_MFA_Session
+' =====================================================================
+'  Projet    : Cert_EET
+'  Diagramme : DS-01 — Authentification, MFA et session
+'  Acteur(s) : Utilisateur (tout rôle)
+'  Réf.      : F7 · NF3 · ADR-08 (R1, R2) · US-AUTH-01/02/03/04/06/08/09/11/14/17 · US-NAV-01
+'  Auteur    : Iyed Omri — PFE ESPRIT 2026
+'  Version   : 2.0 — 18/11/2026 : réécrit d'après le code (v1.0 = conception de juillet). Ajouts : OAuth Google/GitHub, restauration au rechargement (US-AUTH-17), mot de passe oublié (US-AUTH-06), changement de mot de passe (US-AUTH-08), limites de débit (US-AUTH-13).
+'  Source    : code de `main` = e7216f2 (PR #141) et engineering-log/
+' =====================================================================
+!pragma teoz true
+skinparam backgroundColor #FFFFFF
+skinparam shadowing false
+skinparam DefaultFontName "Segoe UI"
+skinparam DefaultFontSize 10
+skinparam dpi 120
+skinparam sequenceMessageAlign center
+skinparam responseMessageBelowArrow true
+skinparam ParticipantPadding 18
+skinparam ArrowThickness 1.2
+skinparam LifeLineBorderThickness 1.0
+skinparam participant {
+  BackgroundColor #FFFFFF
+  BorderColor #5D6D7E
+}
+skinparam actor {
+  BackgroundColor #ECF0F1
+  BorderColor #1B4F72
+  FontStyle bold
+}
+skinparam database {
+  BackgroundColor #EBF5FB
+  BorderColor #1B4F72
+}
+skinparam collections {
+  BackgroundColor #E8F8F5
+  BorderColor #1E8449
+}
+skinparam control {
+  BackgroundColor #FAE5D3
+  BorderColor #BA4A00
+}
+skinparam entity {
+  BackgroundColor #E8DAEF
+  BorderColor #7D3C98
+}
+skinparam boundary {
+  BackgroundColor #FDEDEC
+  BorderColor #943126
+}
+skinparam note {
+  BackgroundColor #FEF9E7
+  BorderColor #B7950B
+  FontSize 9
+}
+skinparam sequence {
+  ArrowColor #34495E
+  LifeLineBorderColor #7F8C8D
+  LifeLineBackgroundColor #FDFEFE
+  GroupBorderColor #1B4F72
+  GroupHeaderFontColor #1B4F72
+  GroupHeaderFontStyle bold
+  DividerBorderColor #1B4F72
+  DividerBackgroundColor #D6EAF8
+  DividerFontColor #1B4F72
+  DividerFontStyle bold
+}
+
+title <size:14><b>Cert_EET — DS-01 : Authentification, MFA et session</b></size>\n<size:10>Connexion (mot de passe ou OAuth) · MFA TOTP · rotation du refresh · restauration au F5 · mot de passe oublié · v2.0</size>
+
+actor       "Utilisateur" as U
+boundary    "Web Next.js\n(jeton en mémoire)" as W
+boundary    "Nginx\n(TLS, limites)" as N
+control     "AuthController\n+ LimiteRequetesGuard" as AC
+control     "AuthService" as AS
+database    "PostgreSQL\nusers · refresh_tokens\njetons_lien_email" as DB
+collections "Redis\ndenylist · sessions-valid-after\ncompteurs de limite" as R
+control     "MailService (SMTP)" as M
+participant "Google / GitHub\n(OAuth)" as O
+
+== 1 — Connexion par mot de passe (US-AUTH-01, 30 / min / IP) ==
+U -> W : email + mot de passe
+W -> N : POST /api/auth/login
+N -> AC : (limite nginx de zone)
+AC -> R : compteur « connexion » (30 / 60 s / IP)
+alt #FFE8E8 Limite dépassée
+  AC --> W : 429 + Retry-After ; audit LIMITE_REQUETES_ATTEINTE
+end
+AC -> AS : login(email, mdp, ip, userAgent)
+AS -> DB : SELECT user ; bcrypt.compare\n(hash factice si compte sans mot de passe)
+alt #FFE8E8 Identifiants faux / compte non ACTIF
+  AS -> DB : audit LOGIN échec
+  AS --> W : 401 « identifiants invalides » (même message)
+else #FEF9E7 MFA active (US-AUTH-02)
+  AS --> W : 200 { mfaRequired, mfaToken (5 min) }
+  U -> W : code TOTP à 6 chiffres
+  W -> AC : POST /api/auth/mfa/verify (30 / min / IP)
+  AC -> AS : mfaVerify(mfaToken, code)
+else #E8F8F5 Succès
+  AS -> AS : familleId = UUID (= la session)
+  AS -> DB : INSERT refresh_tokens (hash, famille, ip, UA, expiration)
+  AS -> DB : derniere_connexion ; audit LOGIN
+  AS --> W : access JWT RS256 (jti, sid = famille) + cookie httpOnly refresh
+  W -> W : redirection par rôle (US-NAV-01)\nou retour sur la page demandée (chemin interne)
+end
+
+== 2 — Connexion sociale (US-AUTH-14, ADR-08-R2) ==
+U -> W : « Continuer avec Google / GitHub »
+W -> AC : GET /api/auth/oauth/{google|github}
+AC -> O : redirection (Passport : poignée de main seulement)
+O -> AC : GET …/callback?code
+AC -> AS : loginWithOauth(profil normalisé)
+AS -> DB : comptes_oauth (provider, provider_id)\nsinon liaison par email, sinon création APPRENANT ACTIF
+AS --> W : cookie httpOnly refresh + redirection ; le web échange via /auth/refresh
+
+== 3 — Requête protégée (US-AUTH-11 / US-AUTH-16) ==
+W -> AC : Authorization: Bearer <access>
+AC -> R : denylist:access:<jti> ? sessions-valid-after(user) > iat ?
+alt #FFE8E8 Jeton révoqué ou antérieur au marqueur
+  AC --> W : 401
+else #E8F8F5 Valide
+  AC -> AC : RolesGuard (rôle) puis garde par ressource\n(formateur affecté ? sinon 403 + ACCES_RESSOURCE_REFUSE)
+end
+
+== 4 — Rafraîchissement et restauration au F5 (US-AUTH-03, US-AUTH-17) ==
+W -> W : au chargement : UNE restauration (promesse unique,\nWeb Locks entre onglets) ; aucune page rendue avant
+W -> AC : POST /api/auth/refresh (cookie) — 120 / min / IP
+AC -> AS : refresh(cookie)
+AS -> DB : UPDATE refresh_tokens SET active = false\nWHERE id = … AND active RETURNING (atomique)
+alt #FFE8E8 Jeton déjà consommé par une autre requête simultanée
+  AS --> W : 401 propre ; la session de l'autre requête continue
+else #FFE8E8 Vrai rejeu (jeton consommé depuis longtemps)
+  AS -> DB : révoque toute la famille ; audit
+  AS --> W : 401
+else #E8F8F5 Rotation
+  AS -> DB : nouveau refresh (même famille) ; ancien sur la denylist
+  AS --> W : nouvel access + nouveau cookie
+end
+
+== 5 — Déconnexion et changement de mot de passe (US-AUTH-04, US-AUTH-08) ==
+U -> W : Se déconnecter
+W -> AC : POST /api/auth/logout
+AC -> R : denylist:access:<jti> (TTL = durée restante)
+AC -> DB : refresh désactivé ; audit LOGOUT
+U -> W : Sécurité › Changer le mot de passe
+W -> AC : POST /api/auth/change-password (ancien + nouveau)
+AC -> AS : ancien faux → 401 code stable ; compte OAuth sans mdp → 409
+AS -> DB : nouveau hash ; TOUTES les sessions révoquées
+AS -> R : sessions-valid-after = maintenant (ms) ; jeton courant en denylist
+AS ->> M : email de notification (non bloquant)
+
+== 6 — Mot de passe oublié (US-AUTH-06) ==
+U -> W : « Mot de passe oublié ? » + email
+W -> AC : POST /api/auth/forgot-password (5 / 15 min / IP)
+AC -> AS : réponse IDENTIQUE quelle que soit l'adresse
+opt Compte ACTIF et < 3 liens / heure
+  AS -> DB : jetons_lien_email (empreinte SHA-256, 30 min) ;\nanciens liens supprimés
+  AS ->> M : lien à usage unique
+end
+U -> W : ouvre le lien (jeton lu une seule fois, retiré de l'URL)
+W -> AC : POST /api/auth/reset-password (jeton, nouveau mdp)
+AC -> AS : transaction : jeton consommé (UPDATE conditionnel),\nFOR UPDATE du compte, nouveau hash
+alt #FFE8E8 Jeton expiré / déjà utilisé
+  AS --> W : 400 « lien invalide »
+else #E8F8F5
+  AS -> R : toutes les sessions révoquées
+  AS -> DB : audit MDP_RESET ; email de confirmation
+end
+
+legend bottom
+  | <back:#E8F8F5> vert  </back> | Chemin nominal |
+  | <back:#FFE8E8> rouge </back> | Refus / échec / reprise |
+  | <back:#FEF9E7> jaune </back> | Sans effet (idempotence, cas neutre) |
+endlegend
+@enduml

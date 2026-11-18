@@ -1,0 +1,157 @@
+@startuml Cert_EET_CLS-00_Vue_Ensemble
+' CLS-00 — vue d'ensemble du modèle de données réel (48 tables)
+skinparam backgroundColor #FFFFFF
+skinparam shadowing false
+skinparam DefaultFontName "Segoe UI"
+skinparam DefaultFontSize 10
+skinparam classAttributeIconSize 0
+skinparam dpi 130
+skinparam nodesep 45
+skinparam ranksep 60
+skinparam class {
+  BackgroundColor #FFFFFF
+  BorderColor #34495E
+  HeaderBackgroundColor #EAECEE
+}
+skinparam package {
+  BorderColor #7F8C8D
+  FontStyle bold
+}
+skinparam note {
+  BackgroundColor #FEF9E7
+  BorderColor #B7950B
+  FontSize 9
+}
+hide empty methods
+title <size:16><b>Cert_EET — CLS-00 : Vue d'ensemble du modèle de domaine (réalisé)</b></size>\n<size:11>48 tables métier · 10 packages · 83 clés étrangères · générée depuis le schéma après les 43 migrations (PR #141)</size>
+package "Utilisateurs & sécurité" #FDEDEC {
+class User
+class RefreshToken
+class CompteOauth
+class JetonLienEmail <<SQL direct>>
+class DemandeRole
+}
+package "Référentiel des établissements" #F4F6F7 {
+class Universite
+class Etablissement
+class DomaineEtudes
+class EtablissementDomaine
+}
+package "Formations & pédagogie" #EAF2F8 {
+class Formation
+class ModuleFormation
+class AffectationFormateur
+class Inscription
+class RessourceModule
+class DemandeAffectation <<SQL direct>>
+class PropositionFormation <<SQL direct>>
+}
+package "Évaluations QCM (F1)" #E8F8F5 {
+class Qcm
+class ConfigurationAntiFraude
+class Question
+class Option
+class QcmQuestion
+class TentativeQcm
+class Reponse
+class ReponseOption
+class AnalyseIaTentative <<SQL direct>>
+}
+package "Surveillance des QCM (F1)" #FEF5E7 {
+class CaptureWebcam <<SQL direct>>
+class EvenementSurveillance <<SQL direct>>
+}
+package "Ateliers pratiques (F2)" #F4ECF7 {
+class Atelier
+class Grille
+class Critere
+class NiveauPerformance
+class Livrable
+class FichierLivrable
+class Correction
+class NoteCritere
+class ConsultationFeedback
+}
+package "Certification (F3)" #FEF9E7 {
+class Certificat
+}
+package "Assistance IA aux formateurs (F4)" #EBF5FB {
+class SupportPedagogique
+class SegmentSupport <<SQL direct>>
+class GenerationIa
+class SuggestionQuestionIa
+class ExtractionQuestionsIa
+class QuestionExtraiteIa
+}
+package "Pilotage, rapports & prédiction (F6)" #E9F7EF {
+class AlerteDecrochage
+class ActionAlerte
+class ScoreRisque
+class Rapport
+}
+package "Transverse (F7)" #F2F3F4 {
+class AuditLog
+}
+User -[#2471A3]-> Etablissement
+User -[#2471A3]-> DomaineEtudes
+Universite *-[#C0392B]- Etablissement
+Etablissement *-[#C0392B]- EtablissementDomaine
+DomaineEtudes *-[#C0392B]- EtablissementDomaine
+Formation *-[#C0392B]- ModuleFormation
+Inscription -[#2471A3]-> Formation
+Formation *-[#C0392B]- AffectationFormateur
+Qcm -[#2471A3]-> ModuleFormation
+Qcm *-[#C0392B]- ConfigurationAntiFraude
+Question *-[#C0392B]- Option
+QcmQuestion -[#2471A3]-> Question
+Qcm *-[#C0392B]- QcmQuestion
+TentativeQcm -[#2471A3]-> Qcm
+TentativeQcm *-[#C0392B]- Reponse
+Reponse -[#2471A3]-> Question
+ReponseOption -[#2471A3]-> Option
+Reponse *-[#C0392B]- ReponseOption
+Atelier -[#2471A3]-> ModuleFormation
+Grille -[#2471A3]-> Atelier
+Grille *-[#C0392B]- Critere
+Critere *-[#C0392B]- NiveauPerformance
+Livrable -[#2471A3]-> Atelier
+Livrable *-[#C0392B]- FichierLivrable
+Livrable *-[#C0392B]- Correction
+Correction *-[#C0392B]- NoteCritere
+NoteCritere -[#2471A3]-> NiveauPerformance
+NoteCritere -[#2471A3]-> Critere
+Livrable *-[#C0392B]- ConsultationFeedback
+Certificat -[#2471A3]-> Formation
+Certificat -[#2471A3]-> Certificat
+SupportPedagogique -[#2471A3]-> ModuleFormation
+SupportPedagogique *-[#C0392B]- SegmentSupport
+GenerationIa -[#2471A3]-> SupportPedagogique
+GenerationIa -[#2471A3]-> ModuleFormation
+ModuleFormation *-[#C0392B]- RessourceModule
+GenerationIa *-[#C0392B]- SuggestionQuestionIa
+SuggestionQuestionIa -[#2471A3]-> Question
+SuggestionQuestionIa -[#2471A3]-> Qcm
+Formation *-[#C0392B]- AlerteDecrochage
+AlerteDecrochage *-[#C0392B]- ActionAlerte
+Rapport -[#2471A3]-> Formation
+TentativeQcm *-[#C0392B]- CaptureWebcam
+Formation *-[#C0392B]- DemandeAffectation
+PropositionFormation -[#2471A3]-> Formation
+Inscription *-[#C0392B]- ScoreRisque
+Qcm *-[#C0392B]- ExtractionQuestionsIa
+ExtractionQuestionsIa *-[#C0392B]- QuestionExtraiteIa
+QuestionExtraiteIa -[#2471A3]-> Question
+TentativeQcm *-[#C0392B]- AnalyseIaTentative
+TentativeQcm *-[#C0392B]- EvenementSurveillance
+note as NU
+  <b>User</b> est référencé par <b>32</b> clés étrangères
+  (apprenant, formateur, correcteur, décideur…) :
+  voir les vues CLS-01 à CLS-10.
+end note
+legend bottom right
+  | <color:#C0392B><b>◆──</b></color> | composition (suppression en cascade) |
+  | <color:#2471A3><b>──></b></color> | association (clé étrangère) |
+  | <<SQL direct>> | table sans entité TypeORM (requêtes SQL) |
+  | gris | classe d'un autre package |
+endlegend
+@enduml

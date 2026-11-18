@@ -1,0 +1,41 @@
+@startuml Cert_EET_DEP02_Environnements_CICD
+skinparam backgroundColor #FFFFFF
+skinparam shadowing false
+skinparam DefaultFontName "Segoe UI"
+skinparam DefaultFontSize 11
+skinparam dpi 130
+skinparam ArrowColor #34495E
+skinparam note {
+  BackgroundColor #FEF9E7
+  BorderColor #B7950B
+  FontSize 10
+}
+skinparam linetype ortho
+title <size:15><b>Cert_EET — DEP-02 : Environnements et chaîne CI/CD</b></size>\n<size:11>Une story = une branche = une PR = un squash-merge · CI verte obligatoire · v2.0</size>
+
+node "Poste de développement" as DEV {
+  artifact "docker-compose.yml\n+ docker-compose.dev.yml\n(mailhog, rechargement à chaud)" as CDEV
+}
+cloud "GitHub" as GH {
+  node "Dépôt Iyed519/CERT_EET\nmain protégée · 141 PR" as REPO
+  node "CI (ci.yml) — sur chaque PR et main\nAPI : lint · unitaires · migrations · e2e\nWeb : tsc · next lint · tests des règles\nML : pytest · build + santé de l'image" as CI #E8F8F5
+  node "CD (cd.yml) — après une CI verte sur main\nimages de production api + web" as CD #EBF5FB
+  database "GHCR\nghcr.io/iyed519/cert_eet-api\nghcr.io/iyed519/cert_eet-web" as GHCR
+}
+node "Recette\n(docker-compose.recette.yml)\nimages GHCR" as REC
+node "Démonstration en ligne — Hetzner\n(deploy/hetzner : cloud-config, surcharge,\npreparer · definir-secret · certificat ·\nmettre-a-jour · verifier · sauvegarder · duckdns)" as DEMO #FDEDEC
+
+DEV --> REPO : branche feature/… → PR
+REPO --> CI : déclenche
+CI --> REPO : statut (fusion seulement si vert)
+CI --> CD : workflow_run (succès sur main)
+CD --> GHCR : push (commit validé)
+GHCR --> REC : docker compose pull
+REPO --> DEMO : git pull + mettre-a-jour.sh
+
+note bottom of DEMO
+  La démonstration tourne avec les fichiers compose de dev
+  (configuration éprouvée par la recette E11) ; les images
+  de production GHCR servent l'environnement de recette.
+end note
+@enduml

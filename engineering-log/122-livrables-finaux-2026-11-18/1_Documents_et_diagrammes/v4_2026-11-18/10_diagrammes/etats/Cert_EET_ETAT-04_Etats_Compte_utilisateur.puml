@@ -1,0 +1,28 @@
+@startuml Cert_EET_ETAT-04_Etats_Compte_utilisateur
+skinparam backgroundColor #FFFFFF
+skinparam shadowing false
+skinparam DefaultFontName "Segoe UI"
+skinparam DefaultFontSize 11
+skinparam dpi 130
+skinparam ArrowColor #34495E
+skinparam note {
+  BackgroundColor #FEF9E7
+  BorderColor #B7950B
+  FontSize 10
+}
+skinparam state {
+  BackgroundColor #FFFFFF
+  BorderColor #1B4F72
+}
+title <size:14><b>Cert_EET — ETAT-04 : cycle de vie — Compte utilisateur</b></size>\n<size:10>États = valeurs réelles en base · transitions vérifiées dans le code et les déclencheurs · v2.0</size>
+
+[*] --> EN_ATTENTE_ACTIVATION : auto-inscription / import CSV
+[*] --> ACTIF : OAuth (Google, GitHub)
+EN_ATTENTE_ACTIVATION --> ACTIF : email vérifié / lien d'activation
+ACTIF --> DESACTIVE : administrateur (motif)
+DESACTIVE --> ACTIF : réactivation
+ACTIF --> ANONYMISE : RGPD (double confirmation)
+DESACTIVE --> ANONYMISE
+EN_ATTENTE_ACTIVATION --> ANONYMISE
+ANONYMISE --> [*]
+@enduml

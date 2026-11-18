@@ -1,0 +1,37 @@
+@startuml Cert_EET_UC-01_UC_Visiteur_public
+skinparam backgroundColor #FFFFFF
+skinparam shadowing false
+skinparam DefaultFontName "Segoe UI"
+skinparam DefaultFontSize 11
+skinparam dpi 130
+skinparam ArrowColor #34495E
+skinparam note {
+  BackgroundColor #FEF9E7
+  BorderColor #B7950B
+  FontSize 10
+}
+left to right direction
+skinparam usecase {
+  BackgroundColor #FFFFFF
+  BorderColor #1B4F72
+}
+skinparam actorStyle awesome
+title <size:15><b>Cert_EET — UC-01 : cas d'utilisation — Visiteur public</b></size>\n<size:11>État réalisé (PR #141) · gris pointillé = non réalisé · orange = réalisé avec écart · v3.0</size>
+actor "Visiteur public" as A
+rectangle "Cert_EET" {
+  usecase "Consulter le catalogue des formations" as U0
+  usecase "Créer un compte (email ou Google / GitHub)" as U1
+  usecase "Vérifier un certificat (QR / lien)" as U2
+  usecase "Réinitialiser son mot de passe" as U3
+  usecase "Activer un compte importé" as U4
+}
+A --> U0
+A --> U1
+note right of U1 : US-CPT-05, US-AUTH-14
+A --> U2
+note right of U2 : VALIDE · RÉVOQUÉ · EXPIRÉ · intégrité
+A --> U3
+note right of U3 : US-AUTH-06
+A --> U4
+note right of U4 : US-CPT-02
+@enduml
