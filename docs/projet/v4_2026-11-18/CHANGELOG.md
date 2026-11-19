@@ -15,6 +15,19 @@
 
 ## [Après le Sprint 6] — Stories hors sprint
 
+#### DOCS-diagrammes-mise-en-page — Diagrammes : refonte de la mise en page (flèches orthogonales, sans chevauchement)
+- **Quoi :** les diagrammes de `docs/projet/v4_2026-11-18/10_diagrammes/` sont redessinés sans changer
+  leur contenu : moteur de placement ELK (segments horizontaux et verticaux, plus de courbes) pour les
+  classes, états, déploiement, composants et packages ; Graphviz orthogonal pour les cas d'utilisation
+  (acteur à gauche, un lien horizontal par cas) ; style commun `10_diagrammes/_style.puml` (police Inter,
+  traits 1,2) ; messages numérotés dans les diagrammes de séquence. Dans les diagrammes de classes, une
+  classe d'un autre package (gris) est répétée une fois par lien pour que les flèches ne convergent plus
+  vers une seule boîte ; le script `schema_reel/generer_diagrammes_classes.py` produit ce rendu.
+- **Vues ajoutées (les vues complètes sont conservées) :** CLS-00b dépendances entre packages ;
+  COMP-01a structure des modules et COMP-01b matrice des 18 dépendances vers les adaptateurs ;
+  ETAT-07a alertes et ETAT-07b demandes d'affectation et propositions de formation.
+- **Pourquoi :** lisibilité à l'impression et en soutenance (flèches courbes, croisements, étiquettes sur les traits).
+
 #### DEPLOY-fichiers-hetzner — Fichiers de déploiement versionnés — journal `engineering-log/121`
 - **Quoi :** dossier `deploy/hetzner/` : initialisation du serveur (`cloud-config.yaml`), surcharge Compose
   paramétrée par `DOMAINE`, modèle du `.env`, scripts de préparation, de saisie des secrets sans affichage,

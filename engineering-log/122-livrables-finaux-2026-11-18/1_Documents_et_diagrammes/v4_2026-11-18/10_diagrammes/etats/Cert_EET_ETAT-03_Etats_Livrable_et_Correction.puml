@@ -1,9 +1,7 @@
 @startuml Cert_EET_ETAT-03_Etats_Livrable_et_Correction
-skinparam backgroundColor #FFFFFF
-skinparam shadowing false
-skinparam DefaultFontName "Segoe UI"
+!include ../_style.puml
+!pragma layout elk
 skinparam DefaultFontSize 11
-skinparam dpi 130
 skinparam ArrowColor #34495E
 skinparam note {
   BackgroundColor #FEF9E7

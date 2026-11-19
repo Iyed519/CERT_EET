@@ -1,0 +1,25 @@
+@startuml Cert_EET_COMP01b_Dependances_Adaptateurs
+!include ../_style.puml
+title <size:15><b>Cert_EET — COMP-01b : dépendances des modules vers les adaptateurs</b></size>\n<size:11>Mêmes 18 dépendances que COMP-01, présentées en matrice (lecture ligne par ligne, sans croisement de flèches) · v2.0</size>
+skinparam legendBackgroundColor #FFFFFF
+skinparam legendBorderColor #34495E
+skinparam legendFontSize 13
+legend top left
+| <b>Module</b> | <b>FournisseurLlm</b> | <b>Embeddings</b> | <b>Files BullMQ</b> | <b>Stockage S3</b> | <b>Mail</b> | <b>Redis</b> | <b>Client ml</b> | <b>database</b> | <b>module assistance-ia</b> |
+| admin |   |   | ● activations |   |   |   |   |   |   |
+| assistance-ia | ● | ● | ● | ● |   |   |   |   |   |
+| ateliers |   |   |   | ● |   |   |   |   |   |
+| audit |   |   |   |   |   |   |   | ● |   |
+| auth |   |   |   |   | ● | ● |   |   |   |
+| certificats |   |   | ● | ● |   |   |   |   |   |
+| pilotage |   |   |   |   | ● |   |   |   |   |
+| prediction-risque |   |   |   |   |   |   | ● |   |   |
+| rapports |   |   | ● |   |   |   |   |   | ● analyse IA |
+| ressources |   |   |   | ● |   |   |   |   |   |
+| surveillance |   |   |   | ● |   |   |   |   |   |
+| tentatives |   |   |   |   |   |   |   |   | ● analyse des points faibles |
+
+<size:11>● = le module utilise l'adaptateur (ou l'autre module) · les modules sans dépendance externe ne figurent pas.</size>
+<size:11>FournisseurLlm : anthropic · compatible-openai · factice · non-configuré. Files BullMQ : workers dans le processus de l'api.</size>
+endlegend
+@enduml

@@ -1,0 +1,30 @@
+@startuml Cert_EET_ETAT-07b_Etats_Demandes_Propositions
+!include ../_style.puml
+!pragma layout elk
+skinparam DefaultFontSize 11
+skinparam ArrowColor #34495E
+skinparam note {
+  BackgroundColor #FEF9E7
+  BorderColor #B7950B
+  FontSize 10
+}
+skinparam state {
+  BackgroundColor #FFFFFF
+  BorderColor #1B4F72
+}
+title <size:14><b>Cert_EET — ETAT-07b : cycle de vie — Demandes d’affectation et propositions de formation</b></size>\n<size:10>États = valeurs réelles en base · transitions vérifiées dans le code et les déclencheurs · v2.0</size>
+
+state "Demande d'affectation" as DA {
+  [*] --> EN_ATTENTE
+  EN_ATTENTE --> ACCEPTEE_A : admin (affectation créée)
+  EN_ATTENTE --> REFUSEE : admin (motif)
+  EN_ATTENTE --> ANNULEE : formateur
+}
+state "Proposition de formation" as PF {
+  [*] --> P_EN_ATTENTE
+  P_EN_ATTENTE --> A_MODIFIER
+  A_MODIFIER -up-> P_EN_ATTENTE : version + 1
+  P_EN_ATTENTE --> P_ACCEPTEE : formation BROUILLON créée
+  P_EN_ATTENTE --> P_REFUSEE
+}
+@enduml

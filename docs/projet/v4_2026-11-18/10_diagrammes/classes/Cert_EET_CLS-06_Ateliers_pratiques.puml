@@ -1,13 +1,15 @@
 @startuml Cert_EET_CLS-06_Ateliers_pratiques
 ' CLS-06 — Ateliers pratiques (F2) · généré depuis le schéma réel (43 migrations, PR #141)
+!pragma layout elk
+' Mise en page ELK : liens orthogonaux (segments horizontaux/verticaux), sans courbes.
 skinparam backgroundColor #FFFFFF
 skinparam shadowing false
-skinparam DefaultFontName "Segoe UI"
+skinparam roundcorner 6
+skinparam DefaultFontName "Inter"
 skinparam DefaultFontSize 10
+skinparam ArrowThickness 1.2
 skinparam classAttributeIconSize 0
-skinparam dpi 130
-skinparam nodesep 45
-skinparam ranksep 60
+skinparam dpi 140
 skinparam class {
   BackgroundColor #FFFFFF
   BorderColor #34495E
@@ -98,20 +100,26 @@ class ConsultationFeedback {
   - dateConsultation : DateTime
 }
 }
-class ModuleFormation #F8F9F9 {
+class "User" as User_1 #E5E8E8 {
 }
-class User #F8F9F9 {
+Atelier "0..*" -[#2471A3]-> "0..1" User_1 : formateur
+class ModuleFormation #E5E8E8 {
 }
-Atelier "0..*" -[#2471A3]-> "0..1" User : formateur
 Atelier "0..*" -[#2471A3]-> "1" ModuleFormation
-Grille "0..*" -[#2471A3]-> "0..1" User : formateur
+class "User" as User_2 #E5E8E8 {
+}
+Grille "0..*" -[#2471A3]-> "0..1" User_2 : formateur
 Grille "0..1" -[#2471A3]-> "0..1" Atelier
 Grille "1" *-[#C0392B]- "0..*" Critere
 Critere "1" *-[#C0392B]- "0..*" NiveauPerformance
-Livrable "0..*" -[#2471A3]-> "1" User : apprenant
+class "User" as User_3 #E5E8E8 {
+}
+Livrable "0..*" -[#2471A3]-> "1" User_3 : apprenant
 Livrable "0..*" -[#2471A3]-> "1" Atelier
 Livrable "1" *-[#C0392B]- "0..*" FichierLivrable
-Correction "0..*" -[#2471A3]-> "1" User : correcteur
+class "User" as User_4 #E5E8E8 {
+}
+Correction "0..*" -[#2471A3]-> "1" User_4 : correcteur
 Livrable "1" *-[#C0392B]- "0..1" Correction
 Correction "1" *-[#C0392B]- "0..*" NoteCritere
 NoteCritere "0..*" -[#2471A3]-> "1" NiveauPerformance
@@ -132,9 +140,9 @@ enum StatutLivrable {
   NOTE
 }
 legend bottom right
-  | <color:#C0392B><b>◆──</b></color> | composition (suppression en cascade) |
-  | <color:#2471A3><b>──></b></color> | association (clé étrangère) |
+  | <color:#C0392B><b>◆—</b></color> | composition (suppression en cascade) |
+  | <color:#2471A3><b>—></b></color> | association (clé étrangère) |
   | <<SQL direct>> | table sans entité TypeORM (requêtes SQL) |
-  | gris | classe d'un autre package |
+  | gris | classe d'un autre package (répétée une fois par lien pour éviter les croisements) |
 endlegend
 @enduml

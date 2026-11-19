@@ -1,13 +1,15 @@
 @startuml Cert_EET_CLS-07_Certification
 ' CLS-07 — Certification (F3) · généré depuis le schéma réel (43 migrations, PR #141)
+!pragma layout elk
+' Mise en page ELK : liens orthogonaux (segments horizontaux/verticaux), sans courbes.
 skinparam backgroundColor #FFFFFF
 skinparam shadowing false
-skinparam DefaultFontName "Segoe UI"
+skinparam roundcorner 6
+skinparam DefaultFontName "Inter"
 skinparam DefaultFontSize 10
+skinparam ArrowThickness 1.2
 skinparam classAttributeIconSize 0
-skinparam dpi 130
-skinparam nodesep 45
-skinparam ranksep 60
+skinparam dpi 140
 skinparam class {
   BackgroundColor #FFFFFF
   BorderColor #34495E
@@ -46,14 +48,16 @@ class Certificat <<ACTIF immuable sauf → REVOQUE>> {
   - dateExpiration : DateTime [0..1]
 }
 }
-class Formation #F8F9F9 {
+class "User" as User_1 #E5E8E8 {
 }
-class User #F8F9F9 {
+Certificat "0..*" -[#2471A3]-> "1" User_1 : apprenant
+class Formation #E5E8E8 {
 }
-Certificat "0..*" -[#2471A3]-> "1" User : apprenant
 Certificat "0..*" -[#2471A3]-> "1" Formation
 Certificat "0..*" -[#2471A3]-> "0..1" Certificat : remplace
-Certificat "0..*" -[#2471A3]-> "0..1" User : révoqué par
+class "User" as User_2 #E5E8E8 {
+}
+Certificat "0..*" -[#2471A3]-> "0..1" User_2 : révoqué par
 enum MotifRevocation {
   FRAUDE
   ERREUR_ADMIN
@@ -68,9 +72,9 @@ enum StatutCertificat {
   EXPIRE
 }
 legend bottom right
-  | <color:#C0392B><b>◆──</b></color> | composition (suppression en cascade) |
-  | <color:#2471A3><b>──></b></color> | association (clé étrangère) |
+  | <color:#C0392B><b>◆—</b></color> | composition (suppression en cascade) |
+  | <color:#2471A3><b>—></b></color> | association (clé étrangère) |
   | <<SQL direct>> | table sans entité TypeORM (requêtes SQL) |
-  | gris | classe d'un autre package |
+  | gris | classe d'un autre package (répétée une fois par lien pour éviter les croisements) |
 endlegend
 @enduml

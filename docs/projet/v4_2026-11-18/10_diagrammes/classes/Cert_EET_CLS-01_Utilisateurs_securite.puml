@@ -1,13 +1,15 @@
 @startuml Cert_EET_CLS-01_Utilisateurs_securite
 ' CLS-01 — Utilisateurs & sécurité · généré depuis le schéma réel (43 migrations, PR #141)
+!pragma layout elk
+' Mise en page ELK : liens orthogonaux (segments horizontaux/verticaux), sans courbes.
 skinparam backgroundColor #FFFFFF
 skinparam shadowing false
-skinparam DefaultFontName "Segoe UI"
+skinparam roundcorner 6
+skinparam DefaultFontName "Inter"
 skinparam DefaultFontSize 10
+skinparam ArrowThickness 1.2
 skinparam classAttributeIconSize 0
-skinparam dpi 130
-skinparam nodesep 45
-skinparam ranksep 60
+skinparam dpi 140
 skinparam class {
   BackgroundColor #FFFFFF
   BorderColor #34495E
@@ -79,11 +81,11 @@ note bottom of User
   <b>27</b> autres clés étrangères
   (apprenant, formateur, correcteur…).
 end note
-class DomaineEtudes #F8F9F9 {
-}
-class Etablissement #F8F9F9 {
+class Etablissement #E5E8E8 {
 }
 User "0..*" -[#2471A3]-> "0..1" Etablissement
+class DomaineEtudes #E5E8E8 {
+}
 User "0..*" -[#2471A3]-> "0..1" DomaineEtudes
 RefreshToken "0..*" -[#2471A3]-> "1" User
 CompteOauth "0..*" -[#2471A3]-> "1" User
@@ -123,9 +125,9 @@ enum StatutDemande {
   REJETEE
 }
 legend bottom right
-  | <color:#C0392B><b>◆──</b></color> | composition (suppression en cascade) |
-  | <color:#2471A3><b>──></b></color> | association (clé étrangère) |
+  | <color:#C0392B><b>◆—</b></color> | composition (suppression en cascade) |
+  | <color:#2471A3><b>—></b></color> | association (clé étrangère) |
   | <<SQL direct>> | table sans entité TypeORM (requêtes SQL) |
-  | gris | classe d'un autre package |
+  | gris | classe d'un autre package (répétée une fois par lien pour éviter les croisements) |
 endlegend
 @enduml

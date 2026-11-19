@@ -1,9 +1,7 @@
 @startuml Cert_EET_ETAT-06_Etats_Supports_et_traitements_IA
-skinparam backgroundColor #FFFFFF
-skinparam shadowing false
-skinparam DefaultFontName "Segoe UI"
+!include ../_style.puml
+!pragma layout elk
 skinparam DefaultFontSize 11
-skinparam dpi 130
 skinparam ArrowColor #34495E
 skinparam note {
   BackgroundColor #FEF9E7
@@ -20,7 +18,7 @@ state SupportPedagogique {
   [*] --> EN_INDEXATION : dépôt
   EN_INDEXATION --> INDEXE
   EN_INDEXATION --> ECHEC_INDEXATION
-  ECHEC_INDEXATION --> EN_INDEXATION : réindexer
+  ECHEC_INDEXATION -up-> EN_INDEXATION : réindexer
 }
 state GenerationIa {
   [*] --> G_EN_COURS
@@ -32,7 +30,7 @@ state ExtractionQuestions {
   X_EN_ATTENTE --> X_EN_COURS
   X_EN_COURS --> X_TERMINEE : fichier supprimé
   X_EN_COURS --> X_ECHEC : fichier gardé
-  X_ECHEC --> X_EN_ATTENTE : relancer
+  X_ECHEC -up-> X_EN_ATTENTE : relancer
 }
 state "Suggestion / question extraite" as SQ {
   [*] --> PROPOSEE

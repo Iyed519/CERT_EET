@@ -1,9 +1,7 @@
 @startuml Cert_EET_ETAT-05_Etats_Formation_et_Inscription
-skinparam backgroundColor #FFFFFF
-skinparam shadowing false
-skinparam DefaultFontName "Segoe UI"
+!include ../_style.puml
+!pragma layout elk
 skinparam DefaultFontSize 11
-skinparam dpi 130
 skinparam ArrowColor #34495E
 skinparam note {
   BackgroundColor #FEF9E7
@@ -20,13 +18,13 @@ state Formation {
   [*] --> BROUILLON : création / proposition acceptée
   BROUILLON --> OUVERTE : publication
   OUVERTE --> FERMEE : clôture
-  FERMEE --> OUVERTE : réouverture
+  FERMEE -up-> OUVERTE : réouverture
   FERMEE --> ARCHIVEE : archivage (définitif)
 }
 state Inscription {
   [*] --> I_EN_COURS : inscription
   I_EN_COURS --> SUSPENDUE : désinscription / suspension (motif)
-  SUSPENDUE --> I_EN_COURS : réactivation (administrateur)
+  SUSPENDUE -up-> I_EN_COURS : réactivation (administrateur)
   I_EN_COURS --> TERMINEE : (aucun flux applicatif —\njeu de démonstration seulement)
 }
 @enduml

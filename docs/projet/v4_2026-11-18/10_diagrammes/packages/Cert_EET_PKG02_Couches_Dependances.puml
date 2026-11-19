@@ -1,9 +1,7 @@
 @startuml Cert_EET_PKG02_Couches_Dependances
-skinparam backgroundColor #FFFFFF
-skinparam shadowing false
-skinparam DefaultFontName "Segoe UI"
+!include ../_style.puml
+!pragma layout elk
 skinparam DefaultFontSize 11
-skinparam dpi 130
 skinparam ArrowColor #34495E
 skinparam note {
   BackgroundColor #FEF9E7

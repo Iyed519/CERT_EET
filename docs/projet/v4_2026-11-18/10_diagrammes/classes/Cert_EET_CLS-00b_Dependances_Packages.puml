@@ -1,0 +1,58 @@
+@startuml Cert_EET_CLS-00b_Dependances_Packages
+' CLS-00b — vue agrégée : une flèche par paire de packages (nombre de clés étrangères)
+!pragma layout elk
+' Mise en page ELK : liens orthogonaux (segments horizontaux/verticaux), sans courbes.
+skinparam backgroundColor #FFFFFF
+skinparam shadowing false
+skinparam roundcorner 6
+skinparam DefaultFontName "Inter"
+skinparam DefaultFontSize 10
+skinparam ArrowThickness 1.2
+skinparam classAttributeIconSize 0
+skinparam dpi 140
+skinparam class {
+  BackgroundColor #FFFFFF
+  BorderColor #34495E
+  HeaderBackgroundColor #EAECEE
+}
+skinparam package {
+  BorderColor #7F8C8D
+  FontStyle bold
+}
+skinparam note {
+  BackgroundColor #FEF9E7
+  BorderColor #B7950B
+  FontSize 9
+}
+hide empty methods
+title <size:14><b>Cert_EET — CLS-00b : Dépendances entre packages</b></size>\n<size:10>Vue de lecture de CLS-00 · une flèche = au moins une clé étrangère d'un package vers l'autre (nombre indiqué) · v3.0</size>
+rectangle "<b>Utilisateurs & sécurité</b>\n5 classe(s)" as P1 #FDEDEC
+rectangle "<b>Référentiel des établissements</b>\n4 classe(s)" as P2 #F4F6F7
+rectangle "<b>Formations & pédagogie</b>\n7 classe(s)" as P3 #EAF2F8
+rectangle "<b>Évaluations QCM (F1)</b>\n9 classe(s)" as P4 #E8F8F5
+rectangle "<b>Surveillance des QCM (F1)</b>\n2 classe(s)" as P5 #FEF5E7
+rectangle "<b>Ateliers pratiques (F2)</b>\n9 classe(s)" as P6 #F4ECF7
+rectangle "<b>Certification (F3)</b>\n1 classe(s)" as P7 #FEF9E7
+rectangle "<b>Assistance IA aux formateurs (F4)</b>\n6 classe(s)" as P8 #EBF5FB
+rectangle "<b>Pilotage, rapports & prédiction (F6)</b>\n4 classe(s)" as P9 #E9F7EF
+rectangle "<b>Transverse (F7)</b>\n1 classe(s)" as P10 #F2F3F4
+P3 -[#2471A3]-> P1 : 9
+P4 -[#2471A3]-> P1 : 2
+P5 -[#2471A3]-> P1 : 1
+P6 -[#2471A3]-> P1 : 4
+P7 -[#2471A3]-> P1 : 2
+P8 -[#2471A3]-> P1 : 5
+P9 -[#2471A3]-> P1 : 4
+P1 -[#2471A3]-> P2 : 2
+P4 -[#2471A3]-> P3 : 1
+P6 -[#2471A3]-> P3 : 1
+P7 -[#2471A3]-> P3 : 1
+P8 -[#2471A3]-> P3 : 2
+P9 -[#2471A3]-> P3 : 3
+P5 -[#2471A3]-> P4 : 2
+P8 -[#2471A3]-> P4 : 4
+legend bottom right
+  | <color:#2471A3><b>—></b></color> | dépend de (clés étrangères, nombre indiqué) |
+  | détail | voir CLS-00 (classes) et CLS-01 à CLS-10 (attributs) |
+endlegend
+@enduml

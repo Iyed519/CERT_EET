@@ -1,4 +1,5 @@
 @startuml Cert_EET_DS13_Creer_Atelier
+!include ../_style.puml
 ' =====================================================================
 '  DS-13 — Créer un atelier + définir une grille de notation + publier
 '  Acteur : Formateur · Ref : UC3 + UC4 Formateur · F2
@@ -16,14 +17,11 @@
 '            d'ouverture (publier = ouvrir), atelier et grille figés.
 ' =====================================================================
 !pragma teoz true
-skinparam backgroundColor #FFFFFF
-skinparam shadowing false
-skinparam DefaultFontName "Segoe UI"
+autonumber "<b>0."
 skinparam DefaultFontSize 10
 skinparam sequenceMessageAlign center
 skinparam responseMessageBelowArrow true
 skinparam ParticipantPadding 18
-skinparam ArrowThickness 1.2
 skinparam LifeLineBorderThickness 1.0
 skinparam participant {
   BackgroundColor #FFFFFF

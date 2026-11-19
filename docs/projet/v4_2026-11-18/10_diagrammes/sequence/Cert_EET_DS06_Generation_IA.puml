@@ -1,4 +1,5 @@
 @startuml Cert_EET_DS06_Generation_IA
+!include ../_style.puml
 ' =====================================================================
 '  Projet    : Cert_EET
 '  Diagramme : DS-06 — Génération de questions QCM par IA (RAG)
@@ -24,14 +25,11 @@
 '              origine IA / IA_MODIFIEE, décision unique garantie en base.
 ' =====================================================================
 !pragma teoz true
-skinparam backgroundColor #FFFFFF
-skinparam shadowing false
-skinparam DefaultFontName "Segoe UI"
+autonumber "<b>0."
 skinparam DefaultFontSize 10
 skinparam sequenceMessageAlign center
 skinparam responseMessageBelowArrow true
 skinparam ParticipantPadding 18
-skinparam ArrowThickness 1.2
 skinparam LifeLineBorderThickness 1.0
 skinparam participant {
   BackgroundColor #FFFFFF

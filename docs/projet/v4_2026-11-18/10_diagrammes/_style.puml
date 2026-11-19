@@ -1,0 +1,7 @@
+' Style commun des diagrammes Cert_EET (hors diagrammes de classes, générés par script).
+skinparam backgroundColor #FFFFFF
+skinparam shadowing false
+skinparam roundcorner 6
+skinparam DefaultFontName "Inter"
+skinparam ArrowThickness 1.2
+skinparam dpi 140

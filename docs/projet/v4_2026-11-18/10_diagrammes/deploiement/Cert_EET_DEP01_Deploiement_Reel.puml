@@ -1,17 +1,14 @@
 @startuml Cert_EET_DEP01_Deploiement_Reel
+!include ../_style.puml
+!pragma layout elk
 ' DEP-01 v2.0 — déploiement réellement en service (journal 120, deploy/hetzner) — 18/11/2026
-skinparam backgroundColor #FFFFFF
-skinparam shadowing false
-skinparam DefaultFontName "Segoe UI"
 skinparam DefaultFontSize 11
-skinparam dpi 130
 skinparam ArrowColor #34495E
 skinparam note {
   BackgroundColor #FEF9E7
   BorderColor #B7950B
   FontSize 10
 }
-skinparam linetype ortho
 skinparam nodesep 30
 skinparam ranksep 45
 title <size:15><b>Cert_EET — DEP-01 : Déploiement réel (démonstration en ligne)</b></size>\n<size:11>Style client–serveur, déploiement conteneurisé · https://cert-eet.duckdns.org · en service depuis le 16/11/2026 · v2.0</size>

@@ -1,13 +1,15 @@
 @startuml Cert_EET_CLS-10_Transverse
 ' CLS-10 — Transverse (F7) · généré depuis le schéma réel (43 migrations, PR #141)
+!pragma layout elk
+' Mise en page ELK : liens orthogonaux (segments horizontaux/verticaux), sans courbes.
 skinparam backgroundColor #FFFFFF
 skinparam shadowing false
-skinparam DefaultFontName "Segoe UI"
+skinparam roundcorner 6
+skinparam DefaultFontName "Inter"
 skinparam DefaultFontSize 10
+skinparam ArrowThickness 1.2
 skinparam classAttributeIconSize 0
-skinparam dpi 130
-skinparam nodesep 45
-skinparam ranksep 60
+skinparam dpi 140
 skinparam class {
   BackgroundColor #FFFFFF
   BorderColor #34495E
@@ -36,9 +38,9 @@ class AuditLog <<immuable (déclencheur)>> {
 }
 }
 legend bottom right
-  | <color:#C0392B><b>◆──</b></color> | composition (suppression en cascade) |
-  | <color:#2471A3><b>──></b></color> | association (clé étrangère) |
+  | <color:#C0392B><b>◆—</b></color> | composition (suppression en cascade) |
+  | <color:#2471A3><b>—></b></color> | association (clé étrangère) |
   | <<SQL direct>> | table sans entité TypeORM (requêtes SQL) |
-  | gris | classe d'un autre package |
+  | gris | classe d'un autre package (répétée une fois par lien pour éviter les croisements) |
 endlegend
 @enduml

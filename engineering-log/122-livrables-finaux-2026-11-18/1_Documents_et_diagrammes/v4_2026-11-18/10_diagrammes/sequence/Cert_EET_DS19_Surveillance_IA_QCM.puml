@@ -1,4 +1,5 @@
 @startuml Cert_EET_DS19_Surveillance_IA_QCM
+!include ../_style.puml
 ' =====================================================================
 '  Projet    : Cert_EET
 '  Diagramme : DS-19 — Surveillance webcam par IA pendant un QCM
@@ -9,15 +10,11 @@
 '  Source    : code de `main` = e7216f2 (PR #141) et engineering-log/
 ' =====================================================================
 !pragma teoz true
-skinparam backgroundColor #FFFFFF
-skinparam shadowing false
-skinparam DefaultFontName "Segoe UI"
+autonumber "<b>0."
 skinparam DefaultFontSize 10
-skinparam dpi 120
 skinparam sequenceMessageAlign center
 skinparam responseMessageBelowArrow true
 skinparam ParticipantPadding 18
-skinparam ArrowThickness 1.2
 skinparam LifeLineBorderThickness 1.0
 skinparam participant {
   BackgroundColor #FFFFFF

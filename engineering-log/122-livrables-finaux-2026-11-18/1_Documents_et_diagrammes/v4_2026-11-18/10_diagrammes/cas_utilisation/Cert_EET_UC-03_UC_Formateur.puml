@@ -1,9 +1,10 @@
 @startuml Cert_EET_UC-03_UC_Formateur
-skinparam backgroundColor #FFFFFF
-skinparam shadowing false
-skinparam DefaultFontName "Segoe UI"
+!include ../_style.puml
+' Graphviz orthogonal : acteur à gauche, cas en colonne, liens horizontaux distincts
+skinparam linetype ortho
+skinparam nodesep 14
+skinparam ranksep 120
 skinparam DefaultFontSize 11
-skinparam dpi 130
 skinparam ArrowColor #34495E
 skinparam note {
   BackgroundColor #FEF9E7

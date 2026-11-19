@@ -1,4 +1,5 @@
 @startuml Cert_EET_DS07_Revocation_Certificat
+!include ../_style.puml
 ' =====================================================================
 '  Projet    : Cert_EET
 '  Diagramme : DS-07 — Révoquer un certificat
@@ -19,14 +20,11 @@
 '              contact dédiée.
 ' =====================================================================
 !pragma teoz true
-skinparam backgroundColor #FFFFFF
-skinparam shadowing false
-skinparam DefaultFontName "Segoe UI"
+autonumber "<b>0."
 skinparam DefaultFontSize 10
 skinparam sequenceMessageAlign center
 skinparam responseMessageBelowArrow true
 skinparam ParticipantPadding 18
-skinparam ArrowThickness 1.2
 skinparam LifeLineBorderThickness 1.0
 skinparam participant {
   BackgroundColor #FFFFFF

@@ -1,13 +1,15 @@
 @startuml Cert_EET_CLS-09_Pilotage_rapports_prediction
 ' CLS-09 — Pilotage, rapports & prédiction (F6) · généré depuis le schéma réel (43 migrations, PR #141)
+!pragma layout elk
+' Mise en page ELK : liens orthogonaux (segments horizontaux/verticaux), sans courbes.
 skinparam backgroundColor #FFFFFF
 skinparam shadowing false
-skinparam DefaultFontName "Segoe UI"
+skinparam roundcorner 6
+skinparam DefaultFontName "Inter"
 skinparam DefaultFontSize 10
+skinparam ArrowThickness 1.2
 skinparam classAttributeIconSize 0
-skinparam dpi 130
-skinparam nodesep 45
-skinparam ranksep 60
+skinparam dpi 140
 skinparam class {
   BackgroundColor #FFFFFF
   BorderColor #34495E
@@ -61,19 +63,27 @@ class Rapport {
   - dateFin : DateTime [0..1]
 }
 }
-class Formation #F8F9F9 {
+class "Formation" as Formation_1 #E5E8E8 {
 }
-class Inscription #F8F9F9 {
+Formation_1 "1" *-[#C0392B]- "0..*" AlerteDecrochage
+class "User" as User_1 #E5E8E8 {
 }
-class User #F8F9F9 {
+AlerteDecrochage "0..*" -[#2471A3]-> "0..1" User_1 : traité par
+class "User" as User_2 #E5E8E8 {
 }
-Formation "1" *-[#C0392B]- "0..*" AlerteDecrochage
-AlerteDecrochage "0..*" -[#2471A3]-> "0..1" User : traité par
-AlerteDecrochage "0..*" -[#2471A3]-> "1" User : apprenant
-ActionAlerte "0..*" -[#2471A3]-> "0..1" User : auteur
+AlerteDecrochage "0..*" -[#2471A3]-> "1" User_2 : apprenant
+class "User" as User_3 #E5E8E8 {
+}
+ActionAlerte "0..*" -[#2471A3]-> "0..1" User_3 : auteur
 AlerteDecrochage "1" *-[#C0392B]- "0..*" ActionAlerte
-Rapport "0..*" -[#2471A3]-> "0..1" Formation
-Rapport "0..*" -[#2471A3]-> "1" User : demandeur
+class "Formation" as Formation_2 #E5E8E8 {
+}
+Rapport "0..*" -[#2471A3]-> "0..1" Formation_2
+class "User" as User_4 #E5E8E8 {
+}
+Rapport "0..*" -[#2471A3]-> "1" User_4 : demandeur
+class Inscription #E5E8E8 {
+}
 Inscription "1" *-[#C0392B]- "0..*" ScoreRisque
 enum CritereAlerte {
   INACTIVITE
@@ -104,9 +114,9 @@ enum TypeRapport {
   INSTITUTIONNEL
 }
 legend bottom right
-  | <color:#C0392B><b>◆──</b></color> | composition (suppression en cascade) |
-  | <color:#2471A3><b>──></b></color> | association (clé étrangère) |
+  | <color:#C0392B><b>◆—</b></color> | composition (suppression en cascade) |
+  | <color:#2471A3><b>—></b></color> | association (clé étrangère) |
   | <<SQL direct>> | table sans entité TypeORM (requêtes SQL) |
-  | gris | classe d'un autre package |
+  | gris | classe d'un autre package (répétée une fois par lien pour éviter les croisements) |
 endlegend
 @enduml

@@ -1,4 +1,5 @@
 @startuml Cert_EET_DS02_Passer_QCM
+!include ../_style.puml
 ' =====================================================================
 '  Projet    : Cert_EET — Plateforme de Certification Numérique
 '  Diagramme : DS-02 — Passer un QCM (de l'ouverture au corrigé)
@@ -25,15 +26,12 @@
 ' =====================================================================
 
 !pragma teoz true
-skinparam backgroundColor #FFFFFF
-skinparam shadowing false
-skinparam DefaultFontName "Segoe UI"
+autonumber "<b>0."
 skinparam DefaultFontSize 10
 skinparam sequenceMessageAlign center
 skinparam responseMessageBelowArrow true
 skinparam BoxPadding 12
 skinparam ParticipantPadding 18
-skinparam ArrowThickness 1.2
 skinparam LifeLineBorderThickness 1.0
 
 skinparam participant {
@@ -113,7 +111,7 @@ end
 
 group #FFE8E8 Vérifications anti-fraude (horloge de PostgreSQL, sous verrou)
   TS   ->  TS  : QCM PUBLIE ?
-  TS   ->  TS  : maintenant ∈ [dateOuverture, dateFermeture[ ?
+  TS   ->  TS  : maintenant dans [dateOuverture, dateFermeture[ ?
   TS   ->  TS  : nbTentativesPassees < nbTentativesMax ?
   TS   ->  TS  : délai depuis la précédente ≥ délai minimal ?
 

@@ -1,13 +1,15 @@
 @startuml Cert_EET_CLS-02_Referentiel_des_etablissements
 ' CLS-02 — Référentiel des établissements · généré depuis le schéma réel (43 migrations, PR #141)
+!pragma layout elk
+' Mise en page ELK : liens orthogonaux (segments horizontaux/verticaux), sans courbes.
 skinparam backgroundColor #FFFFFF
 skinparam shadowing false
-skinparam DefaultFontName "Segoe UI"
+skinparam roundcorner 6
+skinparam DefaultFontName "Inter"
 skinparam DefaultFontSize 10
+skinparam ArrowThickness 1.2
 skinparam classAttributeIconSize 0
-skinparam dpi 130
-skinparam nodesep 45
-skinparam ranksep 60
+skinparam dpi 140
 skinparam class {
   BackgroundColor #FFFFFF
   BorderColor #34495E
@@ -46,17 +48,19 @@ class EtablissementDomaine {
 
 }
 }
-class User #F8F9F9 {
+class "User" as User_1 #E5E8E8 {
 }
-User "0..*" -[#2471A3]-> "0..1" Etablissement
-User "0..*" -[#2471A3]-> "0..1" DomaineEtudes
+User_1 "0..*" -[#2471A3]-> "0..1" Etablissement
+class "User" as User_2 #E5E8E8 {
+}
+User_2 "0..*" -[#2471A3]-> "0..1" DomaineEtudes
 Universite "1" *-[#C0392B]- "0..*" Etablissement
 Etablissement "1" *-[#C0392B]- "0..*" EtablissementDomaine
 DomaineEtudes "1" *-[#C0392B]- "0..*" EtablissementDomaine
 legend bottom right
-  | <color:#C0392B><b>◆──</b></color> | composition (suppression en cascade) |
-  | <color:#2471A3><b>──></b></color> | association (clé étrangère) |
+  | <color:#C0392B><b>◆—</b></color> | composition (suppression en cascade) |
+  | <color:#2471A3><b>—></b></color> | association (clé étrangère) |
   | <<SQL direct>> | table sans entité TypeORM (requêtes SQL) |
-  | gris | classe d'un autre package |
+  | gris | classe d'un autre package (répétée une fois par lien pour éviter les croisements) |
 endlegend
 @enduml

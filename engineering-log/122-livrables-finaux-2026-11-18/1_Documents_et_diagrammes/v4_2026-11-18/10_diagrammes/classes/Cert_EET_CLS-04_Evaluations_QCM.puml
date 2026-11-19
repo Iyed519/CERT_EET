@@ -1,13 +1,15 @@
 @startuml Cert_EET_CLS-04_Evaluations_QCM
 ' CLS-04 — Évaluations QCM (F1) · généré depuis le schéma réel (43 migrations, PR #141)
+!pragma layout elk
+' Mise en page ELK : liens orthogonaux (segments horizontaux/verticaux), sans courbes.
 skinparam backgroundColor #FFFFFF
 skinparam shadowing false
-skinparam DefaultFontName "Segoe UI"
+skinparam roundcorner 6
+skinparam DefaultFontName "Inter"
 skinparam DefaultFontSize 10
+skinparam ArrowThickness 1.2
 skinparam classAttributeIconSize 0
-skinparam dpi 130
-skinparam nodesep 45
-skinparam ranksep 60
+skinparam dpi 140
 skinparam class {
   BackgroundColor #FFFFFF
   BorderColor #34495E
@@ -95,38 +97,42 @@ class AnalyseIaTentative <<SQL direct>> {
   - dateCreation : DateTime
 }
 }
-class CaptureWebcam #F8F9F9 {
+class "User" as User_1 #E5E8E8 {
 }
-class EvenementSurveillance #F8F9F9 {
+Qcm "0..*" -[#2471A3]-> "0..1" User_1 : formateur
+class ModuleFormation #E5E8E8 {
 }
-class ExtractionQuestionsIa #F8F9F9 {
-}
-class ModuleFormation #F8F9F9 {
-}
-class QuestionExtraiteIa #F8F9F9 {
-}
-class SuggestionQuestionIa #F8F9F9 {
-}
-class User #F8F9F9 {
-}
-Qcm "0..*" -[#2471A3]-> "0..1" User : formateur
 Qcm "0..*" -[#2471A3]-> "1" ModuleFormation
 Qcm "1" *-[#C0392B]- "0..1" ConfigurationAntiFraude
 Question "1" *-[#C0392B]- "0..*" Option
 QcmQuestion "0..*" -[#2471A3]-> "1" Question
 Qcm "1" *-[#C0392B]- "0..*" QcmQuestion
 TentativeQcm "0..*" -[#2471A3]-> "1" Qcm
-TentativeQcm "0..*" -[#2471A3]-> "1" User : apprenant
+class "User" as User_2 #E5E8E8 {
+}
+TentativeQcm "0..*" -[#2471A3]-> "1" User_2 : apprenant
 TentativeQcm "1" *-[#C0392B]- "0..*" Reponse
 Reponse "0..*" -[#2471A3]-> "1" Question
 ReponseOption "0..*" -[#2471A3]-> "1" Option
 Reponse "1" *-[#C0392B]- "0..*" ReponseOption
-SuggestionQuestionIa "0..1" -[#2471A3]-> "0..1" Question
-SuggestionQuestionIa "0..*" -[#2471A3]-> "0..1" Qcm
+class "SuggestionQuestionIa" as SuggestionQuestionIa_1 #E5E8E8 {
+}
+SuggestionQuestionIa_1 "0..1" -[#2471A3]-> "0..1" Question
+class "SuggestionQuestionIa" as SuggestionQuestionIa_2 #E5E8E8 {
+}
+SuggestionQuestionIa_2 "0..*" -[#2471A3]-> "0..1" Qcm
+class CaptureWebcam #E5E8E8 {
+}
 TentativeQcm "1" *-[#C0392B]- "0..*" CaptureWebcam
+class ExtractionQuestionsIa #E5E8E8 {
+}
 Qcm "1" *-[#C0392B]- "0..*" ExtractionQuestionsIa
+class QuestionExtraiteIa #E5E8E8 {
+}
 QuestionExtraiteIa "0..*" -[#2471A3]-> "0..1" Question
 TentativeQcm "1" *-[#C0392B]- "0..*" AnalyseIaTentative
+class EvenementSurveillance #E5E8E8 {
+}
 TentativeQcm "1" *-[#C0392B]- "0..*" EvenementSurveillance
 enum AffichageResultats {
   IMMEDIAT
@@ -156,9 +162,9 @@ enum TypeQuestion {
   ASSOCIATION
 }
 legend bottom right
-  | <color:#C0392B><b>◆──</b></color> | composition (suppression en cascade) |
-  | <color:#2471A3><b>──></b></color> | association (clé étrangère) |
+  | <color:#C0392B><b>◆—</b></color> | composition (suppression en cascade) |
+  | <color:#2471A3><b>—></b></color> | association (clé étrangère) |
   | <<SQL direct>> | table sans entité TypeORM (requêtes SQL) |
-  | gris | classe d'un autre package |
+  | gris | classe d'un autre package (répétée une fois par lien pour éviter les croisements) |
 endlegend
 @enduml

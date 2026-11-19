@@ -1,13 +1,15 @@
 @startuml Cert_EET_CLS-03_Formations_pedagogie
 ' CLS-03 — Formations & pédagogie · généré depuis le schéma réel (43 migrations, PR #141)
+!pragma layout elk
+' Mise en page ELK : liens orthogonaux (segments horizontaux/verticaux), sans courbes.
 skinparam backgroundColor #FFFFFF
 skinparam shadowing false
-skinparam DefaultFontName "Segoe UI"
+skinparam roundcorner 6
+skinparam DefaultFontName "Inter"
 skinparam DefaultFontSize 10
+skinparam ArrowThickness 1.2
 skinparam classAttributeIconSize 0
-skinparam dpi 130
-skinparam nodesep 45
-skinparam ranksep 60
+skinparam dpi 140
 skinparam class {
   BackgroundColor #FFFFFF
   BorderColor #34495E
@@ -102,46 +104,62 @@ class PropositionFormation <<SQL direct>> {
   - modifieLe : DateTime
 }
 }
-class AlerteDecrochage #F8F9F9 {
-}
-class Atelier #F8F9F9 {
-}
-class Certificat #F8F9F9 {
-}
-class GenerationIa #F8F9F9 {
-}
-class Qcm #F8F9F9 {
-}
-class Rapport #F8F9F9 {
-}
-class ScoreRisque #F8F9F9 {
-}
-class SupportPedagogique #F8F9F9 {
-}
-class User #F8F9F9 {
-}
 Formation "1" *-[#C0392B]- "0..*" ModuleFormation
-Inscription "0..*" -[#2471A3]-> "0..1" User : suspendue par
-Inscription "0..*" -[#2471A3]-> "1" User : apprenant
+class "User" as User_1 #E5E8E8 {
+}
+Inscription "0..*" -[#2471A3]-> "0..1" User_1 : suspendue par
+class "User" as User_2 #E5E8E8 {
+}
+Inscription "0..*" -[#2471A3]-> "1" User_2 : apprenant
 Inscription "0..*" -[#2471A3]-> "1" Formation
-AffectationFormateur "0..*" -[#2471A3]-> "1" User : formateur
-AffectationFormateur "0..*" -[#2471A3]-> "0..1" User : affecté par
+class "User" as User_3 #E5E8E8 {
+}
+AffectationFormateur "0..*" -[#2471A3]-> "1" User_3 : formateur
+class "User" as User_4 #E5E8E8 {
+}
+AffectationFormateur "0..*" -[#2471A3]-> "0..1" User_4 : affecté par
 Formation "1" *-[#C0392B]- "0..*" AffectationFormateur
+class Qcm #E5E8E8 {
+}
 Qcm "0..*" -[#2471A3]-> "1" ModuleFormation
+class Atelier #E5E8E8 {
+}
 Atelier "0..*" -[#2471A3]-> "1" ModuleFormation
+class Certificat #E5E8E8 {
+}
 Certificat "0..*" -[#2471A3]-> "1" Formation
+class SupportPedagogique #E5E8E8 {
+}
 SupportPedagogique "0..*" -[#2471A3]-> "1" ModuleFormation
+class GenerationIa #E5E8E8 {
+}
 GenerationIa "0..*" -[#2471A3]-> "1" ModuleFormation
-RessourceModule "0..*" -[#2471A3]-> "1" User : ajouté par
+class "User" as User_5 #E5E8E8 {
+}
+RessourceModule "0..*" -[#2471A3]-> "1" User_5 : ajouté par
 ModuleFormation "1" *-[#C0392B]- "0..*" RessourceModule
+class AlerteDecrochage #E5E8E8 {
+}
 Formation "1" *-[#C0392B]- "0..*" AlerteDecrochage
+class Rapport #E5E8E8 {
+}
 Rapport "0..*" -[#2471A3]-> "0..1" Formation
-DemandeAffectation "0..*" -[#2471A3]-> "1" User : formateur
-DemandeAffectation "0..*" -[#2471A3]-> "0..1" User : traité par
+class "User" as User_6 #E5E8E8 {
+}
+DemandeAffectation "0..*" -[#2471A3]-> "1" User_6 : formateur
+class "User" as User_7 #E5E8E8 {
+}
+DemandeAffectation "0..*" -[#2471A3]-> "0..1" User_7 : traité par
 Formation "1" *-[#C0392B]- "0..*" DemandeAffectation
 PropositionFormation "0..*" -[#2471A3]-> "0..1" Formation
-PropositionFormation "0..*" -[#2471A3]-> "0..1" User : traité par
-PropositionFormation "0..*" -[#2471A3]-> "1" User : formateur
+class "User" as User_8 #E5E8E8 {
+}
+PropositionFormation "0..*" -[#2471A3]-> "0..1" User_8 : traité par
+class "User" as User_9 #E5E8E8 {
+}
+PropositionFormation "0..*" -[#2471A3]-> "1" User_9 : formateur
+class ScoreRisque #E5E8E8 {
+}
 Inscription "1" *-[#C0392B]- "0..*" ScoreRisque
 enum NatureRessource {
   LIEN
@@ -159,9 +177,9 @@ enum StatutInscription {
   SUSPENDUE
 }
 legend bottom right
-  | <color:#C0392B><b>◆──</b></color> | composition (suppression en cascade) |
-  | <color:#2471A3><b>──></b></color> | association (clé étrangère) |
+  | <color:#C0392B><b>◆—</b></color> | composition (suppression en cascade) |
+  | <color:#2471A3><b>—></b></color> | association (clé étrangère) |
   | <<SQL direct>> | table sans entité TypeORM (requêtes SQL) |
-  | gris | classe d'un autre package |
+  | gris | classe d'un autre package (répétée une fois par lien pour éviter les croisements) |
 endlegend
 @enduml

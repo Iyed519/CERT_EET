@@ -1,4 +1,5 @@
 @startuml Cert_EET_DS16_Formations_Pilotage_Audit
+!include ../_style.puml
 ' =====================================================================
 '  Projet    : Cert_EET
 '  Diagramme : DS-16 — Formations, pilotage et audit (administrateur)
@@ -9,15 +10,11 @@
 '  Source    : code de `main` = e7216f2 (PR #141) et engineering-log/
 ' =====================================================================
 !pragma teoz true
-skinparam backgroundColor #FFFFFF
-skinparam shadowing false
-skinparam DefaultFontName "Segoe UI"
+autonumber "<b>0."
 skinparam DefaultFontSize 10
-skinparam dpi 120
 skinparam sequenceMessageAlign center
 skinparam responseMessageBelowArrow true
 skinparam ParticipantPadding 18
-skinparam ArrowThickness 1.2
 skinparam LifeLineBorderThickness 1.0
 skinparam participant {
   BackgroundColor #FFFFFF
@@ -82,7 +79,7 @@ A -> C : POST /api/admin/formations/:id/formateurs (affectation)
 A -> C : GET /api/admin/formations/:id/cycle (évaluations en cours ?)
 A -> C : POST /api/admin/formations/:id/statut
 note right of C
-  BROUILLON → OUVERTE → FERMEE ⇄ OUVERTE ;
+  BROUILLON → OUVERTE → FERMEE ↔ OUVERTE ;
   FERMEE → ARCHIVEE (définitif). Évaluations en
   cours : confirmation explicite exigée (409 sinon).
 end note

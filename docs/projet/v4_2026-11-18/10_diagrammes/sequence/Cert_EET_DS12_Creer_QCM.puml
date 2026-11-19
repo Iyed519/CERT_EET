@@ -1,4 +1,5 @@
 @startuml Cert_EET_DS12_Creer_QCM
+!include ../_style.puml
 ' =====================================================================
 '  DS-12 — Créer un QCM complet (contenu + anti-fraude + publication)
 '  Acteur : Formateur · Ref : UC1 + UC2 Formateur · F1
@@ -12,14 +13,11 @@
 '            enregistrés mais non appliqués (révision v1.6).
 ' =====================================================================
 !pragma teoz true
-skinparam backgroundColor #FFFFFF
-skinparam shadowing false
-skinparam DefaultFontName "Segoe UI"
+autonumber "<b>0."
 skinparam DefaultFontSize 10
 skinparam sequenceMessageAlign center
 skinparam responseMessageBelowArrow true
 skinparam ParticipantPadding 18
-skinparam ArrowThickness 1.2
 skinparam LifeLineBorderThickness 1.0
 skinparam participant {
   BackgroundColor #FFFFFF

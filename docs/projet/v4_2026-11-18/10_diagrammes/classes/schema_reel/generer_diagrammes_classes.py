@@ -4,8 +4,9 @@ after running all 43 migrations on PostgreSQL 16 + pgvector (main = e7216f2, PR 
 import re, json, os
 from collections import OrderedDict, defaultdict
 
-S = "/home/claude/schema/"
-OUT = "/home/claude/out/v4/10_diagrammes/classes/"
+# Chemins relatifs au script : les exports du schéma sont à côté, les .puml dans le dossier parent.
+S = os.path.dirname(os.path.abspath(__file__)) + "/"
+OUT = os.path.dirname(os.path.dirname(os.path.abspath(__file__))) + "/"
 os.makedirs(OUT, exist_ok=True)
 
 CLS = OrderedDict([
@@ -133,8 +134,8 @@ def is_nullable(t, c):
         if cc == c: return nul
     return False
 
-def rel(t, c, r, d):
-    A, B = CLS[t][0], CLS[r][0]
+def rel(t, c, r, d, A=None, B=None):
+    A = A or CLS[t][0]; B = B or CLS[r][0]
     one_one = (t, c) in UNIQ
     nul = is_nullable(t, c)
     parent_m = "0..1" if nul else "1"
@@ -147,14 +148,16 @@ def rel(t, c, r, d):
         return f'{A} "{child_m}" -[#2471A3]-> "{parent_m}" {B}{lab}'
     return f'{A} "{child_m}" -[#2471A3]-> "{parent_m}" {B}{lab}'
 
-HEAD = """skinparam backgroundColor #FFFFFF
+HEAD = """!pragma layout elk
+' Mise en page ELK : liens orthogonaux (segments horizontaux/verticaux), sans courbes.
+skinparam backgroundColor #FFFFFF
 skinparam shadowing false
-skinparam DefaultFontName "Segoe UI"
+skinparam roundcorner 6
+skinparam DefaultFontName "Inter"
 skinparam DefaultFontSize 10
+skinparam ArrowThickness 1.2
 skinparam classAttributeIconSize 0
-skinparam dpi 130
-skinparam nodesep 45
-skinparam ranksep 60
+skinparam dpi 140
 skinparam class {
   BackgroundColor #FFFFFF
   BorderColor #34495E
@@ -179,16 +182,16 @@ def class_block(t, full=True, stub=False):
     if t in IMMUABLE and full: st.append(IMMUABLE[t])
     s = f" <<{' · '.join(st)}>>" if st else ""
     if stub:
-        return f"class {name} #F8F9F9 {{\n}}\n"
+        return f"class {name} #E5E8E8 {{\n}}\n"
     body = "\n".join(attrs(t)) if full else ""
     return f"class {name}{s} {{\n{body}\n}}\n"
 
 def legend():
     return """legend bottom right
-  | <color:#C0392B><b>◆──</b></color> | composition (suppression en cascade) |
-  | <color:#2471A3><b>──></b></color> | association (clé étrangère) |
+  | <color:#C0392B><b>◆—</b></color> | composition (suppression en cascade) |
+  | <color:#2471A3><b>—></b></color> | association (clé étrangère) |
   | <<SQL direct>> | table sans entité TypeORM (requêtes SQL) |
-  | gris | classe d'un autre package |
+  | gris | classe d'un autre package (répétée une fois par lien pour éviter les croisements) |
 endlegend
 """
 
@@ -216,9 +219,28 @@ for i, (pk, (pname, color)) in enumerate(PKG.items(), 1):
     if pk == "P1":
         nu = sum(1 for t, c, r, d in FKS if r == "users" and t not in tables)
         b += f'note bottom of User\n  Table unique pour les trois rôles\n  (colonne <b>role</b>). Référencée par\n  <b>{nu}</b> autres clés étrangères\n  (apprenant, formateur, correcteur…).\nend note\n'
-    for t in ext: b += class_block(t, stub=True)
-    for f in fks:
-        b += rel(*f) + "\n"
+    # Classe externe référencée plusieurs fois : une petite boîte grise par lien
+    # (même nom affiché) au lieu d'une seule boîte où toutes les flèches convergent.
+    nref = defaultdict(int)
+    for t, c, r, d in fks:
+        for x in (t, r):
+            if x not in tables: nref[x] += 1
+    seen_ext = defaultdict(int)
+    for t, c, r, d in fks:
+        A, B = CLS[t][0], CLS[r][0]
+        for x in (t, r):
+            if x in tables: continue
+            nm = CLS[x][0]
+            if nref[x] > 1:
+                seen_ext[x] += 1
+                alias = f"{nm}_{seen_ext[x]}"
+                b += f'class "{nm}" as {alias} #E5E8E8 {{\n}}\n'
+            else:
+                alias = nm
+                b += f"class {nm} #E5E8E8 {{\n}}\n"
+            if x == t: A = alias
+            else: B = alias
+        b += rel(t, c, r, d, A, B) + "\n"
     used = set()
     for t in tables:
         for c, ty, ln, nul in COLS[t]:
@@ -256,6 +278,27 @@ b += f'note as NU\n  <b>User</b> est référencé par <b>{nusers}</b> clés étr
 b += legend() + "@enduml\n"
 write("Cert_EET_CLS-00_Vue_Ensemble", b)
 
+
+# ---- CLS-00b : dépendances entre packages (vue de lecture, agrégée depuis les 83 clés étrangères)
+b = "@startuml Cert_EET_CLS-00b_Dependances_Packages\n' CLS-00b — vue agrégée : une flèche par paire de packages (nombre de clés étrangères)\n" + HEAD
+b += "title <size:14><b>Cert_EET — CLS-00b : Dépendances entre packages</b></size>\\n<size:10>Vue de lecture de CLS-00 · une flèche = au moins une clé étrangère d'un package vers l'autre (nombre indiqué) · v3.0</size>\n"
+cnt = defaultdict(int)
+for t, c, r, d in FKS:
+    pa, pb = CLS[t][1], CLS[r][1]
+    if pa != pb: cnt[(pa, pb)] += 1
+for pk, (pname, color) in PKG.items():
+    n = sum(1 for t, (c, p) in CLS.items() if p == pk)
+    b += f'rectangle "<b>{pname}</b>\\n{n} classe(s)" as {pk} {color}\n'
+for (pa, pb), n in sorted(cnt.items(), key=lambda x: (x[0][1], x[0][0])):
+    b += f'{pa} -[#2471A3]-> {pb} : {n}\n'
+b += """legend bottom right
+  | <color:#2471A3><b>—></b></color> | dépend de (clés étrangères, nombre indiqué) |
+  | détail | voir CLS-00 (classes) et CLS-01 à CLS-10 (attributs) |
+endlegend
+@enduml
+"""
+write("Cert_EET_CLS-00b_Dependances_Packages", b)
+
 # ---- enums diagram
 b = "@startuml Cert_EET_CLS-11_Enumerations\n" + HEAD
 b += "title <size:14><b>Cert_EET — CLS-11 : Énumérations PostgreSQL et listes contrôlées</b></size>\\n<size:10>Types ENUM de la base + valeurs imposées par contrainte CHECK · v3.0</size>\n"
@@ -277,7 +320,7 @@ for e, v in extra.items():
 b += "@enduml\n"
 write("Cert_EET_CLS-11_Enumerations", b)
 
-json.dump({"index": INDEX, "enums": ENUM_CLASSES, "extra_enums": extra,
+if os.path.isdir("/home/claude/build"): json.dump({"index": INDEX, "enums": ENUM_CLASSES, "extra_enums": extra,
            "n_tables": len(CLS), "n_fk": len(FKS), "no_entity": sorted(NO_ENTITY)},
           open("/home/claude/build/classes_index.json", "w", encoding="utf-8"), ensure_ascii=False, indent=1)
 print(len(CLS), "tables;", len(FKS), "fks;", len(ENUM_CLASSES), "enums;", len(extra), "check-lists")
