@@ -1,0 +1,101 @@
+@startuml Cert_EET_DS20_Prediction_Risque
+!include ../_style.puml
+' =====================================================================
+'  Projet    : Cert_EET
+'  Diagramme : DS-20 — Prédiction des apprenants à risque
+'  Acteur(s) : Système (balayage), Formateur affecté, Administrateur
+'  Réf.      : F6 · IA prédictive (PR #107 → #112, journal 92) · docs/IA_PREDICTION_RISQUE.md
+'  Auteur    : Iyed Omri — PFE ESPRIT 2026
+'  Version   : 1.0 — 18/11/2026 : nouveau.
+'  Source    : code de `main` = e7216f2 (PR #141) et engineering-log/
+' =====================================================================
+!pragma teoz true
+autonumber "<b>0."
+skinparam DefaultFontSize 10
+skinparam sequenceMessageAlign center
+skinparam responseMessageBelowArrow true
+skinparam ParticipantPadding 18
+skinparam LifeLineBorderThickness 1.0
+skinparam participant {
+  BackgroundColor #FFFFFF
+  BorderColor #5D6D7E
+}
+skinparam actor {
+  BackgroundColor #ECF0F1
+  BorderColor #1B4F72
+  FontStyle bold
+}
+skinparam database {
+  BackgroundColor #EBF5FB
+  BorderColor #1B4F72
+}
+skinparam collections {
+  BackgroundColor #E8F8F5
+  BorderColor #1E8449
+}
+skinparam control {
+  BackgroundColor #FAE5D3
+  BorderColor #BA4A00
+}
+skinparam entity {
+  BackgroundColor #E8DAEF
+  BorderColor #7D3C98
+}
+skinparam boundary {
+  BackgroundColor #FDEDEC
+  BorderColor #943126
+}
+skinparam note {
+  BackgroundColor #FEF9E7
+  BorderColor #B7950B
+  FontSize 9
+}
+skinparam sequence {
+  ArrowColor #34495E
+  LifeLineBorderColor #7F8C8D
+  LifeLineBackgroundColor #FDFEFE
+  GroupBorderColor #1B4F72
+  GroupHeaderFontColor #1B4F72
+  GroupHeaderFontStyle bold
+  DividerBorderColor #1B4F72
+  DividerBackgroundColor #D6EAF8
+  DividerFontColor #1B4F72
+  DividerFontStyle bold
+}
+
+title <size:14><b>Cert_EET — DS-20 : Prédiction des apprenants à risque</b></size>\n<size:10>Balayage quotidien · 16 variables · service ml (LightGBM risque_v1) · niveau + 3 raisons · v1.0</size>
+
+control     "PredictionRisqueBalayageService\n(une fois par jour)" as B
+control     "risque.variables.ts\n(mêmes définitions qu'en Python)" as V
+control     "ClientMlService\n(délai 3 s, sans reprise)" as CM
+participant "Service ml (FastAPI)\nLightGBM risque_v1\nréseau interne" as ML
+database    "PostgreSQL\ninscriptions · scores_risque" as DB
+actor       "Formateur affecté" as F
+control     "PredictionRisqueController" as C
+
+== 1 — Calcul quotidien (jamais pendant une requête) ==
+B -> DB : inscriptions EN_COURS des formations OUVERTES commencées
+B -> V : 16 variables par inscription (activité, remises,\nnotes, délai d'inscription, date de coupure) —\nni genre, ni âge, ni handicap
+B -> CM : lots de 200
+CM -> ML : POST /predire
+alt #FFE8E8 Service arrêté, lent (> 3 s) ou réponse invalide
+  CM --> B : null ; incident journalisé
+  note right of B : aucune prédiction ; les 4 règles\nd'alerte continuent (DS-14)
+else #E8F8F5
+  ML --> CM : probabilité, niveau (seuil 0,355),\n3 raisons (SHAP) par inscription
+  CM -> DB : INSERT scores_risque (probabilité, niveau,\nraisons, variables, version_modele)
+end
+B -> DB : purge des scores de plus de 180 jours
+
+== 2 — Lecture par le formateur ==
+F -> C : GET /api/formateur/risque/formations
+F -> C : GET /api/formateur/formations/:id/risque
+C -> DB : formateur affecté seulement (403 audité sinon) ;\napprenant jamais
+C --> F : une ligne par apprenant (niveau, facteur principal,\nalertes ouvertes), du risque le plus élevé au plus faible ;\n« Suggestion du modèle, à valider par le formateur »
+
+legend bottom
+  | <back:#E8F8F5> vert  </back> | Chemin nominal |
+  | <back:#FFE8E8> rouge </back> | Refus / échec / reprise |
+  | <back:#FEF9E7> jaune </back> | Sans effet (idempotence, cas neutre) |
+endlegend
+@enduml

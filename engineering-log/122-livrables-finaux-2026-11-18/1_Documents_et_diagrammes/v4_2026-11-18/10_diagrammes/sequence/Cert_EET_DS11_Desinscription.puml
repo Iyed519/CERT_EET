@@ -1,0 +1,97 @@
+@startuml Cert_EET_DS11_Desinscription
+!include ../_style.puml
+' =====================================================================
+'  Projet    : Cert_EET
+'  Diagramme : DS-11 — Se désinscrire d'une formation
+'  Acteur(s) : Apprenant
+'  Réf.      : F5 · US-INSC-03 (PR #78, journal 65)
+'  Auteur    : Iyed Omri — PFE ESPRIT 2026
+'  Version   : 2.0 — 18/11/2026 : réécrit d'après le code.
+'  Source    : code de `main` = e7216f2 (PR #141) et engineering-log/
+' =====================================================================
+!pragma teoz true
+autonumber "<b>0."
+skinparam DefaultFontSize 10
+skinparam sequenceMessageAlign center
+skinparam responseMessageBelowArrow true
+skinparam ParticipantPadding 18
+skinparam LifeLineBorderThickness 1.0
+skinparam participant {
+  BackgroundColor #FFFFFF
+  BorderColor #5D6D7E
+}
+skinparam actor {
+  BackgroundColor #ECF0F1
+  BorderColor #1B4F72
+  FontStyle bold
+}
+skinparam database {
+  BackgroundColor #EBF5FB
+  BorderColor #1B4F72
+}
+skinparam collections {
+  BackgroundColor #E8F8F5
+  BorderColor #1E8449
+}
+skinparam control {
+  BackgroundColor #FAE5D3
+  BorderColor #BA4A00
+}
+skinparam entity {
+  BackgroundColor #E8DAEF
+  BorderColor #7D3C98
+}
+skinparam boundary {
+  BackgroundColor #FDEDEC
+  BorderColor #943126
+}
+skinparam note {
+  BackgroundColor #FEF9E7
+  BorderColor #B7950B
+  FontSize 9
+}
+skinparam sequence {
+  ArrowColor #34495E
+  LifeLineBorderColor #7F8C8D
+  LifeLineBackgroundColor #FDFEFE
+  GroupBorderColor #1B4F72
+  GroupHeaderFontColor #1B4F72
+  GroupHeaderFontStyle bold
+  DividerBorderColor #1B4F72
+  DividerBackgroundColor #D6EAF8
+  DividerFontColor #1B4F72
+  DividerFontStyle bold
+}
+
+title <size:14><b>Cert_EET — DS-11 : Se désinscrire d'une formation</b></size>\n<size:10>Conséquences affichées, confirmation, inscription SUSPENDUE (jamais supprimée) · v2.0</size>
+
+actor    "Apprenant" as APP
+boundary "Web" as W
+control  "InscriptionsController" as IC
+control  "DesinscriptionService" as DS
+database "PostgreSQL" as DB
+control  "MailService" as M
+
+APP -> W : Mes inscriptions › « Quitter la formation »
+W -> IC : GET /api/formations/:formationId/desinscription
+IC -> DS : conséquences : accès retiré, tentatives\net livrables en cours, certificats conservés
+DS --> W : résumé à confirmer
+APP -> W : confirme
+W -> IC : POST /api/formations/:formationId/desinscription
+IC -> DS : desinscrire(apprenant, formation)
+DS -> DB : BEGIN ; inscription FOR UPDATE
+alt #FFE8E8 Pas d'inscription / déjà SUSPENDUE
+  DS --> W : 404 / 409
+else #E8F8F5
+  DS -> DB : UPDATE inscriptions SET statut = SUSPENDUE,\nmotif « désinscription », date ; audit ; COMMIT
+  DS ->> M : email aux formateurs affectés (au mieux)
+  DS --> W : 200 ; l'espace de la formation devient inaccessible (403)
+end
+note over DB : les certificats déjà émis restent vérifiables
+
+legend bottom
+  | <back:#E8F8F5> vert  </back> | Chemin nominal |
+  | <back:#FFE8E8> rouge </back> | Refus / échec / reprise |
+  | <back:#FEF9E7> jaune </back> | Sans effet (idempotence, cas neutre) |
+endlegend
+@enduml

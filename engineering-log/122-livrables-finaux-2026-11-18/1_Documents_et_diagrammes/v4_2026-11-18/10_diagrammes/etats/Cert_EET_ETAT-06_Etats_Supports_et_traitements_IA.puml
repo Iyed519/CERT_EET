@@ -1,0 +1,42 @@
+@startuml Cert_EET_ETAT-06_Etats_Supports_et_traitements_IA
+!include ../_style.puml
+!pragma layout elk
+skinparam DefaultFontSize 11
+skinparam ArrowColor #34495E
+skinparam note {
+  BackgroundColor #FEF9E7
+  BorderColor #B7950B
+  FontSize 10
+}
+skinparam state {
+  BackgroundColor #FFFFFF
+  BorderColor #1B4F72
+}
+title <size:14><b>Cert_EET — ETAT-06 : cycle de vie — Supports et traitements IA</b></size>\n<size:10>États = valeurs réelles en base · transitions vérifiées dans le code et les déclencheurs · v2.0</size>
+
+state SupportPedagogique {
+  [*] --> EN_INDEXATION : dépôt
+  EN_INDEXATION --> INDEXE
+  EN_INDEXATION --> ECHEC_INDEXATION
+  ECHEC_INDEXATION -up-> EN_INDEXATION : réindexer
+}
+state GenerationIa {
+  [*] --> G_EN_COURS
+  G_EN_COURS --> G_TERMINEE
+  G_EN_COURS --> G_ECHEC
+}
+state ExtractionQuestions {
+  [*] --> X_EN_ATTENTE
+  X_EN_ATTENTE --> X_EN_COURS
+  X_EN_COURS --> X_TERMINEE : fichier supprimé
+  X_EN_COURS --> X_ECHEC : fichier gardé
+  X_ECHEC -up-> X_EN_ATTENTE : relancer
+}
+state "Suggestion / question extraite" as SQ {
+  [*] --> PROPOSEE
+  PROPOSEE --> ACCEPTEE
+  PROPOSEE --> MODIFIEE
+  PROPOSEE --> REJETEE
+}
+note bottom of SQ : décision définitive (déclencheurs)
+@enduml

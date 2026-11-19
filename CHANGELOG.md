@@ -15,6 +15,19 @@
 
 ## [Après le Sprint 6] — Stories hors sprint
 
+#### DOCS-diagrammes-mise-en-page — Diagrammes : refonte de la mise en page (flèches orthogonales, sans chevauchement)
+- **Quoi :** les diagrammes de `docs/projet/v4_2026-11-18/10_diagrammes/` sont redessinés sans changer
+  leur contenu : moteur de placement ELK (segments horizontaux et verticaux, plus de courbes) pour les
+  classes, états, déploiement, composants et packages ; Graphviz orthogonal pour les cas d'utilisation
+  (acteur à gauche, un lien horizontal par cas) ; style commun `10_diagrammes/_style.puml` (police Inter,
+  traits 1,2) ; messages numérotés dans les diagrammes de séquence. Dans les diagrammes de classes, une
+  classe d'un autre package (gris) est répétée une fois par lien pour que les flèches ne convergent plus
+  vers une seule boîte ; le script `schema_reel/generer_diagrammes_classes.py` produit ce rendu.
+- **Vues ajoutées (les vues complètes sont conservées) :** CLS-00b dépendances entre packages ;
+  COMP-01a structure des modules et COMP-01b matrice des 18 dépendances vers les adaptateurs ;
+  ETAT-07a alertes et ETAT-07b demandes d'affectation et propositions de formation.
+- **Pourquoi :** lisibilité à l'impression et en soutenance (flèches courbes, croisements, étiquettes sur les traits).
+
 #### DEPLOY-fichiers-hetzner — Fichiers de déploiement versionnés — journal `engineering-log/121`
 - **Quoi :** dossier `deploy/hetzner/` : initialisation du serveur (`cloud-config.yaml`), surcharge Compose
   paramétrée par `DOMAINE`, modèle du `.env`, scripts de préparation, de saisie des secrets sans affichage,
@@ -353,6 +366,42 @@ Backlog et revue : `docs/Sprint5_Backlog.md`, `docs/Sprint5_Review.md`.
 - **Quoi :** opt-in par QCM, consentement avant de commencer, une image toutes les 2 min, accès réservé
   au formateur affecté et à l'administration, liens signés, purge à 30 jours, interrupteur de plateforme.
   **Pourquoi :** dissuader la substitution d'identité sans vidéosurveillance ni analyse automatique.
+
+---
+
+## [Sprint 4] — Suivi, tableaux de bord et reporting ; stories reportées soldées — ✅ CLÔTURÉ
+
+**Résumé :** 21 stories livrées (63 pts : 47 engagés + 16 d'extension), le 10/11/2026 (PR #68 → #88),
+avec un agent de développement qui suit la procédure fixée par le porteur ; une PR d'interface sans story
+(#89). **2 140 tests automatisés verts** en fin de sprint (1 372 unitaires + 768 e2e). Le formateur suit ses
+apprenants et reçoit des alertes de décrochage ; l'administrateur pilote la plateforme (tableau de bord,
+certificats, rapports, journal d'audit) ; les stories reportées depuis le Sprint 2 sont soldées.
+Clôture rédigée a posteriori (18/11/2026) : `docs/projet/v4_2026-11-18/5_sprint4/Sprint4_Review.md`.
+
+#### US-AUDIT-01 — Journal d'audit — PR #68 · journal `engineering-log/55`
+- **Quoi :** consultation en lecture seule, filtres (action, acteur, cible, résultat, période), export CSV.
+#### US-DASH-02 — Supervision des certificats — PR #69 · journal `engineering-log/56`
+#### US-DASH-01 — Tableau de bord global — PR #70 · journal `engineering-log/57`
+#### US-SUIVI-01 — Suivi pédagogique du formateur — PR #71 · journal `engineering-log/58`
+#### US-SUIVI-02 — Alertes de décrochage automatiques — PR #72 · journal `engineering-log/59`
+- **Quoi :** balayage planifié, quatre critères factuels, une alerte ouverte par apprenant et par critère.
+#### US-SUIVI-03 — Traiter une alerte — PR #73 · journal `engineering-log/60`
+#### US-RPT-01 — Rapport de session (CSV / PDF, asynchrone) — PR #74 · journal `engineering-log/61`
+#### US-RPT-02 — Rapports institutionnels — PR #75 · journal `engineering-log/62`
+#### US-FORM-02 — Clôturer / archiver une formation — PR #76 · journal `engineering-log/63`
+#### US-INSC-02 — Gérer les inscriptions (import CSV) — PR #77 · journal `engineering-log/64`
+#### US-INSC-03 — Se désinscrire — PR #78 · journal `engineering-log/65`
+#### US-FORM-04 — Contenu pédagogique géré par le formateur — PR #79 · journal `engineering-log/66`
+#### US-QCM-02 — Importer des questions depuis sa banque — PR #80 · journal `engineering-log/67`
+#### US-QCM-11 — Historique des tentatives — PR #81 · journal `engineering-log/68`
+#### US-ATEL-05 — Remplacer son livrable — PR #82 · journal `engineering-log/69`
+#### US-IA-05 — Traçabilité des générations IA — PR #83 · journal `engineering-log/70`
+#### US-CERT-02 — Échecs de génération : alerte administrateur et reprise — PR #84 · journal `engineering-log/71`
+#### US-IA-06 — Couche d'abstraction LLM (compatible OpenAI) — PR #85 · journal `engineering-log/72`
+#### US-CERT-07 — Expiration automatique des certificats — PR #86 · journal `engineering-log/73`
+#### US-CERT-08 — Réémission après révocation pour erreur — PR #87 · journal `engineering-log/74`
+#### US-IA-07 — Suivi en temps réel (SSE) — PR #88 · journal `engineering-log/75`
+#### Interface — en-tête commun, accueil par rôle, catalogue en cartes — PR #89 · journal `engineering-log/76`
 
 ---
 

@@ -1,0 +1,10 @@
+notes_criteres|trg_notes_criteres_coherence|BEFORE INSERT,UPDATE
+suggestions_questions_ia|trg_suggestions_transitions|BEFORE INSERT,UPDATE
+certificats|trg_certificats_actif_immuable|BEFORE UPDATE
+tentatives_qcm|trg_tentatives_qcm_notee_immuable|BEFORE UPDATE
+audit_logs|trg_audit_logs_immutable|BEFORE DELETE,UPDATE
+notes_criteres|trg_notes_criteres_terminee_immuable|BEFORE INSERT,UPDATE
+actions_alerte|trg_actions_alerte_immuable|BEFORE UPDATE
+livrables|trg_livrables_note_immuable|BEFORE UPDATE
+corrections|trg_corrections_terminee_immuable|BEFORE UPDATE
+questions_extraites_ia|trg_questions_extraites_transitions|BEFORE UPDATE

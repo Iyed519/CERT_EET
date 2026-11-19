@@ -1,0 +1,44 @@
+@startuml Cert_EET_DEP03_Zones_Securite
+!include ../_style.puml
+!pragma layout elk
+skinparam DefaultFontSize 11
+skinparam ArrowColor #34495E
+skinparam note {
+  BackgroundColor #FEF9E7
+  BorderColor #B7950B
+  FontSize 10
+}
+title <size:15><b>Cert_EET — DEP-03 : Zones de confiance et contrôles de sécurité</b></size>\n<size:11>Chaque franchissement de frontière est contrôlé · état réalisé · v2.0</size>
+
+rectangle "Zone non fiable — Internet" #FDEDEC {
+  actor "Visiteur / utilisateur" as U
+  actor "Attaquant" as X
+}
+rectangle "Périmètre — pare-feu Hetzner + nginx" #FEF5E7 {
+  component "Pare-feu : 22 (clé SSH), 80, 443" as FW
+  component "nginx : TLS 1.2/1.3 (profil Mozilla intermediate)\nHSTS 2 ans · CSP · Permissions-Policy (caméra : self)\nlimites : auth 30/min · vérification 30/min · refresh 120/min\ncorps JSON 100 ko · dépôts de fichiers dédiés" as NG
+}
+rectangle "Zone applicative — réseau Docker privé" #EBF5FB {
+  component "Guards globaux : JwtAuthGuard (RS256, jti,\ndenylist, sessions-valid-after) → RolesGuard (RBAC)\n→ garde par ressource (formateur affecté)" as G
+  component "LimiteRequetesGuard (Redis) · helmet · CORS sans *\nValidationPipe (DTO) · messages sans détail technique" as V
+  component "AuditInterceptor → audit_logs" as AU
+  component "Règles anti-fraude QCM côté serveur\n(minuterie, tirage, notation, session unique ;\nbonnes réponses jamais envoyées)" as Q
+}
+rectangle "Zone de données" #E8F8F5 {
+  database "PostgreSQL : déclencheurs d'immuabilité\n(audit, tentatives notées, corrections, certificats)" as PG
+  database "Redis : denylists, compteurs" as RD
+  database "MinIO : objets privés,\nliens signés 2 min" as MN
+  file ".env (600) + secrets/ : clés JWT,\nOAuth, SMTP, Anthropic — jamais dans git" as SEC
+}
+
+U --> FW : HTTPS
+X --> FW
+FW --> NG
+NG --> G : /api (HTTP interne)
+G --> V
+V --> Q
+Q --> AU
+AU --> PG
+G --> RD
+Q --> MN
+@enduml

@@ -1,0 +1,224 @@
+@startuml Cert_EET_CLS-11_Enumerations
+!pragma layout elk
+' Mise en page ELK : liens orthogonaux (segments horizontaux/verticaux), sans courbes.
+skinparam backgroundColor #FFFFFF
+skinparam shadowing false
+skinparam roundcorner 6
+skinparam DefaultFontName "Inter"
+skinparam DefaultFontSize 10
+skinparam ArrowThickness 1.2
+skinparam classAttributeIconSize 0
+skinparam dpi 140
+skinparam class {
+  BackgroundColor #FFFFFF
+  BorderColor #34495E
+  HeaderBackgroundColor #EAECEE
+}
+skinparam package {
+  BorderColor #7F8C8D
+  FontStyle bold
+}
+skinparam note {
+  BackgroundColor #FEF9E7
+  BorderColor #B7950B
+  FontSize 9
+}
+hide empty methods
+title <size:14><b>Cert_EET — CLS-11 : Énumérations PostgreSQL et listes contrôlées</b></size>\n<size:10>Types ENUM de la base + valeurs imposées par contrainte CHECK · v3.0</size>
+enum Role {
+  APPRENANT
+  FORMATEUR
+  ADMINISTRATEUR
+}
+enum StatutCompte {
+  EN_ATTENTE_ACTIVATION
+  ACTIF
+  DESACTIVE
+  ANONYMISE
+}
+enum NiveauEtudes {
+  SANS_BAC
+  BAC
+  PREPA
+  BTS
+  LICENCE
+  MAITRISE
+  MASTERE
+  INGENIEUR
+  DOCTORAT
+  AUTRE
+}
+enum RoleDemande {
+  FORMATEUR
+  ADMINISTRATEUR
+}
+enum StatutDemande {
+  EN_ATTENTE
+  APPROUVEE
+  REJETEE
+}
+enum StatutFormation {
+  BROUILLON
+  OUVERTE
+  FERMEE
+  ARCHIVEE
+}
+enum StatutInscription {
+  EN_COURS
+  TERMINEE
+  SUSPENDUE
+}
+enum NatureRessource {
+  LIEN
+  FICHIER
+}
+enum StatutQcm {
+  BROUILLON
+  NON_PUBLIE
+  PUBLIE
+}
+enum AffichageResultats {
+  IMMEDIAT
+  DIFFERE
+}
+enum TypeQuestion {
+  QCM
+  QCU
+  VRAI_FAUX
+  REPONSE_COURTE
+  ASSOCIATION
+}
+enum OrigineQuestion {
+  MANUELLE
+  IA
+  IA_MODIFIEE
+}
+enum StatutTentative {
+  EN_COURS
+  SOUMISE
+  ABANDONNEE_TIMER
+  NOTEE
+}
+enum StatutAtelier {
+  BROUILLON
+  PUBLIE
+  ARCHIVE
+}
+enum StatutLivrable {
+  SOUMIS
+  EN_CORRECTION
+  NOTE
+}
+enum StatutCorrection {
+  EN_COURS
+  TERMINEE
+}
+enum StatutCertificat {
+  EN_ATTENTE_GENERATION
+  EN_GENERATION
+  ACTIF
+  REVOQUE
+  EXPIRE
+}
+enum MotifRevocation {
+  FRAUDE
+  ERREUR_ADMIN
+  DISCIPLINAIRE
+  JUDICIAIRE
+}
+enum StatutSupport {
+  EN_INDEXATION
+  INDEXE
+  ECHEC_INDEXATION
+}
+enum StatutGeneration {
+  EN_COURS
+  TERMINEE
+  ECHEC
+}
+enum StatutSuggestion {
+  PROPOSEE
+  ACCEPTEE
+  MODIFIEE
+  REJETEE
+}
+enum CritereAlerte {
+  INACTIVITE
+  ECHECS_QCM
+  LIVRABLE_EN_RETARD
+  SCORE_EN_CHUTE
+}
+enum StatutAlerte {
+  OUVERTE
+  TRAITEE
+}
+enum TypeActionAlerte {
+  TRAITEMENT
+  REOUVERTURE
+}
+enum TypeRapport {
+  SESSION
+  INSTITUTIONNEL
+}
+enum FormatRapport {
+  CSV
+  PDF
+}
+enum StatutRapport {
+  EN_ATTENTE
+  EN_COURS
+  PRET
+  ECHEC
+}
+enum "StatutExtraction <<CHECK>>" {
+  EN_ATTENTE
+  EN_COURS
+  TERMINEE
+  ECHEC
+}
+enum "StatutQuestionExtraite <<CHECK>>" {
+  PROPOSEE
+  ACCEPTEE
+  MODIFIEE
+  REJETEE
+}
+enum "TypeEvenementSurveillance <<CHECK>>" {
+  PERSONNES_MULTIPLES
+  ABSENCE
+  TELEPHONE
+  DOCUMENT
+  CAMERA_MASQUEE
+  ONGLET_QUITTE
+  ANALYSE_INDISPONIBLE
+}
+enum "StatutEvenementSurveillance <<CHECK>>" {
+  NOUVEAU
+  EXAMINE
+}
+enum "NiveauRisque <<CHECK>>" {
+  FAIBLE
+  MOYEN
+  ELEVE
+}
+enum "StatutDemandeAffectation <<CHECK>>" {
+  EN_ATTENTE
+  ACCEPTEE
+  REFUSEE
+  ANNULEE
+}
+enum "StatutProposition <<CHECK>>" {
+  EN_ATTENTE
+  A_MODIFIER
+  ACCEPTEE
+  REFUSEE
+}
+enum "ObjetJetonLien <<CHECK>>" {
+  REINITIALISATION_MDP
+  ACTIVATION_COMPTE
+}
+enum "NiveauDifficulte <<CHECK>>" {
+  DEBUTANT
+  INTERMEDIAIRE
+  AVANCE
+}
+@enduml

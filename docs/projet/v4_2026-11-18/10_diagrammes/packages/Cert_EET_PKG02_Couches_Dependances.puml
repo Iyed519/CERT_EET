@@ -1,0 +1,29 @@
+@startuml Cert_EET_PKG02_Couches_Dependances
+!include ../_style.puml
+!pragma layout elk
+skinparam DefaultFontSize 11
+skinparam ArrowColor #34495E
+skinparam note {
+  BackgroundColor #FEF9E7
+  BorderColor #B7950B
+  FontSize 10
+}
+skinparam packageStyle rectangle
+title <size:15><b>Cert_EET — PKG-02 : Architecture logique en couches (n-tiers, 5 couches)</b></size>\n<size:11>Chaque couche ne dépend que de la suivante · API en monolithe modulaire · v2.0</size>
+package "1 · Présentation — Next.js 14\ninterfaces apprenant / formateur / administrateur · passage du QCM · vérification publique" as L1 #EBF5FB
+package "2 · Passerelle — nginx\nTLS · HSTS · limites de débit · routage /api" as L2 #FDEDEC
+package "3 · Application — NestJS 10 (20 modules)\nREST + SSE · OpenAPI · JWT, MFA, RBAC, gardes par ressource · règles métier" as L3 #E8F8F5
+package "4 · Asynchrone — BullMQ + balayages\nPDF, SHA-256, QR · indexation RAG · IA · rapports · emails · risque quotidien" as L4 #FEF5E7
+package "5 · Données et services\nPostgreSQL + pgvector · Redis · MinIO · service ml · Claude · SMTP · OAuth" as L5 #F2F3F4
+L1 -down-> L2 : HTTPS
+L2 -down-> L3 : HTTP, réseau privé
+L3 -down-> L4 : travaux dans Redis
+L4 -down-> L5 : SQL · S3 · HTTP
+L3 -down-> L5 : lectures / écritures synchrones
+note right of L3
+  Règle : un module métier n'importe pas
+  le service interne d'un autre module ;
+  les échanges passent par des services
+  exportés ou par la base (vues SQL).
+end note
+@enduml

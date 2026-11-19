@@ -1,0 +1,9 @@
+Cert_EET — livrables à jour (18/11/2026)
+
+1_Documents_et_diagrammes : backlog v3.0, sprints 1 à 6, bilan après sprints,
+   conception (ADR, architectures, cas d'utilisation, classes, écarts) et
+   50 diagrammes PlantUML + PNG (séquence, classes, cas d'utilisation, états,
+   déploiement, composants, packages). Déjà poussé sur GitHub
+   (branche feature/docs-projet-v4).
+2_Presentation : discours EN/FR, guides d'explication EN/FR, liens des présentations.
+Le patch DOCS-projet-v4 n’est pas versionné (contenu déjà dans docs/projet/v4_2026-11-18).

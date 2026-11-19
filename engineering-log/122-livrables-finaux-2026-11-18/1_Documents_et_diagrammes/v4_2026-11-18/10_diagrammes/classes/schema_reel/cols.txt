@@ -1,0 +1,483 @@
+actions_alerte|id|uuid||NO|uuid_generate_v4()
+actions_alerte|alerte_id|uuid||NO|
+actions_alerte|auteur_id|uuid||YES|
+actions_alerte|type|USER-DEFINED||NO|
+actions_alerte|commentaire|text||NO|
+actions_alerte|date_action|timestamp with time zone||NO|now()
+alertes_decrochage|id|uuid||NO|uuid_generate_v4()
+alertes_decrochage|formation_id|uuid||NO|
+alertes_decrochage|apprenant_id|uuid||NO|
+alertes_decrochage|critere|USER-DEFINED||NO|
+alertes_decrochage|statut|USER-DEFINED||NO|'OUVERTE'::alertes_decrochage_statut_enum
+alertes_decrochage|donnees|jsonb||NO|'{}'::jsonb
+alertes_decrochage|suggestion|character varying|300|NO|
+alertes_decrochage|date_creation|timestamp with time zone||NO|now()
+alertes_decrochage|date_traitement|timestamp with time zone||YES|
+alertes_decrochage|traite_par|uuid||YES|
+analyses_ia_tentatives|tentative_id|uuid||NO|
+analyses_ia_tentatives|avec_corrige|boolean||NO|
+analyses_ia_tentatives|modele|character varying|100|NO|
+analyses_ia_tentatives|contenu|jsonb||NO|
+analyses_ia_tentatives|date_creation|timestamp with time zone||NO|now()
+ateliers|id|uuid||NO|uuid_generate_v4()
+ateliers|module_id|uuid||NO|
+ateliers|formateur_id|uuid||YES|
+ateliers|titre|character varying|200|NO|
+ateliers|enonce|text||NO|
+ateliers|competences_visees|text||YES|
+ateliers|date_limite|timestamp with time zone||NO|
+ateliers|types_livrables|ARRAY||NO|
+ateliers|taille_max_mo|integer||NO|20
+ateliers|nb_max_fichiers|integer||NO|1
+ateliers|tolerance_retard_heures|integer||NO|0
+ateliers|statut|USER-DEFINED||NO|'BROUILLON'::ateliers_statut_enum
+ateliers|created_at|timestamp with time zone||NO|now()
+ateliers|updated_at|timestamp with time zone||NO|now()
+audit_logs|id|uuid||NO|uuid_generate_v4()
+audit_logs|user_id|uuid||YES|
+audit_logs|action|character varying|100|NO|
+audit_logs|cible|character varying|255|YES|
+audit_logs|adresse_ip|character varying|45|YES|
+audit_logs|resultat|character varying|20|YES|
+audit_logs|details_avant_apres|jsonb||YES|
+audit_logs|horodatage|timestamp with time zone||NO|now()
+captures_webcam|id|uuid||NO|gen_random_uuid()
+captures_webcam|tentative_id|uuid||NO|
+captures_webcam|cle_stockage|character varying|255|NO|
+captures_webcam|taille_octets|integer||NO|
+captures_webcam|type_contenu|character varying|30|NO|
+captures_webcam|prise_le|timestamp with time zone||NO|now()
+certificats|id|uuid||NO|uuid_generate_v4()
+certificats|apprenant_id|uuid||NO|
+certificats|formation_id|uuid||NO|
+certificats|statut|USER-DEFINED||NO|'EN_ATTENTE_GENERATION'::certificats_statut_enum
+certificats|score_final|numeric||NO|
+certificats|mention|character varying|20|NO|
+certificats|organisme_emetteur|character varying|120|NO|
+certificats|date_emission|timestamp with time zone||NO|
+certificats|date_generation|timestamp with time zone||YES|
+certificats|cle_stockage|character varying|200|YES|
+certificats|empreinte_sha256|character|64|YES|
+certificats|nb_tentatives|integer||NO|0
+certificats|derniere_erreur|character varying|500|YES|
+certificats|created_at|timestamp with time zone||NO|now()
+certificats|updated_at|timestamp with time zone||NO|now()
+certificats|date_revocation|timestamp with time zone||YES|
+certificats|motif_revocation|USER-DEFINED||YES|
+certificats|description_revocation|text||YES|
+certificats|revoque_par|uuid||YES|
+certificats|echec_definitif_le|timestamp with time zone||YES|
+certificats|debut_generation|timestamp with time zone||YES|
+certificats|date_expiration|timestamp with time zone||YES|
+certificats|remplace_certificat_id|uuid||YES|
+comptes_oauth|id|uuid||NO|uuid_generate_v4()
+comptes_oauth|user_id|uuid||NO|
+comptes_oauth|provider|character varying|30|NO|
+comptes_oauth|provider_id|character varying|255|NO|
+comptes_oauth|email|character varying|255|YES|
+comptes_oauth|created_at|timestamp with time zone||NO|now()
+config_anti_fraude|id|uuid||NO|uuid_generate_v4()
+config_anti_fraude|qcm_id|uuid||NO|
+config_anti_fraude|randomiser_questions|boolean||NO|false
+config_anti_fraude|randomiser_options|boolean||NO|false
+config_anti_fraude|nb_questions_tirees|integer||YES|
+config_anti_fraude|duree_max_minutes|integer||NO|
+config_anti_fraude|date_ouverture|timestamp with time zone||NO|
+config_anti_fraude|date_fermeture|timestamp with time zone||NO|
+config_anti_fraude|nb_tentatives_max|integer||NO|1
+config_anti_fraude|delai_entre_tentatives|integer||NO|0
+config_anti_fraude|blocage_sessions_multiples|boolean||NO|false
+config_anti_fraude|affichage_resultats|USER-DEFINED||NO|
+config_anti_fraude|score_min_validation|numeric||NO|
+config_anti_fraude|ponderation_formation|numeric||NO|
+config_anti_fraude|proctoring_webcam|boolean||NO|false
+config_anti_fraude|desactiver_copier_coller|boolean||NO|false
+config_anti_fraude|created_at|timestamp with time zone||NO|now()
+config_anti_fraude|updated_at|timestamp with time zone||NO|now()
+consultations_feedback|livrable_id|uuid||NO|
+consultations_feedback|date_consultation|timestamp with time zone||NO|now()
+corrections|id|uuid||NO|uuid_generate_v4()
+corrections|livrable_id|uuid||NO|
+corrections|correcteur_id|uuid||NO|
+corrections|statut|USER-DEFINED||NO|'EN_COURS'::corrections_statut_enum
+corrections|date_ouverture|timestamp with time zone||NO|
+corrections|created_at|timestamp with time zone||NO|now()
+corrections|updated_at|timestamp with time zone||NO|now()
+corrections|score_total|numeric||YES|
+corrections|commentaire_general|text||YES|
+corrections|date_finalisation|timestamp with time zone||YES|
+criteres|id|uuid||NO|uuid_generate_v4()
+criteres|grille_id|uuid||NO|
+criteres|ordre|integer||NO|
+criteres|intitule|character varying|200|NO|
+criteres|ponderation|integer||NO|
+criteres|description|text||YES|
+criteres|created_at|timestamp with time zone||NO|now()
+criteres|updated_at|timestamp with time zone||NO|now()
+demandes_affectation|id|uuid||NO|gen_random_uuid()
+demandes_affectation|formation_id|uuid||NO|
+demandes_affectation|formateur_id|uuid||NO|
+demandes_affectation|motif|character varying|1000|NO|
+demandes_affectation|statut|character varying|20|NO|'EN_ATTENTE'::character varying
+demandes_affectation|motif_refus|character varying|1000|YES|
+demandes_affectation|traite_par|uuid||YES|
+demandes_affectation|traite_le|timestamp with time zone||YES|
+demandes_affectation|cree_le|timestamp with time zone||NO|now()
+demandes_role|id|uuid||NO|uuid_generate_v4()
+demandes_role|user_id|uuid||NO|
+demandes_role|role_demande|USER-DEFINED||NO|
+demandes_role|justification|text||NO|
+demandes_role|statut|USER-DEFINED||NO|'EN_ATTENTE'::demandes_role_statut_enum
+demandes_role|motif|character varying|500|YES|
+demandes_role|traite_par|uuid||YES|
+demandes_role|created_at|timestamp with time zone||NO|now()
+demandes_role|traite_at|timestamp with time zone||YES|
+domaines_etudes|id|uuid||NO|uuid_generate_v4()
+domaines_etudes|code|character varying|30|NO|
+domaines_etudes|libelle|character varying|120|NO|
+domaines_etudes|created_at|timestamp with time zone||NO|now()
+etablissement_domaine|id|uuid||NO|uuid_generate_v4()
+etablissement_domaine|etablissement_id|uuid||NO|
+etablissement_domaine|domaine_id|uuid||NO|
+etablissements|id|uuid||NO|uuid_generate_v4()
+etablissements|universite_id|uuid||NO|
+etablissements|nom|character varying|255|NO|
+etablissements|type|character varying|20|NO|
+etablissements|gouvernorat|character varying|50|YES|
+etablissements|created_at|timestamp with time zone||NO|now()
+evenements_surveillance|id|uuid||NO|
+evenements_surveillance|tentative_id|uuid||NO|
+evenements_surveillance|type|character varying|30|NO|
+evenements_surveillance|confiance|numeric||YES|
+evenements_surveillance|cle_stockage|character varying|255|NO|
+evenements_surveillance|taille_octets|integer||NO|
+evenements_surveillance|type_contenu|character varying|30|NO|
+evenements_surveillance|detecte_le|timestamp with time zone||NO|now()
+evenements_surveillance|statut|character varying|10|NO|'NOUVEAU'::character varying
+evenements_surveillance|examine_par|uuid||YES|
+evenements_surveillance|examine_le|timestamp with time zone||YES|
+extractions_questions_ia|id|uuid||NO|gen_random_uuid()
+extractions_questions_ia|qcm_id|uuid||NO|
+extractions_questions_ia|formateur_id|uuid||NO|
+extractions_questions_ia|nom_fichier|character varying|255|NO|
+extractions_questions_ia|format|character varying|10|NO|
+extractions_questions_ia|taille_octets|integer||NO|
+extractions_questions_ia|sha256|character|64|NO|
+extractions_questions_ia|cle_stockage|character varying|300|YES|
+extractions_questions_ia|statut|character varying|20|NO|'EN_ATTENTE'::character varying
+extractions_questions_ia|mode_lecture|character varying|20|YES|
+extractions_questions_ia|tronque|boolean||NO|false
+extractions_questions_ia|modele_llm|character varying|100|YES|
+extractions_questions_ia|nb_questions|integer||YES|
+extractions_questions_ia|nb_ecartees|integer||YES|
+extractions_questions_ia|nb_tentatives|integer||NO|0
+extractions_questions_ia|derniere_erreur|character varying|500|YES|
+extractions_questions_ia|date_lancement|timestamp with time zone||NO|now()
+extractions_questions_ia|date_fin|timestamp with time zone||YES|
+extractions_questions_ia|created_at|timestamp with time zone||NO|now()
+extractions_questions_ia|updated_at|timestamp with time zone||NO|now()
+fichiers_livrables|id|uuid||NO|uuid_generate_v4()
+fichiers_livrables|livrable_id|uuid||NO|
+fichiers_livrables|ordre|integer||NO|
+fichiers_livrables|nom_original|character varying|255|NO|
+fichiers_livrables|extension|character varying|10|NO|
+fichiers_livrables|taille_octets|bigint||NO|
+fichiers_livrables|sha256|character|64|NO|
+fichiers_livrables|cle_stockage|character varying|500|NO|
+formation_formateurs|id|uuid||NO|uuid_generate_v4()
+formation_formateurs|formation_id|uuid||NO|
+formation_formateurs|formateur_id|uuid||NO|
+formation_formateurs|affecte_par|uuid||YES|
+formation_formateurs|created_at|timestamp with time zone||NO|now()
+formations|id|uuid||NO|uuid_generate_v4()
+formations|titre|character varying|255|NO|
+formations|description|text||YES|
+formations|created_at|timestamp with time zone||NO|now()
+formations|updated_at|timestamp with time zone||NO|now()
+formations|objectifs|text||YES|
+formations|prerequis|text||YES|
+formations|date_debut|date||YES|
+formations|date_fin|date||YES|
+formations|duree_heures|integer||YES|
+formations|modele_certificat|character varying|255|YES|
+formations|statut|USER-DEFINED||NO|'OUVERTE'::formations_statut_enum
+formations|capacite_max|integer||NO|
+formations|note_min_certification|numeric||NO|
+formations|duree_validite_mois|integer||YES|
+generations_ia|id|uuid||NO|uuid_generate_v4()
+generations_ia|module_id|uuid||NO|
+generations_ia|support_id|uuid||NO|
+generations_ia|formateur_id|uuid||NO|
+generations_ia|nb_questions_demandees|integer||NO|
+generations_ia|types_questions|ARRAY||NO|
+generations_ia|niveau|character varying|20|NO|
+generations_ia|focus_thematique|character varying|200|YES|
+generations_ia|statut|USER-DEFINED||NO|'EN_COURS'::generations_ia_statut_enum
+generations_ia|modele_llm|character varying|100|YES|
+generations_ia|nb_suggestions|integer||YES|
+generations_ia|nb_invalides|integer||YES|
+generations_ia|nb_tentatives|integer||NO|0
+generations_ia|derniere_erreur|character varying|500|YES|
+generations_ia|date_lancement|timestamp with time zone||NO|now()
+generations_ia|date_fin|timestamp with time zone||YES|
+generations_ia|created_at|timestamp with time zone||NO|now()
+generations_ia|updated_at|timestamp with time zone||NO|now()
+grilles|id|uuid||NO|uuid_generate_v4()
+grilles|atelier_id|uuid||YES|
+grilles|formateur_id|uuid||YES|
+grilles|validee|boolean||NO|false
+grilles|est_modele|boolean||NO|false
+grilles|nom_modele|character varying|120|YES|
+grilles|created_at|timestamp with time zone||NO|now()
+grilles|updated_at|timestamp with time zone||NO|now()
+inscriptions|id|uuid||NO|uuid_generate_v4()
+inscriptions|apprenant_id|uuid||NO|
+inscriptions|formation_id|uuid||NO|
+inscriptions|date_inscription|timestamp with time zone||NO|now()
+inscriptions|date_echeance|date||YES|
+inscriptions|statut|USER-DEFINED||NO|'EN_COURS'::inscriptions_statut_enum
+inscriptions|taux_avancement|numeric||NO|0
+inscriptions|updated_at|timestamp with time zone||NO|now()
+inscriptions|motif_suspension|character varying|500|YES|
+inscriptions|date_suspension|timestamp with time zone||YES|
+inscriptions|suspendue_par|uuid||YES|
+jetons_lien_email|id|uuid||NO|gen_random_uuid()
+jetons_lien_email|user_id|uuid||NO|
+jetons_lien_email|objet|character varying|30|NO|
+jetons_lien_email|empreinte|character|64|NO|
+jetons_lien_email|expire_le|timestamp with time zone||NO|
+jetons_lien_email|utilise_le|timestamp with time zone||YES|
+jetons_lien_email|cree_le|timestamp with time zone||NO|now()
+livrables|id|uuid||NO|
+livrables|atelier_id|uuid||NO|
+livrables|apprenant_id|uuid||NO|
+livrables|version|integer||NO|1
+livrables|statut|USER-DEFINED||NO|'SOUMIS'::livrables_statut_enum
+livrables|date_soumission|timestamp with time zone||NO|
+livrables|en_retard|boolean||NO|false
+livrables|hash_tracabilite|character|64|NO|
+livrables|commentaire|text||YES|
+livrables|liens|ARRAY||NO|'{}'::character varying[]
+livrables|created_at|timestamp with time zone||NO|now()
+livrables|updated_at|timestamp with time zone||NO|now()
+migrations|id|integer||NO|nextval('migrations_id_seq'::regclass)
+migrations|timestamp|bigint||NO|
+migrations|name|character varying||NO|
+modules|id|uuid||NO|uuid_generate_v4()
+modules|formation_id|uuid||NO|
+modules|titre|character varying|255|NO|
+modules|ordre|integer||NO|
+modules|description|text||YES|
+modules|created_at|timestamp with time zone||NO|now()
+modules|updated_at|timestamp with time zone||NO|now()
+niveaux_performance|id|uuid||NO|uuid_generate_v4()
+niveaux_performance|critere_id|uuid||NO|
+niveaux_performance|ordre|smallint||NO|
+niveaux_performance|libelle|character varying|20|NO|
+niveaux_performance|points_min_pct|integer||NO|
+niveaux_performance|points_max_pct|integer||NO|
+niveaux_performance|descripteur|text||YES|
+notes_criteres|id|uuid||NO|uuid_generate_v4()
+notes_criteres|correction_id|uuid||NO|
+notes_criteres|critere_id|uuid||NO|
+notes_criteres|niveau_id|uuid||NO|
+notes_criteres|points_pct|numeric||NO|
+notes_criteres|commentaire|text||YES|
+notes_criteres|created_at|timestamp with time zone||NO|now()
+notes_criteres|updated_at|timestamp with time zone||NO|now()
+options|id|uuid||NO|uuid_generate_v4()
+options|question_id|uuid||NO|
+options|texte|text||NO|
+options|est_correcte|boolean||NO|
+options|ordre|integer||NO|
+propositions_formation|id|uuid||NO|gen_random_uuid()
+propositions_formation|formateur_id|uuid||NO|
+propositions_formation|titre|character varying|255|NO|
+propositions_formation|description|character varying|5000|YES|
+propositions_formation|objectifs|character varying|5000|YES|
+propositions_formation|duree_heures|integer||YES|
+propositions_formation|capacite_max|integer||NO|
+propositions_formation|public_vise|character varying|1000|YES|
+propositions_formation|motif|character varying|1000|NO|
+propositions_formation|statut|character varying|20|NO|'EN_ATTENTE'::character varying
+propositions_formation|commentaire_admin|character varying|1000|YES|
+propositions_formation|formation_id|uuid||YES|
+propositions_formation|version|integer||NO|1
+propositions_formation|traite_par|uuid||YES|
+propositions_formation|traite_le|timestamp with time zone||YES|
+propositions_formation|cree_le|timestamp with time zone||NO|now()
+propositions_formation|modifie_le|timestamp with time zone||NO|now()
+qcm|id|uuid||NO|uuid_generate_v4()
+qcm|module_id|uuid||NO|
+qcm|formateur_id|uuid||YES|
+qcm|titre|character varying|255|NO|
+qcm|description|text||YES|
+qcm|statut|USER-DEFINED||NO|'BROUILLON'::qcm_statut_enum
+qcm|created_at|timestamp with time zone||NO|now()
+qcm|updated_at|timestamp with time zone||NO|now()
+qcm_questions|id|uuid||NO|uuid_generate_v4()
+qcm_questions|qcm_id|uuid||NO|
+qcm_questions|question_id|uuid||NO|
+qcm_questions|ordre|integer||NO|
+questions|id|uuid||NO|uuid_generate_v4()
+questions|enonce|text||NO|
+questions|type|USER-DEFINED||NO|
+questions|ponderation|numeric||NO|1
+questions|explication|text||YES|
+questions|niveau_difficulte|character varying|50|YES|
+questions|created_at|timestamp with time zone||NO|now()
+questions|updated_at|timestamp with time zone||NO|now()
+questions|origine|USER-DEFINED||NO|'MANUELLE'::questions_origine_enum
+questions_extraites_ia|id|uuid||NO|gen_random_uuid()
+questions_extraites_ia|extraction_id|uuid||NO|
+questions_extraites_ia|ordre|integer||NO|
+questions_extraites_ia|enonce|text||NO|
+questions_extraites_ia|type|character varying|10|NO|
+questions_extraites_ia|options|jsonb||NO|
+questions_extraites_ia|reponse_connue|boolean||NO|
+questions_extraites_ia|explication|text||YES|
+questions_extraites_ia|niveau|character varying|20|YES|
+questions_extraites_ia|statut|character varying|10|NO|'PROPOSEE'::character varying
+questions_extraites_ia|question_id|uuid||YES|
+questions_extraites_ia|decide_par|uuid||YES|
+questions_extraites_ia|date_decision|timestamp with time zone||YES|
+questions_extraites_ia|motif_rejet|character varying|500|YES|
+questions_extraites_ia|created_at|timestamp with time zone||NO|now()
+questions_extraites_ia|updated_at|timestamp with time zone||NO|now()
+rapports|id|uuid||NO|uuid_generate_v4()
+rapports|type|USER-DEFINED||NO|
+rapports|format|USER-DEFINED||NO|
+rapports|statut|USER-DEFINED||NO|'EN_ATTENTE'::rapports_statut_enum
+rapports|demandeur_id|uuid||NO|
+rapports|formation_id|uuid||YES|
+rapports|parametres|jsonb||NO|'{}'::jsonb
+rapports|nom_fichier|character varying|200|YES|
+rapports|cle_stockage|character varying|400|YES|
+rapports|taille_octets|integer||YES|
+rapports|empreinte_sha256|character|64|YES|
+rapports|nb_tentatives|integer||NO|0
+rapports|derniere_erreur|text||YES|
+rapports|date_demande|timestamp with time zone||NO|now()
+rapports|date_fin|timestamp with time zone||YES|
+refresh_tokens|id|uuid||NO|uuid_generate_v4()
+refresh_tokens|user_id|uuid||NO|
+refresh_tokens|token_hash|character varying|255|NO|
+refresh_tokens|adresse_ip|character varying|45|YES|
+refresh_tokens|user_agent|character varying|255|YES|
+refresh_tokens|active|boolean||NO|true
+refresh_tokens|date_expiration|timestamp with time zone||NO|
+refresh_tokens|created_at|timestamp with time zone||NO|now()
+refresh_tokens|famille_id|uuid||NO|
+reponse_options|reponse_id|uuid||NO|
+reponse_options|option_id|uuid||NO|
+reponses|id|uuid||NO|uuid_generate_v4()
+reponses|tentative_id|uuid||NO|
+reponses|question_id|uuid||NO|
+reponses|est_correcte|boolean||YES|
+reponses|points_obtenus|numeric||YES|
+reponses|updated_at|timestamp with time zone||NO|now()
+ressources_module|id|uuid||NO|uuid_generate_v4()
+ressources_module|module_id|uuid||NO|
+ressources_module|ordre|integer||NO|
+ressources_module|nature|USER-DEFINED||NO|
+ressources_module|titre|character varying|200|NO|
+ressources_module|description|character varying|500|YES|
+ressources_module|url|character varying|2048|YES|
+ressources_module|plateforme|character varying|10|YES|
+ressources_module|video_id|character varying|32|YES|
+ressources_module|debut_secondes|integer||YES|
+ressources_module|ajoute_par|uuid||NO|
+ressources_module|created_at|timestamp with time zone||NO|now()
+ressources_module|updated_at|timestamp with time zone||NO|now()
+ressources_module|nom_original|character varying|255|YES|
+ressources_module|extension|character varying|16|YES|
+ressources_module|type_mime|character varying|100|YES|
+ressources_module|taille_octets|bigint||YES|
+ressources_module|sha256|character|64|YES|
+ressources_module|cle_stockage|character varying|400|YES|
+ressources_module|lecture|character varying|10|YES|
+scores_risque|id|uuid||NO|gen_random_uuid()
+scores_risque|inscription_id|uuid||NO|
+scores_risque|date_calcul|timestamp with time zone||NO|
+scores_risque|probabilite|numeric||NO|
+scores_risque|niveau|character varying|10|NO|
+scores_risque|raisons|jsonb||NO|'[]'::jsonb
+scores_risque|variables|jsonb||NO|'{}'::jsonb
+scores_risque|version_modele|character varying|50|NO|
+segments_support|id|uuid||NO|uuid_generate_v4()
+segments_support|support_id|uuid||NO|
+segments_support|ordre|integer||NO|
+segments_support|texte|text||NO|
+segments_support|embedding|USER-DEFINED||NO|
+suggestions_questions_ia|id|uuid||NO|uuid_generate_v4()
+suggestions_questions_ia|generation_id|uuid||NO|
+suggestions_questions_ia|ordre|integer||NO|
+suggestions_questions_ia|enonce|text||NO|
+suggestions_questions_ia|type|character varying|10|NO|
+suggestions_questions_ia|options|jsonb||NO|
+suggestions_questions_ia|explication|text||YES|
+suggestions_questions_ia|score_confiance|numeric||YES|
+suggestions_questions_ia|passages_sources|ARRAY||NO|'{}'::integer[]
+suggestions_questions_ia|statut|USER-DEFINED||NO|'PROPOSEE'::suggestions_questions_ia_statut_enum
+suggestions_questions_ia|created_at|timestamp with time zone||NO|now()
+suggestions_questions_ia|updated_at|timestamp with time zone||NO|now()
+suggestions_questions_ia|question_id|uuid||YES|
+suggestions_questions_ia|qcm_id|uuid||YES|
+suggestions_questions_ia|decide_par|uuid||YES|
+suggestions_questions_ia|date_decision|timestamp with time zone||YES|
+suggestions_questions_ia|motif_rejet|text||YES|
+supports_pedagogiques|id|uuid||NO|uuid_generate_v4()
+supports_pedagogiques|module_id|uuid||NO|
+supports_pedagogiques|depose_par|uuid||NO|
+supports_pedagogiques|titre|character varying|200|NO|
+supports_pedagogiques|nom_original|character varying|255|NO|
+supports_pedagogiques|extension|character varying|8|NO|
+supports_pedagogiques|taille_octets|integer||NO|
+supports_pedagogiques|sha256|character|64|NO|
+supports_pedagogiques|cle_stockage|character varying|400|NO|
+supports_pedagogiques|statut|USER-DEFINED||NO|'EN_INDEXATION'::supports_pedagogiques_statut_enum
+supports_pedagogiques|nb_segments|integer||YES|
+supports_pedagogiques|nb_caracteres|integer||YES|
+supports_pedagogiques|modele_embeddings|character varying|100|YES|
+supports_pedagogiques|nb_tentatives|integer||NO|0
+supports_pedagogiques|derniere_erreur|character varying|500|YES|
+supports_pedagogiques|date_depot|timestamp with time zone||NO|now()
+supports_pedagogiques|date_indexation|timestamp with time zone||YES|
+supports_pedagogiques|created_at|timestamp with time zone||NO|now()
+supports_pedagogiques|updated_at|timestamp with time zone||NO|now()
+tentatives_qcm|id|uuid||NO|uuid_generate_v4()
+tentatives_qcm|apprenant_id|uuid||NO|
+tentatives_qcm|qcm_id|uuid||NO|
+tentatives_qcm|date_debut|timestamp with time zone||NO|now()
+tentatives_qcm|date_limite|timestamp with time zone||NO|
+tentatives_qcm|date_fin|timestamp with time zone||YES|
+tentatives_qcm|duree_effective|integer||YES|
+tentatives_qcm|score|numeric||YES|
+tentatives_qcm|est_reussie|boolean||YES|
+tentatives_qcm|statut|USER-DEFINED||NO|'EN_COURS'::tentatives_qcm_statut_enum
+tentatives_qcm|plan_tirage|jsonb||YES|
+tentatives_qcm|session_id|uuid||YES|
+tentatives_qcm|consentement_surveillance_le|timestamp with time zone||YES|
+universites|id|uuid||NO|uuid_generate_v4()
+universites|nom|character varying|255|NO|
+universites|type|character varying|10|NO|
+universites|gouvernorat|character varying|50|YES|
+universites|created_at|timestamp with time zone||NO|now()
+users|id|uuid||NO|uuid_generate_v4()
+users|email|character varying|255|NO|
+users|mot_de_passe_hash|character varying|255|YES|
+users|role|USER-DEFINED||NO|
+users|statut|USER-DEFINED||NO|'EN_ATTENTE_ACTIVATION'::users_statut_enum
+users|mfa_active|boolean||NO|false
+users|mfa_secret|character varying|255|YES|
+users|derniere_connexion|timestamp with time zone||YES|
+users|created_at|timestamp with time zone||NO|now()
+users|updated_at|timestamp with time zone||NO|now()
+users|nom|character varying|100|YES|
+users|prenom|character varying|100|YES|
+users|date_naissance|date||YES|
+users|niveau_etudes|USER-DEFINED||YES|
+users|domaine_etudes_id|uuid||YES|
+users|etablissement_id|uuid||YES|
+users|etablissement_autre|character varying|255|YES|
+users|profil_complet|boolean||NO|false

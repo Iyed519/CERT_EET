@@ -1,0 +1,4 @@
+Présentations (Claude Slides, export PowerPoint/PDF depuis la page) :
+- FR : https://claude.ai/artifact/8Zw2dhpciRNWY1UJojwKBF
+- EN : https://claude.ai/artifact/AtVQbDjL76EP8N3C1ShgDM
+Chiffres corrigés : 81 user stories / 315 points sur 6 sprints (Sprint 4 : 63 points, 21 stories).

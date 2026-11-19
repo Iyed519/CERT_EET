@@ -1,0 +1,56 @@
+@startuml Cert_EET_PKG01_Arborescence_Depot
+!include ../_style.puml
+!pragma layout elk
+skinparam DefaultFontSize 11
+skinparam ArrowColor #34495E
+skinparam note {
+  BackgroundColor #FEF9E7
+  BorderColor #B7950B
+  FontSize 10
+}
+skinparam packageStyle folder
+title <size:15><b>Cert_EET — PKG-01 : Arborescence réelle du dépôt (monorepo)</b></size>\n<size:11>github.com/Iyed519/CERT_EET · main = e7216f2 · v2.0</size>
+package "CERT_EET" {
+  package "apps/api (NestJS 10)" #E8F8F5 {
+    package "src/modules (20)" as SM
+    package "src/config" as SC
+    package "src/database\n(entities 41 · enums · migrations 43 · demo)" as SD
+    package "src/common" as SCO
+    package "src/mail · redis · stockage" as SI
+    package "test (e2e, fixtures)" as ST
+  }
+  package "apps/web (Next.js 14)" #EBF5FB {
+    package "src/app (pages par rôle)" as WA
+    package "src/components" as WC
+    package "src/lib (api, règles pures)" as WL
+    package "public/mediapipe\n(modèle EfficientDet-Lite0)" as WM
+  }
+  package "ml (Python)" #FEF5E7 {
+    package "risque (variables, explications)" as MR
+    package "service (FastAPI)" as MS
+    package "modeles (risque_v1.joblib/.json)" as MM
+    package "notebooks · tests" as MN
+  }
+  package "deploy/hetzner\n(cloud-config, compose, 7 scripts)" as DH #FDEDEC
+  package "docker/nginx" as DN
+  package "docs (sprints, guides, projet, ux)" as DO
+  package "engineering-log (121 journaux)" as EL
+  package "outils/recette (audit de navigation,\ninventaire des actions)" as OR
+  package ".github/workflows (ci, cd)" as GW
+}
+SM ..> SD
+SM ..> SC
+SM ..> SCO
+SM ..> SI
+WA ..> WC
+WC ..> WL
+MR -[hidden]down- MS
+MS -[hidden]down- MM
+MM -[hidden]down- MN
+DH -[hidden]down- DN
+DN -[hidden]down- DO
+DO -[hidden]down- EL
+EL -[hidden]down- OR
+OR -[hidden]down- GW
+WM -[hidden]down- WA
+@enduml

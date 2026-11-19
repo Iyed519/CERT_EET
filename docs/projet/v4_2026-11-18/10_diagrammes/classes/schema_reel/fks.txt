@@ -1,0 +1,83 @@
+users|FK_users_etablissement|etablissements|n|FOREIGN KEY (etablissement_id) REFERENCES etablissements(id) ON DELETE SET NULL
+users|FK_users_domaine_etudes|domaines_etudes|n|FOREIGN KEY (domaine_etudes_id) REFERENCES domaines_etudes(id) ON DELETE SET NULL
+refresh_tokens|FK_3ddc983c5f7bcf132fd8732c3f4|users|c|FOREIGN KEY (user_id) REFERENCES users(id) ON DELETE CASCADE
+comptes_oauth|FK_comptes_oauth_user|users|c|FOREIGN KEY (user_id) REFERENCES users(id) ON DELETE CASCADE
+etablissements|FK_etablissements_universite|universites|c|FOREIGN KEY (universite_id) REFERENCES universites(id) ON DELETE CASCADE
+etablissement_domaine|FK_etab_domaine_etab|etablissements|c|FOREIGN KEY (etablissement_id) REFERENCES etablissements(id) ON DELETE CASCADE
+etablissement_domaine|FK_etab_domaine_domaine|domaines_etudes|c|FOREIGN KEY (domaine_id) REFERENCES domaines_etudes(id) ON DELETE CASCADE
+demandes_role|FK_demandes_role_traite_par|users|n|FOREIGN KEY (traite_par) REFERENCES users(id) ON DELETE SET NULL
+demandes_role|FK_demandes_role_user|users|c|FOREIGN KEY (user_id) REFERENCES users(id) ON DELETE CASCADE
+modules|FK_modules_formation|formations|c|FOREIGN KEY (formation_id) REFERENCES formations(id) ON DELETE CASCADE
+inscriptions|FK_inscriptions_suspendue_par|users|n|FOREIGN KEY (suspendue_par) REFERENCES users(id) ON DELETE SET NULL
+inscriptions|FK_inscriptions_apprenant|users|r|FOREIGN KEY (apprenant_id) REFERENCES users(id) ON DELETE RESTRICT
+inscriptions|FK_inscriptions_formation|formations|r|FOREIGN KEY (formation_id) REFERENCES formations(id) ON DELETE RESTRICT
+formation_formateurs|FK_formation_formateurs_formateur|users|r|FOREIGN KEY (formateur_id) REFERENCES users(id) ON DELETE RESTRICT
+formation_formateurs|FK_formation_formateurs_affecte_par|users|n|FOREIGN KEY (affecte_par) REFERENCES users(id) ON DELETE SET NULL
+formation_formateurs|FK_formation_formateurs_formation|formations|c|FOREIGN KEY (formation_id) REFERENCES formations(id) ON DELETE CASCADE
+qcm|FK_qcm_formateur|users|n|FOREIGN KEY (formateur_id) REFERENCES users(id) ON DELETE SET NULL
+qcm|FK_qcm_module|modules|r|FOREIGN KEY (module_id) REFERENCES modules(id) ON DELETE RESTRICT
+config_anti_fraude|FK_config_anti_fraude_qcm|qcm|c|FOREIGN KEY (qcm_id) REFERENCES qcm(id) ON DELETE CASCADE
+options|FK_options_question|questions|c|FOREIGN KEY (question_id) REFERENCES questions(id) ON DELETE CASCADE
+qcm_questions|FK_qcm_questions_question|questions|r|FOREIGN KEY (question_id) REFERENCES questions(id) ON DELETE RESTRICT
+qcm_questions|FK_qcm_questions_qcm|qcm|c|FOREIGN KEY (qcm_id) REFERENCES qcm(id) ON DELETE CASCADE
+tentatives_qcm|FK_tentatives_qcm_qcm|qcm|r|FOREIGN KEY (qcm_id) REFERENCES qcm(id) ON DELETE RESTRICT
+tentatives_qcm|FK_tentatives_qcm_apprenant|users|r|FOREIGN KEY (apprenant_id) REFERENCES users(id) ON DELETE RESTRICT
+reponses|FK_reponses_tentative|tentatives_qcm|c|FOREIGN KEY (tentative_id) REFERENCES tentatives_qcm(id) ON DELETE CASCADE
+reponses|FK_reponses_question|questions|r|FOREIGN KEY (question_id) REFERENCES questions(id) ON DELETE RESTRICT
+reponse_options|FK_reponse_options_option|options|r|FOREIGN KEY (option_id) REFERENCES options(id) ON DELETE RESTRICT
+reponse_options|FK_reponse_options_reponse|reponses|c|FOREIGN KEY (reponse_id) REFERENCES reponses(id) ON DELETE CASCADE
+ateliers|FK_ateliers_formateur|users|n|FOREIGN KEY (formateur_id) REFERENCES users(id) ON DELETE SET NULL
+ateliers|FK_ateliers_module|modules|r|FOREIGN KEY (module_id) REFERENCES modules(id) ON DELETE RESTRICT
+grilles|FK_grilles_formateur|users|n|FOREIGN KEY (formateur_id) REFERENCES users(id) ON DELETE SET NULL
+grilles|FK_grilles_atelier|ateliers|c|FOREIGN KEY (atelier_id) REFERENCES ateliers(id) ON DELETE CASCADE
+criteres|FK_criteres_grille|grilles|c|FOREIGN KEY (grille_id) REFERENCES grilles(id) ON DELETE CASCADE
+niveaux_performance|FK_niveaux_performance_critere|criteres|c|FOREIGN KEY (critere_id) REFERENCES criteres(id) ON DELETE CASCADE
+livrables|FK_livrables_apprenant|users|r|FOREIGN KEY (apprenant_id) REFERENCES users(id) ON DELETE RESTRICT
+livrables|FK_livrables_atelier|ateliers|r|FOREIGN KEY (atelier_id) REFERENCES ateliers(id) ON DELETE RESTRICT
+fichiers_livrables|FK_fichiers_livrables_livrable|livrables|c|FOREIGN KEY (livrable_id) REFERENCES livrables(id) ON DELETE CASCADE
+corrections|FK_corrections_correcteur|users|r|FOREIGN KEY (correcteur_id) REFERENCES users(id) ON DELETE RESTRICT
+corrections|FK_corrections_livrable|livrables|c|FOREIGN KEY (livrable_id) REFERENCES livrables(id) ON DELETE CASCADE
+notes_criteres|FK_notes_criteres_correction|corrections|c|FOREIGN KEY (correction_id) REFERENCES corrections(id) ON DELETE CASCADE
+notes_criteres|FK_notes_criteres_niveau|niveaux_performance|r|FOREIGN KEY (niveau_id) REFERENCES niveaux_performance(id) ON DELETE RESTRICT
+notes_criteres|FK_notes_criteres_critere|criteres|r|FOREIGN KEY (critere_id) REFERENCES criteres(id) ON DELETE RESTRICT
+consultations_feedback|FK_consultations_feedback_livrable|livrables|c|FOREIGN KEY (livrable_id) REFERENCES livrables(id) ON DELETE CASCADE
+certificats|FK_certificats_apprenant|users|r|FOREIGN KEY (apprenant_id) REFERENCES users(id) ON DELETE RESTRICT
+certificats|FK_certificats_formation|formations|r|FOREIGN KEY (formation_id) REFERENCES formations(id) ON DELETE RESTRICT
+certificats|FK_certificats_remplace|certificats|a|FOREIGN KEY (remplace_certificat_id) REFERENCES certificats(id)
+certificats|FK_certificats_revoque_par|users|r|FOREIGN KEY (revoque_par) REFERENCES users(id) ON DELETE RESTRICT
+supports_pedagogiques|FK_supports_module|modules|r|FOREIGN KEY (module_id) REFERENCES modules(id) ON DELETE RESTRICT
+supports_pedagogiques|FK_supports_depose_par|users|r|FOREIGN KEY (depose_par) REFERENCES users(id) ON DELETE RESTRICT
+segments_support|FK_segments_support|supports_pedagogiques|c|FOREIGN KEY (support_id) REFERENCES supports_pedagogiques(id) ON DELETE CASCADE
+generations_ia|FK_generations_support|supports_pedagogiques|r|FOREIGN KEY (support_id) REFERENCES supports_pedagogiques(id) ON DELETE RESTRICT
+generations_ia|FK_generations_module|modules|r|FOREIGN KEY (module_id) REFERENCES modules(id) ON DELETE RESTRICT
+generations_ia|FK_generations_formateur|users|r|FOREIGN KEY (formateur_id) REFERENCES users(id) ON DELETE RESTRICT
+ressources_module|FK_ressources_ajoute_par|users|r|FOREIGN KEY (ajoute_par) REFERENCES users(id) ON DELETE RESTRICT
+ressources_module|FK_ressources_module|modules|c|FOREIGN KEY (module_id) REFERENCES modules(id) ON DELETE CASCADE
+suggestions_questions_ia|FK_suggestions_generation|generations_ia|c|FOREIGN KEY (generation_id) REFERENCES generations_ia(id) ON DELETE CASCADE
+suggestions_questions_ia|FK_suggestions_decide_par|users|r|FOREIGN KEY (decide_par) REFERENCES users(id) ON DELETE RESTRICT
+suggestions_questions_ia|FK_suggestions_question|questions|n|FOREIGN KEY (question_id) REFERENCES questions(id) ON DELETE SET NULL
+suggestions_questions_ia|FK_suggestions_qcm|qcm|n|FOREIGN KEY (qcm_id) REFERENCES qcm(id) ON DELETE SET NULL
+alertes_decrochage|FK_alertes_formation|formations|c|FOREIGN KEY (formation_id) REFERENCES formations(id) ON DELETE CASCADE
+alertes_decrochage|FK_alertes_traite_par|users|n|FOREIGN KEY (traite_par) REFERENCES users(id) ON DELETE SET NULL
+alertes_decrochage|FK_alertes_apprenant|users|r|FOREIGN KEY (apprenant_id) REFERENCES users(id) ON DELETE RESTRICT
+actions_alerte|FK_actions_alerte_auteur|users|n|FOREIGN KEY (auteur_id) REFERENCES users(id) ON DELETE SET NULL
+actions_alerte|FK_actions_alerte_alerte|alertes_decrochage|c|FOREIGN KEY (alerte_id) REFERENCES alertes_decrochage(id) ON DELETE CASCADE
+rapports|FK_rapports_formation|formations|c|FOREIGN KEY (formation_id) REFERENCES formations(id) ON DELETE CASCADE
+rapports|FK_rapports_demandeur|users|c|FOREIGN KEY (demandeur_id) REFERENCES users(id) ON DELETE CASCADE
+jetons_lien_email|FK_jetons_lien_email_user|users|c|FOREIGN KEY (user_id) REFERENCES users(id) ON DELETE CASCADE
+captures_webcam|FK_captures_webcam_tentative|tentatives_qcm|c|FOREIGN KEY (tentative_id) REFERENCES tentatives_qcm(id) ON DELETE CASCADE
+demandes_affectation|FK_demandes_affectation_formateur|users|c|FOREIGN KEY (formateur_id) REFERENCES users(id) ON DELETE CASCADE
+demandes_affectation|FK_demandes_affectation_traite_par|users|n|FOREIGN KEY (traite_par) REFERENCES users(id) ON DELETE SET NULL
+demandes_affectation|FK_demandes_affectation_formation|formations|c|FOREIGN KEY (formation_id) REFERENCES formations(id) ON DELETE CASCADE
+propositions_formation|FK_propositions_formation_formation|formations|n|FOREIGN KEY (formation_id) REFERENCES formations(id) ON DELETE SET NULL
+propositions_formation|FK_propositions_formation_traite_par|users|n|FOREIGN KEY (traite_par) REFERENCES users(id) ON DELETE SET NULL
+propositions_formation|FK_propositions_formation_formateur|users|c|FOREIGN KEY (formateur_id) REFERENCES users(id) ON DELETE CASCADE
+scores_risque|FK_scores_risque_inscription|inscriptions|c|FOREIGN KEY (inscription_id) REFERENCES inscriptions(id) ON DELETE CASCADE
+extractions_questions_ia|FK_extractions_qcm|qcm|c|FOREIGN KEY (qcm_id) REFERENCES qcm(id) ON DELETE CASCADE
+extractions_questions_ia|FK_extractions_formateur|users|c|FOREIGN KEY (formateur_id) REFERENCES users(id) ON DELETE CASCADE
+questions_extraites_ia|FK_questions_extraites_decideur|users|n|FOREIGN KEY (decide_par) REFERENCES users(id) ON DELETE SET NULL
+questions_extraites_ia|FK_questions_extraites_extraction|extractions_questions_ia|c|FOREIGN KEY (extraction_id) REFERENCES extractions_questions_ia(id) ON DELETE CASCADE
+questions_extraites_ia|FK_questions_extraites_question|questions|n|FOREIGN KEY (question_id) REFERENCES questions(id) ON DELETE SET NULL
+analyses_ia_tentatives|FK_analyses_ia_tentative|tentatives_qcm|c|FOREIGN KEY (tentative_id) REFERENCES tentatives_qcm(id) ON DELETE CASCADE
+evenements_surveillance|FK_evenements_surveillance_tentative|tentatives_qcm|c|FOREIGN KEY (tentative_id) REFERENCES tentatives_qcm(id) ON DELETE CASCADE
+evenements_surveillance|FK_evenements_surveillance_examinateur|users|n|FOREIGN KEY (examine_par) REFERENCES users(id) ON DELETE SET NULL

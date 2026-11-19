@@ -1,0 +1,59 @@
+@startuml Cert_EET_UC-02_UC_Apprenant
+!include ../_style.puml
+' Graphviz orthogonal : acteur à gauche, cas en colonne, liens horizontaux distincts
+skinparam linetype ortho
+skinparam nodesep 14
+skinparam ranksep 120
+skinparam DefaultFontSize 11
+skinparam ArrowColor #34495E
+skinparam note {
+  BackgroundColor #FEF9E7
+  BorderColor #B7950B
+  FontSize 10
+}
+left to right direction
+skinparam usecase {
+  BackgroundColor #FFFFFF
+  BorderColor #1B4F72
+}
+skinparam actorStyle awesome
+title <size:15><b>Cert_EET — UC-02 : cas d'utilisation — Apprenant</b></size>\n<size:11>État réalisé (PR #141) · gris pointillé = non réalisé · orange = réalisé avec écart · v3.0</size>
+actor "Apprenant" as A
+rectangle "Cert_EET" {
+  usecase "Se connecter (MFA facultative)" as U0
+  usecase "Compléter son profil (1re connexion)" as U1
+  usecase "Modifier nom / prénom" as U2 #F2F3F4;line.dashed;text:7F8C8D
+  usecase "Gérer sa sécurité (MFA, mot de passe)" as U3 #FDEBD0
+  usecase "S'inscrire / se désinscrire" as U4
+  usecase "Suivre les modules et ressources" as U5
+  usecase "Passer un QCM (surveillé ou non)" as U6
+  usecase "Consulter résultats, corrigé, historique" as U7
+  usecase "Télécharger le rapport PDF + analyse IA" as U8
+  usecase "Déposer / remplacer un livrable" as U9
+  usecase "Lire le feedback" as U10
+  usecase "Télécharger ses certificats" as U11
+  usecase "Demander un rôle formateur" as U12
+  usecase "Dialoguer avec un chatbot IA" as U13 #F2F3F4;line.dashed;text:7F8C8D
+}
+A --> U0
+A --> U1
+note right of U1 : US-AUTH-15
+A --> U2
+note right of U2 : US-AUTH-07 non réalisée
+A --> U3
+note right of U3 : désactivation MFA : code seul (US-AUTH-10)
+A --> U4
+A --> U5
+A --> U6
+note right of U6 : consentement si surveillé
+A --> U7
+A --> U8
+note right of U8 : US-QCM-13, US-IA-10
+A --> U9
+A --> U10
+A --> U11
+A --> U12
+note right of U12 : US-ROL-02
+A --> U13
+note right of U13 : E7 de-scopée
+@enduml

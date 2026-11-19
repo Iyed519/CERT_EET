@@ -1,0 +1,103 @@
+@startuml Cert_EET_DS18_Rapport_Tentative_Analyse_IA
+!include ../_style.puml
+' =====================================================================
+'  Projet    : Cert_EET
+'  Diagramme : DS-18 — Rapport PDF d'une tentative et analyse des points faibles
+'  Acteur(s) : Apprenant, Formateur affecté, Administrateur
+'  Réf.      : F1 · F4 · US-QCM-13 (PR #113) · US-IA-10 (PR #125) · journaux 93, 105
+'  Auteur    : Iyed Omri — PFE ESPRIT 2026
+'  Version   : 1.0 — 18/11/2026 : nouveau.
+'  Source    : code de `main` = e7216f2 (PR #141) et engineering-log/
+' =====================================================================
+!pragma teoz true
+autonumber "<b>0."
+skinparam DefaultFontSize 10
+skinparam sequenceMessageAlign center
+skinparam responseMessageBelowArrow true
+skinparam ParticipantPadding 18
+skinparam LifeLineBorderThickness 1.0
+skinparam participant {
+  BackgroundColor #FFFFFF
+  BorderColor #5D6D7E
+}
+skinparam actor {
+  BackgroundColor #ECF0F1
+  BorderColor #1B4F72
+  FontStyle bold
+}
+skinparam database {
+  BackgroundColor #EBF5FB
+  BorderColor #1B4F72
+}
+skinparam collections {
+  BackgroundColor #E8F8F5
+  BorderColor #1E8449
+}
+skinparam control {
+  BackgroundColor #FAE5D3
+  BorderColor #BA4A00
+}
+skinparam entity {
+  BackgroundColor #E8DAEF
+  BorderColor #7D3C98
+}
+skinparam boundary {
+  BackgroundColor #FDEDEC
+  BorderColor #943126
+}
+skinparam note {
+  BackgroundColor #FEF9E7
+  BorderColor #B7950B
+  FontSize 9
+}
+skinparam sequence {
+  ArrowColor #34495E
+  LifeLineBorderColor #7F8C8D
+  LifeLineBackgroundColor #FDFEFE
+  GroupBorderColor #1B4F72
+  GroupHeaderFontColor #1B4F72
+  GroupHeaderFontStyle bold
+  DividerBorderColor #1B4F72
+  DividerBackgroundColor #D6EAF8
+  DividerFontColor #1B4F72
+  DividerFontStyle bold
+}
+
+title <size:14><b>Cert_EET — DS-18 : Rapport PDF d'une tentative et analyse des points faibles</b></size>\n<size:10>PDF généré à la demande · analyse par Claude ancrée sur le cours (RAG) · conservée par tentative · v1.0 (US-QCM-13, US-IA-10)</size>
+
+actor       "Apprenant / Formateur /\nAdministrateur" as U
+boundary    "Web" as W
+control     "RapportTentativeController" as C
+control     "RapportTentativeService" as S
+control     "AnalysePointsFaiblesService" as A
+database    "PostgreSQL\nanalyses_ia_tentatives\nsegments_support (pgvector)" as DB
+participant "Claude Sonnet 5.5" as L
+
+U -> W : « Télécharger le rapport (PDF) »
+W -> C : GET /api/tentatives/:tentativeId/rapport.pdf
+C -> S : tentative NOTEE ? lecteur = titulaire, formateur affecté\nou administrateur (sinon 403 / 404)
+S -> S : avecCorrige = lecteur formateur / admin\nOU corrigé disponible (règles d'US-QCM-09)
+S -> A : analyse(tentative, avecCorrige)
+A -> DB : analyse déjà conservée pour (tentative, avecCorrige) ?
+alt #FEF9E7 Oui (tentative figée)
+  A --> S : analyse conservée (audit analyseIa = CACHE)
+else Non
+  A -> DB : 6 passages au plus des supports INDEXÉS des modules,\nles plus proches des questions ratées (pgvector)
+  A -> L : outil analyser_points_faibles : énoncés, réponses cochées,\nverdicts, passages — AUCUNE identité ;\nbonnes réponses envoyées seulement si avecCorrige
+  alt #FFE8E8 Échec (crédit, clé, surcharge, 45 s)
+    A --> S : cause en français (rien n'est conservé)
+  else #E8F8F5
+    A -> A : JSON validé et borné : synthèse, 1 à 4 notions\n(constat, conseil, questions), encouragement
+    A -> DB : INSERT analyses_ia_tentatives
+  end
+end
+S -> S : PDFKit aux couleurs ESPRIT : synthèse (score / 100, seuil,\nverdict), « Analyse de vos points faibles » ou encadré\n« Analyse IA indisponible : cause », points à revoir,\ndétail par question ; alertes de surveillance (formateur / admin)
+S -> DB : audit RAPPORT_QCM_TELECHARGE (analyseIa)
+S --> W : PDF (jamais stocké)
+
+legend bottom
+  | <back:#E8F8F5> vert  </back> | Chemin nominal |
+  | <back:#FFE8E8> rouge </back> | Refus / échec / reprise |
+  | <back:#FEF9E7> jaune </back> | Sans effet (idempotence, cas neutre) |
+endlegend
+@enduml

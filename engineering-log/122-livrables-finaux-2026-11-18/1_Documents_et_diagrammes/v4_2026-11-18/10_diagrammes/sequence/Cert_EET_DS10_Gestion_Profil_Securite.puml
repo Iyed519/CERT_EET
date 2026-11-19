@@ -1,0 +1,113 @@
+@startuml Cert_EET_DS10_Gestion_Profil_Securite
+!include ../_style.puml
+' =====================================================================
+'  Projet    : Cert_EET
+'  Diagramme : DS-10 — Profil et sécurité du compte
+'  Acteur(s) : Utilisateur authentifié
+'  Réf.      : F7 · US-AUTH-15 · US-AUTH-09 · US-AUTH-08 · ADR-12
+'  Auteur    : Iyed Omri — PFE ESPRIT 2026
+'  Version   : 2.0 — 18/11/2026 : réécrit d'après le code. US-AUTH-07 (modifier nom / prénom) n'est pas réalisée ; la désactivation de la MFA demande le code TOTP (pas le mot de passe).
+'  Source    : code de `main` = e7216f2 (PR #141) et engineering-log/
+' =====================================================================
+!pragma teoz true
+autonumber "<b>0."
+skinparam DefaultFontSize 10
+skinparam sequenceMessageAlign center
+skinparam responseMessageBelowArrow true
+skinparam ParticipantPadding 18
+skinparam LifeLineBorderThickness 1.0
+skinparam participant {
+  BackgroundColor #FFFFFF
+  BorderColor #5D6D7E
+}
+skinparam actor {
+  BackgroundColor #ECF0F1
+  BorderColor #1B4F72
+  FontStyle bold
+}
+skinparam database {
+  BackgroundColor #EBF5FB
+  BorderColor #1B4F72
+}
+skinparam collections {
+  BackgroundColor #E8F8F5
+  BorderColor #1E8449
+}
+skinparam control {
+  BackgroundColor #FAE5D3
+  BorderColor #BA4A00
+}
+skinparam entity {
+  BackgroundColor #E8DAEF
+  BorderColor #7D3C98
+}
+skinparam boundary {
+  BackgroundColor #FDEDEC
+  BorderColor #943126
+}
+skinparam note {
+  BackgroundColor #FEF9E7
+  BorderColor #B7950B
+  FontSize 9
+}
+skinparam sequence {
+  ArrowColor #34495E
+  LifeLineBorderColor #7F8C8D
+  LifeLineBackgroundColor #FDFEFE
+  GroupBorderColor #1B4F72
+  GroupHeaderFontColor #1B4F72
+  GroupHeaderFontStyle bold
+  DividerBorderColor #1B4F72
+  DividerBackgroundColor #D6EAF8
+  DividerFontColor #1B4F72
+  DividerFontStyle bold
+}
+
+title <size:14><b>Cert_EET — DS-10 : Profil et sécurité du compte</b></size>\n<size:10>Profil apprenant à la première connexion · référentiel · MFA (activer / désactiver) · mot de passe · v2.0</size>
+
+actor    "Utilisateur" as U
+boundary "Web" as W
+control  "AuthController" as AC
+control  "ReferentielController" as RC
+control  "AuthService" as AS
+database "PostgreSQL\nusers · référentiel" as DB
+
+== 1 — Profil apprenant, carte bloquante (US-AUTH-15) ==
+W -> AC : GET /api/auth/me
+AC --> W : rôle, profilComplet
+alt #FEF9E7 Apprenant et profil incomplet
+  W -> RC : GET /api/referentiel/domaines\nGET /api/referentiel/etablissements
+  U -> W : date de naissance, niveau d'études,\nen études ? domaine + établissement (ou « autre »)
+  W -> AC : PATCH /api/auth/profile
+  AC -> AS : âge ≥ 13 (dérivé, jamais stocké) ;\nFK du référentiel valides
+  alt #FFE8E8 Données invalides
+    AS --> W : 400 (messages en français)
+  else #E8F8F5
+    AS -> DB : profil + profil_complet = true ;\naudit PROFIL_COMPLETE
+  end
+end
+
+== 2 — Activer la MFA (US-AUTH-09) ==
+U -> W : Sécurité › Activer la double authentification
+W -> AC : POST /api/auth/mfa/setup
+AC -> AS : secret TOTP provisoire + QR (otpauth://)
+U -> W : code de l'application d'authentification
+W -> AC : POST /api/auth/mfa/enable
+AC -> AS : code valide ? → mfa_active = true ; audit
+== 3 — Désactiver la MFA ==
+W -> AC : POST /api/auth/mfa/disable (code TOTP)
+AC -> AS : code valide ? → secret effacé, mfa_active = false ; audit
+note right of AS
+  Écart avec US-AUTH-10 : le backlog demandait
+  mot de passe ET code ; seul le code est exigé.
+end note
+== 4 — Changer le mot de passe ==
+W -> AC : POST /api/auth/change-password
+note right of AC : détail dans DS-01, partie 5
+
+legend bottom
+  | <back:#E8F8F5> vert  </back> | Chemin nominal |
+  | <back:#FFE8E8> rouge </back> | Refus / échec / reprise |
+  | <back:#FEF9E7> jaune </back> | Sans effet (idempotence, cas neutre) |
+endlegend
+@enduml

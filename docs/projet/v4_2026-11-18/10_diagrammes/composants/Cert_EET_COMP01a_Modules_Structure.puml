@@ -1,0 +1,91 @@
+@startuml Cert_EET_COMP01a_Modules_Structure
+!include ../_style.puml
+' Vue de structure : Graphviz + liens invisibles pour une grille régulière
+skinparam nodesep 25
+skinparam ranksep 35
+skinparam DefaultFontSize 11
+skinparam ArrowColor #34495E
+skinparam note {
+  BackgroundColor #FEF9E7
+  BorderColor #B7950B
+  FontSize 10
+}
+skinparam componentStyle uml2
+top to bottom direction
+skinparam nodesep 25
+skinparam ranksep 40
+title <size:15><b>Cert_EET — COMP-01a : Modules de l'API — structure</b></size>\n<size:11>20 modules métier dans apps/api/src/modules · adaptateurs interchangeables · état réalisé (PR #141) · vue sans dépendances (voir COMP-01b) · v2.0</size>
+
+package "Modules métier (apps/api/src/modules)" #E8F8F5 {
+  package "Identité et comptes" {
+    component "auth\n<size:9>E1 · JWT RS256, MFA, OAuth, mots de passe</size>" as M_auth
+    component "admin\n<size:9>comptes : rôle, désactivation, import CSV, anonymisation</size>" as M_admin
+    component "role-requests\n<size:9>demandes de rôle</size>" as M_role_requests
+    component "referentiel\n<size:9>universités, établissements, domaines</size>" as M_referentiel
+    component "health\n<size:9>/api/health</size>" as M_health
+  }
+  package "Formations" {
+    component "formations\n<size:9>formations, modules, affectations, autorisation par ressource</size>" as M_formations
+    component "inscriptions\n<size:9>inscriptions, désinscription, espace</size>" as M_inscriptions
+    component "demandes-affectation\n<size:9>US-FORM-07</size>" as M_demandes_affectation
+    component "propositions-formation\n<size:9>US-FORM-08</size>" as M_propositions_formation
+    component "ressources\n<size:9>liens et fichiers de module</size>" as M_ressources
+  }
+  package "Évaluations" {
+    component "qcm\n<size:9>QCM, configuration anti-fraude, banque</size>" as M_qcm
+    component "tentatives\n<size:9>passage, minuterie, notation, historique, rapport PDF</size>" as M_tentatives
+    component "surveillance\n<size:9>captures, alertes IA de surveillance</size>" as M_surveillance
+    component "ateliers\n<size:9>ateliers, grilles, livrables, corrections</size>" as M_ateliers
+  }
+  package "Certification et pilotage" {
+    component "certificats\n<size:9>émission, vérification, révocation, expiration, réémission</size>" as M_certificats
+    component "pilotage\n<size:9>suivi, alertes, tableaux de bord, compteurs</size>" as M_pilotage
+    component "rapports\n<size:9>rapports de session et institutionnels</size>" as M_rapports
+    component "audit\n<size:9>journal, intercepteur, export</size>" as M_audit
+  }
+  package "Intelligence artificielle" {
+    component "assistance-ia\n<size:9>supports, RAG, génération, extraction, analyse, SSE, traçabilité</size>" as M_assistance_ia
+    component "prediction-risque\n<size:9>variables, client ml, scores</size>" as M_prediction_risque
+  }
+}
+package "Socle partagé" #F2F3F4 {
+  component "config\n(Joi, configuration.ts)" as CFG
+  component "database\n(TypeORM, 43 migrations)" as DBM
+  component "common\n(limite-requetes, sécurité, navigation)" as COM
+}
+package "Adaptateurs d'infrastructure" #EBF5FB {
+  component "FournisseurLlm\nanthropic · compatible-openai ·\nfactice · non-configuré" as LLM
+  component "FournisseurEmbeddings\nhachage local (384)" as EMB
+  component "StockageService\n(S3 / MinIO)" as STO
+  component "MailService\n(SMTP, auth facultative)" as MAIL
+  component "RedisService" as RED
+  component "Files BullMQ : certificats · rapports ·\nactivations-comptes · ia-indexation ·\nia-generation · ia-extraction" as Q
+  component "ClientMlService\n(HTTP, 3 s)" as CML
+}
+M_auth -[hidden]down- M_admin
+M_referentiel -[hidden]down- M_role_requests
+M_admin -[hidden]down- M_formations
+M_role_requests -[hidden]down- M_inscriptions
+M_formations -[hidden]down- M_demandes_affectation
+M_inscriptions -[hidden]down- M_ressources
+M_demandes_affectation -[hidden]down- M_qcm
+M_ressources -[hidden]down- M_surveillance
+M_qcm -[hidden]down- M_tentatives
+M_surveillance -[hidden]down- M_ateliers
+M_tentatives -[hidden]down- M_certificats
+M_ateliers -[hidden]down- M_rapports
+M_certificats -[hidden]down- M_pilotage
+M_rapports -[hidden]down- M_audit
+M_pilotage -[hidden]down- M_assistance_ia
+M_audit -[hidden]down- M_prediction_risque
+M_assistance_ia -[hidden]down- LLM
+M_prediction_risque -[hidden]down- EMB
+LLM -[hidden]down- STO
+EMB -[hidden]down- MAIL
+STO -[hidden]down- RED
+MAIL -[hidden]down- Q
+RED -[hidden]down- CML
+Q -[hidden]down- CFG
+CML -[hidden]down- DBM
+CFG -[hidden]down- COM
+@enduml

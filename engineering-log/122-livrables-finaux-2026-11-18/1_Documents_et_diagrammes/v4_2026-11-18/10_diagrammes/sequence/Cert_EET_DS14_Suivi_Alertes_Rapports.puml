@@ -1,0 +1,124 @@
+@startuml Cert_EET_DS14_Suivi_Alertes_Rapports
+!include ../_style.puml
+' =====================================================================
+'  Projet    : Cert_EET
+'  Diagramme : DS-14 — Suivi pédagogique, alertes et rapports (formateur)
+'  Acteur(s) : Formateur affecté, Système (balayage)
+'  Réf.      : F6 · US-SUIVI-01/02/03 · US-RPT-01 · US-DASH-03 · US-QCM-17
+'  Auteur    : Iyed Omri — PFE ESPRIT 2026
+'  Version   : 2.0 — 18/11/2026 : réécrit d'après le code (PR #71 → #74, #99, #128 ; journaux 58–61, 85, 108).
+'  Source    : code de `main` = e7216f2 (PR #141) et engineering-log/
+' =====================================================================
+!pragma teoz true
+autonumber "<b>0."
+skinparam DefaultFontSize 10
+skinparam sequenceMessageAlign center
+skinparam responseMessageBelowArrow true
+skinparam ParticipantPadding 18
+skinparam LifeLineBorderThickness 1.0
+skinparam participant {
+  BackgroundColor #FFFFFF
+  BorderColor #5D6D7E
+}
+skinparam actor {
+  BackgroundColor #ECF0F1
+  BorderColor #1B4F72
+  FontStyle bold
+}
+skinparam database {
+  BackgroundColor #EBF5FB
+  BorderColor #1B4F72
+}
+skinparam collections {
+  BackgroundColor #E8F8F5
+  BorderColor #1E8449
+}
+skinparam control {
+  BackgroundColor #FAE5D3
+  BorderColor #BA4A00
+}
+skinparam entity {
+  BackgroundColor #E8DAEF
+  BorderColor #7D3C98
+}
+skinparam boundary {
+  BackgroundColor #FDEDEC
+  BorderColor #943126
+}
+skinparam note {
+  BackgroundColor #FEF9E7
+  BorderColor #B7950B
+  FontSize 9
+}
+skinparam sequence {
+  ArrowColor #34495E
+  LifeLineBorderColor #7F8C8D
+  LifeLineBackgroundColor #FDFEFE
+  GroupBorderColor #1B4F72
+  GroupHeaderFontColor #1B4F72
+  GroupHeaderFontStyle bold
+  DividerBorderColor #1B4F72
+  DividerBackgroundColor #D6EAF8
+  DividerFontColor #1B4F72
+  DividerFontStyle bold
+}
+
+title <size:14><b>Cert_EET — DS-14 : Suivi pédagogique, alertes et rapports (formateur)</b></size>\n<size:10>Tableau de bord, suivi d'une formation, alertes de décrochage, rapport de session asynchrone · v2.0</size>
+
+actor       "Formateur" as F
+boundary    "Web" as W
+control     "Suivi / Alertes /\nRapports controllers" as C
+control     "Garde par ressource\n(formateur affecté)" as G
+control     "AlertesBalayageService\n(planifié)" as AB
+collections "File BullMQ\nrapports" as Q
+entity      "Worker rapports" as WR
+control     "StockageService\n(MinIO)" as S
+database    "PostgreSQL" as DB
+control     "MailService" as M
+
+== 1 — Tableau de bord et suivi (US-DASH-03, US-SUIVI-01) ==
+F -> W : Accueil (« À faire maintenant ») / Apprenants
+W -> C : GET /api/formateur/tableau-de-bord\nGET /api/navigation/compteurs
+W -> C : GET /api/formateur/formations/:id/suivi
+C -> G : affecté ? sinon 403 + ACCES_RESSOURCE_REFUSE
+C -> DB : agrégats SQL : inscrits, actifs, inactifs > 7 j,\nsuspendus, complétion, moyennes, certifiés ;\nbadges de risque, alertes IA de surveillance
+W -> C : GET /api/formateur/formations/:id/apprenants/:apprenantId
+C --> W : fiche : tentatives, livrables, certificat, chronologie
+
+== 2 — Alertes de décrochage (US-SUIVI-02, balayage planifié) ==
+AB -> DB : pour chaque inscription EN_COURS : critères factuels\nINACTIVITE (> 7 j) · ECHECS_QCM (2 consécutifs)\nLIVRABLE_EN_RETARD (> 48 h) · SCORE_EN_CHUTE
+AB -> DB : INSERT alertes_decrochage (OUVERTE, faits, suggestion)\nunique partiel : une alerte ouverte par apprenant et par critère
+AB ->> M : email récapitulatif au formateur affecté
+
+== 3 — Traiter une alerte (US-SUIVI-03) ==
+F -> W : Alertes › Décrochage
+W -> C : GET /api/formateur/alertes · /alertes/compteur · /alertes/:id
+F -> W : action menée → « Traitée »
+W -> C : POST /api/formateur/alertes/:id/traiter
+C -> DB : TRAITEE + actions_alerte (immuable) ; audit ALERTE_TRAITEE
+F -> W : rouvrir avec un motif
+W -> C : POST /api/formateur/alertes/:id/rouvrir → OUVERTE ; audit ALERTE_ROUVERTE
+
+== 4 — Rapport de session (US-RPT-01, US-IA-10) ==
+F -> W : Rapports › global / un apprenant / un module, CSV ou PDF
+W -> C : POST /api/formateur/formations/:id/rapports
+C -> DB : INSERT rapports (EN_ATTENTE) ; audit
+C ->> Q : travail(rapportId)
+C --> W : 202 Accepted
+Q ->> WR : travail
+WR -> DB : EN_COURS ; données de la formation
+opt Rapport individuel en PDF
+  WR -> WR : analyse des points faibles par Claude (voir DS-18) ;\nl'échec de l'IA n'empêche pas le rapport
+end
+WR -> S : rapports/{id}.{csv|pdf} ; SHA-256
+WR -> DB : PRET (ou ECHEC après reprises)
+WR ->> M : email au demandeur
+F -> W : Mes rapports › Télécharger
+W -> C : GET /api/rapports/:id/fichier (demandeur seulement)
+
+legend bottom
+  | <back:#E8F8F5> vert  </back> | Chemin nominal |
+  | <back:#FFE8E8> rouge </back> | Refus / échec / reprise |
+  | <back:#FEF9E7> jaune </back> | Sans effet (idempotence, cas neutre) |
+endlegend
+@enduml

@@ -1,0 +1,30 @@
+@startuml Cert_EET_ETAT-03_Etats_Livrable_et_Correction
+!include ../_style.puml
+!pragma layout elk
+skinparam DefaultFontSize 11
+skinparam ArrowColor #34495E
+skinparam note {
+  BackgroundColor #FEF9E7
+  BorderColor #B7950B
+  FontSize 10
+}
+skinparam state {
+  BackgroundColor #FFFFFF
+  BorderColor #1B4F72
+}
+title <size:14><b>Cert_EET — ETAT-03 : cycle de vie — Livrable et Correction</b></size>\n<size:10>États = valeurs réelles en base · transitions vérifiées dans le code et les déclencheurs · v2.0</size>
+
+state Livrable {
+  [*] --> SOUMIS : dépôt (hash de traçabilité)
+  SOUMIS --> SOUMIS : remplacement avant la date limite\n(version + 1)
+  SOUMIS --> EN_CORRECTION : le formateur ouvre la correction
+  EN_CORRECTION --> NOTE : correction finalisée
+  NOTE --> [*]
+}
+state Correction {
+  [*] --> C_EN_COURS : ouverture
+  C_EN_COURS --> TERMINEE : finaliser (grille complète,\ncommentaire général)
+  TERMINEE --> [*]
+}
+note bottom of Livrable : pas d'état BROUILLON en base (écart avec la conception) ;\nNOTE et TERMINEE immuables (déclencheurs)
+@enduml

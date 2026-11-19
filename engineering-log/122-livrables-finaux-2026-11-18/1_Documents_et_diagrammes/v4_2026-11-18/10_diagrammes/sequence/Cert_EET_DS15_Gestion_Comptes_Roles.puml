@@ -1,0 +1,126 @@
+@startuml Cert_EET_DS15_Gestion_Comptes_Roles
+!include ../_style.puml
+' =====================================================================
+'  Projet    : Cert_EET
+'  Diagramme : DS-15 — Gestion des comptes et des rôles (administrateur)
+'  Acteur(s) : Administrateur, Utilisateur
+'  Réf.      : F5 · F7 · US-ROL-01/02 · US-CPT-02/03/04/05 · ADR-11 · ADR-13
+'  Auteur    : Iyed Omri — PFE ESPRIT 2026
+'  Version   : 2.0 — 18/11/2026 : réécrit d'après le code. Création unitaire par l'administrateur (US-CPT-01) retirée (ADR-13) : remplacée par l'auto-inscription et l'import CSV.
+'  Source    : code de `main` = e7216f2 (PR #141) et engineering-log/
+' =====================================================================
+!pragma teoz true
+autonumber "<b>0."
+skinparam DefaultFontSize 10
+skinparam sequenceMessageAlign center
+skinparam responseMessageBelowArrow true
+skinparam ParticipantPadding 18
+skinparam LifeLineBorderThickness 1.0
+skinparam participant {
+  BackgroundColor #FFFFFF
+  BorderColor #5D6D7E
+}
+skinparam actor {
+  BackgroundColor #ECF0F1
+  BorderColor #1B4F72
+  FontStyle bold
+}
+skinparam database {
+  BackgroundColor #EBF5FB
+  BorderColor #1B4F72
+}
+skinparam collections {
+  BackgroundColor #E8F8F5
+  BorderColor #1E8449
+}
+skinparam control {
+  BackgroundColor #FAE5D3
+  BorderColor #BA4A00
+}
+skinparam entity {
+  BackgroundColor #E8DAEF
+  BorderColor #7D3C98
+}
+skinparam boundary {
+  BackgroundColor #FDEDEC
+  BorderColor #943126
+}
+skinparam note {
+  BackgroundColor #FEF9E7
+  BorderColor #B7950B
+  FontSize 9
+}
+skinparam sequence {
+  ArrowColor #34495E
+  LifeLineBorderColor #7F8C8D
+  LifeLineBackgroundColor #FDFEFE
+  GroupBorderColor #1B4F72
+  GroupHeaderFontColor #1B4F72
+  GroupHeaderFontStyle bold
+  DividerBorderColor #1B4F72
+  DividerBackgroundColor #D6EAF8
+  DividerFontColor #1B4F72
+  DividerFontStyle bold
+}
+
+title <size:14><b>Cert_EET — DS-15 : Gestion des comptes et des rôles (administrateur)</b></size>\n<size:10>Changement de rôle, demandes de rôle, désactivation, import CSV, anonymisation RGPD · v2.0</size>
+
+actor    "Utilisateur" as U
+actor    "Administrateur" as A
+boundary "Web" as W
+control  "AdminUsers / RoleRequests /\nImport / Anonymisation" as C
+database "PostgreSQL" as DB
+collections "Redis" as R
+collections "File BullMQ\ncomptes" as Q
+control  "MailService" as M
+
+== 1 — Auto-inscription (US-CPT-05) ==
+U -> W : S'inscrire (nom, prénom, email, mot de passe)
+W -> C : POST /api/auth/register (30 / 15 min / IP)
+C -> DB : users (APPRENANT, EN_ATTENTE_ACTIVATION) — rôle forcé côté serveur
+C ->> M : lien de vérification
+U -> C : POST /api/auth/verify-email → ACTIF
+
+== 2 — Demande de rôle (US-ROL-02) ==
+U -> W : Demander à devenir formateur (justification)
+W -> C : POST /api/role-requests ; GET /api/role-requests/me
+A -> W : Personnes › Demandes de rôle
+W -> C : GET /api/admin/role-requests
+A -> C : PATCH …/:id/approve  |  PATCH …/:id/reject (motif)
+C -> DB : APPROUVEE → rôle appliqué (cœur d'US-ROL-01) ; audit
+C -> R : sessions-valid-after(user) : les anciens jetons\nportant l'ancien rôle sont refusés
+
+== 3 — Changer un rôle, désactiver (US-ROL-01, US-CPT-03) ==
+A -> C : PATCH /api/admin/users/:id/role
+A -> C : PATCH /api/admin/users/:id (DESACTIVE + motif | ACTIF)
+alt #FFE8E8 Dernier administrateur actif
+  C --> W : 409 (anti-verrouillage)
+else #E8F8F5
+  C -> DB : statut / rôle ; audit
+  C -> R : sessions invalidées
+end
+
+== 4 — Import CSV de comptes (US-CPT-02) ==
+A -> C : POST /api/admin/users/import (email, nom, prenom[, role])
+C -> C : TOUT valider d'abord : colonnes, adresses,\ndoublons fichier et base ; ADMINISTRATEUR refusé
+alt #FFE8E8 Une erreur
+  C --> W : 400 + rapport ligne par ligne, rien créé
+else #E8F8F5 Fichier valide
+  C -> DB : comptes EN_ATTENTE_ACTIVATION (une transaction)
+  C ->> Q : emails d'activation (lien 48 h, jetons_lien_email)
+  A -> C : POST /api/admin/users/:id/activation (renvoyer le lien)
+  U -> C : POST /api/auth/activate (jeton + mot de passe) → ACTIF
+end
+
+== 5 — Anonymisation RGPD (US-CPT-04) ==
+A -> C : POST /api/admin/users/:id/anonymiser\n(mot de passe de l'admin + mot « ANONYMISER »)
+C -> DB : transaction verrouillée : identité remplacée / effacée,\nANONYMISE, liaisons OAuth et liens email supprimés ;\naudit COMPTE_ANONYMISE
+C -> R : sessions fermées ; captures webcam supprimées
+note over DB : notes, tentatives et certificats conservés :\nla vérification publique ne montre plus aucune identité
+
+legend bottom
+  | <back:#E8F8F5> vert  </back> | Chemin nominal |
+  | <back:#FFE8E8> rouge </back> | Refus / échec / reprise |
+  | <back:#FEF9E7> jaune </back> | Sans effet (idempotence, cas neutre) |
+endlegend
+@enduml
